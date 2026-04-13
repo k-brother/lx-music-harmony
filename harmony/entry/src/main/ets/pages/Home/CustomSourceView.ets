@@ -1,0 +1,394 @@
+/**
+ * 自定义源设置视图
+ * 用于设置和管理在线JS源文件地址
+ */
+
+import { pluginManager, PluginMeta } from '../../core/plugin/PluginManager';
+import { navigationService } from '../../service/NavigationService';
+import { storageService } from '../../service/StorageService';
+import hilog from '@ohos.hilog';
+
+const TAG = 'CustomSource';
+const DOMAIN = 0x0001;
+
+// 默认源列表
+const DEFAULT_SOURCES: SourceItem[] = [
+  { id: 'kw', name: '酷我音乐', builtIn: true },
+  { id: 'kg', name: '酷狗音乐', builtIn: true },
+  { id: 'tx', name: 'QQ音乐', builtIn: true },
+  { id: 'wy', name: '网易云音乐', builtIn: true },
+  { id: 'mg', name: '咪咕音乐', builtIn: true },
+];
+
+interface SourceItem {
+  id: string;
+  name: string;
+  builtIn: boolean;
+  url?: string;
+}
+
+@Component
+export struct CustomSourceView {
+  @StorageProp('theme') theme: string = 'light';
+  @State currentSource: string = 'kw';
+  @State customSourceUrl: string = '';
+  @State isLoading: boolean = false;
+  @State loadStatus: string = '';
+  @State pluginInfo: PluginMeta | null = null;
+  @State errorMessage: string = '';
+  @State selectedSource: string = 'kw';
+  @State isShowUrlInput: boolean = false;
+
+  aboutToAppear() {
+    this.loadCurrentSource();
+  }
+
+  async loadCurrentSource() {
+    try {
+      // 使用统一的 storageService，不需要直接获取上下文
+      const savedSource = await storageService.getString('plugin.currentSource', 'kw');
+      const savedUrl = await storageService.getString('plugin.customSourceUrl', '');
+      this.currentSource = savedSource;
+      this.customSourceUrl = savedUrl;
+      this.selectedSource = this.currentSource;
+
+      hilog.info(DOMAIN, TAG, 'Loaded current source: %{public}s', this.currentSource);
+    } catch (err) {
+      hilog.error(DOMAIN, TAG, 'Failed to load current source: %{public}s', JSON.stringify(err));
+    }
+  }
+
+  async saveSettings() {
+    try {
+      // 使用统一的 storageService
+      await storageService.setString('plugin.currentSource', this.currentSource);
+      await storageService.setString('plugin.customSourceUrl', this.customSourceUrl);
+      hilog.info(DOMAIN, TAG, 'Settings saved');
+    } catch (err) {
+      hilog.error(DOMAIN, TAG, 'Failed to save settings: %{public}s', JSON.stringify(err));
+    }
+  }
+
+  async loadPlugin() {
+    if (!this.customSourceUrl || this.customSourceUrl.length === 0) {
+      this.errorMessage = '请输入JS源文件地址';
+      return;
+    }
+
+    // 验证URL格式
+    if (!this.isValidUrl(this.customSourceUrl)) {
+      this.errorMessage = '无效的URL格式，请输入完整的JS源文件地址';
+      return;
+    }
+
+    this.isLoading = true;
+    this.loadStatus = '正在加载插件...';
+    this.errorMessage = '';
+
+    try {
+      const success = await pluginManager.loadCustomSource(this.customSourceUrl);
+      if (success) {
+        this.loadStatus = '插件加载成功';
+        this.pluginInfo = pluginManager.getPluginInfo();
+        this.currentSource = 'custom';
+        await this.saveSettings();
+      } else {
+        this.loadStatus = '';
+        this.errorMessage = pluginManager.getError() || '插件加载失败';
+      }
+    } catch (error) {
+      this.errorMessage = (error as Error).message || '加载失败';
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  isValidUrl(url: string): boolean {
+    try {
+      const regex = /^https?:\/\/.+\.js(\?.*)?$/i;
+      return regex.test(url);
+    } catch {
+      return false;
+    }
+  }
+
+  selectSource(sourceId: string) {
+    this.selectedSource = sourceId;
+    if (sourceId !== 'custom') {
+      this.currentSource = sourceId;
+      this.saveSettings();
+      hilog.info(DOMAIN, TAG, 'Selected source: %{public}s', sourceId);
+    } else {
+      this.isShowUrlInput = true;
+    }
+  }
+
+  onBackPressed(): boolean {
+    navigationService.back();
+    return true;
+  }
+
+  // NavDestination onReady callback
+  onReady(params: Record<string, object | string | number | boolean | undefined>): void {
+    hilog.info(DOMAIN, TAG, 'CustomSourceView onReady with params: %{public}s', JSON.stringify(params));
+  }
+
+  @Builder
+  buildHeader(title: string) {
+    Column() {
+      Text(title)
+        .fontSize(13)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(this.theme === 'dark' ? '#8E8E93' : '#8E8E93')
+        .padding({ left: 16, top: 20, bottom: 8 })
+        .width('100%')
+        .backgroundColor(this.theme === 'dark' ? '#121212' : '#F5F5F5')
+    }
+  }
+
+  @Builder
+  buildSourceItem(item: SourceItem) {
+    ListItem() {
+      Row() {
+        Column() {
+          Text(item.name)
+            .fontSize(15)
+            .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
+          if (item.builtIn) {
+            Text('内置源')
+              .fontSize(11)
+              .fontColor('#999999')
+              .margin({ top: 2 })
+          } else {
+            Text(item.url || '')
+              .fontSize(11)
+              .fontColor('#999999')
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .margin({ top: 2 })
+          }
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+
+        if (this.selectedSource === item.id) {
+          Image($r('sys.symbol.checkmark_circle_fill'))
+            .width(22)
+            .height(22)
+            .fillColor('#007DFF')
+        }
+      }
+      .width('100%')
+      .height(56)
+      .padding({ left: 16, right: 16 })
+      .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
+      .onClick(() => {
+        this.selectSource(item.id);
+      })
+    }
+  }
+
+  build() {
+    Column() {
+      // 标题栏
+      Row() {
+        Image($r('sys.symbol.chevron_left'))
+          .width(24)
+          .height(24)
+          .fillColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
+          .onClick(() => {
+            navigationService.back();
+          })
+
+        Text('自定义源')
+          .fontSize(17)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
+          .margin({ left: 16 })
+      }
+      .width('100%')
+      .height(56)
+      .padding({ left: 16 })
+      .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
+
+      Scroll() {
+        Column() {
+          // 内置源
+          this.buildHeader('内置音乐源')
+
+          ForEach(DEFAULT_SOURCES, (item: SourceItem) => {
+            this.buildSourceItem(item)
+          })
+
+          // 自定义源
+          this.buildHeader('自定义源')
+
+          // 自定义源入口
+          Row() {
+            Column() {
+              Text('在线JS源文件')
+                .fontSize(15)
+                .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
+              Text('输入在线JS源文件地址')
+                .fontSize(11)
+                .fontColor('#999999')
+                .margin({ top: 2 })
+            }
+            .alignItems(HorizontalAlign.Start)
+            .layoutWeight(1)
+
+            if (this.selectedSource === 'custom') {
+              Image($r('sys.symbol.checkmark_circle_fill'))
+                .width(22)
+                .height(22)
+                .fillColor('#007DFF')
+            }
+          }
+          .width('100%')
+          .height(56)
+          .padding({ left: 16, right: 16 })
+          .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
+          .onClick(() => {
+            this.selectSource('custom');
+          })
+
+          // URL输入区域
+          if (this.selectedSource === 'custom') {
+            Column() {
+              Text('JS源文件地址')
+                .fontSize(13)
+                .fontColor('#666666')
+                .padding({ left: 16, top: 12, bottom: 8 })
+
+              TextInput({ placeholder: '例如: https://example.com/api-source.js', text: this.customSourceUrl })
+                .width('100%')
+                .height(44)
+                .fontSize(14)
+                .backgroundColor(this.theme === 'dark' ? '#2C2C2C' : '#F5F5F5')
+                .borderRadius(8)
+                .padding({ left: 12, right: 12 })
+                .onChange((value: string) => {
+                  this.customSourceUrl = value;
+                })
+
+              // 示例地址提示
+              Text('提示: 安卓版 LX Music 的在线JS源可以在设置 -> 自定义源 中查看')
+                .fontSize(11)
+                .fontColor('#999999')
+                .padding({ left: 16, top: 8, right: 16 })
+                .width('100%')
+
+              // 加载按钮
+              Button('加载插件')
+                .width('100%')
+                .height(44)
+                .fontSize(15)
+                .backgroundColor(this.isLoading ? '#CCCCCC' : '#007DFF')
+                .fontColor('#FFFFFF')
+                .borderRadius(8)
+                .margin({ top: 16, left: 16, right: 16 })
+                .enabled(!this.isLoading)
+                .onClick(() => {
+                  this.loadPlugin();
+                })
+
+              // 状态显示
+              if (this.loadStatus) {
+                Text(this.loadStatus)
+                  .fontSize(13)
+                  .fontColor('#007DFF')
+                  .padding({ left: 16, top: 8 })
+                  .width('100%')
+              }
+
+              if (this.errorMessage) {
+                Text(this.errorMessage)
+                  .fontSize(13)
+                  .fontColor('#FF3B30')
+                  .padding({ left: 16, top: 8 })
+                  .width('100%')
+              }
+
+              // 插件信息
+              if (this.pluginInfo) {
+                Column() {
+                  Text('已加载插件信息')
+                    .fontSize(13)
+                    .fontColor('#666666')
+                    .padding({ left: 16, top: 16, bottom: 8 })
+
+                  Row() {
+                    Text('名称:')
+                      .fontSize(13)
+                      .fontColor('#999999')
+                      .width(60)
+                    Text(this.pluginInfo.name)
+                      .fontSize(13)
+                      .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
+                  }
+                  .width('100%')
+                  .padding({ left: 16, right: 16 })
+
+                  Row() {
+                    Text('版本:')
+                      .fontSize(13)
+                      .fontColor('#999999')
+                      .width(60)
+                    Text(this.pluginInfo.version)
+                      .fontSize(13)
+                      .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
+                  }
+                  .width('100%')
+                  .padding({ left: 16, right: 16, top: 4 })
+
+                  Row() {
+                    Text('作者:')
+                      .fontSize(13)
+                      .fontColor('#999999')
+                      .width(60)
+                    Text(this.pluginInfo.author)
+                      .fontSize(13)
+                      .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
+                  }
+                  .width('100%')
+                  .padding({ left: 16, right: 16, top: 4 })
+                  .margin({ bottom: 16 })
+                }
+                .width('100%')
+                .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
+                .borderRadius(8)
+                .margin({ left: 16, right: 16, top: 16 })
+              }
+            }
+            .width('100%')
+            .backgroundColor(this.theme === 'dark' ? '#121212' : '#F5F5F5')
+          }
+
+          // 使用说明
+          Column() {
+            Text('使用说明')
+              .fontSize(13)
+              .fontColor('#666666')
+              .padding({ left: 16, top: 20, bottom: 8 })
+
+            Text('1. 在设置 -> 自定义源 中，可以输入在线JS源文件地址\n' +
+                 '2. JS源文件需要与 LX Music 插件格式兼容\n' +
+                 '3. 加载自定义源后，可以获取更好的音乐播放体验\n' +
+                 '4. 如需使用内置源，选择对应的音乐源即可')
+              .fontSize(12)
+              .fontColor('#999999')
+              .padding({ left: 16, right: 16, bottom: 20 })
+              .lineHeight(20)
+          }
+          .width('100%')
+        }
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .scrollBar(BarState.Auto)
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor(this.theme === 'dark' ? '#121212' : '#F5F5F5')
+  }
+}

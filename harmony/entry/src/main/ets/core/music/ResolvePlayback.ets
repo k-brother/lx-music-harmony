@@ -1,0 +1,1015 @@
+// 在线 + 本地播放解析（原 ResolveOnlinePlayback + ResolveLocalPlayback）
+
+import { musicSdk, searchMusic as sdkSearchMusic } from './MusicSdkAggregate';
+import type { MusicInfo, LyricInfo, Quality, MusicQualityType } from '../../types/MusicTypes';
+import { getStorageService } from '../interfaces/IStorageService';
+import { buildLyricInfo, getPlayQuality } from './MusicParsingUtils';
+import hilog from '@ohos.hilog';
+import fs from '@ohos.file.fs';
+
+const TAG = 'ONLINE_MUSIC';
+const DOMAIN = 0x0003;
+
+/** 各源列表/搜索常只带 id，下载与解析统一补全 songmid，避免误判无效 */
+function ensureSongMid(musicInfo: MusicInfo): void {
+  if ((!musicInfo.songmid || musicInfo.songmid.length === 0) && musicInfo.id && musicInfo.id.length > 0) {
+    musicInfo.songmid = musicInfo.id;
+  }
+}
+
+// 尝试获取的音乐品质列表
+const TRY_QUALITYS_LIST: string[] = ['flac24bit', 'flac', '320k', '128k'];
+
+/**
+ * 获取音乐URL参数接口
+ */
+export interface GetMusicUrlParams {
+  musicInfo: MusicInfo;
+  quality?: Quality;
+  isRefresh?: boolean;
+  allowToggleSource?: boolean;
+  onToggleSource?: ((musicInfo?: MusicInfo) => void) | null;
+}
+
+/**
+ * 处理在线音乐URL获取参数接口
+ */
+interface HandleGetOnlineMusicUrlParams {
+  musicInfo: MusicInfo;
+  quality: Quality;
+  isRefresh: boolean;
+  allowToggleSource: boolean;
+  onToggleSource?: ((musicInfo?: MusicInfo) => void) | null;
+}
+
+/**
+ * 音乐URL结果对象接口
+ */
+interface MusicUrlResultObj {
+  url: string;
+  quality: Quality;
+  musicInfo: MusicInfo;
+  isFromCache: boolean;
+}
+
+/**
+ * 从其他源获取音乐URL参数接口
+ */
+interface GetOnlineOtherSourceMusicUrlParams {
+  musicInfos: MusicInfo[];
+  quality: Quality;
+  isRefresh: boolean;
+  onToggleSource?: ((musicInfo?: MusicInfo) => void) | null;
+  retryedSource?: string[];
+}
+
+/**
+ * 处理在线歌词获取参数接口
+ */
+interface HandleGetOnlineLyricInfoParams {
+  musicInfo: MusicInfo;
+  isRefresh: boolean;
+  allowToggleSource: boolean;
+  onToggleSource?: ((musicInfo?: MusicInfo) => void) | null;
+}
+
+/**
+ * 歌词结果对象接口
+ */
+interface LyricResultObj {
+  lyricInfo: LyricInfo;
+  musicInfo: MusicInfo;
+  isFromCache: boolean;
+}
+
+/**
+ * 获取歌词信息参数接口
+ */
+interface GetLyricInfoParams {
+  musicInfo: MusicInfo;
+  isRefresh?: boolean;
+  allowToggleSource?: boolean;
+  onToggleSource?: ((musicInfo?: MusicInfo) => void) | null;
+}
+
+/**
+ * 获取封面图片URL参数接口
+ */
+interface GetPicUrlParams {
+  musicInfo: MusicInfo;
+  listId?: string;
+  isRefresh?: boolean;
+  allowToggleSource?: boolean;
+  onToggleSource?: ((musicInfo?: MusicInfo) => void) | null;
+}
+
+/**
+ * 处理在线封面获取参数接口
+ */
+interface HandleGetOnlinePicUrlParams {
+  musicInfo: MusicInfo;
+  isRefresh: boolean;
+  allowToggleSource: boolean;
+  onToggleSource?: ((musicInfo?: MusicInfo) => void) | null;
+}
+
+/**
+ * 获取其他源的音乐信息参数接口
+ */
+interface GetOtherSourceParams {
+  musicInfo: MusicInfo;
+}
+
+/**
+ * 搜索音乐参数接口
+ */
+interface SearchMusicParams {
+  name: string;
+  singer?: string;
+  limit?: number;
+}
+
+/**
+ * 获取在线音乐播放URL
+ */
+export async function getMusicUrl(params: GetMusicUrlParams): Promise<string | null> {
+  const musicInfo = params.musicInfo;
+  const quality = params.quality;
+  const isRefresh = params.isRefresh ?? false;
+  const allowToggleSource = params.allowToggleSource ?? true;
+  const onToggleSource = params.onToggleSource;
+
+  if (!musicInfo) {
+    return null;
+  }
+  ensureSongMid(musicInfo);
+  if (!musicInfo.songmid || musicInfo.songmid.length === 0) {
+    return null;
+  }
+
+  // 获取目标音质
+  const targetQuality = quality ?? getPlayQuality(quality ?? '128k', musicInfo);
+
+  // 尝试从缓存获取
+  const cachedUrl = await getCachedMusicUrl(musicInfo, targetQuality);
+  if (cachedUrl && !isRefresh) {
+    return cachedUrl;
+  }
+
+  try {
+    // 直接从当前源获取URL
+    const result = await handleGetOnlineMusicUrl({
+      musicInfo,
+      quality: targetQuality,
+      isRefresh,
+      allowToggleSource,
+      onToggleSource,
+    });
+
+    // 缓存URL
+    if (result.url) {
+      await saveMusicUrlToCache(musicInfo, result.quality, result.url);
+    }
+
+    return result.url;
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : 'Unknown error';
+    hilog.error(DOMAIN, TAG, 'getMusicUrl failed: %{public}s', errMsg);
+    return null;
+  }
+}
+
+/**
+ * 处理在线音乐URL获取
+ */
+async function handleGetOnlineMusicUrl(params: HandleGetOnlineMusicUrlParams): Promise<MusicUrlResultObj> {
+  const musicInfo = params.musicInfo;
+  const quality = params.quality;
+  const isRefresh = params.isRefresh;
+  const allowToggleSource = params.allowToggleSource;
+  const onToggleSource = params.onToggleSource;
+
+  try {
+    // 调用对应音乐源的getMusicUrl
+    const result = await getMusicUrlFromSource(musicInfo, quality);
+
+    if (result && result.url) {
+      const retObj: MusicUrlResultObj = {
+        url: result.url,
+        quality: result.type as Quality,
+        musicInfo,
+        isFromCache: false,
+      };
+      return retObj;
+    }
+
+    throw new Error('Failed to get music url');
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : 'Unknown error';
+    hilog.error(DOMAIN, TAG, 'handleGetOnlineMusicUrl error: %{public}s', errMsg);
+
+    if (!allowToggleSource) {
+      throw new Error(errMsg);
+    }
+
+    // 尝试从其他源获取
+    if (onToggleSource) {
+      onToggleSource();
+    }
+
+    const otherSource = await getOtherSource(musicInfo);
+    if (otherSource.length > 0) {
+      return getOnlineOtherSourceMusicUrl({
+        musicInfos: otherSource,
+        quality,
+        isRefresh,
+        onToggleSource,
+        retryedSource: [musicInfo.source as string],
+      });
+    }
+
+    throw new Error('All sources failed');
+  }
+}
+
+/**
+ * 从其他源获取音乐URL
+ */
+async function getOnlineOtherSourceMusicUrl(params: GetOnlineOtherSourceMusicUrlParams): Promise<MusicUrlResultObj> {
+  const musicInfos = params.musicInfos;
+  const quality = params.quality;
+  const isRefresh = params.isRefresh;
+  const onToggleSource = params.onToggleSource;
+  const retryedSource: string[] = params.retryedSource ?? [];
+
+  // 遍历音乐源列表
+  for (const mInfo of musicInfos) {
+    if (retryedSource.includes(mInfo.source as string)) {
+      continue;
+    }
+
+    retryedSource.push(mInfo.source as string);
+
+    hilog.info(DOMAIN, TAG, 'try toggle to: %{public}s %{public}s', mInfo.source, mInfo.name);
+    if (onToggleSource) {
+      onToggleSource(mInfo);
+    }
+
+    try {
+      const result = await getMusicUrlFromSource(mInfo, quality);
+
+      if (result && result.url) {
+        const retObj: MusicUrlResultObj = {
+          url: result.url,
+          quality: result.type as Quality,
+          musicInfo: mInfo,
+          isFromCache: false,
+        };
+        return retObj;
+      }
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'Source failed, trying next: %{public}s', (err as Error).message);
+    }
+  }
+
+  throw new Error('All sources failed');
+}
+
+/**
+ * 音乐URL从源结果接口
+ */
+interface MusicUrlFromSourceResult {
+  url: string;
+  type: string;
+}
+
+/**
+ * 从指定源获取音乐URL
+ */
+async function getMusicUrlFromSource(musicInfo: MusicInfo, quality: Quality): Promise<MusicUrlFromSourceResult | null> {
+  const source = musicInfo.source as string;
+
+  switch (source) {
+    case 'kw':
+      return await musicSdk.kw.getMusicUrl(musicInfo, quality);
+    case 'kg':
+      return await musicSdk.kg.getMusicUrl(musicInfo, quality);
+    case 'tx':
+      return await musicSdk.tx.getMusicUrl(musicInfo, quality);
+    case 'wy':
+      return await musicSdk.wy.getMusicUrl(musicInfo, quality);
+    case 'mg':
+      return await musicSdk.mg.getMusicUrl(musicInfo, quality);
+    default:
+      return null;
+  }
+}
+
+/**
+ * 获取歌词信息
+ */
+export async function getLyricInfo(params: GetLyricInfoParams): Promise<LyricInfo> {
+  const musicInfo = params.musicInfo;
+  const isRefresh = params.isRefresh ?? false;
+  const allowToggleSource = params.allowToggleSource ?? true;
+  const onToggleSource = params.onToggleSource;
+
+  if (!musicInfo) {
+    return createEmptyLyricInfo();
+  }
+  ensureSongMid(musicInfo);
+  if (!musicInfo.songmid || musicInfo.songmid.length === 0) {
+    return createEmptyLyricInfo();
+  }
+
+  // 尝试从缓存获取
+  if (!isRefresh) {
+    const cachedLyric = await getCachedLyricInfo(musicInfo);
+    if (cachedLyric) {
+      return buildLyricInfo(cachedLyric);
+    }
+  }
+
+  try {
+    const result = await handleGetOnlineLyricInfo({
+      musicInfo,
+      isRefresh,
+      allowToggleSource,
+      onToggleSource,
+    });
+
+    // 缓存歌词
+    await saveLyricToCache(musicInfo, result.lyricInfo);
+
+    return buildLyricInfo(result.lyricInfo);
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : 'Unknown error';
+    hilog.error(DOMAIN, TAG, 'getLyricInfo failed: %{public}s', errMsg);
+    return createEmptyLyricInfo();
+  }
+}
+
+/**
+ * 处理在线歌词获取
+ */
+async function handleGetOnlineLyricInfo(params: HandleGetOnlineLyricInfoParams): Promise<LyricResultObj> {
+  const musicInfo = params.musicInfo;
+  const isRefresh = params.isRefresh;
+  const allowToggleSource = params.allowToggleSource;
+  const onToggleSource = params.onToggleSource;
+
+  try {
+    const lyricInfo = await getLyricFromSource(musicInfo);
+
+    if (lyricInfo && lyricInfo.lyric) {
+      const retObj: LyricResultObj = {
+        lyricInfo,
+        musicInfo,
+        isFromCache: false,
+      };
+      return retObj;
+    }
+
+    throw new Error('Failed to get lyric');
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : 'Unknown error';
+    hilog.error(DOMAIN, TAG, 'handleGetOnlineLyricInfo error: %{public}s', errMsg);
+
+    if (!allowToggleSource) {
+      throw new Error(errMsg);
+    }
+
+    // 尝试从其他源获取
+    if (onToggleSource) {
+      onToggleSource();
+    }
+
+    const otherSource = await getOtherSource(musicInfo);
+    if (otherSource.length > 0) {
+      for (const mInfo of otherSource) {
+        try {
+          const lyricInfo = await getLyricFromSource(mInfo);
+          if (lyricInfo && lyricInfo.lyric) {
+            const retObj: LyricResultObj = {
+              lyricInfo,
+              musicInfo: mInfo,
+              isFromCache: false,
+            };
+            return retObj;
+          }
+        } catch (err) {
+          hilog.warn(DOMAIN, TAG, 'Lyric source failed, trying next: %{public}s', (err as Error).message);
+        }
+      }
+    }
+
+    throw new Error('All lyric sources failed');
+  }
+}
+
+/**
+ * 从指定源获取歌词
+ */
+async function getLyricFromSource(musicInfo: MusicInfo): Promise<LyricInfo> {
+  const source = musicInfo.source as string;
+
+  switch (source) {
+    case 'kw':
+      return await musicSdk.kw.getLyric(musicInfo);
+    case 'kg':
+      return await musicSdk.kg.getLyric(musicInfo);
+    case 'tx':
+      return await musicSdk.tx.getLyric(musicInfo);
+    case 'wy':
+      return await musicSdk.wy.getLyric(musicInfo);
+    case 'mg':
+      return await musicSdk.mg.getLyric(musicInfo);
+    default:
+      return createEmptyLyricInfo();
+  }
+}
+
+/**
+ * 获取封面图片URL
+ */
+export async function getPicUrl(params: GetPicUrlParams): Promise<string> {
+  const musicInfo = params.musicInfo;
+  const isRefresh = params.isRefresh ?? false;
+  const allowToggleSource = params.allowToggleSource ?? true;
+  const onToggleSource = params.onToggleSource;
+
+  if (!musicInfo) {
+    return '';
+  }
+  ensureSongMid(musicInfo);
+  if (!musicInfo.songmid || musicInfo.songmid.length === 0) {
+    return '';
+  }
+
+  // 如果已经有封面URL，直接返回
+  if (musicInfo.img && !isRefresh) {
+    return musicInfo.img;
+  }
+
+  try {
+    return await handleGetOnlinePicUrl({
+      musicInfo,
+      isRefresh,
+      allowToggleSource,
+      onToggleSource,
+    });
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : 'Unknown error';
+    hilog.error(DOMAIN, TAG, 'getPicUrl failed: %{public}s', errMsg);
+    return musicInfo.img || '';
+  }
+}
+
+/**
+ * 处理在线封面获取
+ */
+async function handleGetOnlinePicUrl(params: HandleGetOnlinePicUrlParams): Promise<string> {
+  const musicInfo = params.musicInfo;
+  const isRefresh = params.isRefresh;
+  const allowToggleSource = params.allowToggleSource;
+  const onToggleSource = params.onToggleSource;
+
+  // 如果已经有封面，直接返回
+  if (musicInfo.img && !isRefresh) {
+    return musicInfo.img;
+  }
+
+  try {
+    const picUrl = await getPicFromSource(musicInfo);
+    if (picUrl) {
+      return picUrl;
+    }
+    throw new Error('Failed to get pic');
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : 'Unknown error';
+    hilog.error(DOMAIN, TAG, 'handleGetOnlinePicUrl error: %{public}s', errMsg);
+
+    if (!allowToggleSource) {
+      throw new Error(errMsg);
+    }
+
+    // 尝试从其他源获取
+    if (onToggleSource) {
+      onToggleSource();
+    }
+
+    const otherSource = await getOtherSource(musicInfo);
+    if (otherSource.length > 0) {
+      for (const mInfo of otherSource) {
+        try {
+          const picUrl = await getPicFromSource(mInfo);
+          if (picUrl) {
+            return picUrl;
+          }
+        } catch (err) {
+          hilog.warn(DOMAIN, TAG, 'Pic source failed, trying next: %{public}s', (err as Error).message);
+        }
+      }
+    }
+
+    throw new Error('All pic sources failed');
+  }
+}
+
+/**
+ * 从指定源获取封面
+ */
+async function getPicFromSource(musicInfo: MusicInfo): Promise<string> {
+  const source = musicInfo.source as string;
+
+  switch (source) {
+    case 'kw':
+      return await musicSdk.kw.getPic(musicInfo);
+    case 'kg':
+      return await musicSdk.kg.getPic(musicInfo);
+    case 'tx':
+      return await musicSdk.tx.getPic(musicInfo);
+    case 'wy':
+      return await musicSdk.wy.getPic(musicInfo);
+    case 'mg':
+      return await musicSdk.mg.getPic(musicInfo);
+    default:
+      return '';
+  }
+}
+
+/**
+ * 获取其他源的音乐信息
+ */
+export async function getOtherSource(musicInfo: MusicInfo): Promise<MusicInfo[]> {
+  try {
+    const keyword = `${musicInfo.name} ${musicInfo.singer || ''}`.trim();
+    const results = await sdkSearchMusic(keyword, 1, 10);
+
+    // 过滤掉当前源
+    if (results && results.length > 0) {
+      return results[0].list.filter((item: MusicInfo) => item.source !== musicInfo.source);
+    }
+    return [];
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'getOtherSource failed: %{public}s', (err as Error).message);
+    return [];
+  }
+}
+
+/**
+ * 获取缓存的音乐URL
+ */
+async function getCachedMusicUrl(musicInfo: MusicInfo, quality: Quality): Promise<string | null> {
+  try {
+    const key = `music_url_${musicInfo.source}_${musicInfo.songmid}_${quality}`;
+    const cached = await getStorageService().getString(key, '');
+    if (cached && cached.length > 0) {
+      return cached;
+    }
+    return null;
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'getCachedMusicUrl failed: %{public}s', (err as Error).message);
+    return null;
+  }
+}
+
+/**
+ * 保存音乐URL到缓存
+ */
+async function saveMusicUrlToCache(musicInfo: MusicInfo, quality: Quality, url: string): Promise<void> {
+  try {
+    const key = `music_url_${musicInfo.source}_${musicInfo.songmid}_${quality}`;
+    await getStorageService().setString(key, url);
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'saveMusicUrlToCache failed: %{public}s', (err as Error).message);
+  }
+}
+
+/**
+ * 获取缓存的歌词
+ */
+async function getCachedLyricInfo(musicInfo: MusicInfo): Promise<LyricInfo | null> {
+  try {
+    const key = `lyric_${musicInfo.source}_${musicInfo.songmid}`;
+    const cached = await getStorageService().getString(key, '');
+    if (cached && cached.length > 0) {
+      // 简单解析缓存的歌词
+      const lyricInfo: LyricInfo = {
+        lyric: cached,
+        tlyric: null,
+        lxlyric: null,
+        rlyric: null,
+      };
+      return lyricInfo;
+    }
+    return null;
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'getCachedLyricInfo failed: %{public}s', (err as Error).message);
+    return null;
+  }
+}
+
+/**
+ * 保存歌词到缓存
+ */
+async function saveLyricToCache(musicInfo: MusicInfo, lyricInfo: LyricInfo): Promise<void> {
+  try {
+    const key = `lyric_${musicInfo.source}_${musicInfo.songmid}`;
+    await getStorageService().setString(key, lyricInfo.lyric || '');
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'saveLyricToCache failed: %{public}s', (err as Error).message);
+  }
+}
+
+/**
+ * 创建空歌词信息
+ */
+function createEmptyLyricInfo(): LyricInfo {
+  return {
+    lyric: '',
+    tlyric: null,
+    lxlyric: null,
+    rlyric: null,
+  };
+}
+
+/**
+ * 搜索音乐（多源搜索）
+ */
+export async function searchMusic(params: SearchMusicParams): Promise<MusicInfo[]> {
+  const name = params.name;
+  const singer = params.singer;
+  const limit = params.limit ?? 25;
+  const keyword = `${name} ${singer || ''}`.trim();
+
+  if (!keyword) {
+    return [];
+  }
+
+  const sources = ['kw', 'kg', 'tx', 'wy', 'mg'];
+  const results: MusicInfo[][] = [];
+
+  // 并行搜索所有源
+  const searchPromises: Promise<MusicInfo[]>[] = sources.map(async (source) => {
+    try {
+      const result = await searchFromSource(source, keyword, 1, limit);
+      return result;
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'searchFromSource failed for %{public}s: %{public}s', source, (err as Error).message);
+      return [];
+    }
+  });
+
+  const searchResults = await Promise.all(searchPromises);
+
+  // 合并结果
+  for (const result of searchResults) {
+    if (result && result.length > 0) {
+      results.push(result);
+    }
+  }
+
+  // 返回第一个搜索结果（通常是最好的匹配）
+  return results[0] || [];
+}
+
+/**
+ * 从指定源搜索音乐
+ */
+async function searchFromSource(source: string, keyword: string, page: number, limit: number): Promise<MusicInfo[]> {
+  const sdk = getSdkBySource(source);
+  if (!sdk || !sdk.musicSearch) {
+    return [];
+  }
+
+  const result = await sdk.musicSearch.search(keyword, page, limit);
+  if (result && result.list) {
+    return result.list;
+  }
+
+  return [];
+}
+
+/**
+ * 音乐搜索接口
+ */
+interface MusicSearchModule {
+  search: (keyword: string, page: number, limit: number) => Promise<SearchResultLocal | null>;
+}
+
+interface SearchResultLocal {
+  list: MusicInfo[];
+}
+
+/**
+ * SDK接口（避免使用any）
+ */
+interface SdkSearchInterface {
+  musicSearch: MusicSearchModule;
+}
+
+/**
+ * 根据源获取SDK
+ */
+function getSdkBySource(source: string): SdkSearchInterface | null {
+  switch (source) {
+    case 'kw':
+      return musicSdk.kw as SdkSearchInterface;
+    case 'kg':
+      return musicSdk.kg as SdkSearchInterface;
+    case 'tx':
+      return musicSdk.tx as SdkSearchInterface;
+    case 'wy':
+      return musicSdk.wy as SdkSearchInterface;
+    case 'mg':
+      return musicSdk.mg as SdkSearchInterface;
+    default:
+      return null;
+  }
+}
+
+/**
+ * 在线音乐模块
+ */
+interface OnlineModule {
+  getMusicUrl: (params: GetMusicUrlParams) => Promise<string | null>;
+  getLyricInfo: (params: GetLyricInfoParams) => Promise<LyricInfo>;
+  getPicUrl: (params: GetPicUrlParams) => Promise<string>;
+  getOtherSource: (musicInfo: MusicInfo) => Promise<MusicInfo[]>;
+  searchMusic: (params: SearchMusicParams) => Promise<MusicInfo[]>;
+}
+
+
+
+// ========== 本地曲库（原 ResolveLocalPlayback）==========
+
+const TAG_LOCAL = 'LOCAL_MUSIC';
+const DOMAIN_LOCAL = 0x0003;
+
+// 本地音乐信息接口
+export interface LocalMusicInfo {
+  id: string;
+  name: string;
+  singer: string;
+  album: string;
+  duration: number;
+  interval: string;
+  filePath: string;
+  size: number;
+  picUrl?: string;
+}
+
+/**
+ * 扫描本地音乐文件（本地文件扫描功能暂不支持）
+ */
+export async function scanLocalMusic(dirPath: string): Promise<LocalMusicInfo[]> {
+  hilog.info(DOMAIN_LOCAL, TAG_LOCAL, 'Scanning local music: %{public}s', dirPath);
+  // 本地文件扫描功能在当前版本暂不支持
+  return [];
+}
+
+// 本地音乐 URL 获取参数接口
+interface LocalGetMusicUrlParams {
+  musicInfo: LocalMusicInfo;
+  isRefresh?: boolean;
+  allowToggleSource?: boolean;
+  onToggleSource?: ((musicInfo?: MusicInfo) => void) | null;
+}
+
+/**
+ * 获取本地音乐URL
+ */
+export async function getLocalMusicUrl(params: LocalGetMusicUrlParams): Promise<string> {
+  const musicInfo: LocalMusicInfo = params.musicInfo;
+  const isRefresh: boolean = params.isRefresh ?? false;
+  const allowToggleSource: boolean = params.allowToggleSource ?? true;
+  const onToggleSource = params.onToggleSource;
+
+  // 如果是本地文件路径，直接返回文件路径（由播放器负责打开）
+  // 注意：不在此处调用 openSync，避免 FD 泄漏；播放器会自己打开文件
+  if (musicInfo.filePath) {
+    return `file://${musicInfo.filePath}`;
+  }
+
+  // 尝试从其他源获取在线URL
+  if (allowToggleSource) {
+    try {
+      const onlineMusicInfo = localToOnlineMusicInfo(musicInfo);
+      const url = await getMusicUrl({
+        musicInfo: onlineMusicInfo,
+        isRefresh,
+        allowToggleSource: false,
+        onToggleSource,
+      });
+      if (url) {
+        return url;
+      }
+    } catch (err) {
+      hilog.warn(DOMAIN_LOCAL, TAG_LOCAL, 'getLocalMusicUrl online fetch failed: %{public}s', (err as Error).message);
+    }
+  }
+
+  throw new Error('Failed to get local music url');
+}
+
+// 本地音乐封面获取参数接口
+interface LocalGetPicUrlParams {
+  musicInfo: LocalMusicInfo;
+  isRefresh?: boolean;
+  allowToggleSource?: boolean;
+  onToggleSource?: ((musicInfo?: MusicInfo) => void) | null;
+}
+
+/**
+ * 获取本地音乐封面
+ */
+export async function getLocalPicUrl(params: LocalGetPicUrlParams): Promise<string> {
+  const musicInfo: LocalMusicInfo = params.musicInfo;
+  const isRefresh: boolean = params.isRefresh ?? false;
+  const onToggleSource = params.onToggleSource;
+  const allowToggleSource: boolean = params.allowToggleSource ?? true;
+
+  // 如果已经有封面，直接返回
+  if (musicInfo.picUrl && !isRefresh) {
+    return musicInfo.picUrl;
+  }
+
+  // 尝试从文件读取封面
+  try {
+    const embeddedPic = await readEmbeddedPic(musicInfo.filePath);
+    if (embeddedPic) {
+      return embeddedPic;
+    }
+  } catch (err) {
+    hilog.warn(DOMAIN_LOCAL, TAG_LOCAL, 'readEmbeddedPic failed: %{public}s', (err as Error).message);
+  }
+
+  // 尝试从在线源获取
+  if (allowToggleSource) {
+    try {
+      const onlineMusicInfo = localToOnlineMusicInfo(musicInfo);
+      const url = await getPicUrl({
+        musicInfo: onlineMusicInfo,
+        isRefresh,
+        onToggleSource,
+      });
+      return url;
+    } catch (err) {
+      hilog.warn(DOMAIN_LOCAL, TAG_LOCAL, 'getLocalPicUrl online fetch failed: %{public}s', (err as Error).message);
+    }
+  }
+
+  return musicInfo.picUrl || '';
+}
+
+// 本地音乐歌词获取参数接口
+interface LocalGetLyricInfoParams {
+  musicInfo: LocalMusicInfo;
+  isRefresh?: boolean;
+  onToggleSource?: ((musicInfo?: MusicInfo) => void) | null;
+}
+
+/**
+ * 获取本地音乐歌词
+ */
+export async function getLocalLyricInfo(params: LocalGetLyricInfoParams): Promise<LyricInfo> {
+  const musicInfo: LocalMusicInfo = params.musicInfo;
+  const isRefresh: boolean = params.isRefresh ?? false;
+  const onToggleSource = params.onToggleSource;
+
+  // 尝试从歌词文件读取
+  try {
+    const lyricInfo = await readLyricFile(musicInfo.filePath);
+    if (lyricInfo) {
+      return buildLyricInfo(lyricInfo);
+    }
+  } catch (err) {
+    hilog.warn(DOMAIN_LOCAL, TAG_LOCAL, 'readLyricFile failed: %{public}s', (err as Error).message);
+  }
+
+  // 尝试从在线源获取
+  try {
+    const onlineMusicInfo = localToOnlineMusicInfo(musicInfo);
+    const lyric = await getLyricInfo({
+      musicInfo: onlineMusicInfo,
+      isRefresh,
+      onToggleSource,
+    });
+    return lyric;
+  } catch (err) {
+    hilog.warn(DOMAIN_LOCAL, TAG_LOCAL, 'getLocalLyricInfo online fetch failed: %{public}s', (err as Error).message);
+  }
+
+  return createEmptyLyricInfo();
+}
+
+/**
+ * 将本地音乐信息转换为在线音乐信息
+ */
+export function localToOnlineMusicInfo(localInfo: LocalMusicInfo): MusicInfo {
+  const types: MusicQualityType[] = [{ type: '128k', size: null }];
+  return {
+    id: localInfo.id,
+    name: localInfo.name,
+    singer: localInfo.singer,
+    source: 'local',
+    songmid: localInfo.id,
+    albumId: '',
+    albumName: localInfo.album,
+    interval: localInfo.interval,
+    img: localInfo.picUrl || '',
+    lrc: null,
+    otherSource: null,
+    types: types,
+    _types: new Map(),
+    typeUrl: new Map(),
+    copyrightId: '',
+  };
+}
+
+/**
+ * 检查文件是否存在
+ */
+async function checkFileExists(filePath: string): Promise<boolean> {
+  // 文件系统API暂不可用
+  return false;
+}
+
+/**
+ * 读取嵌入的封面
+ */
+async function readEmbeddedPic(filePath: string): Promise<string | null> {
+  // 媒体元数据API暂不支持
+  return null;
+}
+
+/**
+ * 读取歌词文件
+ */
+async function readLyricFile(filePath: string): Promise<LyricInfo | null> {
+  // 文件系统API暂不可用
+  return null;
+}
+
+/**
+ * 获取支持的音乐格式
+ */
+export function getSupportedAudioFormats(): string[] {
+  return ['.mp3', '.flac', '.m4a', '.aac', '.ogg', '.wav', '.opus', '.ape'];
+}
+
+/**
+ * 获取音乐文件元数据（HarmonyOS媒体元数据API暂不支持，返回null）
+ */
+export async function getMusicFileMetadata(filePath: string): Promise<LocalMusicInfo | null> {
+  // HarmonyOS的AVMetadataExtractor API在此版本不支持，直接返回null
+  return null;
+}
+
+/**
+ * 格式化文件大小
+ */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  } else if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(2)} KB`;
+  } else if (bytes < 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  } else {
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  }
+}
+
+// 本地音乐模块接口
+interface LocalModule {
+  scanLocalMusic: (dirPath: string) => Promise<LocalMusicInfo[]>;
+  getMusicUrl: (params: LocalGetMusicUrlParams) => Promise<string>;
+  getPicUrl: (params: LocalGetPicUrlParams) => Promise<string>;
+  getLyricInfo: (params: LocalGetLyricInfoParams) => Promise<LyricInfo>;
+  localToOnlineMusicInfo: (localInfo: LocalMusicInfo) => MusicInfo;
+  getSupportedAudioFormats: () => string[];
+  getMusicFileMetadata: (filePath: string) => Promise<LocalMusicInfo | null>;
+  formatFileSize: (bytes: number) => string;
+}
+
+// 导出命名对象供高级用法
+export const local: LocalModule = {
+  scanLocalMusic,
+  getMusicUrl: getLocalMusicUrl,
+  getPicUrl: getLocalPicUrl,
+  getLyricInfo: getLocalLyricInfo,
+  localToOnlineMusicInfo,
+  getSupportedAudioFormats,
+  getMusicFileMetadata,
+  formatFileSize,
+};
+
+export const online: OnlineModule = {
+  getMusicUrl,
+  getLyricInfo,
+  getPicUrl,
+  getOtherSource,
+  searchMusic,
+};
