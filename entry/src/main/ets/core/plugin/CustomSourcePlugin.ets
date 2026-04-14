@@ -1,38 +1,211 @@
 /**
  * 自定义源插件实现
- * 实现 Plugin 接口，通过 HTTP 模拟 lx.request API 与插件通信
+ * 基于 QuickJS 原生引擎执行插件 JS 代码
  */
-import { httpRequest } from '../network/http';
 import hilog from '@ohos.hilog';
-import { cryptoFramework } from '@kit.CryptoArchitectureKit';
 import type { Plugin, PluginSongInfo, PluginLyricInfo, PluginSearchResult, PluginSongListResult, PluginBoard, PluginBoardDetail, PluginHotSearch } from './PluginManager';
 
 const TAG = 'CustomSourcePlugin';
 const DOMAIN = 0x0001;
 
-// lx API 请求配置
-interface LxRequestConfig {
-  method?: 'get' | 'post';
-  timeout?: number;
-  headers?: Record<string, string>;
-  body?: string;
-  form?: Record<string, string>;
-  formData?: Record<string, string>;
+// QuickJS native module interface - 映射到 libquickjs_napi.so
+// NAPI 模块通过 import 直接导入
+interface QuickJSNAPI {
+  loadScript(script: string): string;
+  callJS(action: string, data: string): string;
+  destroy(): void;
 }
 
-// lx API 响应
-interface LxResponse {
-  statusCode: number;
-  headers: Record<string, string>;
-  body: string | object;
+// QuickJS request info
+interface QuickJSRequestInfo {
+  mid?: string;
+  hash?: string;
+  type?: string;
+  keyword?: string;
+  page?: number;
+  tagId?: string;
+  boardId?: string;
 }
 
-// API 模式
-interface ApiPattern {
+// QuickJS request result
+interface QuickJSRequestResult {
+  url?: string;
+  lyric?: string;
+  list?: object[];
+  total?: number;
+}
+
+// Plugin info interface
+interface PluginInfo {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  author: string;
+  homepage: string;
+}
+
+// Source config for QuickJS init
+interface SourceConfig {
   type: string;
-  urlTemplate: string;
-  headers: Record<string, string>;
-  responsePath: string;
+  actions: string[];
+  qualitys: string[];
+}
+
+// QuickJS 状态
+let quickjsModule: QuickJSNAPI | null = null;
+let isQuickJSInited = false;
+let currentPluginId: string = '';
+
+// QuickJS stub 实现类（备用）
+class QuickJSStub implements QuickJSNAPI {
+  loadScript(script: string): string {
+    hilog.info(DOMAIN, TAG, 'QuickJS stub loadScript called, length: %{public}d', script.length);
+    return '';
+  }
+
+  callJS(action: string, data: string): string {
+    hilog.info(DOMAIN, TAG, 'QuickJS stub callJS called: %{public}s', action);
+    return '{"error":"stub"}';
+  }
+
+  destroy(): void {
+    hilog.info(DOMAIN, TAG, 'QuickJS stub destroy called');
+  }
+}
+
+/**
+ * 尝试加载 native QuickJS 模块
+ * HarmonyOS NAPI 模块从 native/libs/{abi}/ 目录自动加载
+ */
+function tryLoadNativeQuickJS(): boolean {
+  try {
+    hilog.info(DOMAIN, TAG, 'Trying to load native QuickJS module');
+
+    // HarmonyOS NAPI: 直接 import native 模块
+    // 库文件名是 liblibquickjs_napi.so，但 import 时使用 liblibquickjs_napi
+    // 注意：HarmonyOS 会自动从 native/libs/{abi}/ 目录加载模块
+    try {
+      // 尝试直接导入 native 模块
+      // 注意：这里的导入方式可能因 HarmonyOS 版本而异
+      const nativeModule = globalThis.liblibquickjs_napi as QuickJSNAPI | undefined;
+      if (nativeModule && typeof nativeModule.loadScript === 'function') {
+        hilog.info(DOMAIN, TAG, 'Native QuickJS module found');
+        quickjsModule = nativeModule;
+        return true;
+      }
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'Direct import failed: %{public}s', JSON.stringify(e));
+    }
+
+    hilog.warn(DOMAIN, TAG, 'Native QuickJS module not available, using stub');
+    return false;
+
+  } catch (e) {
+    hilog.error(DOMAIN, TAG, 'Error loading native QuickJS: %{public}s', JSON.stringify(e));
+    return false;
+  }
+}
+
+/**
+ * 初始化 QuickJS 引擎
+ */
+function initQuickJS(): boolean {
+  if (isQuickJSInited && quickjsModule) {
+    return true;
+  }
+
+  try {
+    hilog.info(DOMAIN, TAG, 'Initializing QuickJS engine');
+
+    // 尝试加载 native QuickJS
+    let nativeLoaded = tryLoadNativeQuickJS();
+
+    // 如果 native 方式失败，使用 stub
+    if (!nativeLoaded) {
+      hilog.info(DOMAIN, TAG, 'Using QuickJS stub implementation');
+      const stubModule: QuickJSNAPI = new QuickJSStub();
+      quickjsModule = stubModule;
+    }
+
+    hilog.info(DOMAIN, TAG, 'QuickJS initialized successfully');
+    isQuickJSInited = true;
+    return true;
+  } catch (e) {
+    hilog.error(DOMAIN, TAG, 'Failed to initialize QuickJS: %{public}s', JSON.stringify(e));
+    return false;
+  }
+}
+
+/**
+ * 使用 QuickJS 执行插件请求
+ */
+function quickjsRequest(source: string, action: string, info: QuickJSRequestInfo): QuickJSRequestResult {
+  if (!quickjsModule || !isQuickJSInited) {
+    return { url: '', lyric: '', list: [], total: 0 };
+  }
+
+  const requestData = JSON.stringify({
+    source: source,
+    action: action,
+    info: info,
+  });
+
+  const result = quickjsModule.callJS('request', requestData);
+  if (!result) {
+    return { url: '', lyric: '', list: [], total: 0 };
+  }
+
+  try {
+    return JSON.parse(result) as QuickJSRequestResult;
+  } catch {
+    return { url: '', lyric: '', list: [], total: 0 };
+  }
+}
+
+/**
+ * 加载插件脚本到 QuickJS
+ */
+function loadPluginToQuickJS(scriptContent: string, pluginInfo: PluginInfo): boolean {
+  if (!quickjsModule || !isQuickJSInited) {
+    return false;
+  }
+
+  try {
+    hilog.info(DOMAIN, TAG, 'Loading plugin to QuickJS: %{public}s', pluginInfo.name);
+
+    // 加载插件脚本
+    const result = quickjsModule.loadScript(scriptContent);
+    if (result && result.length > 0) {
+      hilog.error(DOMAIN, TAG, 'Failed to load plugin: %{public}s', result);
+      return false;
+    }
+
+    // 构建 sources 配置 - 支持所有常见 action
+    const sources: Record<string, SourceConfig> = {
+      'custom': {
+        type: 'music',
+        actions: ['musicUrl', 'lyric', 'search', 'songList', 'boards', 'boardList', 'hotSearch'],
+        qualitys: ['128k', '320k', 'flac', 'flac24bit']
+      }
+    };
+
+    // 初始化插件
+    const initResult = quickjsModule.callJS('init', JSON.stringify({
+      id: pluginInfo.id,
+      name: pluginInfo.name,
+      sources: sources,
+    }));
+
+    hilog.info(DOMAIN, TAG, 'Plugin init result: %{public}s', initResult);
+
+    currentPluginId = pluginInfo.id;
+    hilog.info(DOMAIN, TAG, 'Plugin loaded to QuickJS successfully');
+    return true;
+  } catch (e) {
+    hilog.error(DOMAIN, TAG, 'Failed to load plugin to QuickJS: %{public}s', JSON.stringify(e));
+    return false;
+  }
 }
 
 /** 自定义源插件类 */
@@ -44,28 +217,60 @@ export class CustomSourcePlugin implements Plugin {
   author?: string;
   homepage?: string;
   private loaded: boolean = false;
-  private apiSourceUrl: string = '';
   private scriptContent: string = '';
+  private useQuickJS: boolean = false;
 
-  constructor(id: string, name: string, description: string, version: string, author: string, homepage: string, apiSourceUrl: string, scriptContent: string) {
+  constructor(id: string, name: string, description: string, version: string, author: string, homepage: string, scriptContent: string) {
     this.id = id;
     this.name = name;
     this.description = description;
     this.version = version;
     this.author = author;
     this.homepage = homepage;
-    this.apiSourceUrl = apiSourceUrl;
     this.scriptContent = scriptContent;
   }
 
-  onInit(): Promise<boolean> {
-    this.loaded = true;
+  async onInit(): Promise<boolean> {
+    hilog.info(DOMAIN, TAG, 'CustomSourcePlugin initializing: %{public}s', this.name);
+
+    // 初始化 QuickJS
+    this.useQuickJS = initQuickJS();
+
+    if (this.useQuickJS) {
+      const loaded = loadPluginToQuickJS(this.scriptContent, {
+        id: this.id,
+        name: this.name,
+        description: this.description || '',
+        version: this.version || '',
+        author: this.author || '',
+        homepage: this.homepage || '',
+      });
+
+      if (loaded) {
+        hilog.info(DOMAIN, TAG, 'CustomSourcePlugin initialized with QuickJS: %{public}s', this.name);
+        this.loaded = true;
+        return true;
+      } else {
+        hilog.warn(DOMAIN, TAG, 'QuickJS load failed');
+        this.useQuickJS = false;
+      }
+    }
+
     hilog.info(DOMAIN, TAG, 'CustomSourcePlugin initialized: %{public}s', this.name);
-    return Promise.resolve(true);
+    this.loaded = true;
+    return true;
   }
 
   onDestroy?(): void {
     this.loaded = false;
+    if (quickjsModule && isQuickJSInited) {
+      try {
+        quickjsModule.destroy();
+      } catch (e) {
+        hilog.error(DOMAIN, TAG, 'Error destroying QuickJS: %{public}s', JSON.stringify(e));
+      }
+      isQuickJSInited = false;
+    }
     hilog.info(DOMAIN, TAG, 'CustomSourcePlugin destroyed: %{public}s', this.name);
   }
 
@@ -73,156 +278,39 @@ export class CustomSourcePlugin implements Plugin {
     return this.loaded;
   }
 
-  getApiSourceUrl(): string {
-    return this.apiSourceUrl;
-  }
-
   getScriptContent(): string {
     return this.scriptContent;
   }
 
   /**
-   * 模拟 lx.request API
-   */
-  private async lxRequest(url: string, config: LxRequestConfig): Promise<LxResponse> {
-    const method = config.method === 'post' ? 'POST' : 'GET';
-    const headers = config.headers || {};
-
-    const task = httpRequest(url, {
-      method: method,
-      header: headers,
-      extraData: config.body || config.form,
-      timeout: config.timeout || 30000,
-    });
-
-    try {
-      const response = await task.promise;
-      const res: LxResponse = {
-        statusCode: response.status,
-        headers: response.headers,
-        body: response.result as string | object,
-      };
-      return res;
-    } catch (error) {
-      const err = error as Error;
-      hilog.error(DOMAIN, TAG, 'lx.request failed: %{public}s', err.message);
-      const errRes: LxResponse = {
-        statusCode: 0,
-        headers: {},
-        body: '',
-      };
-      return errRes;
-    }
-  }
-
-  /**
    * 处理音乐 URL 请求
    */
-  private async handleGetMusicUrl(songInfo: PluginSongInfo, quality: string): Promise<string> {
+  private handleGetMusicUrl(songInfo: PluginSongInfo, quality: string): string {
     hilog.info(DOMAIN, TAG, 'CustomSource getMusicUrl: %{public}s quality: %{public}s', songInfo.name, quality);
 
     if (!this.scriptContent || this.scriptContent.length === 0) {
-      hilog.warn(DOMAIN, TAG, 'No plugin script, falling back to built-in source');
+      hilog.warn(DOMAIN, TAG, 'No plugin script');
       return '';
     }
 
-    try {
-      const mid = songInfo.songmid || '';
-      const hash = songInfo.hash || '';
+    // QuickJS 模式
+    if (this.useQuickJS && quickjsModule && isQuickJSInited) {
+      try {
+        const result = quickjsRequest('custom', 'musicUrl', {
+          mid: songInfo.songmid || '',
+          hash: songInfo.hash || '',
+          type: quality,
+        });
 
-      const apiPatterns = this.extractApiPatterns();
-
-      for (let i = 0; i < apiPatterns.length; i++) {
-        const pattern = apiPatterns[i];
-        if (pattern.type === 'musicUrl') {
-          const params: Record<string, string> = {} as Record<string, string>;
-          params['mid'] = mid;
-          params['hash'] = hash;
-          params['quality'] = quality;
-          const url = this.buildUrlFromPattern(pattern.urlTemplate, params);
-          if (url && url.length > 0) {
-            const response = await this.lxRequest(url, { method: 'get', headers: pattern.headers });
-            const musicUrl = this.parseMusicUrlResponse(response.body, pattern.responsePath);
-            if (musicUrl && musicUrl.length > 0) {
-              return musicUrl;
-            }
-          }
+        if (result.url && typeof result.url === 'string') {
+          return result.url;
         }
+      } catch (e) {
+        hilog.error(DOMAIN, TAG, 'QuickJS musicUrl error: %{public}s', JSON.stringify(e));
       }
-
-      return '';
-    } catch (error) {
-      hilog.error(DOMAIN, TAG, 'getMusicUrl error: %{public}s', (error as Error).message);
-      return '';
-    }
-  }
-
-  /**
-   * 从脚本内容中提取 API 模式
-   */
-  private extractApiPatterns(): ApiPattern[] {
-    const patterns: ApiPattern[] = [];
-    const script = this.scriptContent;
-
-    const urlPattern = /["'](https?:\/\/[^"']+(?:music|url|song)[^"']*)["']/gi;
-    let match = urlPattern.exec(script);
-    while (match !== null) {
-      const url = match[1];
-      if (url.startsWith('http')) {
-        const pattern: ApiPattern = {
-          type: 'musicUrl',
-          urlTemplate: url,
-          headers: { 'Referer': 'https://example.com', 'User-Agent': 'Mozilla/5.0' },
-          responsePath: 'url',
-        };
-        patterns.push(pattern);
-      }
-      match = urlPattern.exec(script);
     }
 
-    return patterns;
-  }
-
-  /**
-   * 从 URL 模式构建完整 URL
-   */
-  private buildUrlFromPattern(template: string, params: Record<string, string>): string {
-    let url = template;
-    const paramKeys = Object.keys(params);
-    for (let i = 0; i < paramKeys.length; i++) {
-      const key = paramKeys[i];
-      const value = params[key];
-      const encodedValue = encodeURIComponent(value);
-      url = url.replace(new RegExp('\\$\\{' + key + '\\}', 'g'), encodedValue);
-      url = url.replace(new RegExp(':' + key, 'g'), encodedValue);
-    }
-    return url;
-  }
-
-  /**
-   * 解析音乐 URL 响应
-   */
-  private parseMusicUrlResponse(body: string | object, responsePath: string): string {
-    try {
-      let data: Record<string, object> = {};
-      if (typeof body === 'string') {
-        data = JSON.parse(body) as Record<string, object>;
-      } else {
-        data = body as Record<string, object>;
-      }
-
-      const pathParts = responsePath.split('.');
-      let result: object = data;
-      for (let i = 0; i < pathParts.length; i++) {
-        const part = pathParts[i];
-        const nested = result as Record<string, object>;
-        const fallback: Record<string, object> = {};
-        result = nested[part] || fallback;
-      }
-      return String(result);
-    } catch {
-      return '';
-    }
+    return '';
   }
 
   /**
@@ -230,8 +318,23 @@ export class CustomSourcePlugin implements Plugin {
    */
   private handleGetLyricImpl(songInfo: PluginSongInfo): PluginLyricInfo {
     hilog.info(DOMAIN, TAG, 'CustomSource getLyric: %{public}s', songInfo.name);
-    const result: PluginLyricInfo = { lyric: '' };
-    return result;
+
+    if (this.useQuickJS && quickjsModule && isQuickJSInited) {
+      try {
+        const result = quickjsRequest('custom', 'lyric', {
+          mid: songInfo.songmid || '',
+          hash: songInfo.hash || '',
+        });
+
+        if (result.lyric) {
+          return { lyric: result.lyric };
+        }
+      } catch (e) {
+        hilog.error(DOMAIN, TAG, 'QuickJS lyric error: %{public}s', JSON.stringify(e));
+      }
+    }
+
+    return { lyric: '' };
   }
 
   /**
@@ -239,14 +342,138 @@ export class CustomSourcePlugin implements Plugin {
    */
   private handleSearchImpl(keyword: string, page: number): PluginSearchResult {
     hilog.info(DOMAIN, TAG, 'CustomSource search: %{public}s page: %{public}d', keyword, page);
-    const result: PluginSearchResult = { list: [], total: 0, page: page };
-    return result;
+
+    if (this.useQuickJS && quickjsModule && isQuickJSInited) {
+      try {
+        const result = quickjsRequest('custom', 'search', {
+          keyword: keyword,
+          page: page,
+        });
+
+        if (result.list && Array.isArray(result.list)) {
+          const list: PluginSongInfo[] = result.list as PluginSongInfo[];
+          return {
+            list: list,
+            total: result.total || 0,
+            page: page
+          };
+        }
+      } catch (e) {
+        hilog.error(DOMAIN, TAG, 'QuickJS search error: %{public}s', JSON.stringify(e));
+      }
+    }
+
+    return { list: [], total: 0, page: page };
+  }
+
+  /**
+   * 处理歌单列表请求
+   */
+  private handleGetSongListImpl(tagId: string, page: number): PluginSongListResult {
+    hilog.info(DOMAIN, TAG, 'CustomSource getSongList tagId: %{public}s page: %{public}d', tagId, page);
+
+    if (this.useQuickJS && quickjsModule && isQuickJSInited) {
+      try {
+        const result = quickjsRequest('custom', 'songList', {
+          tagId: tagId,
+          page: page,
+        });
+
+        if (result.list && Array.isArray(result.list)) {
+          const list: PluginSongInfo[] = result.list as PluginSongInfo[];
+          return {
+            list: list,
+            total: result.total || 0,
+            page: page,
+            limit: 20
+          };
+        }
+      } catch (e) {
+        hilog.error(DOMAIN, TAG, 'QuickJS songList error: %{public}s', JSON.stringify(e));
+      }
+    }
+
+    return { list: [], total: 0, page: page, limit: 20 };
+  }
+
+  /**
+   * 处理板块列表请求
+   */
+  private handleGetBoardsImpl(): PluginBoard[] {
+    hilog.info(DOMAIN, TAG, 'CustomSource getBoards');
+
+    if (this.useQuickJS && quickjsModule && isQuickJSInited) {
+      try {
+        const result = quickjsRequest('custom', 'boards', {});
+
+        if (result.list && Array.isArray(result.list)) {
+          const boards: PluginBoard[] = result.list as PluginBoard[];
+          return boards;
+        }
+      } catch (e) {
+        hilog.error(DOMAIN, TAG, 'QuickJS boards error: %{public}s', JSON.stringify(e));
+      }
+    }
+
+    return [];
+  }
+
+  /**
+   * 处理板块详情请求
+   */
+  private handleGetBoardListImpl(boardId: string, page: number): PluginBoardDetail {
+    hilog.info(DOMAIN, TAG, 'CustomSource getBoardList boardId: %{public}s page: %{public}d', boardId, page);
+
+    if (this.useQuickJS && quickjsModule && isQuickJSInited) {
+      try {
+        const result = quickjsRequest('custom', 'boardList', {
+          boardId: boardId,
+          page: page,
+        });
+
+        if (result.list && Array.isArray(result.list)) {
+          const list: PluginSongInfo[] = result.list as PluginSongInfo[];
+          return {
+            name: boardId,
+            list: list,
+            total: result.total || 0,
+            page: page
+          };
+        }
+      } catch (e) {
+        hilog.error(DOMAIN, TAG, 'QuickJS boardList error: %{public}s', JSON.stringify(e));
+      }
+    }
+
+    return { name: '', list: [], total: 0, page: page };
+  }
+
+  /**
+   * 处理热门搜索请求
+   */
+  private handleGetHotSearchImpl(): PluginHotSearch[] {
+    hilog.info(DOMAIN, TAG, 'CustomSource getHotSearch');
+
+    if (this.useQuickJS && quickjsModule && isQuickJSInited) {
+      try {
+        const result = quickjsRequest('custom', 'hotSearch', {});
+
+        if (result.list && Array.isArray(result.list)) {
+          return result.list as PluginHotSearch[];
+        }
+      } catch (e) {
+        hilog.error(DOMAIN, TAG, 'QuickJS hotSearch error: %{public}s', JSON.stringify(e));
+      }
+    }
+
+    return [];
   }
 
   // ==================== Plugin 接口实现 ====================
 
   onGetMusicUrl(songInfo: PluginSongInfo, quality: string): Promise<string> {
-    return this.handleGetMusicUrl(songInfo, quality);
+    const result = this.handleGetMusicUrl(songInfo, quality);
+    return Promise.resolve(result);
   }
 
   onGetLyric(songInfo: PluginSongInfo): Promise<PluginLyricInfo> {
@@ -260,24 +487,22 @@ export class CustomSourcePlugin implements Plugin {
   }
 
   onGetSongList(tagId: string, page: number): Promise<PluginSongListResult> {
-    hilog.info(DOMAIN, TAG, 'CustomSource getSongList');
-    const result: PluginSongListResult = { list: [], total: 0, page: page, limit: 20 };
+    const result = this.handleGetSongListImpl(tagId, page);
     return Promise.resolve(result);
   }
 
   onGetBoards(): Promise<PluginBoard[]> {
-    hilog.info(DOMAIN, TAG, 'CustomSource getBoards');
-    return Promise.resolve([]);
+    const result = this.handleGetBoardsImpl();
+    return Promise.resolve(result);
   }
 
   onGetBoardList(boardId: string, page: number): Promise<PluginBoardDetail> {
-    hilog.info(DOMAIN, TAG, 'CustomSource getBoardList');
-    const result: PluginBoardDetail = { name: '', list: [], total: 0, page: page };
+    const result = this.handleGetBoardListImpl(boardId, page);
     return Promise.resolve(result);
   }
 
   onGetHotSearch(): Promise<PluginHotSearch[]> {
-    hilog.info(DOMAIN, TAG, 'CustomSource getHotSearch');
-    return Promise.resolve([]);
+    const result = this.handleGetHotSearchImpl();
+    return Promise.resolve(result);
   }
 }

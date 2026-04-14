@@ -4,6 +4,7 @@ import { musicSdk, searchMusic as sdkSearchMusic } from './MusicSdkAggregate';
 import type { MusicInfo, LyricInfo, Quality, MusicQualityType } from '../../types/MusicTypes';
 import { getStorageService } from '../interfaces/IStorageService';
 import { buildLyricInfo, getPlayQuality } from './MusicParsingUtils';
+import { pluginManager, PluginSongInfo as PluginSongInfoType } from '../plugin/PluginManager';
 import hilog from '@ohos.hilog';
 import fs from '@ohos.file.fs';
 
@@ -288,6 +289,27 @@ interface MusicUrlFromSourceResult {
  */
 async function getMusicUrlFromSource(musicInfo: MusicInfo, quality: Quality): Promise<MusicUrlFromSourceResult | null> {
   const source = musicInfo.source as string;
+
+  // 检查是否是自定义源
+  if (!['kw', 'kg', 'tx', 'wy', 'mg'].includes(source)) {
+    const activePlugin = pluginManager.getActivePlugin();
+    if (activePlugin && activePlugin.onGetMusicUrl) {
+      hilog.info(DOMAIN, TAG, 'Getting music URL via custom source plugin');
+      const pluginSongInfo: PluginSongInfoType = {
+        songmid: musicInfo.songmid || musicInfo.id || '',
+        name: musicInfo.name || '',
+        singer: musicInfo.singer || '',
+        source: source,
+        albumName: musicInfo.album || '',
+        duration: musicInfo.interval || '',
+      };
+      const url = await activePlugin.onGetMusicUrl(pluginSongInfo, quality);
+      if (url) {
+        return { url, type: quality };
+      }
+    }
+    return null;
+  }
 
   switch (source) {
     case 'kw':

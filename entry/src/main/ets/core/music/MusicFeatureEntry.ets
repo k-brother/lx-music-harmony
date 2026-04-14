@@ -13,6 +13,7 @@ import { musicSdk, SearchResult as SDKSearchResult, MusicUrlResult } from './Mus
 import { getMusicSourceFactory } from './MusicSourceRegistry';
 import { getMusicUrl as resolveGetMusicUrl, type GetMusicUrlParams as ResolveGetMusicUrlParams } from './ResolvePlayback';
 import type { MusicQualityType, MusicInfo, LyricInfo, Quality } from '../../types/MusicTypes';
+import { pluginManager, Plugin, PluginSongInfo } from '../plugin/PluginManager';
 import hilog from '@ohos.hilog';
 
 const TAG = 'MUSIC';
@@ -93,6 +94,31 @@ export async function getLyricInfo(params: GetLyricInfoParams): Promise<LyricInf
   const songmid = musicInfo.id;
 
   try {
+    // 检查是否是自定义源
+    if (!isBuiltinMusicSourceId(source)) {
+      const activePlugin = pluginManager.getActivePlugin();
+      if (activePlugin && activePlugin.onGetLyric) {
+        hilog.info(DOMAIN, TAG, 'Getting lyric via custom source plugin');
+        const pluginSongInfo: PluginSongInfo = {
+          songmid: musicInfo.id || '',
+          name: musicInfo.name || '',
+          singer: musicInfo.singer || '',
+          source: source,
+        };
+        const pluginResult = await activePlugin.onGetLyric(pluginSongInfo);
+        if (pluginResult && pluginResult.lyric) {
+          return {
+            lyric: pluginResult.lyric || '',
+            tlyric: null,
+            lxlyric: null,
+            rlyric: null,
+          };
+        }
+      }
+      return { lyric: '', tlyric: null, lxlyric: null, rlyric: null };
+    }
+
+    // 内置源歌词获取
     let result: LyricInfo | null = null;
     if (isBuiltinMusicSourceId(source)) {
       result = await getMusicSourceFactory().getSdk(source).getLyric(musicInfo);
@@ -161,6 +187,35 @@ export async function searchMusic(params: SearchMusicParams): Promise<SearchResu
   const keyword = singer ? `${name} ${singer}` : name;
 
   try {
+    // 检查是否是自定义源（如果 source 不是内置源且有激活的插件，则使用自定义源搜索）
+    if (!isBuiltinMusicSourceId(source)) {
+      const activePlugin = pluginManager.getActivePlugin();
+      if (activePlugin && activePlugin.onSearch) {
+        hilog.info(DOMAIN, TAG, 'Searching via custom source plugin');
+        const pluginResult = await activePlugin.onSearch(keyword, page);
+        if (pluginResult && pluginResult.list && pluginResult.list.length > 0) {
+          // 转换插件搜索结果到本地搜索结果
+          const convertedList: SearchResultItem[] = [];
+          for (const item of pluginResult.list) {
+            const pluginItem = item as PluginSongInfo;
+            convertedList.push({
+              id: pluginItem.songmid || '',
+              name: pluginItem.name || '',
+              singer: pluginItem.singer || '',
+              album: pluginItem.albumName || '',
+              source: 'custom',
+              duration: 0,
+              interval: pluginItem.duration || null,
+              pic: ''
+            });
+          }
+          return convertedList;
+        }
+      }
+      return [];
+    }
+
+    // 内置源搜索
     let result: SDKSearchResult | null = null;
     if (isBuiltinMusicSourceId(source)) {
       result = await getMusicSourceFactory().getSdk(source).musicSearch.search(keyword, page, limit);

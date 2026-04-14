@@ -199,7 +199,6 @@ class PluginManagerImpl {
         this.pluginMeta.version,
         this.pluginMeta.author,
         this.pluginMeta.homepage,
-        url,
         scriptContent
       );
 
