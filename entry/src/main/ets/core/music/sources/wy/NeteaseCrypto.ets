@@ -148,7 +148,8 @@ export async function neteaseWeapi(object: WeapiJsonObject): Promise<WeapiForm> 
   const secretKey = randomSecretKeyBase62_16();
   const second = await aes128CbcPkcs7Encrypt(utf8Encode(firstB64), secretKey, IV_STR);
   const params = bytesToBase64(second);
-  const encSecKey = rsaNoPaddingEncryptSecret(secretKey);
+  // NeteaseCloudMusicApi outputs lowercase hex for encSecKey.
+  const encSecKey = rsaNoPaddingEncryptSecret(secretKey).toLowerCase();
   return { params, encSecKey };
 }
 

@@ -278,6 +278,43 @@ class WyLeaderboardImpl implements LeaderboardInterface {
       hilog.error(0x0001, 'WYLeaderboard', 'Failed to get board list: %{public}s', errMsg);
     }
 
+    return this.getListByLegacyApi(bangid, page);
+  }
+
+  private async getListByLegacyApi(bangid: string, page: number): Promise<LeaderboardListResult> {
+    try {
+      const url = `https://music.163.com/api/v3/playlist/detail?id=${bangid}&n=1000`;
+      const headers: Map<string, string> = buildWyLeaderboardHeaders();
+      const response = await httpRequest(url, {
+        method: 'GET',
+        header: headers,
+        responseType: 'text',
+      }).promise;
+      const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
+      let body: WYBoardDetailResponse | null = null;
+      if (typeof resultData === 'string') {
+        body = parseWyLeaderboardJson<WYBoardDetailResponse>(resultData);
+      } else if (resultData !== null && typeof resultData === 'object' && !(resultData instanceof ArrayBuffer)) {
+        body = parseWyLeaderboardJson<WYBoardDetailResponse>(resultData as Object);
+      }
+      if (body && body.code === 200 && body.playlist) {
+        const tracks = body.playlist.tracks || [];
+        const musicList: MusicInfo[] = [];
+        for (const track of tracks) {
+          musicList.push(parseTrackItem(track));
+        }
+        return {
+          list: musicList,
+          total: musicList.length,
+          page: 1,
+          limit: musicList.length,
+          source: 'wy',
+        };
+      }
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      hilog.warn(0x0001, 'WYLeaderboard', 'Legacy board list fallback failed: %{public}s', errMsg);
+    }
     return buildEmptyLeaderboardListResult(page);
   }
 }

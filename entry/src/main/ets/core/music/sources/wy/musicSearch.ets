@@ -63,6 +63,7 @@ function parseWyJson<T>(raw: string | Object | ArrayBuffer): T | null {
 // 音乐搜索接口
 export interface MusicSearchInterface {
   search: (keyword: string, page: number, limit: number) => Promise<SearchResult>;
+  searchByLegacyApi?: (keyword: string, page: number, limit: number) => Promise<SearchResult>;
 }
 
 // 构建空搜索结果
@@ -149,6 +150,37 @@ export const musicSearch: MusicSearchInterface = {
         return buildEmptySearchResult();
       }
 
+      const rawData: WYMusicItem[] = body.result?.songs || [];
+      const list: MusicInfo[] = [];
+      for (const item of rawData) {
+        list.push(buildMusicInfo(item));
+      }
+      const total: number = body.result?.songCount || 0;
+      const allPage: number = Math.ceil(total / limit);
+      return {
+        list,
+        allPage,
+        total,
+        limit,
+        source: 'wy',
+      };
+    } catch {
+      return this.searchByLegacyApi(keyword, page, limit);
+    }
+  },
+
+  async searchByLegacyApi(keyword: string, page: number, limit: number): Promise<SearchResult> {
+    try {
+      const url = `https://music.163.com/api/search/pc?s=${encodeURIComponent(keyword)}&offset=${(page - 1) * limit}&limit=${limit}&type=1`;
+      const headers: Map<string, string> = new Map();
+      headers.set('Referer', 'https://music.163.com/');
+      headers.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36');
+      const response = await httpRequest(url, { header: headers, responseType: 'text' }).promise;
+      const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
+      const body = parseWyJson<WYSearchResponse>(resultData);
+      if (!body || body.code !== 200) {
+        return buildEmptySearchResult();
+      }
       const rawData: WYMusicItem[] = body.result?.songs || [];
       const list: MusicInfo[] = [];
       for (const item of rawData) {
