@@ -5,6 +5,7 @@
 import type { MusicInfo, Quality, QualityDetail, MusicQualityType } from '../../../../types/MusicTypes';
 import { httpRequest, type HttpRequestConfig } from '../../../../core/network/http';
 import { formatPlayTime } from '../../../../utils/CommonUtils';
+import { neteaseWeapi, buildWeapiFormBody, type WeapiJsonObject } from './NeteaseCrypto';
 import hilog from '@ohos.hilog';
 
 // 排行榜项
@@ -41,16 +42,6 @@ interface WYBoardCreator {
   nickname?: string;
 }
 
-interface WYBoardItem {
-  id: number;
-  name: string;
-  coverImgUrl?: string;
-  description?: string;
-  playCount?: number;
-  trackCount?: number;
-  creator?: WYBoardCreator;
-}
-
 // 网易云排行榜列表项
 interface WYBoardListDataItem {
   id: number;
@@ -63,6 +54,19 @@ interface WYBoardListResponse {
   code: number;
   list?: WYBoardListDataItem[];
 }
+
+const WY_TOP_LIST: LeaderboardItem[] = [
+  { id: 'wy__19723756', name: '飙升榜', bangid: '19723756' },
+  { id: 'wy__3779629', name: '新歌榜', bangid: '3779629' },
+  { id: 'wy__2884035', name: '原创榜', bangid: '2884035' },
+  { id: 'wy__3778678', name: '热歌榜', bangid: '3778678' },
+  { id: 'wy__991319590', name: '说唱榜', bangid: '991319590' },
+  { id: 'wy__71384707', name: '古典榜', bangid: '71384707' },
+  { id: 'wy__1978921795', name: '电音榜', bangid: '1978921795' },
+  { id: 'wy__745956260', name: '韩语榜', bangid: '745956260' },
+  { id: 'wy__10520166', name: '国电榜', bangid: '10520166' },
+  { id: 'wy__60198', name: '美国Billboard榜', bangid: '60198' },
+];
 
 // 网易云榜单详情响应
 interface WYBoardDetailPlaylist {
@@ -101,15 +105,6 @@ interface WYBoardArtist {
 interface WYBoardDetailResponse {
   code: number;
   playlist?: WYBoardDetailPlaylist;
-}
-
-// 构建空排行榜结果
-function buildEmptyLeaderboardResult(): LeaderboardResult {
-  const result: LeaderboardResult = {
-    list: [],
-    source: 'wy',
-  };
-  return result;
 }
 
 // 构建空排行榜列表结果
@@ -178,9 +173,12 @@ class WyLeaderboardImpl implements LeaderboardInterface {
     try {
       const url = 'https://music.163.com/weapi/toplist';
       const headers: Map<string, string> = buildWyLeaderboardHeaders();
+      headers.set('Content-Type', 'application/x-www-form-urlencoded');
       const boardsReq: HttpRequestConfig = {
-        method: 'GET',
+        method: 'POST',
         header: headers,
+        extraData: buildWeapiFormBody(await neteaseWeapi({})),
+        responseType: 'text',
       };
       const response = await httpRequest(url, boardsReq).promise;
 
@@ -220,7 +218,10 @@ class WyLeaderboardImpl implements LeaderboardInterface {
       hilog.error(0x0001, 'WYLeaderboard', 'Failed to get boards: %{public}s', errMsg);
     }
 
-    return buildEmptyLeaderboardResult();
+    return {
+      list: WY_TOP_LIST,
+      source: 'wy',
+    };
   }
 
   /**
@@ -228,11 +229,18 @@ class WyLeaderboardImpl implements LeaderboardInterface {
    */
   async getList(bangid: string, page: number = 1): Promise<LeaderboardListResult> {
     try {
-      const url = `https://music.163.com/weapi/v3/playlist/detail?id=${bangid}&n=1000`;
+      const url = 'https://music.163.com/weapi/v3/playlist/detail';
       const headers: Map<string, string> = buildWyLeaderboardHeaders();
+      headers.set('Content-Type', 'application/x-www-form-urlencoded');
+      const payload: WeapiJsonObject = {};
+      payload['id'] = bangid;
+      payload['n'] = 100000;
+      payload['s'] = 8;
       const listReq: HttpRequestConfig = {
-        method: 'GET',
+        method: 'POST',
         header: headers,
+        extraData: buildWeapiFormBody(await neteaseWeapi(payload)),
+        responseType: 'text',
       };
       const response = await httpRequest(url, listReq).promise;
 

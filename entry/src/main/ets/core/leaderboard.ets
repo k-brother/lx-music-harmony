@@ -10,6 +10,7 @@ import {
   type LeaderboardListResult,
 } from './music/MusicFeatureEntry';
 import type { MusicInfo } from '../types/MusicTypes';
+import { pluginManager } from './plugin/PluginManager';
 
 // 排行榜详情信息
 export interface ListDetailInfo {
@@ -65,6 +66,35 @@ function setBoard(board: Board, source: BoardSource): void {
 // 获取排行榜列表
 export async function getBoardsList(source: BoardSource): Promise<BoardItem[]> {
   try {
+    const activePlugin = pluginManager.getActivePlugin();
+    if (activePlugin && activePlugin.onGetBoards) {
+      try {
+        const pluginBoards = await activePlugin.onGetBoards();
+        if (pluginBoards && pluginBoards.length > 0) {
+          const boardItems: BoardItem[] = pluginBoards.map((item, idx): BoardItem => ({
+            id: `${source}__${item.id || String(idx + 1)}`,
+            name: item.name || '',
+            description: '',
+            pic: item.pic || '',
+            source: source as BoardSource,
+            playCount: item.playCount ?? null,
+          }));
+          const board: Board = {
+            id: source,
+            name: source,
+            description: null,
+            pic: null,
+            playCount: null,
+            list: boardItems,
+          };
+          setBoard(board, source);
+          return boardItems;
+        }
+      } catch {
+        // fallback to builtin source
+      }
+    }
+
     let result: LeaderboardResult | null = null;
     switch (source) {
       case 'kw':
@@ -137,6 +167,36 @@ export async function getListDetail(
 
   // 调用对应音乐源的API
   try {
+    const activePlugin = pluginManager.getActivePlugin();
+    if (source !== 'local' && activePlugin && activePlugin.onGetBoardList) {
+      try {
+        const pluginResult = await activePlugin.onGetBoardList(bangId, page);
+        if (pluginResult && pluginResult.list && pluginResult.list.length > 0) {
+          const musicItems: BoardMusicItem[] = pluginResult.list.map((item): BoardMusicItem => ({
+            id: item.songmid || '',
+            name: item.name || '',
+            singer: item.singer || '',
+            album: item.albumName || '',
+            duration: 0,
+            pic: '',
+            source: (item.source || source) as BoardSource,
+          }));
+          const detailInfo: ListDetailInfo = {
+            id,
+            name: pluginResult.name || bangId,
+            list: musicItems,
+            total: pluginResult.total || musicItems.length,
+            page: pluginResult.page || page,
+            limit: LIST_LOAD_LIMIT,
+          };
+          setListDetail(detailInfo, id, page);
+          return detailInfo;
+        }
+      } catch {
+        // fallback to builtin source
+      }
+    }
+
     let result: LeaderboardListResult | null = null;
     switch (source) {
       case 'kw':
@@ -217,6 +277,27 @@ export async function getListDetailAll(
 
   while (hasMore) {
     try {
+      const activePlugin = pluginManager.getActivePlugin();
+      if (source !== 'local' && activePlugin && activePlugin.onGetBoardList) {
+        const pluginResult = await activePlugin.onGetBoardList(bangId, currentPage);
+        if (pluginResult && pluginResult.list && pluginResult.list.length > 0) {
+          const musicItems: BoardMusicItem[] = pluginResult.list.map((item): BoardMusicItem => ({
+            id: item.songmid || '',
+            name: item.name || '',
+            singer: item.singer || '',
+            album: item.albumName || '',
+            duration: 0,
+            pic: '',
+            source: (item.source || source) as BoardSource,
+          }));
+          allMusicList.push(...musicItems);
+          const total = pluginResult.total || allMusicList.length;
+          hasMore = allMusicList.length < total && musicItems.length >= LIST_LOAD_LIMIT;
+          currentPage++;
+          continue;
+        }
+      }
+
       let result: LeaderboardListResult | null = null;
       switch (source) {
         case 'kw':

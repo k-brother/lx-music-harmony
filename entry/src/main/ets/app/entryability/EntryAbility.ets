@@ -12,6 +12,7 @@ import { initAllServices } from '../../service/index';
 import { storageService } from '../../service/StorageService';
 import { initWindowService } from '../../service/WindowService';
 import { runBootstrapAfterServices } from '../bootstrap/AppBootstrap';
+import { setQuickJSContext } from '../../core/napi/napi_quickjs';
 
 const TAG = 'EntryAbility';
 const DOMAIN = 0x0001;
@@ -168,6 +169,7 @@ export default class EntryAbility extends UIAbility {
     try {
       // 设置存储服务上下文
       storageService.setContext(this.context);
+      setQuickJSContext(this.context);
 
       // 初始化所有服务（存储、主题、列表、播放器）
       await initAllServices();

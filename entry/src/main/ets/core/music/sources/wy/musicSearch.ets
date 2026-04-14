@@ -4,6 +4,7 @@
 import { httpRequest } from '../../../../core/network/http';
 import { decodeName } from '../../../../utils/CommonUtils';
 import type { MusicInfo, SearchResult, Quality, QualityDetail, MusicQualityType } from '../../../../types/MusicTypes';
+import { neteaseWeapi, buildWeapiFormBody, type WeapiJsonObject } from './NeteaseCrypto';
 
 const LIMIT = 30;
 
@@ -39,6 +40,24 @@ interface WYSearchResultData {
 interface WYSearchResponse {
   code: number;
   result?: WYSearchResultData;
+}
+
+function parseWyJson<T>(raw: string | Object | ArrayBuffer): T | null {
+  if (typeof raw === 'string') {
+    const text = raw.trim();
+    if (text.length === 0) {
+      return null;
+    }
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof raw === 'object' && raw !== null) {
+    return raw as T;
+  }
+  return null;
 }
 
 // 音乐搜索接口
@@ -101,22 +120,31 @@ export const musicSearch: MusicSearchInterface = {
   /**
    * 搜索歌曲
    */
-  search(keyword: string, page: number = 1, limit: number = LIMIT): Promise<SearchResult> {
-    const url: string = `http://music.163.com/api/search/pc?s=${encodeURIComponent(keyword)}&offset=${(page - 1) * limit}&limit=${limit}&type=1`;
+  async search(keyword: string, page: number = 1, limit: number = LIMIT): Promise<SearchResult> {
+    try {
+      const url = 'https://music.163.com/weapi/cloudsearch/get/web';
+      const payload: WeapiJsonObject = {};
+      payload['s'] = keyword;
+      payload['type'] = 1;
+      payload['limit'] = limit;
+      payload['total'] = page === 1;
+      payload['offset'] = limit * (page - 1);
+      const form = await neteaseWeapi(payload);
+      const bodyText = buildWeapiFormBody(form);
+      const headers: Map<string, string> = new Map();
+      headers.set('Content-Type', 'application/x-www-form-urlencoded');
+      headers.set('Referer', 'https://music.163.com/');
+      headers.set('Origin', 'https://music.163.com');
+      headers.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36');
 
-    const headers: Map<string, string> = new Map();
-    headers.set('Referer', 'https://music.163.com/');
-    headers.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36');
-
-    return httpRequest(url, { header: headers }).promise.then((response) => {
-      const resultData: string | ArrayBuffer = response.result as string | ArrayBuffer;
-      let body: WYSearchResponse;
-      if (typeof resultData === 'string') {
-        body = JSON.parse(resultData) as WYSearchResponse;
-      } else {
-        body = {} as WYSearchResponse;
-      }
-
+      const response = await httpRequest(url, {
+        method: 'POST',
+        header: headers,
+        extraData: bodyText,
+        responseType: 'text',
+      }).promise;
+      const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
+      const body = parseWyJson<WYSearchResponse>(resultData);
       if (!body || body.code !== 200) {
         return buildEmptySearchResult();
       }
@@ -128,16 +156,16 @@ export const musicSearch: MusicSearchInterface = {
       }
       const total: number = body.result?.songCount || 0;
       const allPage: number = Math.ceil(total / limit);
-
-      const result: SearchResult = {
+      return {
         list,
         allPage,
         total,
         limit,
         source: 'wy',
       };
-      return result;
-    }).catch(() => buildEmptySearchResult());
+    } catch {
+      return buildEmptySearchResult();
+    }
   },
 };
 

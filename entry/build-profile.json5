@@ -1,9 +1,14 @@
 {
   "apiType": "stageMode",
   "buildOption": {
+    "externalNativeOptions": {
+      "path": "./src/main/cpp/CMakeLists.txt",
+      "arguments": "",
+      "cppFlags": ""
+    },
     "resOptions": {
       "copyCodeResource": {
-        "enable": false
+        "enable": true
       }
     }
   },
@@ -20,7 +25,7 @@
           }
         }
       }
-    },
+    }
   ],
   "targets": [
     {

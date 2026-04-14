@@ -14,6 +14,7 @@ import {
   MusicSource,
 } from '../music/MusicFeatureEntry';
 import { getStorageService } from '../interfaces/IStorageService';
+import { pluginManager } from '../plugin/PluginManager';
 import hilog from '@ohos.hilog';
 
 const TAG = 'SEARCH';
@@ -146,6 +147,20 @@ interface SetListInfoResult {
   total: number;
 }
 
+function isBuiltinSource(source: string): boolean {
+  return source === 'kw' || source === 'kg' || source === 'tx' || source === 'wy' || source === 'mg';
+}
+
+function getDefaultHotSearch(source: string): HotSearchItem[] {
+  return [
+    { index: 1, title: '周杰伦', source: source as MusicSource, url: null, hot: 1000000 },
+    { index: 2, title: '林俊杰', source: source as MusicSource, url: null, hot: 800000 },
+    { index: 3, title: '邓紫棋', source: source as MusicSource, url: null, hot: 700000 },
+    { index: 4, title: '薛之谦', source: source as MusicSource, url: null, hot: 600000 },
+    { index: 5, title: '陈奕迅', source: source as MusicSource, url: null, hot: 500000 },
+  ];
+}
+
 // 转换 MusicInfoItem 到 MusicSearchResult
 function convertToMusicSearchResult(items: MusicInfoItem[]): MusicSearchResult[] {
   const results: MusicSearchResult[] = [];
@@ -227,6 +242,43 @@ export async function searchMusic(text: string, page: number, sourceId: Source):
     listInfo.key = key;
 
     try {
+      const activePlugin = pluginManager.getActivePlugin();
+      if (activePlugin && activePlugin.onSearch) {
+        try {
+          const pluginResult = await activePlugin.onSearch(text, page);
+          if (pluginResult && pluginResult.list && pluginResult.list.length > 0) {
+            const pluginMapped: MusicInfoItem[] = [];
+            for (const item of pluginResult.list) {
+              if (item.source && item.source.length > 0 && item.source !== sourceId) {
+                continue;
+              }
+              pluginMapped.push({
+                id: item.songmid || '',
+                name: item.name || '',
+                singer: item.singer || '',
+                album: item.albumName || '',
+                albumId: item.albumId || null,
+                duration: 0,
+                source: item.source || sourceId,
+                pic: '',
+                lrc: null,
+                interval: item.duration || null,
+              });
+            }
+            if (pluginMapped.length > 0) {
+              musicSearchAction.setListInfo({
+                list: pluginMapped,
+                source: sourceId,
+                total: pluginMapped.length,
+              }, page, text);
+              return convertToMusicSearchResult(pluginMapped);
+            }
+          }
+        } catch (err) {
+          hilog.warn(DOMAIN, TAG, 'Plugin search failed, fallback to builtin source: %{public}s', (err as Error).message);
+        }
+      }
+
       // 调用音乐源API进行搜索
       const result: SearchResultItem[] = await searchMusicApi({
         name: text,
@@ -287,6 +339,29 @@ export async function searchSonglist(text: string, page: number, sourceId: Sourc
 // 获取热门搜索
 export async function getHotSearch(source: string = 'kw'): Promise<HotSearchItem[]> {
   try {
+    const plugin = pluginManager.getActivePlugin();
+    if (plugin && plugin.onGetHotSearch) {
+      try {
+        const pluginHotSearch = await plugin.onGetHotSearch();
+        if (pluginHotSearch && pluginHotSearch.length > 0) {
+          return pluginHotSearch.map((item, idx): HotSearchItem => ({
+            index: item.index > 0 ? item.index : idx + 1,
+            title: item.title || '',
+            source: source as MusicSource,
+            url: item.url || null,
+            hot: null,
+          }));
+        }
+      } catch (err) {
+        hilog.warn(DOMAIN, TAG, 'Plugin hot search failed, fallback to builtin source: %{public}s', (err as Error).message);
+      }
+    }
+
+    if (!isBuiltinSource(source)) {
+      hilog.warn(DOMAIN, TAG, 'Source %{public}s is not builtin and plugin has no hot search, using default list', source);
+      return getDefaultHotSearch(source);
+    }
+
     let hotResult: SdkHotSearchResult | null = null;
     switch (source) {
       case 'kw':
@@ -316,10 +391,11 @@ export async function getHotSearch(source: string = 'kw'): Promise<HotSearchItem
         hot: item.hot,
       }));
     }
-    return [];
+    hilog.warn(DOMAIN, TAG, 'Hot search empty for %{public}s, using default list', source);
+    return getDefaultHotSearch(source);
   } catch (err) {
     hilog.warn(DOMAIN, TAG, 'getHotSearch failed for %{public}s: %{public}s', source, (err as Error).message);
-    return [];
+    return getDefaultHotSearch(source);
   }
 }
 

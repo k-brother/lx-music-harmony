@@ -3,6 +3,19 @@
 // User API Preload Script for HarmonyOS
 // This script is loaded into QuickJS before user plugin scripts
 
+// Some third-party scripts assume a browser/node-like console exists.
+if (!globalThis.console) {
+  globalThis.console = {
+    log: function() {},
+    info: function() {},
+    warn: function() {},
+    error: function() {},
+    debug: function() {},
+    group: function() {},
+    groupEnd: function() {},
+  };
+}
+
 globalThis.lx_setup = function(key, id, name, description, version, author, homepage, rawScript) {
   // Remove the setup function to prevent re-setup
   delete globalThis.lx_setup;
@@ -605,29 +618,38 @@ globalThis.lx_setup = function(key, id, name, description, version, author, home
       : 'function ' + (this.name || '') + '() { [native code] }';
   };
 
-  // Block eval
+  // Block eval (keep compatibility if host disallows redefining)
   // eslint-disable-next-line no-extend-native
-  globalThis.eval = function() {
-    throw new Error('eval is not available');
-  };
+  try {
+    globalThis.eval = function() {
+      throw new Error('eval is not available');
+    };
+  } catch (e) {}
 
-  // Block Function constructor
-  var proxyFunctionConstructor = new Proxy(Function.prototype.constructor, {
-    apply: function() {
-      throw new Error('Dynamic code execution is not allowed.');
-    },
-    construct: function() {
-      throw new Error('Dynamic code execution is not allowed.');
-    },
-  });
-  // eslint-disable-next-line no-extend-native
-  Object.defineProperty(Function.prototype, 'constructor', {
-    value: proxyFunctionConstructor,
-    writable: false,
-    configurable: false,
-    enumerable: false,
-  });
-  globalThis.Function = proxyFunctionConstructor;
+  // Block Function constructor (best-effort, avoid hard failure)
+  try {
+    var ctorDesc = Object.getOwnPropertyDescriptor(Function.prototype, 'constructor');
+    if (!ctorDesc || ctorDesc.configurable) {
+      var proxyFunctionConstructor = new Proxy(Function.prototype.constructor, {
+        apply: function() {
+          throw new Error('Dynamic code execution is not allowed.');
+        },
+        construct: function() {
+          throw new Error('Dynamic code execution is not allowed.');
+        },
+      });
+      // eslint-disable-next-line no-extend-native
+      Object.defineProperty(Function.prototype, 'constructor', {
+        value: proxyFunctionConstructor,
+        writable: false,
+        configurable: false,
+        enumerable: false,
+      });
+      globalThis.Function = proxyFunctionConstructor;
+    } else {
+      globalThis.Function = Function.prototype.constructor;
+    }
+  } catch (e) {}
 
   console.log('Preload finished.');
 };

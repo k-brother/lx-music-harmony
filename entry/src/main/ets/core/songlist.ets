@@ -9,6 +9,7 @@ import {
   type SongListDetailResult,
   type SongListDetailInfo as SdkDetailInfo,
 } from './music/MusicFeatureEntry';
+import { pluginManager } from './plugin/PluginManager';
 
 // 歌曲信息接口
 export interface SongInfoItem {
@@ -252,6 +253,40 @@ export async function getListDetail(
   }
 
   try {
+    const activePlugin = pluginManager.getActivePlugin();
+    if (source !== 'local' && activePlugin && activePlugin.onGetSongList) {
+      try {
+        const pluginResult = await activePlugin.onGetSongList(id, page);
+        if (pluginResult && pluginResult.list && pluginResult.list.length > 0) {
+          const pluginSongItems: SongInfoItem[] = pluginResult.list.map((item): SongInfoItem => ({
+            id: item.songmid || '',
+            name: item.name || '',
+            singer: item.singer || '',
+            album: item.albumName || '',
+            pic: '',
+            duration: 0,
+            source: item.source || source,
+          }));
+          const pluginDetail: ListDetailInfo = {
+            id: id,
+            name: '',
+            desc: '',
+            pic: '',
+            author: '',
+            playCount: 0,
+            total: pluginResult.total || pluginSongItems.length,
+            page: pluginResult.page || page,
+            limit: pluginResult.limit || 30,
+            list: pluginSongItems,
+          };
+          cache.set(pageKey, { type: 'detail', data: pluginDetail });
+          return pluginDetail;
+        }
+      } catch {
+        // fallback to builtin source
+      }
+    }
+
     let result: SongListDetailResult | null = null;
     switch (source) {
       case 'kw':

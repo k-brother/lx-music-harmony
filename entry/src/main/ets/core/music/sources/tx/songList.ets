@@ -196,6 +196,24 @@ interface TxDetailBody {
   cdlist?: TxCdInfo[];
 }
 
+function parseTxHttpJson<T>(raw: string | Object): T | null {
+  if (typeof raw === 'string') {
+    const text = raw.trim();
+    if (text.length === 0) {
+      return null;
+    }
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof raw === 'object' && raw !== null) {
+    return raw as T;
+  }
+  return null;
+}
+
 interface TxTagGroupOut {
   name: string;
   list: SongListTag[];
@@ -411,9 +429,9 @@ class TxSongListImpl implements TxSongListModule {
     const p2 = httpRequest(HOT_TAG_URL, tagReq).promise;
     return Promise.all([p1, p2]).then((responses) => {
       const emptyTags: SongListTagsResult = { tags: [], hotTag: [], source: 'tx' };
-      const tagsBody = JSON.parse(responses[0].result as string) as TxTagsBody;
+      const tagsBody = parseTxHttpJson<TxTagsBody>(responses[0].result as string | Object);
       const hotHtml = responses[1].result as string;
-      if (tagsBody.code !== SUCCESS_CODE || !tagsBody.tags?.data?.v_group) {
+      if (!tagsBody || tagsBody.code !== SUCCESS_CODE || !tagsBody.tags?.data?.v_group) {
         return emptyTags;
       }
       const groups = filterTagInfo(tagsBody.tags.data.v_group);
@@ -437,8 +455,8 @@ class TxSongListImpl implements TxSongListModule {
     const listReq: HttpRequestConfig = { header: headers };
     return httpRequest(url, listReq).promise.then((response) => {
       const emptyList: SongListResult = { list: [], total: 0, page, limit: LIMIT_LIST, source: 'tx' };
-      const body = JSON.parse(response.result as string) as TxListBody;
-      if (body.code !== SUCCESS_CODE || !body.playlist?.data) {
+      const body = parseTxHttpJson<TxListBody>(response.result as string | Object);
+      if (!body || body.code !== SUCCESS_CODE || !body.playlist?.data) {
         return emptyList;
       }
       const data = body.playlist.data;
@@ -466,8 +484,8 @@ class TxSongListImpl implements TxSongListModule {
           page: 1,
           limit: 0,
         };
-        const body = JSON.parse(response.result as string) as TxDetailBody;
-        if (body.code !== SUCCESS_CODE || !body.cdlist || body.cdlist.length === 0) {
+        const body = parseTxHttpJson<TxDetailBody>(response.result as string | Object);
+        if (!body || body.code !== SUCCESS_CODE || !body.cdlist || body.cdlist.length === 0) {
           return emptyDetail;
         }
         const cd = body.cdlist[0];

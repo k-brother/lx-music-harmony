@@ -14,6 +14,24 @@ interface WYUrlResponse {
   data: WYUrlData[];
 }
 
+function parseWyJson<T>(raw: string | Object | ArrayBuffer): T | null {
+  if (typeof raw === 'string') {
+    const text = raw.trim();
+    if (text.length === 0) {
+      return null;
+    }
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof raw === 'object' && raw !== null) {
+    return raw as T;
+  }
+  return null;
+}
+
 export function getWyMusicUrl(songInfo: MusicInfo, quality: string): Promise<MusicUrlResult> {
   const songmid: string = songInfo.songmid || '';
   if (!songmid) {
@@ -35,9 +53,9 @@ export function getWyMusicUrl(songInfo: MusicInfo, quality: string): Promise<Mus
   headers.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36');
 
   return httpRequest(url, { header: headers }).promise.then((response) => {
-    const resultData = response.data as string | ArrayBuffer;
-    if (typeof resultData === 'string') {
-      const body = JSON.parse(resultData) as WYUrlResponse;
+    const resultData = response.data as string | Object | ArrayBuffer;
+    const body = parseWyJson<WYUrlResponse>(resultData);
+    if (body) {
       if (body.data && body.data[0] && body.data[0].url) {
         const playUrl: string = body.data[0].url;
         const result: MusicUrlResult = { url: playUrl, type: quality };

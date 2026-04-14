@@ -6,9 +6,6 @@ set(SYSROOT "${CMAKE_SYSROOT}")
 set(TARGET_LIB_DIR "${SYSROOT}/usr/lib/aarch64-linux-ohos")
 set(TARGET_INCLUDE_DIR "${SYSROOT}/usr/include")
 
-# Output directory - use arm64-v8a for aarch64
-set(NATIVE_LIBS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../native/libs/arm64-v8a")
-
 # QuickJS source files - compile as C
 set(QUICKJS_C_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/quickjs_src/quickjs.c
@@ -45,9 +42,10 @@ target_include_directories(quickjs_napi PRIVATE
 )
 
 set_target_properties(quickjs_napi PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${NATIVE_LIBS_DIR}"
-    RUNTIME_OUTPUT_DIRECTORY "${NATIVE_LIBS_DIR}"
-    OUTPUT_NAME "libquickjs_napi"
+    OUTPUT_NAME "quickjs_napi"
+    C_VISIBILITY_PRESET default
+    CXX_VISIBILITY_PRESET default
+    VISIBILITY_INLINES_HIDDEN OFF
 )
 
 # ==================== QuickJS Loader Module ====================
@@ -69,7 +67,8 @@ target_include_directories(quickjs_loader PRIVATE
 )
 
 set_target_properties(quickjs_loader PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${NATIVE_LIBS_DIR}"
-    RUNTIME_OUTPUT_DIRECTORY "${NATIVE_LIBS_DIR}"
-    OUTPUT_NAME "libquickjs_loader"
+    OUTPUT_NAME "quickjs_loader"
+    C_VISIBILITY_PRESET default
+    CXX_VISIBILITY_PRESET default
+    VISIBILITY_INLINES_HIDDEN OFF
 )

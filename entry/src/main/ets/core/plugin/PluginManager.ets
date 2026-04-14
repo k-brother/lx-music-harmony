@@ -174,6 +174,8 @@ class PluginManagerImpl {
     this.pluginLoading = true;
     this.pluginError = null;
     this.apiSourceUrl = url;
+    const previousActivePluginId = this.activePluginId;
+    let createdPluginId: string | null = null;
 
     try {
       // 下载JS脚本
@@ -192,6 +194,7 @@ class PluginManagerImpl {
 
       // 创建自定义源插件
       const pluginId = 'custom_' + Date.now();
+      createdPluginId = pluginId;
       const customPlugin: Plugin = new CustomSourcePlugin(
         pluginId,
         this.pluginMeta.name,
@@ -202,12 +205,15 @@ class PluginManagerImpl {
         scriptContent
       );
 
+      // 初始化
+      const inited = await customPlugin.onInit();
+      if (!inited) {
+        throw new Error('Custom source init failed');
+      }
+
       // 注册并激活
       this.register(customPlugin);
       this.setActivePlugin(pluginId);
-
-      // 初始化
-      await customPlugin.onInit();
 
       // 保存URL
       await this.saveCustomSourceUrl(url);
@@ -220,8 +226,18 @@ class PluginManagerImpl {
     } catch (error) {
       const errMsg = (error as Error).message;
       hilog.error(DOMAIN, TAG, 'Failed to load custom source: %{public}s', errMsg);
+      // 仅清理本次新建但失败的插件，避免误删之前可用插件
+      if (createdPluginId && this.plugins.has(createdPluginId)) {
+        this.unregister(createdPluginId);
+      }
+      if (previousActivePluginId && this.plugins.has(previousActivePluginId)) {
+        this.activePluginId = previousActivePluginId;
+      } else if (this.activePluginId === createdPluginId) {
+        this.activePluginId = null;
+      }
       this.pluginError = errMsg;
       this.pluginLoading = false;
+      this.pluginLoaded = false;
       return false;
     }
   }

@@ -14,6 +14,24 @@ interface WYLyricResponse {
   tlyric?: WYLyricInfo | null;
 }
 
+function parseWyJson<T>(raw: string | Object | ArrayBuffer): T | null {
+  if (typeof raw === 'string') {
+    const text = raw.trim();
+    if (text.length === 0) {
+      return null;
+    }
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof raw === 'object' && raw !== null) {
+    return raw as T;
+  }
+  return null;
+}
+
 // 空歌词
 const EMPTY_LYRIC: LyricInfo = {
   lyric: '',
@@ -46,15 +64,10 @@ export const lyric: LyricInterface = {
     headers.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36');
 
     return httpRequest(url, { header: headers }).promise.then((response) => {
-      const resultData: string | ArrayBuffer = response.result as string | ArrayBuffer;
-      let body: WYLyricResponse;
-      if (typeof resultData === 'string') {
-        body = JSON.parse(resultData) as WYLyricResponse;
-      } else {
-        body = {} as WYLyricResponse;
-      }
+      const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
+      const body = parseWyJson<WYLyricResponse>(resultData);
 
-      if (body.lrc && body.lrc.lyric) {
+      if (body && body.lrc && body.lrc.lyric) {
         const lyricInfo: LyricInfo = {
           lyric: body.lrc.lyric || '',
           tlyric: body.tlyric && body.tlyric.lyric ? body.tlyric.lyric : null,

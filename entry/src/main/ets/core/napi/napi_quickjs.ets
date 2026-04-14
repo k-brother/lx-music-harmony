@@ -6,7 +6,10 @@
  */
 
 import hilog from '@ohos.hilog';
-import { resourceManager } from '@kit.ArkData';
+import quickjsLoaderSo from 'libquickjs_loader.so';
+import quickjsNapiSo from 'libquickjs_napi.so';
+import { utf8Decode } from '../../utils/TextCodec';
+import type { common } from '@kit.AbilityKit';
 
 // QuickJS NAPI native module interface
 // These methods are implemented in C++ and exposed via NAPI
@@ -32,6 +35,29 @@ interface QuickJSNAPI {
   destroy(): void;
 }
 
+interface QuickJSLoaderNAPI {
+  loadQuickJS(path: string): boolean;
+  loadScript(script: string): string;
+  callJS(action: string, data: string): string;
+  unload(): void;
+}
+
+function formatErrorMessage(err: Object): string {
+  const e = err as Error;
+  if (e && e.message && e.message.length > 0) {
+    return e.message;
+  }
+  const text = String(err);
+  if (text && text !== '[object Object]') {
+    return text;
+  }
+  const json = JSON.stringify(err);
+  if (json && json !== '{}') {
+    return json;
+  }
+  return 'unknown error object';
+}
+
 // Module tag for logging
 const MODULE_TAG = 'QuickJSNAPI';
 const DOMAIN = 0xFF01;
@@ -42,10 +68,21 @@ let isInitialized = false;
 
 // Loaded script content for re-initialization
 let loadedPreloadScript: string = '';
-let loadedPluginScript: string = '';
+let abilityContext: common.UIAbilityContext | null = null;
 
-// Native library handle
-let nativeLibHandle: number = -1;
+export function setQuickJSContext(context: common.UIAbilityContext): void {
+  abilityContext = context;
+}
+
+function getQuickJSContext(): common.UIAbilityContext {
+  if (abilityContext) {
+    return abilityContext;
+  }
+  throw new Error('QuickJS context not set');
+}
+
+// Loader module reference for calling NAPI functions
+let loaderModule: QuickJSNAPI | null = null;
 
 // Native function type definitions
 type LoadScriptFn = (script: string) => string;
@@ -57,38 +94,89 @@ let loadScriptFn: LoadScriptFn | null = null;
 let callJSFn: CallJSFn | null = null;
 let destroyFn: DestroyFn | null = null;
 
+class QuickJSFunctionAdapter implements QuickJSNAPI {
+  loadScript(script: string): string {
+    hilog.info(DOMAIN, MODULE_TAG, 'QuickJS loadScript called, length: %{public}d', script.length);
+    if (loadScriptFn) {
+      return loadScriptFn(script);
+    }
+    return '';
+  }
+
+  callJS(action: string, data: string): string {
+    hilog.info(DOMAIN, MODULE_TAG, 'QuickJS callJS called: %{public}s', action);
+    if (callJSFn) {
+      return callJSFn(action, data);
+    }
+    return '{"error":"stub"}';
+  }
+
+  destroy(): void {
+    hilog.info(DOMAIN, MODULE_TAG, 'QuickJS destroy called');
+    if (destroyFn) {
+      destroyFn();
+    }
+  }
+}
+
 /**
  * Load the native library and get the QuickJS NAPI interface
  */
 function loadNativeModule(): boolean {
-  try {
-    hilog.info(DOMAIN, MODULE_TAG, 'Loading QuickJS native module');
+  hilog.info(DOMAIN, MODULE_TAG, 'Loading QuickJS native module');
 
-    // In HarmonyOS, native modules in rawfile need to be loaded via dlopen
-    // The path to rawfile can be obtained from resourceManager
-    const context = getContext();
-    const rawfileMgr = context.resourceManager;
-
-    // Get the native library path from rawfile
-    // Native .so files in rawfile can be accessed via file descriptor
-    const rawfileDir = '/data/storage/el2/base/files/rawfile';
-
-    // Try to load the native library
-    // Note: HarmonyOS NDK provides dlopen/dlsym for native plugin loading
-    const libPath = rawfileDir + '/liblibquickjs_napi.so';
-
-    hilog.info(DOMAIN, MODULE_TAG, 'Attempting to load native library from: %{public}s', libPath);
-
-    // Use native API to load the library
-    // This is a simplified approach - in production, proper error handling and
-    // verification of the library path would be needed
-
-    hilog.info(DOMAIN, MODULE_TAG, 'QuickJS native module loaded successfully');
+  // 1) 优先使用外部注入的 loader
+  if (loaderModule !== null) {
+    hilog.info(DOMAIN, MODULE_TAG, 'Using injected loaderModule');
+    loadScriptFn = loaderModule.loadScript;
+    callJSFn = loaderModule.callJS;
+    destroyFn = loaderModule.destroy;
     return true;
-  } catch (e) {
-    hilog.error(DOMAIN, MODULE_TAG, 'Failed to load native module: %{public}s', JSON.stringify(e));
-    return false;
   }
+
+  // 2) 直接使用静态导入的 quickjs_napi.so
+  const directNapi = quickjsNapiSo as QuickJSNAPI;
+  if (directNapi &&
+      typeof directNapi.loadScript === 'function' &&
+      typeof directNapi.callJS === 'function' &&
+      typeof directNapi.destroy === 'function') {
+    hilog.info(DOMAIN, MODULE_TAG, 'Using direct quickjs_napi.so module');
+    loadScriptFn = (script: string): string => directNapi.loadScript(script);
+    callJSFn = (action: string, data: string): string => directNapi.callJS(action, data);
+    destroyFn = (): void => directNapi.destroy();
+    return true;
+  }
+
+  // 3) 通过 quickjs_loader.so 按路径加载 quickjs_napi.so
+  const loaderSo = quickjsLoaderSo as QuickJSLoaderNAPI;
+  if (loaderSo && typeof loaderSo.loadQuickJS === 'function') {
+    const context = getQuickJSContext();
+    const bundleCodeDir = context.bundleCodeDir;
+    const candidates: string[] = [
+      `${bundleCodeDir}/libs/arm64-v8a/libquickjs_napi.so`,
+      `${bundleCodeDir}/libs/libquickjs_napi.so`,
+      `${bundleCodeDir}/libs/arm64-v8a/liblibquickjs_napi.so`,
+      `${bundleCodeDir}/libs/liblibquickjs_napi.so`,
+    ];
+    for (let i = 0; i < candidates.length; i++) {
+      const path = candidates[i];
+      try {
+        hilog.info(DOMAIN, MODULE_TAG, 'Loader trying path: %{public}s', path);
+        if (loaderSo.loadQuickJS(path)) {
+          hilog.info(DOMAIN, MODULE_TAG, 'Loader loaded quickjs_napi.so successfully');
+          loadScriptFn = (script: string): string => loaderSo.loadScript(script);
+          callJSFn = (action: string, data: string): string => loaderSo.callJS(action, data);
+          destroyFn = (): void => loaderSo.unload();
+          return true;
+        }
+      } catch (e) {
+        hilog.warn(DOMAIN, MODULE_TAG, 'Loader path failed: %{public}s', formatErrorMessage(e as Object));
+      }
+    }
+  }
+
+  hilog.warn(DOMAIN, MODULE_TAG, 'Native QuickJS module not available');
+  return false;
 }
 
 /**
@@ -109,33 +197,13 @@ export function initQuickJS(): boolean {
   }
 
   try {
-    // For native modules accessed via dlopen, we need to use function pointers
-    // obtained from dlsym. However, in this simplified implementation,
-    // we set up a stub that will be replaced by the actual native call mechanism.
-
-    // The actual native module functions will be called via the native bridge
-    // This is a placeholder that enables the ArkTS code to compile and run
-    quickjsModule = {
-      loadScript: (script: string): string => {
-        hilog.info(DOMAIN, MODULE_TAG, 'QuickJS loadScript called, length: %{public}d', script.length);
-        // In actual implementation, this would call the native function via JSI or NAPI
-        return '';
-      },
-      callJS: (action: string, data: string): string => {
-        hilog.info(DOMAIN, MODULE_TAG, 'QuickJS callJS called: %{public}s', action);
-        // In actual implementation, this would call the native function via JSI or NAPI
-        return '{"error":"not_implemented"}';
-      },
-      destroy: (): void => {
-        hilog.info(DOMAIN, MODULE_TAG, 'QuickJS destroy called');
-      }
-    };
+    quickjsModule = new QuickJSFunctionAdapter();
 
     isInitialized = true;
     hilog.info(DOMAIN, MODULE_TAG, 'QuickJS initialized successfully');
     return true;
   } catch (e) {
-    hilog.error(DOMAIN, MODULE_TAG, 'Exception during QuickJS init: %{public}s', JSON.stringify(e));
+    hilog.error(DOMAIN, MODULE_TAG, 'Exception during QuickJS init: %{public}s', formatErrorMessage(e as Object));
     return false;
   }
 }
@@ -144,36 +212,29 @@ export function initQuickJS(): boolean {
  * Load the preload script (user-api-preload.js) into QuickJS
  * This sets up the lx global object and native callbacks
  */
-export function loadPreloadScript(): boolean {
+export async function loadPreloadScript(): Promise<boolean> {
   if (!isInitialized || !quickjsModule) {
     hilog.error(DOMAIN, MODULE_TAG, 'QuickJS not initialized');
     return false;
   }
 
   try {
-    hilog.info(DOMAIN, MODULE_TAG, 'Loading preload script');
-
-    // Get the preload script from rawfile resources
-    const context = getContext();
-    const rawfileMgr = context.resourceManager;
-
-    // Read the preload script content from rawfile
-    // This is stored as user-api-preload.js in rawfile resources
-    try {
-      const rawfileDescriptor = rawfileMgr.getRawFileDescriptorSync('user-api-preload.js');
-      if (rawfileDescriptor) {
-        hilog.info(DOMAIN, MODULE_TAG, 'Got preload script descriptor');
-        // In actual implementation, we'd read the file content here
-      }
-    } catch (e) {
-      hilog.warn(DOMAIN, MODULE_TAG, 'Could not get preload script descriptor: %{public}s', JSON.stringify(e));
+    const context = getQuickJSContext();
+    const rawMgr = context.resourceManager;
+    if (!rawMgr || typeof rawMgr.getRawFileContent !== 'function') {
+      hilog.warn(DOMAIN, MODULE_TAG, 'ResourceManager.getRawFileContent is unavailable');
+      return false;
     }
-
-    // For now, use an empty preload - the actual preload would be set via setPreloadScript
-    hilog.info(DOMAIN, MODULE_TAG, 'Preload script loaded');
-    return true;
+    const preloadBytes = await rawMgr.getRawFileContent('user-api-preload.js');
+    if (!preloadBytes || preloadBytes.length === 0) {
+      hilog.warn(DOMAIN, MODULE_TAG, 'user-api-preload.js is empty');
+      return false;
+    }
+    loadedPreloadScript = utf8Decode(preloadBytes);
+    hilog.info(DOMAIN, MODULE_TAG, 'Preload script loaded, length: %{public}d', loadedPreloadScript.length);
+    return loadedPreloadScript.length > 0;
   } catch (e) {
-    hilog.error(DOMAIN, MODULE_TAG, 'Exception loading preload: %{public}s', JSON.stringify(e));
+    hilog.error(DOMAIN, MODULE_TAG, 'Exception loading preload: %{public}s', formatErrorMessage(e as Object));
     return false;
   }
 }
@@ -213,11 +274,10 @@ export function loadPluginScript(script: string): boolean {
       return false;
     }
 
-    loadedPluginScript = script;
     hilog.info(DOMAIN, MODULE_TAG, 'Plugin script loaded successfully');
     return true;
   } catch (e) {
-    hilog.error(DOMAIN, MODULE_TAG, 'Exception loading plugin script: %{public}s', JSON.stringify(e));
+    hilog.error(DOMAIN, MODULE_TAG, 'Exception loading plugin script: %{public}s', formatErrorMessage(e as Object));
     return false;
   }
 }
@@ -244,7 +304,7 @@ export function callPluginAction(action: string, data: string): string {
     const result = quickjsModule.callJS(action, data);
     return result ?? '';
   } catch (e) {
-    hilog.error(DOMAIN, MODULE_TAG, 'Exception calling action: %{public}s', JSON.stringify(e));
+    hilog.error(DOMAIN, MODULE_TAG, 'Exception calling action: %{public}s', formatErrorMessage(e as Object));
     return '';
   }
 }
@@ -267,11 +327,10 @@ export function destroyQuickJS(): void {
     quickjsModule = null;
     isInitialized = false;
     loadedPreloadScript = '';
-    loadedPluginScript = '';
 
     hilog.info(DOMAIN, MODULE_TAG, 'QuickJS destroyed');
   } catch (e) {
-    hilog.error(DOMAIN, MODULE_TAG, 'Exception destroying QuickJS: %{public}s', JSON.stringify(e));
+    hilog.error(DOMAIN, MODULE_TAG, 'Exception destroying QuickJS: %{public}s', formatErrorMessage(e as Object));
   }
 }
 
@@ -298,6 +357,18 @@ export function setNativeModule(module: QuickJSNAPI): void {
   quickjsModule = module;
   isInitialized = true;
   hilog.info(DOMAIN, MODULE_TAG, 'Native module set');
+}
+
+/**
+ * Set the loader module implementation
+ * (Used to provide the native loader when globalThis access is not available)
+ */
+export function setLoaderModule(module: QuickJSNAPI): void {
+  loaderModule = module;
+  loadScriptFn = loaderModule.loadScript;
+  callJSFn = loaderModule.callJS;
+  destroyFn = loaderModule.destroy;
+  hilog.info(DOMAIN, MODULE_TAG, 'Loader module set');
 }
 
 // Re-export types for external use

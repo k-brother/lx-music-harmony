@@ -16,6 +16,24 @@ interface QQMusicLyricResponse {
   trans?: string;
 }
 
+function parseTxJson<T>(raw: string | Object | ArrayBuffer): T | null {
+  if (typeof raw === 'string') {
+    const text = raw.trim();
+    if (text.length === 0) {
+      return null;
+    }
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof raw === 'object' && raw !== null) {
+    return raw as T;
+  }
+  return null;
+}
+
 // 空歌词
 const EMPTY_LYRIC: LyricInfo = {
   lyric: '',
@@ -48,15 +66,10 @@ export const lyric: LyricInterface = {
     headers.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36');
 
     return httpRequest(url, { header: headers }).promise.then((response) => {
-      const resultData: string | ArrayBuffer = response.result as string | ArrayBuffer;
-      let body: QQMusicLyricResponse;
-      if (typeof resultData === 'string') {
-        body = JSON.parse(resultData) as QQMusicLyricResponse;
-      } else {
-        body = {} as QQMusicLyricResponse;
-      }
+      const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
+      const body = parseTxJson<QQMusicLyricResponse>(resultData);
 
-      if (body.code === 0 && body.lyric) {
+      if (body && body.code === 0 && body.lyric) {
         const lyricInfo: LyricInfo = {
           lyric: body.lyric || '',
           tlyric: body.trans || null,

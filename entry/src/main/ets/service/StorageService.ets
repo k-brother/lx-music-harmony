@@ -115,32 +115,57 @@ class StorageServiceImpl implements IStorageService {
   }
 
   async setString(key: string, value: string): Promise<void> {
-    await this.prefs.put(key, value);
-    await this.prefs.flush();
+    try {
+      await this.prefs.put(key, value);
+      await this.prefs.flush();
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'setString failed: %{public}s', JSON.stringify(e));
+    }
   }
 
   async setNumber(key: string, value: number): Promise<void> {
-    await this.prefs.put(key, value);
-    await this.prefs.flush();
+    try {
+      await this.prefs.put(key, value);
+      await this.prefs.flush();
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'setNumber failed: %{public}s', JSON.stringify(e));
+    }
   }
 
   async setBoolean(key: string, value: boolean): Promise<void> {
-    await this.prefs.put(key, value);
-    await this.prefs.flush();
+    try {
+      await this.prefs.put(key, value);
+      await this.prefs.flush();
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'setBoolean failed: %{public}s', JSON.stringify(e));
+    }
   }
 
   async remove(key: string): Promise<void> {
-    await this.prefs.delete(key);
-    await this.prefs.flush();
+    try {
+      await this.prefs.delete(key);
+      await this.prefs.flush();
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'remove failed: %{public}s', JSON.stringify(e));
+    }
   }
 
   async clear(): Promise<void> {
-    await this.prefs.clear();
-    await this.prefs.flush();
+    try {
+      await this.prefs.clear();
+      await this.prefs.flush();
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'clear failed: %{public}s', JSON.stringify(e));
+    }
   }
 
   async has(key: string): Promise<boolean> {
-    return await this.prefs.has(key);
+    try {
+      return await this.prefs.has(key);
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'has failed: %{public}s', JSON.stringify(e));
+      return false;
+    }
   }
 }
 

@@ -44,6 +44,24 @@ interface WYHotSearchAPIResponse {
   data: WYHotSearchAPIData;
 }
 
+function parseWyJson<T>(raw: string | Object | ArrayBuffer): T | null {
+  if (typeof raw === 'string') {
+    const text = raw.trim();
+    if (text.length === 0) {
+      return null;
+    }
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof raw === 'object' && raw !== null) {
+    return raw as T;
+  }
+  return null;
+}
+
 // 网易云请求参数接口
 interface WYRequestItem {
   id: string;
@@ -92,10 +110,9 @@ export const hotSearch: HotSearchInterface = {
 
       const response = await httpRequest(url, options).promise;
 
-      const resultData: string | ArrayBuffer = response.result as string | ArrayBuffer;
-      if (typeof resultData === 'string') {
-        const body = JSON.parse(resultData) as WYHotSearchAPIResponse;
-
+      const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
+      const body = parseWyJson<WYHotSearchAPIResponse>(resultData);
+      if (body) {
         if (body.code === 200 && body.data && body.data.itemList) {
           const hotSearchList: HotSearchItem[] = [];
 

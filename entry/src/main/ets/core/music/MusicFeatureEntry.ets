@@ -11,7 +11,12 @@
 // 导入音乐源SDK
 import { musicSdk, SearchResult as SDKSearchResult, MusicUrlResult } from './MusicSdkAggregate';
 import { getMusicSourceFactory } from './MusicSourceRegistry';
-import { getMusicUrl as resolveGetMusicUrl, type GetMusicUrlParams as ResolveGetMusicUrlParams } from './ResolvePlayback';
+import {
+  getMusicUrl as resolveGetMusicUrl,
+  getLyricInfo as resolveGetLyricInfo,
+  getPicUrl as resolveGetPicUrl,
+  type GetMusicUrlParams as ResolveGetMusicUrlParams,
+} from './ResolvePlayback';
 import type { MusicQualityType, MusicInfo, LyricInfo, Quality } from '../../types/MusicTypes';
 import { pluginManager, Plugin, PluginSongInfo } from '../plugin/PluginManager';
 import hilog from '@ohos.hilog';
@@ -77,103 +82,24 @@ export async function getMusicUrl(params: GetMusicUrlParams): Promise<string | n
 
 // 获取歌词信息
 export async function getLyricInfo(params: GetLyricInfoParams): Promise<LyricInfo> {
-  const musicInfo = params.musicInfo;
-  const isRefresh = params.isRefresh ?? false;
-
-  if (!musicInfo || !musicInfo.id) {
-    const emptyLyricInfo: LyricInfo = {
-      lyric: '',
-      tlyric: null,
-      lxlyric: null,
-      rlyric: null,
-    };
-    return emptyLyricInfo;
-  }
-
-  const source = musicInfo.source;
-  const songmid = musicInfo.id;
-
-  try {
-    // 检查是否是自定义源
-    if (!isBuiltinMusicSourceId(source)) {
-      const activePlugin = pluginManager.getActivePlugin();
-      if (activePlugin && activePlugin.onGetLyric) {
-        hilog.info(DOMAIN, TAG, 'Getting lyric via custom source plugin');
-        const pluginSongInfo: PluginSongInfo = {
-          songmid: musicInfo.id || '',
-          name: musicInfo.name || '',
-          singer: musicInfo.singer || '',
-          source: source,
-        };
-        const pluginResult = await activePlugin.onGetLyric(pluginSongInfo);
-        if (pluginResult && pluginResult.lyric) {
-          return {
-            lyric: pluginResult.lyric || '',
-            tlyric: null,
-            lxlyric: null,
-            rlyric: null,
-          };
-        }
-      }
-      return { lyric: '', tlyric: null, lxlyric: null, rlyric: null };
-    }
-
-    // 内置源歌词获取
-    let result: LyricInfo | null = null;
-    if (isBuiltinMusicSourceId(source)) {
-      result = await getMusicSourceFactory().getSdk(source).getLyric(musicInfo);
-    }
-    if (result) {
-      return result;
-    }
-    const emptyLyricInfo: LyricInfo = {
-      lyric: '',
-      tlyric: null,
-      lxlyric: null,
-      rlyric: null,
-    };
-    return emptyLyricInfo;
-  } catch (err) {
-    hilog.error(DOMAIN, TAG, 'getLyricInfo error: %{public}s', JSON.stringify(err));
-    return {
-      lyric: '',
-      tlyric: null,
-      lxlyric: null,
-      rlyric: null,
-    };
-  }
+  return resolveGetLyricInfo({
+    musicInfo: params.musicInfo,
+    isRefresh: params.isRefresh ?? false,
+    onToggleSource: params.onToggleSource ? (mInfo?: MusicInfo) => params.onToggleSource!(mInfo ?? null) : null,
+  });
 }
 
 // 获取图片路径
 export async function getPicPath(params: GetPicPathParams): Promise<string> {
   const musicInfo = params.musicInfo;
-  const isRefresh = params.isRefresh ?? false;
-
   if (!musicInfo) {
     return '';
   }
-
-  // 如果有缓存的图片URL且不需要刷新，直接返回
-  if (musicInfo.pic && !isRefresh) {
-    return musicInfo.pic;
-  }
-
-  const source = musicInfo.source;
-  const songmid = musicInfo.id;
-
-  try {
-    let picUrl: string = '';
-    if (isBuiltinMusicSourceId(source)) {
-      picUrl = await getMusicSourceFactory().getSdk(source).getPic(musicInfo);
-    }
-    if (picUrl) {
-      return picUrl;
-    }
-    return musicInfo.pic || '';
-  } catch (err) {
-    hilog.error(DOMAIN, TAG, 'getPicPath error: %{public}s', JSON.stringify(err));
-    return musicInfo.pic || '';
-  }
+  return resolveGetPicUrl({
+    musicInfo,
+    isRefresh: params.isRefresh ?? false,
+    onToggleSource: params.onToggleSource ? (mInfo?: MusicInfo) => params.onToggleSource!(mInfo ?? null) : null,
+  });
 }
 
 // 搜索音乐

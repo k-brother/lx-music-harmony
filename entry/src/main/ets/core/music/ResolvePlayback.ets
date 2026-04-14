@@ -7,6 +7,7 @@ import { buildLyricInfo, getPlayQuality } from './MusicParsingUtils';
 import { pluginManager, PluginSongInfo as PluginSongInfoType } from '../plugin/PluginManager';
 import hilog from '@ohos.hilog';
 import fs from '@ohos.file.fs';
+import { httpRequest } from '../network/http/HttpClient';
 
 const TAG = 'ONLINE_MUSIC';
 const DOMAIN = 0x0003;
@@ -16,6 +17,25 @@ function ensureSongMid(musicInfo: MusicInfo): void {
   if ((!musicInfo.songmid || musicInfo.songmid.length === 0) && musicInfo.id && musicInfo.id.length > 0) {
     musicInfo.songmid = musicInfo.id;
   }
+}
+
+function isPluginPreferredForMusicUrl(musicInfo: MusicInfo): boolean {
+  const source = musicInfo.source as string;
+  const activePlugin = pluginManager.getActivePlugin();
+  return source !== 'local' && !!(activePlugin && activePlugin.onGetMusicUrl);
+}
+
+function toPluginSongInfo(musicInfo: MusicInfo): PluginSongInfoType {
+  return {
+    songmid: musicInfo.songmid || musicInfo.id || '',
+    name: musicInfo.name || '',
+    singer: musicInfo.singer || '',
+    source: musicInfo.source as string,
+    albumName: musicInfo.album || musicInfo.albumName || '',
+    albumId: musicInfo.albumId || '',
+    duration: musicInfo.interval || '',
+    hash: musicInfo.hash || musicInfo.songmid || musicInfo.id || '',
+  };
 }
 
 // 尝试获取的音乐品质列表
@@ -51,6 +71,11 @@ interface MusicUrlResultObj {
   quality: Quality;
   musicInfo: MusicInfo;
   isFromCache: boolean;
+  cacheMode: 'plugin' | 'builtin';
+}
+
+interface HeadProbeResponse {
+  status: number;
 }
 
 /**
@@ -86,7 +111,7 @@ interface LyricResultObj {
 /**
  * 获取歌词信息参数接口
  */
-interface GetLyricInfoParams {
+export interface GetLyricInfoParams {
   musicInfo: MusicInfo;
   isRefresh?: boolean;
   allowToggleSource?: boolean;
@@ -96,7 +121,7 @@ interface GetLyricInfoParams {
 /**
  * 获取封面图片URL参数接口
  */
-interface GetPicUrlParams {
+export interface GetPicUrlParams {
   musicInfo: MusicInfo;
   listId?: string;
   isRefresh?: boolean;
@@ -150,11 +175,19 @@ export async function getMusicUrl(params: GetMusicUrlParams): Promise<string | n
 
   // 获取目标音质
   const targetQuality = quality ?? getPlayQuality(quality ?? '128k', musicInfo);
+  const pluginPreferred = isPluginPreferredForMusicUrl(musicInfo);
 
   // 尝试从缓存获取
-  const cachedUrl = await getCachedMusicUrl(musicInfo, targetQuality);
+  const cacheMode: 'plugin' | 'builtin' = pluginPreferred ? 'plugin' : 'builtin';
+  const cachedUrl = await getCachedMusicUrl(musicInfo, targetQuality, cacheMode);
   if (cachedUrl && !isRefresh) {
-    return cachedUrl;
+    const cachedPlayable = await isPlayableMediaUrl(cachedUrl);
+    if (cachedPlayable) {
+      hilog.warn(DOMAIN, TAG, 'Using cached URL (pluginPreferred=%{public}s)', pluginPreferred.toString());
+      return cachedUrl;
+    }
+    hilog.warn(DOMAIN, TAG, 'Cached music url is not playable, refreshing from source');
+    await clearCachedMusicUrl(musicInfo, targetQuality, cacheMode);
   }
 
   try {
@@ -169,7 +202,7 @@ export async function getMusicUrl(params: GetMusicUrlParams): Promise<string | n
 
     // 缓存URL
     if (result.url) {
-      await saveMusicUrlToCache(musicInfo, result.quality, result.url);
+      await saveMusicUrlToCache(musicInfo, result.quality, result.url, result.cacheMode);
     }
 
     return result.url;
@@ -195,11 +228,16 @@ async function handleGetOnlineMusicUrl(params: HandleGetOnlineMusicUrlParams): P
     const result = await getMusicUrlFromSource(musicInfo, quality);
 
     if (result && result.url) {
+      const playable = await isPlayableMediaUrl(result.url);
+      if (!playable) {
+        throw new Error('Source returned unplayable media url');
+      }
       const retObj: MusicUrlResultObj = {
         url: result.url,
         quality: result.type as Quality,
         musicInfo,
         isFromCache: false,
+        cacheMode: result.mode,
       };
       return retObj;
     }
@@ -230,6 +268,55 @@ async function handleGetOnlineMusicUrl(params: HandleGetOnlineMusicUrlParams): P
     }
 
     throw new Error('All sources failed');
+  }
+}
+
+async function isPlayableMediaUrl(url: string): Promise<boolean> {
+  if (!url || url.length === 0) {
+    return false;
+  }
+  if (url.startsWith('file://')) {
+    return true;
+  }
+  try {
+    const headTask = httpRequest(url, {
+      method: 'HEAD',
+      connectTimeout: 5000,
+      readTimeout: 5000,
+      responseType: 'text',
+    });
+    const headResp = await headTask.promise as HeadProbeResponse;
+    if (headResp.status >= 200 && headResp.status < 400) {
+      return true;
+    }
+    // 部分源站不支持 HEAD，降级为小范围 GET 探测
+    if (headResp.status !== 405 && headResp.status !== 501) {
+      hilog.warn(DOMAIN, TAG, 'Media URL probe failed with status: %{public}d', headResp.status);
+      return false;
+    }
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'HEAD probe failed: %{public}s', (err as Error).message);
+  }
+
+  try {
+    const getTask = httpRequest(url, {
+      method: 'GET',
+      header: {
+        'Range': 'bytes=0-1',
+      },
+      connectTimeout: 5000,
+      readTimeout: 5000,
+      responseType: 'text',
+    });
+    const getResp = await getTask.promise as HeadProbeResponse;
+    if (getResp.status >= 200 && getResp.status < 400) {
+      return true;
+    }
+    hilog.warn(DOMAIN, TAG, 'GET probe failed with status: %{public}d', getResp.status);
+    return false;
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'GET probe failed: %{public}s', (err as Error).message);
+    return false;
   }
 }
 
@@ -265,6 +352,7 @@ async function getOnlineOtherSourceMusicUrl(params: GetOnlineOtherSourceMusicUrl
           quality: result.type as Quality,
           musicInfo: mInfo,
           isFromCache: false,
+          cacheMode: result.mode,
         };
         return retObj;
       }
@@ -282,6 +370,7 @@ async function getOnlineOtherSourceMusicUrl(params: GetOnlineOtherSourceMusicUrl
 interface MusicUrlFromSourceResult {
   url: string;
   type: string;
+  mode: 'plugin' | 'builtin';
 }
 
 /**
@@ -290,38 +379,59 @@ interface MusicUrlFromSourceResult {
 async function getMusicUrlFromSource(musicInfo: MusicInfo, quality: Quality): Promise<MusicUrlFromSourceResult | null> {
   const source = musicInfo.source as string;
 
-  // 检查是否是自定义源
-  if (!['kw', 'kg', 'tx', 'wy', 'mg'].includes(source)) {
-    const activePlugin = pluginManager.getActivePlugin();
-    if (activePlugin && activePlugin.onGetMusicUrl) {
-      hilog.info(DOMAIN, TAG, 'Getting music URL via custom source plugin');
+  // 原版行为：激活自定义插件后，优先由插件处理在线源(kw/kg/tx/wy/mg)链接获取；
+  // 插件失败时回退内置源，保证可用性。
+  const activePlugin = pluginManager.getActivePlugin();
+  if (source !== 'local' && activePlugin && activePlugin.onGetMusicUrl) {
+    try {
+      hilog.warn(DOMAIN, TAG, 'Route=plugin-first, source=%{public}s, quality=%{public}s', source, quality);
       const pluginSongInfo: PluginSongInfoType = {
         songmid: musicInfo.songmid || musicInfo.id || '',
         name: musicInfo.name || '',
         singer: musicInfo.singer || '',
         source: source,
-        albumName: musicInfo.album || '',
+        albumName: musicInfo.album || musicInfo.albumName || '',
         duration: musicInfo.interval || '',
+        hash: musicInfo.hash || musicInfo.songmid || musicInfo.id || '',
       };
       const url = await activePlugin.onGetMusicUrl(pluginSongInfo, quality);
-      if (url) {
-        return { url, type: quality };
+      if (url && url.length > 0) {
+        hilog.warn(DOMAIN, TAG, 'Route=plugin-success, source=%{public}s', source);
+        return { url, type: quality, mode: 'plugin' };
       }
+      hilog.warn(DOMAIN, TAG, 'Custom source plugin returned empty URL, fallback to builtin source');
+    } catch (err) {
+      const errMsg = (err as Error).message;
+      hilog.warn(DOMAIN, TAG, 'Custom source plugin failed, fallback to builtin source: %{public}s', errMsg);
     }
-    return null;
   }
 
   switch (source) {
     case 'kw':
-      return await musicSdk.kw.getMusicUrl(musicInfo, quality);
+      {
+        const result = await musicSdk.kw.getMusicUrl(musicInfo, quality);
+        return result ? { url: result.url, type: result.type, mode: 'builtin' } : null;
+      }
     case 'kg':
-      return await musicSdk.kg.getMusicUrl(musicInfo, quality);
+      {
+        const result = await musicSdk.kg.getMusicUrl(musicInfo, quality);
+        return result ? { url: result.url, type: result.type, mode: 'builtin' } : null;
+      }
     case 'tx':
-      return await musicSdk.tx.getMusicUrl(musicInfo, quality);
+      {
+        const result = await musicSdk.tx.getMusicUrl(musicInfo, quality);
+        return result ? { url: result.url, type: result.type, mode: 'builtin' } : null;
+      }
     case 'wy':
-      return await musicSdk.wy.getMusicUrl(musicInfo, quality);
+      {
+        const result = await musicSdk.wy.getMusicUrl(musicInfo, quality);
+        return result ? { url: result.url, type: result.type, mode: 'builtin' } : null;
+      }
     case 'mg':
-      return await musicSdk.mg.getMusicUrl(musicInfo, quality);
+      {
+        const result = await musicSdk.mg.getMusicUrl(musicInfo, quality);
+        return result ? { url: result.url, type: result.type, mode: 'builtin' } : null;
+      }
     default:
       return null;
   }
@@ -434,6 +544,25 @@ async function handleGetOnlineLyricInfo(params: HandleGetOnlineLyricInfoParams):
  */
 async function getLyricFromSource(musicInfo: MusicInfo): Promise<LyricInfo> {
   const source = musicInfo.source as string;
+  const activePlugin = pluginManager.getActivePlugin();
+
+  if (source !== 'local' && activePlugin && activePlugin.onGetLyric) {
+    try {
+      const pluginResult = await activePlugin.onGetLyric(toPluginSongInfo(musicInfo));
+      if (pluginResult && pluginResult.lyric && pluginResult.lyric.length > 0) {
+        hilog.warn(DOMAIN, TAG, 'Route=plugin-lyric-success, source=%{public}s', source);
+        return {
+          lyric: pluginResult.lyric || '',
+          tlyric: pluginResult.tlyric || null,
+          lxlyric: pluginResult.lxlyric || null,
+          rlyric: pluginResult.rlyric || null,
+        };
+      }
+      hilog.warn(DOMAIN, TAG, 'Custom source plugin returned empty lyric, fallback to builtin source');
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'Custom source lyric failed, fallback to builtin source: %{public}s', (err as Error).message);
+    }
+  }
 
   switch (source) {
     case 'kw':
@@ -543,6 +672,20 @@ async function handleGetOnlinePicUrl(params: HandleGetOnlinePicUrlParams): Promi
  */
 async function getPicFromSource(musicInfo: MusicInfo): Promise<string> {
   const source = musicInfo.source as string;
+  const activePlugin = pluginManager.getActivePlugin();
+
+  if (source !== 'local' && activePlugin && activePlugin.onGetPic) {
+    try {
+      const pluginPic = await activePlugin.onGetPic(toPluginSongInfo(musicInfo));
+      if (pluginPic && pluginPic.length > 0) {
+        hilog.warn(DOMAIN, TAG, 'Route=plugin-pic-success, source=%{public}s', source);
+        return pluginPic;
+      }
+      hilog.warn(DOMAIN, TAG, 'Custom source plugin returned empty pic, fallback to builtin source');
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'Custom source pic failed, fallback to builtin source: %{public}s', (err as Error).message);
+    }
+  }
 
   switch (source) {
     case 'kw':
@@ -582,9 +725,14 @@ export async function getOtherSource(musicInfo: MusicInfo): Promise<MusicInfo[]>
 /**
  * 获取缓存的音乐URL
  */
-async function getCachedMusicUrl(musicInfo: MusicInfo, quality: Quality): Promise<string | null> {
+function buildMusicUrlCacheKey(musicInfo: MusicInfo, quality: Quality, mode: 'plugin' | 'builtin'): string {
+  // v2 key avoids polluted cache entries from older fallback logic
+  return `music_url_v2_${mode}_${musicInfo.source}_${musicInfo.songmid}_${quality}`;
+}
+
+async function getCachedMusicUrl(musicInfo: MusicInfo, quality: Quality, mode: 'plugin' | 'builtin'): Promise<string | null> {
   try {
-    const key = `music_url_${musicInfo.source}_${musicInfo.songmid}_${quality}`;
+    const key = buildMusicUrlCacheKey(musicInfo, quality, mode);
     const cached = await getStorageService().getString(key, '');
     if (cached && cached.length > 0) {
       return cached;
@@ -599,12 +747,21 @@ async function getCachedMusicUrl(musicInfo: MusicInfo, quality: Quality): Promis
 /**
  * 保存音乐URL到缓存
  */
-async function saveMusicUrlToCache(musicInfo: MusicInfo, quality: Quality, url: string): Promise<void> {
+async function saveMusicUrlToCache(musicInfo: MusicInfo, quality: Quality, url: string, mode: 'plugin' | 'builtin'): Promise<void> {
   try {
-    const key = `music_url_${musicInfo.source}_${musicInfo.songmid}_${quality}`;
+    const key = buildMusicUrlCacheKey(musicInfo, quality, mode);
     await getStorageService().setString(key, url);
   } catch (err) {
     hilog.warn(DOMAIN, TAG, 'saveMusicUrlToCache failed: %{public}s', (err as Error).message);
+  }
+}
+
+async function clearCachedMusicUrl(musicInfo: MusicInfo, quality: Quality, mode: 'plugin' | 'builtin'): Promise<void> {
+  try {
+    const key = buildMusicUrlCacheKey(musicInfo, quality, mode);
+    await getStorageService().setString(key, '');
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'clearCachedMusicUrl failed: %{public}s', (err as Error).message);
   }
 }
 

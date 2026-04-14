@@ -11,6 +11,7 @@
 
 static constexpr char MODULE_NAME[] = "QuickJSNAPI";
 static constexpr unsigned int LOG_PRINT_ID = 0xFF00;
+static constexpr const char* DEFAULT_SECURITY_KEY = "lxmusic_harmony_key";
 
 #define LOGI(fmt, ...) OH_LOG_INFO(LOG_APP, "%{public}s:" fmt, __FUNCTION__, ##__VA_ARGS__)
 #define LOGW(fmt, ...) OH_LOG_WARN(LOG_APP, "%{public}s:" fmt, __FUNCTION__, ##__VA_ARGS__)
@@ -25,6 +26,28 @@ static pthread_mutex_t js_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Security key for native callbacks
 static std::string security_key;
+
+static std::string GetExceptionMessageWithStack(JSContext* ctx, JSValueConst exception) {
+    const char* msg_c = JS_ToCString(ctx, exception);
+    std::string msg = msg_c ? msg_c : "Unknown QuickJS exception";
+    if (msg_c) {
+        JS_FreeCString(ctx, msg_c);
+    }
+
+    JSValue stack_val = JS_GetPropertyStr(ctx, exception, "stack");
+    if (!JS_IsUndefined(stack_val) && !JS_IsNull(stack_val)) {
+        const char* stack_c = JS_ToCString(ctx, stack_val);
+        if (stack_c && strlen(stack_c) > 0) {
+            msg += " | stack: ";
+            msg += stack_c;
+        }
+        if (stack_c) {
+            JS_FreeCString(ctx, stack_c);
+        }
+    }
+    JS_FreeValue(ctx, stack_val);
+    return msg;
+}
 
 // ==================== Crypto Utilities ====================
 
@@ -196,7 +219,7 @@ static JSValue Native_str2b64(JSContext *ctx, JSValueConst this_val, int argc, J
 
     JSValue result = JS_NewString(ctx, output);
     delete[] output;
-    delete[] input;
+    JS_FreeCString(ctx, input);
     return result;
 }
 
@@ -220,7 +243,7 @@ static JSValue Native_b642buf(JSContext *ctx, JSValueConst this_val, int argc, J
         JS_SetPropertyUint32(ctx, result_array, i, JS_NewInt32(ctx, output[i]));
     }
 
-    delete[] input;
+    JS_FreeCString(ctx, input);
     return result_array;
 }
 
@@ -237,7 +260,7 @@ static JSValue Native_str2md5(JSContext *ctx, JSValueConst this_val, int argc, J
     md5_encode(input, strlen(input), md5_string);
 
     JSValue result = JS_NewString(ctx, md5_string);
-    delete[] input;
+    JS_FreeCString(ctx, input);
     return result;
 }
 
@@ -252,7 +275,7 @@ static JSValue Native_aes_encrypt(JSContext *ctx, JSValueConst this_val, int arg
 
     // Simplified: just return hex of input for demo
     JSValue result = JS_NewString(ctx, data);
-    delete[] data;
+    JS_FreeCString(ctx, data);
     return result;
 }
 
@@ -274,10 +297,15 @@ static JSValue Native_call(JSContext *ctx, JSValueConst this_val, int argc, JSVa
 
     const char *key = JS_ToCString(ctx, argv[0]);
     const char *action = JS_ToCString(ctx, argv[1]);
+    if (!key || !action) {
+        if (key) JS_FreeCString(ctx, key);
+        if (action) JS_FreeCString(ctx, action);
+        return JS_NewString(ctx, "{\"error\":\"Invalid key or action\"}");
+    }
 
     if (security_key.empty() || strcmp(key, security_key.c_str()) != 0) {
-        delete[] key;
-        delete[] action;
+        JS_FreeCString(ctx, key);
+        JS_FreeCString(ctx, action);
         return JS_NewString(ctx, "{\"error\":\"Invalid key\"}");
     }
 
@@ -288,22 +316,22 @@ static JSValue Native_call(JSContext *ctx, JSValueConst this_val, int argc, JSVa
         const char *data = JS_ToCString(ctx, argv[2]);
         if (data) {
             data_str = data;
-            delete[] data;
+            JS_FreeCString(ctx, data);
         }
     }
 
     if (strcmp(action, "init") == 0) {
-        delete[] key;
-        delete[] action;
+        JS_FreeCString(ctx, key);
+        JS_FreeCString(ctx, action);
         return JS_NewString(ctx, "{\"status\":\"ok\"}");
     } else if (strcmp(action, "request") == 0) {
-        delete[] key;
-        delete[] action;
+        JS_FreeCString(ctx, key);
+        JS_FreeCString(ctx, action);
         return JS_NewString(ctx, "{\"error\":\"Request not implemented\"}");
     }
 
-    delete[] key;
-    delete[] action;
+    JS_FreeCString(ctx, key);
+    JS_FreeCString(ctx, action);
     return JS_NewString(ctx, "{\"error\":\"Unknown action\"}");
 }
 
@@ -335,14 +363,24 @@ static bool InitJSContext() {
             JS_NewCFunction(context, Native_call, "__lx_native_call__", 3));
         JS_SetPropertyStr(context, global, "__lx_native_call__str2b64",
             JS_NewCFunction(context, Native_str2b64, "__lx_native_call__str2b64", 1));
+        JS_SetPropertyStr(context, global, "__lx_native_call__utils_str2b64",
+            JS_NewCFunction(context, Native_str2b64, "__lx_native_call__utils_str2b64", 1));
         JS_SetPropertyStr(context, global, "__lx_native_call__b642buf",
             JS_NewCFunction(context, Native_b642buf, "__lx_native_call__b642buf", 1));
+        JS_SetPropertyStr(context, global, "__lx_native_call__utils_b642buf",
+            JS_NewCFunction(context, Native_b642buf, "__lx_native_call__utils_b642buf", 1));
         JS_SetPropertyStr(context, global, "__lx_native_call__str2md5",
             JS_NewCFunction(context, Native_str2md5, "__lx_native_call__str2md5", 1));
+        JS_SetPropertyStr(context, global, "__lx_native_call__utils_str2md5",
+            JS_NewCFunction(context, Native_str2md5, "__lx_native_call__utils_str2md5", 1));
         JS_SetPropertyStr(context, global, "__lx_native_call__aes_encrypt",
             JS_NewCFunction(context, Native_aes_encrypt, "__lx_native_call__aes_encrypt", 4));
+        JS_SetPropertyStr(context, global, "__lx_native_call__utils_aes_encrypt",
+            JS_NewCFunction(context, Native_aes_encrypt, "__lx_native_call__utils_aes_encrypt", 4));
         JS_SetPropertyStr(context, global, "__lx_native_call__rsa_encrypt",
             JS_NewCFunction(context, Native_rsa_encrypt, "__lx_native_call__rsa_encrypt", 3));
+        JS_SetPropertyStr(context, global, "__lx_native_call__utils_rsa_encrypt",
+            JS_NewCFunction(context, Native_rsa_encrypt, "__lx_native_call__utils_rsa_encrypt", 3));
         JS_SetPropertyStr(context, global, "__lx_native_call__set_timeout",
             JS_NewCFunction(context, Native_set_timeout, "__lx_native_call__set_timeout", 2));
 
@@ -360,8 +398,9 @@ static napi_value LoadScript(napi_env env, napi_callback_info info) {
     napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr);
 
     if (argc < 1) {
-        napi_throw_type_error(env, nullptr, "Expected script string argument");
-        return nullptr;
+        napi_value result_val;
+        napi_create_string_utf8(env, "Expected script string argument", NAPI_AUTO_LENGTH, &result_val);
+        return result_val;
     }
 
     size_t script_len;
@@ -373,32 +412,30 @@ static napi_value LoadScript(napi_env env, napi_callback_info info) {
 
     if (!InitJSContext()) {
         delete[] script;
-        napi_throw_error(env, nullptr, "Failed to initialize JS context");
-        return nullptr;
+        napi_value result_val;
+        napi_create_string_utf8(env, "Failed to initialize JS context", NAPI_AUTO_LENGTH, &result_val);
+        return result_val;
     }
 
     pthread_mutex_lock(&js_mutex);
 
-    srand(time(nullptr));
-    char key_buf[33];
-    for (int i = 0; i < 32; i++) {
-        key_buf[i] = "0123456789abcdef"[rand() % 16];
+    if (security_key.empty()) {
+        security_key = DEFAULT_SECURITY_KEY;
     }
-    key_buf[32] = '\0';
-    security_key = key_buf;
 
     JSValue result = JS_Eval(context, script, script_len, "<script>", JS_EVAL_TYPE_GLOBAL);
     delete[] script;
 
     if (JS_IsException(result)) {
         JSValue exception = JS_GetException(context);
-        const char *error_msg = JS_ToCString(context, exception);
-        LOGE("Script error: %s", error_msg != nullptr ? error_msg : "unknown");
+        std::string error_text = GetExceptionMessageWithStack(context, exception);
+        LOGE("Script error: %s", error_text.c_str());
         JS_FreeValue(context, exception);
         JS_FreeValue(context, result);
         pthread_mutex_unlock(&js_mutex);
-        napi_throw_error(env, nullptr, error_msg != nullptr ? error_msg : "Script error");
-        return nullptr;
+        napi_value result_val;
+        napi_create_string_utf8(env, error_text.c_str(), NAPI_AUTO_LENGTH, &result_val);
+        return result_val;
     }
 
     JS_FreeValue(context, result);
@@ -415,8 +452,9 @@ static napi_value CallJS(napi_env env, napi_callback_info info) {
     napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr);
 
     if (argc < 2) {
-        napi_throw_type_error(env, nullptr, "Expected action and data arguments");
-        return nullptr;
+        napi_value result_val;
+        napi_create_string_utf8(env, "{\"error\":\"Expected action and data arguments\"}", NAPI_AUTO_LENGTH, &result_val);
+        return result_val;
     }
 
     size_t action_len;
@@ -436,8 +474,9 @@ static napi_value CallJS(napi_env env, napi_callback_info info) {
         pthread_mutex_unlock(&js_mutex);
         delete[] action;
         delete[] data;
-        napi_throw_error(env, nullptr, "JS context not initialized");
-        return nullptr;
+        napi_value result_val;
+        napi_create_string_utf8(env, "{\"error\":\"JS context not initialized\"}", NAPI_AUTO_LENGTH, &result_val);
+        return result_val;
     }
 
     JSValue global_obj = JS_GetGlobalObject(context);
@@ -471,13 +510,15 @@ static napi_value CallJS(napi_env env, napi_callback_info info) {
 
     if (JS_IsException(js_result)) {
         JSValue exception = JS_GetException(context);
-        const char *error_msg = JS_ToCString(context, exception);
-        LOGE("CallJS error: %s", error_msg != nullptr ? error_msg : "unknown");
+        std::string error_text = GetExceptionMessageWithStack(context, exception);
+        LOGE("CallJS error: %s", error_text.c_str());
         JS_FreeValue(context, exception);
         JS_FreeValue(context, js_result);
         pthread_mutex_unlock(&js_mutex);
-        napi_throw_error(env, nullptr, error_msg != nullptr ? error_msg : "CallJS error");
-        return nullptr;
+        std::string json_error = "{\"error\":\"" + error_text + "\"}";
+        napi_value result_val;
+        napi_create_string_utf8(env, json_error.c_str(), NAPI_AUTO_LENGTH, &result_val);
+        return result_val;
     }
 
     napi_value result_val;
@@ -546,13 +587,13 @@ const char* napi_loadScript(const char* script) {
 
     if (JS_IsException(result)) {
         JSValue exception = JS_GetException(context);
-        const char* error_msg = JS_ToCString(context, exception);
+        std::string error_text = GetExceptionMessageWithStack(context, exception);
         JS_FreeValue(context, exception);
         JS_FreeValue(context, result);
         pthread_mutex_unlock(&js_mutex);
 
         static thread_local char error_buffer[512];
-        strncpy(error_buffer, error_msg ? error_msg : "Script error", sizeof(error_buffer) - 1);
+        strncpy(error_buffer, error_text.c_str(), sizeof(error_buffer) - 1);
         error_buffer[sizeof(error_buffer) - 1] = '\0';
         return error_buffer;
     }
@@ -601,13 +642,13 @@ const char* napi_callJS(const char* action, const char* data) {
 
     if (JS_IsException(js_result)) {
         JSValue exception = JS_GetException(context);
-        const char* error_msg = JS_ToCString(context, exception);
+        std::string error_text = GetExceptionMessageWithStack(context, exception);
         JS_FreeValue(context, exception);
         JS_FreeValue(context, js_result);
         pthread_mutex_unlock(&js_mutex);
 
         static thread_local char error_buffer[512];
-        snprintf(error_buffer, sizeof(error_buffer), "{\"error\":\"%s\"}", error_msg ? error_msg : "Call error");
+        snprintf(error_buffer, sizeof(error_buffer), "{\"error\":\"%s\"}", error_text.c_str());
         return error_buffer;
     }
 
@@ -618,6 +659,9 @@ const char* napi_callJS(const char* action, const char* data) {
     static thread_local char result_buffer[8192];
     strncpy(result_buffer, result_str ? result_str : "", sizeof(result_buffer) - 1);
     result_buffer[sizeof(result_buffer) - 1] = '\0';
+    if (result_str) {
+        JS_FreeCString(context, result_str);
+    }
 
     return result_buffer;
 }
