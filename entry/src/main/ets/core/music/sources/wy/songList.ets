@@ -426,6 +426,62 @@ async function getListId(rawId: string): Promise<WyResolvedListId> {
 }
 
 class WySongListImpl implements WySongListModule {
+  private async getTagsByLegacyApi(): Promise<SongListTagsResult> {
+    try {
+      const headers: Map<string, string> = new Map();
+      headers.set('Referer', 'https://music.163.com/');
+      headers.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36');
+      const resArr = await Promise.all([
+        httpRequest('https://music.163.com/api/playlist/catalogue', { method: 'GET', header: headers, responseType: 'text' }).promise,
+        httpRequest('https://music.163.com/api/playlist/hottags', { method: 'GET', header: headers, responseType: 'text' }).promise,
+      ]);
+      const body1 = parseWyHttpJson<WyCatalogueResponse>(resArr[0].result as string | Object);
+      const body2 = parseWyHttpJson<WyHotTagsResponse>(resArr[1].result as string | Object);
+      const emptyTags: SongListTagsResult = { tags: [], hotTag: [], source: 'wy' };
+      if (body1 === null || body1.code !== SUCCESS_CODE) {
+        return emptyTags;
+      }
+      const groups = filterTagInfo(body1);
+      const hotTag = body2 && body2.code === SUCCESS_CODE && body2.tags ? filterHotTagInfo(body2.tags) : [];
+      return {
+        tags: flattenTagGroups(groups, 'wy'),
+        hotTag,
+        source: 'wy',
+      };
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : String(e);
+      hilog.warn(0x0001, 'WY_SongList', 'getTags legacy fallback failed: %{public}s', errMsg);
+      return { tags: [], hotTag: [], source: 'wy' };
+    }
+  }
+
+  private async getListByLegacyApi(order: string, cat: string, page: number): Promise<SongListResult> {
+    try {
+      const headers: Map<string, string> = new Map();
+      headers.set('Referer', 'https://music.163.com/');
+      headers.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36');
+      const offset = LIMIT_LIST * (page - 1);
+      const url = `https://music.163.com/api/playlist/list?cat=${encodeURIComponent(cat)}&order=${encodeURIComponent(order)}&offset=${offset}&limit=${LIMIT_LIST}`;
+      const res = await httpRequest(url, { method: 'GET', header: headers, responseType: 'text' }).promise;
+      const body = parseWyHttpJson<WyPlaylistListResponse>(res.result as string | Object);
+      const emptyList: SongListResult = { list: [], total: 0, page, limit: LIMIT_LIST, source: 'wy' };
+      if (body === null || body.code !== SUCCESS_CODE || !body.playlists) {
+        return emptyList;
+      }
+      return {
+        list: filterListPlaylists(body.playlists),
+        total: typeof body.total === 'string' ? parseInt(body.total, 10) : (body.total ?? 0),
+        page,
+        limit: LIMIT_LIST,
+        source: 'wy',
+      };
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : String(e);
+      hilog.warn(0x0001, 'WY_SongList', 'getList legacy fallback failed: %{public}s', errMsg);
+      return { list: [], total: 0, page, limit: LIMIT_LIST, source: 'wy' };
+    }
+  }
+
   async getTags(): Promise<SongListTagsResult> {
     try {
       const emptyBody: WeapiJsonObject = {};
@@ -452,10 +508,10 @@ class WySongListImpl implements WySongListModule {
       const emptyTags: SongListTagsResult = { tags: [], hotTag: [], source: 'wy' };
       if (body1 === null || body2 === null) {
         hilog.warn(0x0001, 'WY_SongList', 'getTags empty or non-json response body');
-        return emptyTags;
+        return await this.getTagsByLegacyApi();
       }
       if (body1.code !== SUCCESS_CODE) {
-        return emptyTags;
+        return await this.getTagsByLegacyApi();
       }
       const groups = filterTagInfo(body1);
       const hotTag = body2.code === SUCCESS_CODE && body2.tags ? filterHotTagInfo(body2.tags) : [];
@@ -468,8 +524,7 @@ class WySongListImpl implements WySongListModule {
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e);
       hilog.error(0x0001, 'WY_SongList', 'getTags %{public}s', errMsg);
-      const emptyTags: SongListTagsResult = { tags: [], hotTag: [], source: 'wy' };
-      return emptyTags;
+      return await this.getTagsByLegacyApi();
     }
   }
 
@@ -494,10 +549,10 @@ class WySongListImpl implements WySongListModule {
       const emptyList: SongListResult = { list: [], total: 0, page, limit: LIMIT_LIST, source: 'wy' };
       if (body === null) {
         hilog.warn(0x0001, 'WY_SongList', 'getList empty or non-json response body (playlist/list)');
-        return emptyList;
+        return await this.getListByLegacyApi(order, cat, page);
       }
       if (body.code !== SUCCESS_CODE || !body.playlists) {
-        return emptyList;
+        return await this.getListByLegacyApi(order, cat, page);
       }
       const ok: SongListResult = {
         list: filterListPlaylists(body.playlists),
@@ -510,8 +565,7 @@ class WySongListImpl implements WySongListModule {
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e);
       hilog.error(0x0001, 'WY_SongList', 'getList %{public}s', errMsg);
-      const emptyList: SongListResult = { list: [], total: 0, page, limit: LIMIT_LIST, source: 'wy' };
-      return emptyList;
+      return await this.getListByLegacyApi(order, cat, page);
     }
   }
 
