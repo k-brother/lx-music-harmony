@@ -3,7 +3,7 @@
  * 榜单列表走静态表；详情走 app.c.nf.migu.cn MIGUM2.0 querycontentbyId（旧 m.music remoting 已返回 HTML，不可用）
  */
 import type { MusicInfo, Quality, QualityDetail, MusicQualityType } from '../../../../types/MusicTypes';
-import { httpRequest, type HttpRequestConfig } from '../../../../core/network/http';
+import { httpRequest, parseHttpBodyJson, type HttpRequestConfig } from '../../../../core/network/http';
 import { formatPlayTime, sizeFormate } from '../../../../utils/CommonUtils';
 import hilog from '@ohos.hilog';
 
@@ -55,20 +55,6 @@ const MG_STATIC_BOARDS: LeaderboardItem[] = [
 
 function buildEmptyLeaderboardListResult(page: number): LeaderboardListResult {
   return { list: [], total: 0, page, limit: LIST_LIMIT, source: 'mg' };
-}
-
-function parseMgJson(raw: string | Object | undefined): Object | null {
-  if (raw === null || raw === undefined) {
-    return null;
-  }
-  if (typeof raw === 'string') {
-    const t = raw.trim();
-    if (t.length === 0) {
-      return null;
-    }
-    return JSON.parse(t) as Object;
-  }
-  return raw as Object;
 }
 
 interface MgRateFmt {
@@ -267,7 +253,7 @@ class MgLeaderboardImpl implements LeaderboardInterface {
       };
       const response = await httpRequest(url, req).promise;
       const raw = (response.result !== undefined ? response.result : response.data) as string | Object;
-      const root = parseMgJson(raw) as MgQueryColumnBody | null;
+      const root = parseHttpBodyJson<MgQueryColumnBody>(raw);
       if (root === null) {
         hilog.warn(0x0001, 'MGLeaderboard', 'getList empty body bangid=%{public}s', bangid);
         return buildEmptyLeaderboardListResult(page);

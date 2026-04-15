@@ -3,7 +3,7 @@
  */
 
 import type { MusicInfo } from '../../../../types/MusicTypes';
-import { httpRequest } from '../../../../core/network/http';
+import { httpRequest, parseHttpBodyJson } from '../../../../core/network/http';
 import type { MusicUrlResult } from '../MusicSdkContracts';
 
 interface WYUrlData {
@@ -12,24 +12,6 @@ interface WYUrlData {
 
 interface WYUrlResponse {
   data: WYUrlData[];
-}
-
-function parseWyJson<T>(raw: string | Object | ArrayBuffer): T | null {
-  if (typeof raw === 'string') {
-    const text = raw.trim();
-    if (text.length === 0) {
-      return null;
-    }
-    try {
-      return JSON.parse(text) as T;
-    } catch {
-      return null;
-    }
-  }
-  if (typeof raw === 'object' && raw !== null) {
-    return raw as T;
-  }
-  return null;
 }
 
 export function getWyMusicUrl(songInfo: MusicInfo, quality: string): Promise<MusicUrlResult> {
@@ -54,7 +36,7 @@ export function getWyMusicUrl(songInfo: MusicInfo, quality: string): Promise<Mus
 
   return httpRequest(url, { header: headers }).promise.then((response) => {
     const resultData = response.data as string | Object | ArrayBuffer;
-    const body = parseWyJson<WYUrlResponse>(resultData);
+    const body = parseHttpBodyJson<WYUrlResponse>(resultData);
     if (body) {
       if (body.data && body.data[0] && body.data[0].url) {
         const playUrl: string = body.data[0].url;

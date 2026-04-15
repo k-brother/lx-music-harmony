@@ -6,3 +6,5 @@ export { withQuery, flattenHeaders } from './HttpShared';
 
 export { HttpClient, httpClient, httpRequest, httpGet, httpPost, checkNetworkConnection } from './HttpClient';
 export type { HttpRequestConfig, HttpResponse, HttpTask } from './HttpClient';
+
+export { parseHttpBodyJson } from './parseHttpBodyJson';

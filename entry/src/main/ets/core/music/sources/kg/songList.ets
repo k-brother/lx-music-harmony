@@ -5,6 +5,7 @@ import { httpRequest, type HttpRequestConfig } from '../../../../core/network/ht
 import { formatPlayCount, formatPlayTime, sizeFormate } from '../../../../utils/CommonUtils';
 import { signatureParams } from './util';
 import type { MusicInfo, MusicQualityTypeKg, Quality, QualityDetail } from '../../../../types/MusicTypes';
+import { parseKgHttpJson } from './kgHttpJson';
 
 // 排序项
 interface SortItem {
@@ -27,13 +28,6 @@ function getInfoUrl(tagId: string): string {
   return tagId && tagId.length > 0
     ? `http://www2.kugou.kugou.com/yueku/v9/special/getSpecial?is_smarty=1&cdn=cdn&t=5&c=${tagId}`
     : 'http://www2.kugou.kugou.com/yueku/v9/special/getSpecial?is_smarty=1&cdn=cdn&';
-}
-
-function parseKgHttpJson<T>(raw: string | Object): T {
-  if (typeof raw === 'string') {
-    return JSON.parse(raw) as T;
-  }
-  return raw as T;
 }
 
 function formatKgPublishDate(ts: number): string {

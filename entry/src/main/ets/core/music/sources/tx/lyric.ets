@@ -1,7 +1,7 @@
 /**
  * QQ音乐 - 歌词获取
  */
-import { httpRequest } from '../../../../core/network/http';
+import { httpRequest, parseHttpBodyJson } from '../../../../core/network/http';
 import type { LyricInfo } from '../../../../types/MusicTypes';
 
 // QQ音乐歌词响应数据
@@ -14,24 +14,6 @@ interface QQMusicLyricResponse {
   code: number;
   lyric?: string;
   trans?: string;
-}
-
-function parseTxJson<T>(raw: string | Object | ArrayBuffer): T | null {
-  if (typeof raw === 'string') {
-    const text = raw.trim();
-    if (text.length === 0) {
-      return null;
-    }
-    try {
-      return JSON.parse(text) as T;
-    } catch {
-      return null;
-    }
-  }
-  if (typeof raw === 'object' && raw !== null) {
-    return raw as T;
-  }
-  return null;
 }
 
 // 空歌词
@@ -67,7 +49,7 @@ export const lyric: LyricInterface = {
 
     return httpRequest(url, { header: headers }).promise.then((response) => {
       const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
-      const body = parseTxJson<QQMusicLyricResponse>(resultData);
+      const body = parseHttpBodyJson<QQMusicLyricResponse>(resultData);
 
       if (body && body.code === 0 && body.lyric) {
         const lyricInfo: LyricInfo = {

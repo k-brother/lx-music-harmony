@@ -2,7 +2,7 @@
  * 网易云音乐 - 热门搜索
  */
 import type { MusicInfo } from '../../../../types/MusicTypes';
-import { httpRequest, type HttpRequestConfig } from '../../../../core/network/http';
+import { httpRequest, parseHttpBodyJson, type HttpRequestConfig } from '../../../../core/network/http';
 
 // 热搜项
 export interface HotSearchItem {
@@ -42,24 +42,6 @@ interface WYHotSearchAPIData {
 interface WYHotSearchAPIResponse {
   code: number;
   data: WYHotSearchAPIData;
-}
-
-function parseWyJson<T>(raw: string | Object | ArrayBuffer): T | null {
-  if (typeof raw === 'string') {
-    const text = raw.trim();
-    if (text.length === 0) {
-      return null;
-    }
-    try {
-      return JSON.parse(text) as T;
-    } catch {
-      return null;
-    }
-  }
-  if (typeof raw === 'object' && raw !== null) {
-    return raw as T;
-  }
-  return null;
 }
 
 // 网易云请求参数接口
@@ -111,7 +93,7 @@ export const hotSearch: HotSearchInterface = {
       const response = await httpRequest(url, options).promise;
 
       const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
-      const body = parseWyJson<WYHotSearchAPIResponse>(resultData);
+      const body = parseHttpBodyJson<WYHotSearchAPIResponse>(resultData);
       if (body) {
         if (body.code === 200 && body.data && body.data.itemList) {
           const hotSearchList: HotSearchItem[] = [];

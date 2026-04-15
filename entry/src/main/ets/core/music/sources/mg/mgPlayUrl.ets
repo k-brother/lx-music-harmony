@@ -3,7 +3,7 @@
  */
 
 import type { MusicInfo } from '../../../../types/MusicTypes';
-import { httpRequest } from '../../../../core/network/http';
+import { httpRequest, parseHttpBodyJson } from '../../../../core/network/http';
 import type { MusicUrlResult } from '../MusicSdkContracts';
 
 interface MGRateFormat {
@@ -17,24 +17,6 @@ interface MGResource {
 
 interface MGUrlResponse {
   resource: MGResource[];
-}
-
-function parseMgJson<T>(raw: string | Object | ArrayBuffer): T | null {
-  if (typeof raw === 'string') {
-    const text = raw.trim();
-    if (text.length === 0) {
-      return null;
-    }
-    try {
-      return JSON.parse(text) as T;
-    } catch {
-      return null;
-    }
-  }
-  if (typeof raw === 'object' && raw !== null) {
-    return raw as T;
-  }
-  return null;
 }
 
 export function getMgMusicUrl(songInfo: MusicInfo, quality: string): Promise<MusicUrlResult> {
@@ -63,7 +45,7 @@ export function getMgMusicUrl(songInfo: MusicInfo, quality: string): Promise<Mus
 
   return httpRequest(url, { header: headers }).promise.then((response) => {
     const resultData = response.data as string | Object | ArrayBuffer;
-    const body = parseMgJson<MGUrlResponse>(resultData);
+    const body = parseHttpBodyJson<MGUrlResponse>(resultData);
     if (body) {
       if (body.resource && body.resource.length > 0) {
         const resource = body.resource[0];

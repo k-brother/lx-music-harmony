@@ -1,7 +1,7 @@
 /**
  * 咪咕音乐 - 歌曲搜索
  */
-import { httpRequest } from '../../../../core/network/http';
+import { httpRequest, parseHttpBodyJson } from '../../../../core/network/http';
 import { decodeName } from '../../../../utils/CommonUtils';
 import type { MusicInfo, SearchResult, Quality, QualityDetail, MusicQualityType } from '../../../../types/MusicTypes';
 
@@ -29,24 +29,6 @@ interface MGSearchResponseData {
 interface MGSearchResponse {
   returnCode: string;
   data?: MGSearchResponseData;
-}
-
-function parseMgJson<T>(raw: string | Object | ArrayBuffer): T | null {
-  if (typeof raw === 'string') {
-    const text = raw.trim();
-    if (text.length === 0) {
-      return null;
-    }
-    try {
-      return JSON.parse(text) as T;
-    } catch {
-      return null;
-    }
-  }
-  if (typeof raw === 'object' && raw !== null) {
-    return raw as T;
-  }
-  return null;
 }
 
 // 音乐搜索接口
@@ -118,7 +100,7 @@ export const musicSearch: MusicSearchInterface = {
 
     return httpRequest(url, { header: headers }).promise.then((response) => {
       const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
-      const body = parseMgJson<MGSearchResponse>(resultData);
+      const body = parseHttpBodyJson<MGSearchResponse>(resultData);
 
       if (!body || body.returnCode !== '000000') {
         return buildEmptySearchResult();

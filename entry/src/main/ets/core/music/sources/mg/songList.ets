@@ -1,7 +1,7 @@
 /**
  * 咪咕音乐 - 歌单（对齐 src/utils/musicSdk/mg/songList.js）
  */
-import { httpRequest, type HttpRequestConfig } from '../../../../core/network/http';
+import { httpRequest, parseHttpBodyJson, type HttpRequestConfig } from '../../../../core/network/http';
 import type { MusicInfo, MusicQualityType, Quality, QualityDetail } from '../../../../types/MusicTypes';
 import { formatPlayCount, sizeFormate, formatPlayTime } from '../../../../utils/CommonUtils';
 import type {
@@ -160,24 +160,6 @@ interface MgPlaylistData {
 interface MgPlaylistInfoBody {
   code?: string;
   data?: MgPlaylistData;
-}
-
-function parseMgHttpJson<T>(raw: string | Object): T | null {
-  if (typeof raw === 'string') {
-    const text = raw.trim();
-    if (text.length === 0) {
-      return null;
-    }
-    try {
-      return JSON.parse(text) as T;
-    } catch {
-      return null;
-    }
-  }
-  if (typeof raw === 'object' && raw !== null) {
-    return raw as T;
-  }
-  return null;
 }
 
 function formatMgSingers(singerList: MgSingerEntry[] | undefined): string {
@@ -362,7 +344,7 @@ interface MgListDetailSongsResult {
 
 function fetchMgListDetailSongs(id: string, page: number): Promise<MgListDetailSongsResult> {
   return httpRequest(getSongListDetailUrl(id, page), mgDefaultHttpLegacy()).promise.then((response) => {
-    const body = parseMgHttpJson<MgSongListBody>(response.result as string | Object);
+    const body = parseHttpBodyJson<MgSongListBody>(response.result as string | Object);
     const emptySongs: MgListDetailSongsResult = { list: [], page, limit: LIMIT_SONG, total: 0, source: 'mg' };
     if (!body || body.code !== SUCCESS_CODE || !body.data) {
       return emptySongs;
@@ -384,7 +366,7 @@ function fetchMgListDetailMeta(id: string): Promise<SongListDetailInfo> {
     return Promise.resolve(cached);
   }
   return httpRequest(`https://c.musicapp.migu.cn/MIGUM3.0/resource/playlist/v2.0?playlistId=${id}`, mgDefaultHttpLegacy()).promise.then((response) => {
-    const body = parseMgHttpJson<MgPlaylistInfoBody>(response.result as string | Object);
+    const body = parseHttpBodyJson<MgPlaylistInfoBody>(response.result as string | Object);
     if (!body || body.code !== SUCCESS_CODE || !body.data) {
       const emptyMeta: SongListDetailInfo = { name: '', img: '', desc: '', author: '', play_count: '' };
       return emptyMeta;
@@ -405,7 +387,7 @@ function fetchMgListDetailMeta(id: string): Promise<SongListDetailInfo> {
 class MgSongListImpl implements MgSongListModule {
   getTags(): Promise<SongListTagsResult> {
     return httpRequest(TAGS_URL, mgDefaultHttpLegacy()).promise.then((response) => {
-      const body = parseMgHttpJson<MgTagsBody>(response.result as string | Object);
+      const body = parseHttpBodyJson<MgTagsBody>(response.result as string | Object);
       const emptyTags: SongListTagsResult = { tags: [], hotTag: [], source: 'mg' };
       if (!body || body.code !== SUCCESS_CODE || !body.data) {
         return emptyTags;
@@ -420,7 +402,7 @@ class MgSongListImpl implements MgSongListModule {
   getList(sortId: string, tagId: string, page: number): Promise<SongListResult> {
     const url = getSongListUrl(sortId, tagId, page);
     return httpRequest(url, mgDefaultHttpLegacy()).promise.then((response) => {
-      const body = parseMgHttpJson<MgListBody>(response.result as string | Object);
+      const body = parseHttpBodyJson<MgListBody>(response.result as string | Object);
       const emptyList: SongListResult = { list: [], total: 0, page, limit: LIMIT_LIST, source: 'mg' };
       if (!body || body.code !== '000000' || !body.data) {
         return emptyList;

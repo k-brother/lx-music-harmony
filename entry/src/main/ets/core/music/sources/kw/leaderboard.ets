@@ -1,4 +1,4 @@
-import { httpRequest } from '../../../../core/network/http';
+import { httpRequest, parseHttpBodyJson } from '../../../../core/network/http';
 import type { MusicInfo, Quality, QualityDetail } from '../../../../types/MusicTypes';
 import { formatPlayTime, decodeHtmlEntities, formatSinger, formatPlayCount } from '../../../../utils/CommonUtils';
 import hilog from '@ohos.hilog';
@@ -228,20 +228,6 @@ interface KwBangApiData {
   total?: string;
 }
 
-function parseKwBangJson(raw: string | Object | undefined): KwBangApiData | null {
-  if (raw === null || raw === undefined) {
-    return null;
-  }
-  if (typeof raw === 'string') {
-    const t = raw.trim();
-    if (t.length === 0) {
-      return null;
-    }
-    return JSON.parse(t) as KwBangApiData;
-  }
-  return raw as KwBangApiData;
-}
-
 /** 仅当 errcode 为数字且非 0 时视为失败（缺省 errcode 表示 content 接口成功形态） */
 function isKwBangApiError(data: KwBangApiData): boolean {
   return typeof data.errcode === 'number' && data.errcode !== 0;
@@ -308,7 +294,7 @@ export const leaderboard: LeaderboardInterface = {
       task.promise.then((response) => {
         try {
           const rawBoard = (response.result !== undefined ? response.result : response.data) as string | Object;
-          const data = parseKwBangJson(rawBoard) as KwBoardListResponse | null;
+          const data = parseHttpBodyJson<KwBoardListResponse>(rawBoard);
 
           if (data === null || (typeof data.errcode === 'number' && data.errcode !== 0) || !data.list) {
             // API 失败时使用预定义列表
@@ -377,7 +363,7 @@ export const leaderboard: LeaderboardInterface = {
       task.promise.then((response) => {
         try {
           const raw = (response.result !== undefined ? response.result : response.data) as string | Object;
-          const data = parseKwBangJson(raw);
+          const data = parseHttpBodyJson<KwBangApiData>(raw);
 
           if (data === null || isKwBangApiError(data) || !data.musiclist) {
             if (data !== null && !data.musiclist) {

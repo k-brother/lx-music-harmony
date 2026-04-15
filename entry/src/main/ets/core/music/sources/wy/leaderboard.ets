@@ -3,7 +3,7 @@
  * 基于网易云音乐真实 API 实现
  */
 import type { MusicInfo, Quality, QualityDetail, MusicQualityType } from '../../../../types/MusicTypes';
-import { httpRequest, type HttpRequestConfig } from '../../../../core/network/http';
+import { httpRequest, parseHttpBodyJson, type HttpRequestConfig } from '../../../../core/network/http';
 import { formatPlayTime } from '../../../../utils/CommonUtils';
 import { neteaseWeapi, buildWeapiFormBody, type WeapiJsonObject } from './NeteaseCrypto';
 import hilog from '@ohos.hilog';
@@ -144,20 +144,6 @@ function parseTrackItem(item: WYTrackItem): MusicInfo {
   return musicInfo;
 }
 
-function parseWyLeaderboardJson<T>(raw: string | Object | undefined): T | null {
-  if (raw === null || raw === undefined) {
-    return null;
-  }
-  if (typeof raw === 'string') {
-    const t = raw.trim();
-    if (t.length === 0) {
-      return null;
-    }
-    return JSON.parse(t) as T;
-  }
-  return raw as T;
-}
-
 function buildWyLeaderboardHeaders(): Map<string, string> {
   const headers: Map<string, string> = new Map();
   headers.set('Referer', 'https://music.163.com/');
@@ -185,9 +171,9 @@ class WyLeaderboardImpl implements LeaderboardInterface {
       const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
       let body: WYBoardListResponse | null = null;
       if (typeof resultData === 'string') {
-        body = parseWyLeaderboardJson<WYBoardListResponse>(resultData);
+        body = parseHttpBodyJson<WYBoardListResponse>(resultData);
       } else if (resultData !== null && typeof resultData === 'object' && !(resultData instanceof ArrayBuffer)) {
-        body = parseWyLeaderboardJson<WYBoardListResponse>(resultData as Object);
+        body = parseHttpBodyJson<WYBoardListResponse>(resultData as Object);
       }
       if (body !== null) {
 
@@ -247,9 +233,9 @@ class WyLeaderboardImpl implements LeaderboardInterface {
       const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
       let body: WYBoardDetailResponse | null = null;
       if (typeof resultData === 'string') {
-        body = parseWyLeaderboardJson<WYBoardDetailResponse>(resultData);
+        body = parseHttpBodyJson<WYBoardDetailResponse>(resultData);
       } else if (resultData !== null && typeof resultData === 'object' && !(resultData instanceof ArrayBuffer)) {
-        body = parseWyLeaderboardJson<WYBoardDetailResponse>(resultData as Object);
+        body = parseHttpBodyJson<WYBoardDetailResponse>(resultData as Object);
       }
       if (body !== null) {
 
@@ -293,9 +279,9 @@ class WyLeaderboardImpl implements LeaderboardInterface {
       const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
       let body: WYBoardDetailResponse | null = null;
       if (typeof resultData === 'string') {
-        body = parseWyLeaderboardJson<WYBoardDetailResponse>(resultData);
+        body = parseHttpBodyJson<WYBoardDetailResponse>(resultData);
       } else if (resultData !== null && typeof resultData === 'object' && !(resultData instanceof ArrayBuffer)) {
-        body = parseWyLeaderboardJson<WYBoardDetailResponse>(resultData as Object);
+        body = parseHttpBodyJson<WYBoardDetailResponse>(resultData as Object);
       }
       if (body && body.code === 200 && body.playlist) {
         const tracks = body.playlist.tracks || [];

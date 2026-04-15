@@ -2,7 +2,7 @@
  * QQ音乐 - 歌单（对齐 src/utils/musicSdk/tx/songList.js）
  */
 import type { MusicInfo, MusicQualityType, Quality, QualityDetail } from '../../../../types/MusicTypes';
-import { httpRequest, type HttpRequestConfig } from '../../../../core/network/http';
+import { httpRequest, parseHttpBodyJson, type HttpRequestConfig } from '../../../../core/network/http';
 import { formatPlayTime, decodeName, formatPlayCount, sizeFormate } from '../../../../utils/CommonUtils';
 import { formatSingerName, type SingerInfo } from './utils/crypto';
 import type {
@@ -194,24 +194,6 @@ interface TxCdInfo {
 interface TxDetailBody {
   code?: number;
   cdlist?: TxCdInfo[];
-}
-
-function parseTxHttpJson<T>(raw: string | Object): T | null {
-  if (typeof raw === 'string') {
-    const text = raw.trim();
-    if (text.length === 0) {
-      return null;
-    }
-    try {
-      return JSON.parse(text) as T;
-    } catch {
-      return null;
-    }
-  }
-  if (typeof raw === 'object' && raw !== null) {
-    return raw as T;
-  }
-  return null;
 }
 
 interface TxTagGroupOut {
@@ -429,7 +411,7 @@ class TxSongListImpl implements TxSongListModule {
     const p2 = httpRequest(HOT_TAG_URL, tagReq).promise;
     return Promise.all([p1, p2]).then((responses) => {
       const emptyTags: SongListTagsResult = { tags: [], hotTag: [], source: 'tx' };
-      const tagsBody = parseTxHttpJson<TxTagsBody>(responses[0].result as string | Object);
+      const tagsBody = parseHttpBodyJson<TxTagsBody>(responses[0].result as string | Object);
       const hotHtml = responses[1].result as string;
       if (!tagsBody || tagsBody.code !== SUCCESS_CODE || !tagsBody.tags?.data?.v_group) {
         return emptyTags;
@@ -455,7 +437,7 @@ class TxSongListImpl implements TxSongListModule {
     const listReq: HttpRequestConfig = { header: headers };
     return httpRequest(url, listReq).promise.then((response) => {
       const emptyList: SongListResult = { list: [], total: 0, page, limit: LIMIT_LIST, source: 'tx' };
-      const body = parseTxHttpJson<TxListBody>(response.result as string | Object);
+      const body = parseHttpBodyJson<TxListBody>(response.result as string | Object);
       if (!body || body.code !== SUCCESS_CODE || !body.playlist?.data) {
         return emptyList;
       }
@@ -484,7 +466,7 @@ class TxSongListImpl implements TxSongListModule {
           page: 1,
           limit: 0,
         };
-        const body = parseTxHttpJson<TxDetailBody>(response.result as string | Object);
+        const body = parseHttpBodyJson<TxDetailBody>(response.result as string | Object);
         if (!body || body.code !== SUCCESS_CODE || !body.cdlist || body.cdlist.length === 0) {
           return emptyDetail;
         }

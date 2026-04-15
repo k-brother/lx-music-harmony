@@ -1,7 +1,7 @@
 /**
  * 网易云音乐 - 歌词获取
  */
-import { httpRequest } from '../../../../core/network/http';
+import { httpRequest, parseHttpBodyJson } from '../../../../core/network/http';
 import type { LyricInfo } from '../../../../types/MusicTypes';
 
 // 网易云歌词响应数据
@@ -12,24 +12,6 @@ interface WYLyricInfo {
 interface WYLyricResponse {
   lrc?: WYLyricInfo;
   tlyric?: WYLyricInfo | null;
-}
-
-function parseWyJson<T>(raw: string | Object | ArrayBuffer): T | null {
-  if (typeof raw === 'string') {
-    const text = raw.trim();
-    if (text.length === 0) {
-      return null;
-    }
-    try {
-      return JSON.parse(text) as T;
-    } catch {
-      return null;
-    }
-  }
-  if (typeof raw === 'object' && raw !== null) {
-    return raw as T;
-  }
-  return null;
 }
 
 // 空歌词
@@ -65,7 +47,7 @@ export const lyric: LyricInterface = {
 
     return httpRequest(url, { header: headers }).promise.then((response) => {
       const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
-      const body = parseWyJson<WYLyricResponse>(resultData);
+      const body = parseHttpBodyJson<WYLyricResponse>(resultData);
 
       if (body && body.lrc && body.lrc.lyric) {
         const lyricInfo: LyricInfo = {

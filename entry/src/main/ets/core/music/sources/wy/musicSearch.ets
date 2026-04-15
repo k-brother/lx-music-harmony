@@ -1,7 +1,7 @@
 /**
  * 网易云音乐 - 歌曲搜索
  */
-import { httpRequest } from '../../../../core/network/http';
+import { httpRequest, parseHttpBodyJson } from '../../../../core/network/http';
 import { decodeName } from '../../../../utils/CommonUtils';
 import type { MusicInfo, SearchResult, Quality, QualityDetail, MusicQualityType } from '../../../../types/MusicTypes';
 import { neteaseWeapi, buildWeapiFormBody, type WeapiJsonObject } from './NeteaseCrypto';
@@ -40,24 +40,6 @@ interface WYSearchResultData {
 interface WYSearchResponse {
   code: number;
   result?: WYSearchResultData;
-}
-
-function parseWyJson<T>(raw: string | Object | ArrayBuffer): T | null {
-  if (typeof raw === 'string') {
-    const text = raw.trim();
-    if (text.length === 0) {
-      return null;
-    }
-    try {
-      return JSON.parse(text) as T;
-    } catch {
-      return null;
-    }
-  }
-  if (typeof raw === 'object' && raw !== null) {
-    return raw as T;
-  }
-  return null;
 }
 
 // 音乐搜索接口
@@ -145,7 +127,7 @@ export const musicSearch: MusicSearchInterface = {
         responseType: 'text',
       }).promise;
       const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
-      const body = parseWyJson<WYSearchResponse>(resultData);
+      const body = parseHttpBodyJson<WYSearchResponse>(resultData);
       if (!body || body.code !== 200) {
         return buildEmptySearchResult();
       }
@@ -177,7 +159,7 @@ export const musicSearch: MusicSearchInterface = {
       headers.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36');
       const response = await httpRequest(url, { header: headers, responseType: 'text' }).promise;
       const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
-      const body = parseWyJson<WYSearchResponse>(resultData);
+      const body = parseHttpBodyJson<WYSearchResponse>(resultData);
       if (!body || body.code !== 200) {
         return buildEmptySearchResult();
       }

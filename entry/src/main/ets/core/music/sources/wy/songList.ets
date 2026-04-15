@@ -1,7 +1,7 @@
 /**
  * 网易云音乐 - 歌单（对齐 src/utils/musicSdk/wy/songList.js）
  */
-import { httpRequest, type HttpRequestConfig } from '../../../../core/network/http';
+import { httpRequest, parseHttpBodyJson, type HttpRequestConfig } from '../../../../core/network/http';
 import type { MusicInfo, MusicQualityType, Quality, QualityDetail } from '../../../../types/MusicTypes';
 import { formatPlayTime, formatPlayCount, sizeFormate } from '../../../../utils/CommonUtils';
 import type {
@@ -171,24 +171,6 @@ function normalizeOrder(sortId: string): string {
     return 'hot';
   }
   return sortId;
-}
-
-/**
- * @ohos.net.http 对 application/json 可能直接返回 Object，勿对 Object 再 JSON.parse。
- * 部分接口会 200 但 body 为空字符串，JSON.parse('') 会报 “Unexpected Text in JSON: Empty Text”，此处返回 null。
- */
-function parseWyHttpJson<T>(raw: string | Object | undefined): T | null {
-  if (raw === null || raw === undefined) {
-    return null;
-  }
-  if (typeof raw === 'string') {
-    const trimmed = raw.trim();
-    if (trimmed.length === 0) {
-      return null;
-    }
-    return JSON.parse(trimmed) as T;
-  }
-  return raw as T;
 }
 
 function flattenTagGroups(groups: WyTagGroup[], source: string): SongListTag[] {
@@ -435,8 +417,8 @@ class WySongListImpl implements WySongListModule {
         httpRequest('https://music.163.com/api/playlist/catalogue', { method: 'GET', header: headers, responseType: 'text' }).promise,
         httpRequest('https://music.163.com/api/playlist/hottags', { method: 'GET', header: headers, responseType: 'text' }).promise,
       ]);
-      const body1 = parseWyHttpJson<WyCatalogueResponse>(resArr[0].result as string | Object);
-      const body2 = parseWyHttpJson<WyHotTagsResponse>(resArr[1].result as string | Object);
+      const body1 = parseHttpBodyJson<WyCatalogueResponse>(resArr[0].result as string | Object);
+      const body2 = parseHttpBodyJson<WyHotTagsResponse>(resArr[1].result as string | Object);
       const emptyTags: SongListTagsResult = { tags: [], hotTag: [], source: 'wy' };
       if (body1 === null || body1.code !== SUCCESS_CODE) {
         return emptyTags;
@@ -463,7 +445,7 @@ class WySongListImpl implements WySongListModule {
       const offset = LIMIT_LIST * (page - 1);
       const url = `https://music.163.com/api/playlist/list?cat=${encodeURIComponent(cat)}&order=${encodeURIComponent(order)}&offset=${offset}&limit=${LIMIT_LIST}`;
       const res = await httpRequest(url, { method: 'GET', header: headers, responseType: 'text' }).promise;
-      const body = parseWyHttpJson<WyPlaylistListResponse>(res.result as string | Object);
+      const body = parseHttpBodyJson<WyPlaylistListResponse>(res.result as string | Object);
       const emptyList: SongListResult = { list: [], total: 0, page, limit: LIMIT_LIST, source: 'wy' };
       if (body === null || body.code !== SUCCESS_CODE || !body.playlists) {
         return emptyList;
@@ -503,8 +485,8 @@ class WySongListImpl implements WySongListModule {
       ]);
       const res1 = resArr[0];
       const res2 = resArr[1];
-      const body1 = parseWyHttpJson<WyCatalogueResponse>(res1.result as string | Object);
-      const body2 = parseWyHttpJson<WyHotTagsResponse>(res2.result as string | Object);
+      const body1 = parseHttpBodyJson<WyCatalogueResponse>(res1.result as string | Object);
+      const body2 = parseHttpBodyJson<WyHotTagsResponse>(res2.result as string | Object);
       const emptyTags: SongListTagsResult = { tags: [], hotTag: [], source: 'wy' };
       if (body1 === null || body2 === null) {
         hilog.warn(0x0001, 'WY_SongList', 'getTags empty or non-json response body');
@@ -545,7 +527,7 @@ class WySongListImpl implements WySongListModule {
         extraData: buildWeapiFormBody(form),
       };
       const res = await httpRequest('https://music.163.com/weapi/playlist/list', listReq).promise;
-      const body = parseWyHttpJson<WyPlaylistListResponse>(res.result as string | Object);
+      const body = parseHttpBodyJson<WyPlaylistListResponse>(res.result as string | Object);
       const emptyList: SongListResult = { list: [], total: 0, page, limit: LIMIT_LIST, source: 'wy' };
       if (body === null) {
         hilog.warn(0x0001, 'WY_SongList', 'getList empty or non-json response body (playlist/list)');
@@ -592,7 +574,7 @@ class WySongListImpl implements WySongListModule {
         extraData: buildLinuxapiFormBody(linuxForm),
       };
       const res = await httpRequest('https://music.163.com/api/linux/forward', forwardReq).promise;
-      const body = parseWyHttpJson<WyPlaylistDetailBody>(res.result as string | Object);
+      const body = parseHttpBodyJson<WyPlaylistDetailBody>(res.result as string | Object);
       const emptyDetail: SongListDetailResult = {
         list: [],
         info: emptyInfo,

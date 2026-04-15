@@ -5,6 +5,7 @@ import { httpRequest, type HttpRequestConfig } from '../../../../core/network/ht
 import { decodeName, formatPlayTime, sizeFormate } from '../../../../utils/CommonUtils';
 import { formatSingerName } from './util';
 import type { MusicInfo, MusicQualityType, MusicQualityTypeKg, Quality, QualityDetail } from '../../../../types/MusicTypes';
+import { parseKgHttpJson } from './kgHttpJson';
 
 interface LeaderboardItem {
   id: string;
@@ -168,13 +169,6 @@ function kgRankExtract320FromJson(json: string): KgRank320Extract {
   }
   const out: KgRank320Extract = { n, h };
   return out;
-}
-
-function parseKgHttpJson<T>(raw: string | Object): T {
-  if (typeof raw === 'string') {
-    return JSON.parse(raw) as T;
-  }
-  return raw as T;
 }
 
 function kgRankListHeaders(): HttpRequestConfig {
