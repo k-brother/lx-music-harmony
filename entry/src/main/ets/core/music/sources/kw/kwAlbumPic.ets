@@ -4,6 +4,7 @@
 
 import type { MusicInfo } from '../../../../types/MusicTypes';
 import { httpGet, checkNetworkConnection } from '../../../../core/network/http';
+import type { HttpRequestConfig } from '../../../../core/network/http';
 import hilog from '@ohos.hilog';
 
 const TAG = 'KwAlbumPic';
@@ -13,23 +14,107 @@ interface RequestObj {
   cancel: () => void;
 }
 
+interface KwPicRequestConfig extends HttpRequestConfig {
+  responseType: 'text';
+  header: Map<string, string>;
+  readTimeout: number;
+}
+
 interface KwMusicPicResponse {
-  code: number;
-  msg: string;
-  data: KwMusicPicData;
+  code?: number | string;
+  msg?: string;
+  data?: KwMusicPicData;
 }
 
 interface KwMusicPicData {
-  pic: string;
+  pic?: string;
+}
+
+interface KwMobileSongInfo {
+  pic?: string;
+  pic120?: string;
+  pic300?: string;
+  albumpic?: string;
+}
+
+interface KwMobilePicResponse {
+  data?: KwMobilePicData;
+}
+
+interface KwMobilePicData {
+  songinfo?: KwMobileSongInfo;
 }
 
 let musicPicRequestObj: RequestObj | null = null;
 
-export async function getKwAlbumPic(songInfo: MusicInfo): Promise<string> {
-  if (songInfo.img) {
-    return Promise.resolve(songInfo.img);
+function normalizePicUrl(url: string): string {
+  const value = (url ?? '').trim();
+  if (value.length === 0) {
+    return '';
   }
+  if (value.startsWith('//')) {
+    return `https:${value}`;
+  }
+  if (value.startsWith('http://')) {
+    return `https://${value.substring(7)}`;
+  }
+  if (value.startsWith('https://')) {
+    return value;
+  }
+  return '';
+}
 
+async function tryGetPicFromPrimaryApi(songmid: string): Promise<string> {
+  const url = `https://www.kuwo.cn/api/www/music/pic?mid=${songmid}&size=500`;
+  const requestHeader: Map<string, string> = new Map<string, string>();
+  requestHeader.set('Referer', 'https://www.kuwo.cn/');
+  requestHeader.set('User-Agent', 'Mozilla/5.0');
+  const requestConfig: KwPicRequestConfig = {
+    responseType: 'text',
+    header: requestHeader,
+    readTimeout: 10000,
+  };
+  const task = httpGet(url, requestConfig);
+  const cancelObj: RequestObj = {
+    cancel: task.cancel,
+  };
+  musicPicRequestObj = cancelObj;
+  const response = await task.promise;
+  const bodyText = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+  const data = JSON.parse(bodyText) as KwMusicPicResponse;
+  const code = Number(data.code ?? 0);
+  if (code === 200 && data.data && data.data.pic) {
+    return normalizePicUrl(data.data.pic);
+  }
+  return '';
+}
+
+async function tryGetPicFromMobileApi(songmid: string): Promise<string> {
+  const url = `https://m.kuwo.cn/newh5/singles/songinfoandlrc?musicId=${songmid}`;
+  const requestHeader: Map<string, string> = new Map<string, string>();
+  requestHeader.set('Referer', 'https://m.kuwo.cn/');
+  requestHeader.set('User-Agent', 'Mozilla/5.0');
+  const requestConfig: KwPicRequestConfig = {
+    responseType: 'text',
+    header: requestHeader,
+    readTimeout: 10000,
+  };
+  const task = httpGet(url, requestConfig);
+  const response = await task.promise;
+  const bodyText = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+  const data = JSON.parse(bodyText) as KwMobilePicResponse;
+  const song = data.data?.songinfo;
+  if (!song) {
+    return '';
+  }
+  return normalizePicUrl(song.pic || song.pic300 || song.pic120 || song.albumpic || '');
+}
+
+export async function getKwAlbumPic(songInfo: MusicInfo): Promise<string> {
+  const inlinePic = normalizePicUrl(songInfo.img || songInfo.pic || '');
+  if (inlinePic.length > 0) {
+    return inlinePic;
+  }
   const isConnected = await checkNetworkConnection();
   if (!isConnected) {
     hilog.error(DOMAIN, TAG, 'Network not available');
@@ -40,29 +125,28 @@ export async function getKwAlbumPic(songInfo: MusicInfo): Promise<string> {
     musicPicRequestObj.cancel();
   }
 
-  const songmid = songInfo.songmid || '';
-  const url = `http://www.kuwo.cn/api/www/music/pic?mid=${songmid}&size=500`;
-  const task = httpGet(url);
+  const songmid = songInfo.songmid || songInfo.id || '';
+  if (!songmid || songmid.length === 0) {
+    return '';
+  }
 
-  const cancelObj: RequestObj = {
-    cancel: task.cancel,
-  };
-  musicPicRequestObj = cancelObj;
+  try {
+    const primaryPic = await tryGetPicFromPrimaryApi(songmid);
+    if (primaryPic.length > 0) {
+      return primaryPic;
+    }
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'Primary pic api failed: %{public}s', JSON.stringify(err));
+  }
 
-  return new Promise<string>((resolve, reject) => {
-    task.promise.then((response) => {
-      try {
-        const data = JSON.parse(response.data as string) as KwMusicPicResponse;
-        if (data.code === 200) {
-          resolve(data.data.pic || '');
-        } else {
-          reject(new Error(data.msg || '获取图片失败'));
-        }
-      } catch {
-        reject(new Error('解析图片信息失败'));
-      }
-    }).catch(() => {
-      reject(new Error('请求失败'));
-    });
-  });
+  try {
+    const mobilePic = await tryGetPicFromMobileApi(songmid);
+    if (mobilePic.length > 0) {
+      return mobilePic;
+    }
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'Mobile pic api failed: %{public}s', JSON.stringify(err));
+  }
+
+  return '';
 }

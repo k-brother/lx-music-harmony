@@ -5,7 +5,7 @@
 import dataPreferences from '@ohos.data.preferences';
 import hilog from '@ohos.hilog';
 import type { common } from '@kit.AbilityKit';
-import { setStorageService, type IStorageService } from '../core/interfaces/IStorageService';
+import { setStorageService, createMemoryStorageService, type IStorageService } from '../core/interfaces/IStorageService';
 
 const TAG = 'StorageService';
 const DOMAIN = 0x0003;
@@ -75,7 +75,13 @@ export async function initStorage(): Promise<void> {
     const serviceImpl: IStorageService = new StorageServiceImpl(preferences!);
     setStorageService(serviceImpl);
   } catch (err) {
-    hilog.error(DOMAIN, TAG, 'Failed to init storage: %{public}s', JSON.stringify(err));
+    hilog.warn(
+      DOMAIN,
+      TAG,
+      'Preferences unavailable (Previewer / no persistence), using in-memory storage: %{public}s',
+      JSON.stringify(err)
+    );
+    setStorageService(createMemoryStorageService());
   }
 }
 

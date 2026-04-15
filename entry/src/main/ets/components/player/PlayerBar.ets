@@ -9,11 +9,13 @@ import { playerService } from '../../service/PlayerService';
 
 // 使用与PlayerService一致的MusicInfo接口
 import type { MusicInfo } from '../../service/PlayerService';
+import { DesignTokens } from '../../theme/DesignTokens';
 
 @Component
 export struct PlayerBar {
   @StorageProp('theme') theme: string = 'light';
   @StorageProp('primaryColor') primaryColor: string = '#E63946';
+  @Prop immersiveBottom: boolean = false;
   @State isPlay: boolean = false;
   @State musicName: string = '';
   @State singer: string = '';
@@ -26,26 +28,65 @@ export struct PlayerBar {
   private unsubscribePlayState: (() => void) | null = null;
   private unsubscribeMusicInfo: (() => void) | null = null;
   private unsubscribeProgress: (() => void) | null = null;
+  private alive: boolean = false;
+  private navLocked: boolean = false;
+  private navUnlockTimer: number = -1;
+  private clickSeq: number = 0;
+
+  private normalizeCoverUrl(rawUrl: string): string {
+    const url = (rawUrl ?? '').trim();
+    if (url.length === 0) {
+      return '';
+    }
+    if (url.startsWith('//')) {
+      return `https:${url}`;
+    }
+    if (url.startsWith('http://') && (url.includes('kuwo.cn') || url.includes('kwcdn.kuwo.cn'))) {
+      return `https://${url.substring(7)}`;
+    }
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    return '';
+  }
+
+  private canRenderMiniCover(url: string): boolean {
+    const value = (url ?? '').trim();
+    if (value.length === 0) {
+      return false;
+    }
+    return value.startsWith('http://') || value.startsWith('https://') || value.startsWith('//');
+  }
 
   aboutToAppear() {
-    hilog.info(0x0001, 'PlayerBar', 'aboutToAppear, registering listeners');
+    this.alive = true;
+    hilog.info(0x0001, 'PlayerBar', 'aboutToAppear, registering listeners, navLocked=%{public}s', this.navLocked.toString());
 
     // 订阅播放状态变化
     this.unsubscribePlayState = playerService.onPlayStateChange((isPlay: boolean) => {
+      if (!this.alive) {
+        return;
+      }
       hilog.info(0x0001, 'PlayerBar', 'isPlay changed to %{public}s', isPlay.toString());
       this.isPlay = isPlay;
     });
 
     // 订阅音乐信息变化
     this.unsubscribeMusicInfo = playerService.onMusicInfoChange((info: MusicInfo) => {
+      if (!this.alive) {
+        return;
+      }
       hilog.info(0x0001, 'PlayerBar', 'musicInfo updated - name: %{public}s, pic: %{public}s', info.name, info.pic || 'null');
       this.musicName = info.name;
       this.singer = info.singer;
-      this.pic = info.pic || info.img || '';
+      this.pic = this.normalizeCoverUrl(info.pic || info.img || '');
     });
 
     // 订阅进度变化
     this.unsubscribeProgress = playerService.onProgressInfoChange((prog) => {
+      if (!this.alive) {
+        return;
+      }
       this.progress = prog.progress;
       this.nowPlayTimeStr = prog.nowPlayTimeStr;
       this.maxPlayTimeStr = prog.maxPlayTimeStr;
@@ -59,11 +100,17 @@ export struct PlayerBar {
     if (currentMusicInfo && currentMusicInfo.name) {
       this.musicName = currentMusicInfo.name;
       this.singer = currentMusicInfo.singer;
-      this.pic = currentMusicInfo.pic || currentMusicInfo.img || '';
+      this.pic = this.normalizeCoverUrl(currentMusicInfo.pic || currentMusicInfo.img || '');
     }
   }
 
   aboutToDisappear() {
+    this.alive = false;
+    if (this.navUnlockTimer !== -1) {
+      clearTimeout(this.navUnlockTimer);
+      this.navUnlockTimer = -1;
+    }
+    this.navLocked = false;
     hilog.info(0x0001, 'PlayerBar', 'aboutToDisappear, unregistering listeners');
 
     if (this.unsubscribePlayState) {
@@ -106,100 +153,160 @@ export struct PlayerBar {
     await playerService.playNext();
   }
 
-  build() {
+  private navigateToPlayDetailSafely(): void {
+    this.clickSeq += 1;
+    const clickId = this.clickSeq;
+    hilog.info(0x0001, 'PlayerBar',
+      'coverClick id=%{public}d, navLocked=%{public}s, music=%{public}s, picLen=%{public}d',
+      clickId, this.navLocked.toString(), this.musicName || '-', this.pic.length);
+    if (this.navLocked) {
+      hilog.warn(0x0001, 'PlayerBar', 'coverClick id=%{public}d skipped by navLocked', clickId);
+      return;
+    }
+    this.navLocked = true;
+    if (this.navUnlockTimer !== -1) {
+      clearTimeout(this.navUnlockTimer);
+      this.navUnlockTimer = -1;
+    }
+    this.navUnlockTimer = setTimeout(() => {
+      this.navLocked = false;
+      this.navUnlockTimer = -1;
+      hilog.info(0x0001, 'PlayerBar', 'coverClick id=%{public}d unlock timer fired', clickId);
+    }, 350);
+    try {
+      hilog.info(0x0001, 'PlayerBar', 'coverClick id=%{public}d navigateTo playdetail', clickId);
+      navigationService.navigateTo(RouteName.PLAY_DETAIL);
+    } catch (e) {
+      this.navLocked = false;
+      hilog.error(0x0001, 'PlayerBar', 'coverClick id=%{public}d navigate exception: %{public}s', clickId, JSON.stringify(e));
+      console.error('PlayerBar: Navigation failed:', JSON.stringify(e));
+    }
+  }
+
+  @Builder
+  private BarCore() {
     Row() {
-      // 封面图片
-      if (this.pic) {
+      if (this.canRenderMiniCover(this.pic)) {
         Image(this.pic)
-          .width(46)
-          .height(46)
-          .borderRadius(4)
+          .width(48)
+          .height(48)
+          .borderRadius(DesignTokens.radiusCover())
           .objectFit(ImageFit.Cover)
+          .onError(() => {
+            this.pic = '';
+          })
           .onClick(() => {
-            try {
-              navigationService.navigateTo(RouteName.PLAY_DETAIL);
-            } catch (e) {
-              console.error('PlayerBar: Navigation failed:', JSON.stringify(e));
-            }
+            this.navigateToPlayDetailSafely();
           })
       } else {
-        // 默认封面图标
-        Stack() {
-          Column()
-            .width(46)
-            .height(46)
-            .backgroundColor('#E0E0E0')
-            .borderRadius(4)
-
-          Text('♪')
-            .fontSize(24)
-            .fontColor('#999999')
-        }
-        .width(46)
-        .height(46)
-        .onClick(() => {
-          try {
-            navigationService.navigateTo(RouteName.PLAY_DETAIL);
-          } catch (e) {
-            console.error('PlayerBar: Navigation failed:', JSON.stringify(e));
-          }
-        })
+        Image($r('app.media.ic_player_cover_placeholder'))
+          .width(48)
+          .height(48)
+          .borderRadius(DesignTokens.radiusCover())
+          .objectFit(ImageFit.Cover)
+          .onClick(() => {
+            this.navigateToPlayDetailSafely();
+          })
       }
 
-      // 歌曲信息
       Column() {
-        Text(this.musicName || '未播放')
-          .fontSize(14)
-          .fontColor('#333333')
+        Text(this.musicName || '未在播放')
+          .fontSize(DesignTokens.fontBody())
+          .fontWeight(FontWeight.Medium)
+          .fontColor(DesignTokens.labelPrimary(this.theme))
           .maxLines(1)
-        Text(this.singer || '-')
-          .fontSize(12)
-          .fontColor('#999999')
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(this.singer || '选择歌曲开始收听')
+          .fontSize(DesignTokens.fontCaption())
+          .fontColor(DesignTokens.labelSecondary(this.theme))
           .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .margin({ top: 3 })
       }
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
       .margin({ left: 12 })
 
-      // 控制按钮
-      Row() {
-        // 上一曲
-        Text('⏮')
-          .fontSize(20)
-          .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
-          .margin({ right: 20 })
-          .onClick(() => { this.playPrev(); })
-
-        // 播放/暂停
+      Row({ space: 10 }) {
         Stack() {
-          Circle({ width: 44, height: 44 })
-            .fill(this.theme === 'dark' ? '#333333' : '#E8E8E8')
+          Circle({ width: DesignTokens.ctrlSm(), height: DesignTokens.ctrlSm() })
+            .fill(DesignTokens.mutedFill(this.theme))
+          Image($r('app.media.ic_pd_prev'))
+            .width(DesignTokens.iconSm())
+            .height(DesignTokens.iconSm())
+            .fillColor(DesignTokens.labelPrimary(this.theme))
+        }
+        .onClick(() => {
+          void this.playPrev();
+        })
 
+        Stack() {
+          Circle({ width: 36, height: 36 })
+            .fill(DesignTokens.accent())
           if (this.isPlay) {
-             Row() {
-               Column().width(4).height(16).backgroundColor('#E63946').borderRadius(2).margin({ right: 6 })
-               Column().width(4).height(16).backgroundColor('#E63946').borderRadius(2)
-             }.justifyContent(FlexAlign.Center).alignItems(VerticalAlign.Center)
+            Image($r('app.media.ic_pd_pause'))
+              .width(13)
+              .height(13)
+              .fillColor('#FFFFFF')
           } else {
-             Text('▶').fontSize(16).fontColor('#E63946').margin({ left: 2 })
+            Image($r('app.media.ic_pd_play'))
+              .width(13)
+              .height(13)
+              .fillColor('#FFFFFF')
+              .margin({ left: 1 })
           }
         }
-        .margin({ right: 20 })
-        .onClick(() => { this.togglePlay(); })
+        .onClick(() => {
+          void this.togglePlay();
+        })
 
-        // 下一曲
-        Text('⏭')
-          .fontSize(20)
-          .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
-          .onClick(() => { this.playNext(); })
+        Stack() {
+          Circle({ width: DesignTokens.ctrlSm(), height: DesignTokens.ctrlSm() })
+            .fill(DesignTokens.mutedFill(this.theme))
+          Image($r('app.media.ic_pd_next'))
+            .width(DesignTokens.iconSm())
+            .height(DesignTokens.iconSm())
+            .fillColor(DesignTokens.labelPrimary(this.theme))
+        }
+        .onClick(() => {
+          void this.playNext();
+        })
       }
       .alignItems(VerticalAlign.Center)
     }
     .width('100%')
-    .height(56)
-    .padding({ left: 12, right: 12 })
-    .backgroundColor('#FFFFFF')
+    .height(62)
+    .padding({ left: 14, right: 14, top: 5, bottom: 5 })
+    .margin({
+      left: DesignTokens.spaceGutter(),
+      right: DesignTokens.spaceGutter(),
+      bottom: this.immersiveBottom ? 0 : 4,
+    })
+    .backgroundColor(DesignTokens.chromeBar(this.theme))
+    .borderRadius(DesignTokens.radiusCard())
+    .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
+    .shadow({
+      radius: 16,
+      color: 'rgba(0,0,0,0.08)',
+      offsetX: 0,
+      offsetY: 4,
+    })
     .alignItems(VerticalAlign.Center)
-    .border({ width: { top: 0.5 }, color: '#E0E0E0' })
+  }
+
+  build() {
+    if (this.immersiveBottom) {
+      Column() {
+        this.BarCore()
+        Blank()
+          .width('100%')
+          .height(10)
+      }
+      .width('100%')
+      .backgroundColor(DesignTokens.tabBarBg(this.theme))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    } else {
+      this.BarCore()
+    }
   }
 }

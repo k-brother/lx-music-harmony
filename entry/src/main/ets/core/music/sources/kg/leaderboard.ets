@@ -123,7 +123,7 @@ interface KGMusicItem {
   hash: string;
   audio_id: string;
   songname: string;
-  authors: KMAuthor[];
+  authors?: KMAuthor[];
   remark: string;
   album_id: string;
   duration: number;
@@ -134,6 +134,8 @@ interface KGMusicItem {
   hash_high: string;
   hash_320?: string;
   filesize_320?: number;
+  /** 榜单接口返回的可缩放封面，含 `{size}` 占位符 */
+  album_sizable_cover?: string;
 }
 
 interface KGRankListApiRow {
@@ -175,8 +177,22 @@ function kgRankListHeaders(): HttpRequestConfig {
   const h: Map<string, string> = new Map();
   h.set('User-Agent', 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 Chrome/119.0.0.0 Mobile Safari/537.36');
   h.set('Referer', 'https://www.kugou.com/');
-  const opts: HttpRequestConfig = { header: h };
+  const opts: HttpRequestConfig = { header: h, responseType: 'text' };
   return opts;
+}
+
+function kgCoverFromRankItem(item: KGMusicItem): string | null {
+  const tpl = item.album_sizable_cover;
+  if (!tpl || tpl.length === 0) {
+    return null;
+  }
+  let u = tpl.replace('{size}', '400');
+  if (u.startsWith('//')) {
+    u = `https:${u}`;
+  } else if (u.startsWith('http://')) {
+    u = `https://${u.substring(7)}`;
+  }
+  return u;
 }
 
 function filterBoardsData(rawList: KGRankListApiRow[]): LeaderboardItem[] {
@@ -207,7 +223,14 @@ class KgLeaderboardImpl implements LeaderboardInterface {
     try {
       const response = await httpRequest(url, kgRankListHeaders()).promise;
       const raw = response.result as string | Object;
-      const body = parseKgHttpJson<KGRankListResponse>(raw);
+      let body: KGRankListResponse;
+      try {
+        body = parseKgHttpJson<KGRankListResponse>(raw);
+      } catch {
+        const fb: LeaderboardResult = { list: KG_STATIC_BOARDS, source: 'kg' };
+        this.list = KG_STATIC_BOARDS;
+        return fb;
+      }
       if (body.errcode === 0 && body.data?.info && body.data.info.length > 0) {
         const list = filterBoardsData(body.data.info);
         if (list.length > 0) {
@@ -239,14 +262,20 @@ class KgLeaderboardImpl implements LeaderboardInterface {
     const url =
       `http://mobilecdnbj.kugou.com/api/v3/rank/song?version=9108&ranktype=1&plat=0&pagesize=${limit}` +
       `&area_code=1&page=${page}&rankid=${bangid}&with_res_tag=0&show_portrait_mv=1`;
-    const response = await httpRequest(url, kgRankListHeaders()).promise;
-    const body = parseKgHttpJson<KGRankSongResponse>(response.result as string | Object);
+    let body: KGRankSongResponse;
+    try {
+      const response = await httpRequest(url, kgRankListHeaders()).promise;
+      body = parseKgHttpJson<KGRankSongResponse>(response.result as string | Object);
+    } catch {
+      return this.getList(bangid, page, tryNum + 1);
+    }
     if (body.errcode !== 0) {
       return this.getList(bangid, page, tryNum + 1);
     }
-    const list = this.filterData(body.data.info);
+    const infos = body.data?.info ?? [];
+    const list = this.filterData(infos);
     const result: LeaderboardListResult = {
-      total: body.data.total,
+      total: body.data?.total ?? list.length,
       list,
       limit,
       page,
@@ -308,8 +337,10 @@ class KgLeaderboardImpl implements LeaderboardInterface {
         _types.set('flac24bit', dh);
       }
 
-      const authorNames: string[] = item.authors.map((a: KMAuthor) => a.author_name);
+      const authorsArr = item.authors ?? [];
+      const authorNames: string[] = authorsArr.map((a: KMAuthor) => a.author_name);
       const typeUrl: Map<string, string> = new Map();
+      const cover = kgCoverFromRankItem(item);
       const musicInfo: MusicInfo = {
         name: decodeName(item.songname),
         singer: formatSingerName(authorNames),
@@ -319,7 +350,7 @@ class KgLeaderboardImpl implements LeaderboardInterface {
         albumId: item.album_id,
         albumName: decodeName(item.remark),
         interval: formatPlayTime(item.duration),
-        img: null,
+        img: cover,
         lrc: null,
         otherSource: null,
         types,

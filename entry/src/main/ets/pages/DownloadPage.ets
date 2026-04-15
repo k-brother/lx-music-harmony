@@ -2,13 +2,19 @@
 // 对应安卓版的下载管理功能
 
 import hilog from '@ohos.hilog';
-import { navigationService, RouteName } from '../service/NavigationService';
+import { BusinessError } from '@kit.BasicServicesKit';
 import { DownloadTask, DownloadStatus, download, setDownloadContext } from '../core/music/MusicFeatureEntry';
 import preferences from '@ohos.data.preferences';
 import { common } from '@kit.AbilityKit';
+import { DesignTokens } from '../theme/DesignTokens';
+import { NavBackButton } from '../components/common/NavBackButton';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'DownloadPage';
+
+interface PromptPickResult {
+  index: number;
+}
 
 @Component
 export struct DownloadPage {
@@ -19,8 +25,9 @@ export struct DownloadPage {
   @State downloadPath: string = '/storage/emulated/0/Download/LxMusic';
   @State autoStartDownload: boolean = true;
   @State maxConcurrentDownloads: number = 3;
-  /** 0 全部 1 进行中 2 已完成 3 失败 4 设置 */
+  /** 0 全部 1 进行中 2 已完成 3 失败 */
   @State filterTabIndex: number = 0;
+  @State showDownloadSettings: boolean = false;
 
   private refreshInterval: number | null = null;
 
@@ -47,10 +54,40 @@ export struct DownloadPage {
 
   /** 多选作用域：当前列表 Tab 下的可见任务 */
   getTasksForSelectScope(): DownloadTask[] {
-    if (this.filterTabIndex === 4) {
-      return [];
-    }
     return this.getFilteredTasks();
+  }
+
+  private countActiveTasks(): number {
+    let n = 0;
+    for (let i = 0; i < this.downloadTasks.length; i++) {
+      const t = this.downloadTasks[i];
+      if (t.status === DownloadStatus.PENDING ||
+        t.status === DownloadStatus.DOWNLOADING ||
+        t.status === DownloadStatus.PAUSED) {
+        n++;
+      }
+    }
+    return n;
+  }
+
+  private countCompletedTasks(): number {
+    let n = 0;
+    for (let i = 0; i < this.downloadTasks.length; i++) {
+      if (this.downloadTasks[i].status === DownloadStatus.COMPLETED) {
+        n++;
+      }
+    }
+    return n;
+  }
+
+  private countFailedTasks(): number {
+    let n = 0;
+    for (let i = 0; i < this.downloadTasks.length; i++) {
+      if (this.downloadTasks[i].status === DownloadStatus.FAILED) {
+        n++;
+      }
+    }
+    return n;
   }
 
   isAllScopeSelected(): boolean {
@@ -135,21 +172,23 @@ export struct DownloadPage {
   }
 
   toggleSelectMode() {
-    if (this.filterTabIndex === 4) {
-      this.filterTabIndex = 0;
+    if (this.showDownloadSettings) {
+      this.showDownloadSettings = false;
     }
     this.isSelectMode = !this.isSelectMode;
     if (!this.isSelectMode) {
-      this.selectedTasks.clear();
+      this.selectedTasks = new Set();
     }
   }
 
   toggleTaskSelection(taskId: string) {
-    if (this.selectedTasks.has(taskId)) {
-      this.selectedTasks.delete(taskId);
+    const next: Set<string> = new Set(this.selectedTasks);
+    if (next.has(taskId)) {
+      next.delete(taskId);
     } else {
-      this.selectedTasks.add(taskId);
+      next.add(taskId);
     }
+    this.selectedTasks = next;
   }
 
   selectAllTasks() {
@@ -157,15 +196,17 @@ export struct DownloadPage {
     if (scope.length === 0) {
       return;
     }
+    const next: Set<string> = new Set(this.selectedTasks);
     if (this.isAllScopeSelected()) {
       scope.forEach((task: DownloadTask) => {
-        this.selectedTasks.delete(task.id);
+        next.delete(task.id);
       });
     } else {
       scope.forEach((task: DownloadTask) => {
-        this.selectedTasks.add(task.id);
+        next.add(task.id);
       });
     }
+    this.selectedTasks = next;
   }
 
   async pauseSelectedTasks() {
@@ -186,7 +227,7 @@ export struct DownloadPage {
     for (const taskId of this.selectedTasks) {
       download.cancelDownload(taskId);
     }
-    this.selectedTasks.clear();
+    this.selectedTasks = new Set();
     this.refreshDownloadTasks();
   }
 
@@ -218,197 +259,305 @@ export struct DownloadPage {
     }
   }
 
+  /** 顶区：设置返回 / 多选栏 / 或「统计分段 + 操作」 */
   @Builder
-  buildHeader() {
-    Row() {
-      if (this.isSelectMode) {
-        // 选择模式下的头部
-        Text(`已选择 ${this.selectedTasks.size} 项`)
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
-          .layoutWeight(1)
-        
-        Text('取消')
-          .fontSize(14)
-          .fontColor(this.theme === 'dark' ? '#AAAAAA' : '#666666')
+  buildTopChrome() {
+    Column() {
+      if (this.showDownloadSettings) {
+        Row() {
+          Stack() {
+            Circle({ width: 34, height: 34 })
+              .fill(DesignTokens.mutedFill(this.theme))
+            Image($r('app.media.ic_pd_back'))
+              .width(16)
+              .height(16)
+              .fillColor(DesignTokens.labelPrimary(this.theme))
+          }
+          .margin({ right: 8 })
           .onClick(() => {
-            this.toggleSelectMode();
+            this.showDownloadSettings = false;
           })
-      } else {
-        // 正常模式下的头部
-        Text('下载中心')
-          .fontSize(18)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#1A1A1A')
-          .layoutWeight(1)
-
-        Text('多选')
-          .fontSize(14)
-          .fontColor(this.filterTabIndex === 4 ? '#999999' : '#E63946')
-          .opacity(this.filterTabIndex === 4 ? 0.45 : 1)
-          .onClick(() => {
-            if (this.filterTabIndex !== 4) {
-              this.toggleSelectMode();
-            }
-          })
-      }
-    }
-    .width('100%')
-    .height(56)
-    .padding({ left: 16, right: 16 })
-    .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
-    .alignItems(VerticalAlign.Center)
-  }
-
-  @Builder
-  FilterChip(index: number, label: string) {
-    Text(label)
-      .fontSize(14)
-      .fontWeight(this.filterTabIndex === index ? FontWeight.Medium : FontWeight.Normal)
-      .fontColor(this.filterTabIndex === index ? '#E63946' : (this.theme === 'dark' ? '#AAAAAA' : '#666666'))
-      .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-      .backgroundColor(this.filterTabIndex === index ?
-        (this.theme === 'dark' ? '#2D2224' : '#FFE8EB') :
-        (this.theme === 'dark' ? '#252525' : '#EEEEEE'))
-      .borderRadius(20)
-      .margin({ right: 8 })
-      .onClick(() => {
-        if (index === 4) {
-          this.isSelectMode = false;
-          this.selectedTasks.clear();
+          Text('下载设置')
+            .fontSize(18)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(DesignTokens.labelPrimary(this.theme))
+          Blank()
+            .layoutWeight(1)
         }
-        this.filterTabIndex = index;
-      })
+        .width('100%')
+        .height(60)
+        .padding({ left: 12, right: 16, top: 8, bottom: 4 })
+        .alignItems(VerticalAlign.Center)
+        .backgroundColor(DesignTokens.chromeBar(this.theme))
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
+      } else if (this.isSelectMode) {
+        Row() {
+          Text(`已选 ${this.selectedTasks.size} 项`)
+            .fontSize(17)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(DesignTokens.labelPrimary(this.theme))
+            .layoutWeight(1)
+          Text('完成')
+            .fontSize(16)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(DesignTokens.accent())
+            .onClick(() => {
+              this.toggleSelectMode();
+            })
+        }
+        .width('100%')
+        .height(48)
+        .padding({ left: 16, right: 16 })
+        .alignItems(VerticalAlign.Center)
+      } else {
+        Column() {
+          Row() {
+            Column() {
+              Text('下载')
+                .fontSize(34)
+                .fontWeight(FontWeight.Bold)
+                .fontColor(DesignTokens.labelPrimary(this.theme))
+              Text('传输与缓存')
+                .fontSize(14)
+                .fontColor(DesignTokens.labelTertiary(this.theme))
+                .margin({ top: 4 })
+            }
+            .alignItems(HorizontalAlign.Start)
+            .layoutWeight(1)
+
+            Stack() {
+              Circle({ width: 34, height: 34 })
+                .fill(DesignTokens.mutedFill(this.theme))
+              Image($r('sys.symbol.gearshape'))
+                .width(18)
+                .height(18)
+                .fillColor(DesignTokens.labelSecondary(this.theme))
+            }
+            .onClick(() => {
+              this.isSelectMode = false;
+              this.selectedTasks = new Set();
+              this.showDownloadSettings = true;
+            })
+          }
+          .width('100%')
+          .padding({ left: 16, right: 16, top: 10, bottom: 6 })
+          .alignItems(VerticalAlign.Center)
+
+          Text('传输队列')
+            .fontSize(13)
+            .fontColor(DesignTokens.labelTertiary(this.theme))
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 2, bottom: 6 })
+
+          Column() {
+            this.buildSegmentStrip()
+          }
+          .width('100%')
+          .backgroundColor(DesignTokens.card(this.theme))
+          .borderRadius(DesignTokens.radiusCard())
+          .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
+          .margin({ left: 12, right: 12, bottom: 4 })
+
+          Row() {
+            Blank()
+              .layoutWeight(1)
+            Row({ space: 4 }) {
+              Image($r('sys.symbol.checkmark_square'))
+                .width(15)
+                .height(15)
+                .fillColor(DesignTokens.accent())
+              Text('多选')
+                .fontSize(14)
+                .fontWeight(FontWeight.Medium)
+                .fontColor(DesignTokens.accent())
+            }
+            .padding({ top: 8, bottom: 8, left: 12, right: 12 })
+            .backgroundColor(DesignTokens.accentSoft(this.theme))
+            .borderRadius(16)
+              .onClick(() => {
+                this.toggleSelectMode();
+              })
+          }
+          .width('100%')
+          .padding({ left: 8, right: 12, top: 2, bottom: 8 })
+          .alignItems(VerticalAlign.Center)
+        }
+        .width('100%')
+      }
+    }
+    .width('100%')
+    .backgroundColor(DesignTokens.chromeBar(this.theme))
   }
 
   @Builder
-  buildFilterTabs() {
-    Scroll() {
-      Row() {
-        this.FilterChip(0, '全部')
-        this.FilterChip(1, '进行中')
-        this.FilterChip(2, '已完成')
-        this.FilterChip(3, '失败')
-        this.FilterChip(4, '设置')
-      }
-      .padding({ left: 8, right: 8, top: 4, bottom: 8 })
+  buildSegmentStrip() {
+    Row() {
+      this.SegmentCell(0, '全部', this.downloadTasks.length)
+      Column()
+        .width(0.5)
+        .height(36)
+        .backgroundColor(DesignTokens.cardBorder(this.theme))
+      this.SegmentCell(1, '进行中', this.countActiveTasks())
+      Column()
+        .width(0.5)
+        .height(36)
+        .backgroundColor(DesignTokens.cardBorder(this.theme))
+      this.SegmentCell(2, '已完成', this.countCompletedTasks())
+      Column()
+        .width(0.5)
+        .height(36)
+        .backgroundColor(DesignTokens.cardBorder(this.theme))
+      this.SegmentCell(3, '失败', this.countFailedTasks())
     }
-    .scrollable(ScrollDirection.Horizontal)
-    .scrollBar(BarState.Off)
     .width('100%')
-    .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
+    .padding({ left: 12, right: 12, bottom: 4 })
+    .justifyContent(FlexAlign.SpaceEvenly)
+  }
+
+  @Builder
+  SegmentCell(index: number, label: string, count: number) {
+    Column() {
+      Text(count.toString())
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(this.filterTabIndex === index ? DesignTokens.accent() : DesignTokens.labelPrimary(this.theme))
+      Text(label)
+        .fontSize(11)
+        .fontColor(DesignTokens.labelSecondary(this.theme))
+        .margin({ top: 4 })
+    }
+    .layoutWeight(1)
+    .padding({ top: 10, bottom: 10 })
+    .backgroundColor(this.filterTabIndex === index ? DesignTokens.accentSoft(this.theme) : 'rgba(0,0,0,0)')
+    .borderRadius(12)
+    .onClick(() => {
+      this.filterTabIndex = index;
+    })
   }
 
   @Builder
   buildToolbar() {
-    if (this.isSelectMode && this.selectedTasks.size > 0) {
+    if (this.isSelectMode) {
       Row() {
-        // 全选按钮
         Image(this.isAllScopeSelected() ?
           $r('sys.symbol.checkmark_square_fill') : $r('sys.symbol.square'))
-          .width(20)
-          .height(20)
-          .fillColor('#E63946')
+          .width(22)
+          .height(22)
+          .fillColor(DesignTokens.accent())
           .onClick(() => {
             this.selectAllTasks();
           })
-        
+
         Text('全选')
-          .fontSize(14)
-          .fontColor('#E63946')
+          .fontSize(15)
+          .fontColor(DesignTokens.accent())
           .margin({ left: 8 })
+          .fontWeight(FontWeight.Medium)
           .onClick(() => {
             this.selectAllTasks();
           })
-        
-        Blank()
-        
-        // 操作按钮
-        if (this.hasSelectedTasksWithStatus(DownloadStatus.DOWNLOADING)) {
+
+        if (this.selectedTasks.size === 0) {
+          Text('轻触列表项进行选择')
+            .fontSize(12)
+            .fontColor(DesignTokens.labelTertiary(this.theme))
+            .margin({ left: 12 })
+            .layoutWeight(1)
+        } else {
+          Blank()
+            .layoutWeight(1)
+        }
+
+        if (this.selectedTasks.size > 0 && this.hasSelectedTasksWithStatus(DownloadStatus.DOWNLOADING)) {
           Image($r('sys.symbol.pause'))
-            .width(20)
-            .height(20)
-            .fillColor('#E63946')
-            .margin({ right: 16 })
+            .width(22)
+            .height(22)
+            .fillColor(DesignTokens.accent())
+            .margin({ right: 14 })
             .onClick(() => {
-              this.pauseSelectedTasks();
+              void this.pauseSelectedTasks();
             })
         }
 
-        if (this.hasSelectedTasksWithStatus(DownloadStatus.PAUSED)) {
+        if (this.selectedTasks.size > 0 && this.hasSelectedTasksWithStatus(DownloadStatus.PAUSED)) {
           Image($r('sys.symbol.play'))
-            .width(20)
-            .height(20)
-            .fillColor('#E63946')
-            .margin({ right: 16 })
+            .width(22)
+            .height(22)
+            .fillColor(DesignTokens.accent())
+            .margin({ right: 14 })
             .onClick(() => {
-              this.resumeSelectedTasks();
+              void this.resumeSelectedTasks();
             })
         }
 
-        Image($r('sys.symbol.xmark'))
-          .width(20)
-          .height(20)
-          .fillColor('#F44336')
-          .onClick(() => {
-            this.cancelSelectedTasks();
-          })
+        if (this.selectedTasks.size > 0) {
+          Image($r('sys.symbol.xmark'))
+            .width(22)
+            .height(22)
+            .fillColor('#F44336')
+            .onClick(() => {
+              void this.cancelSelectedTasks();
+            })
+        }
       }
       .width('100%')
-      .height(48)
-      .padding({ left: 16, right: 16 })
-      .backgroundColor(this.theme === 'dark' ? '#2C2C2C' : '#F5F5F5')
+      .constraintSize({ minHeight: 48 })
+      .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+      .backgroundColor(DesignTokens.mutedFill(this.theme))
       .alignItems(VerticalAlign.Center)
     }
   }
 
   @Builder
-  buildTaskItem(task: DownloadTask, isLast: boolean) {
-    Column() {
+  buildTaskItem(task: DownloadTask) {
+    Row() {
+      Column()
+        .width(4)
+        .constraintSize({ minHeight: 88 })
+        .backgroundColor(this.getStatusColor(task.status))
+        .borderRadius({ topLeft: 12, bottomLeft: 12 })
+
       Row() {
         if (this.isSelectMode) {
-          // 选择框
-          Image(this.selectedTasks.has(task.id) ? 
+          Image(this.selectedTasks.has(task.id) ?
             $r('sys.symbol.checkmark_square_fill') : $r('sys.symbol.square'))
-            .width(20)
-            .height(20)
-            .fillColor('#E63946')
+            .width(22)
+            .height(22)
+            .fillColor(DesignTokens.accent())
             .margin({ right: 12 })
         }
 
         Column() {
-          // 歌曲信息
           Text(task.musicInfo.name)
-            .fontSize(15)
-            .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
+            .fontSize(16)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(DesignTokens.labelPrimary(this.theme))
             .maxLines(1)
-          
-          Text(`${task.musicInfo.singer} - ${task.musicInfo.album || '未知专辑'}`)
-            .fontSize(12)
-            .fontColor('#999999')
-            .margin({ top: 2 })
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+          Text(`${task.musicInfo.singer} · ${task.musicInfo.album || '未知专辑'}`)
+            .fontSize(13)
+            .fontColor(DesignTokens.labelTertiary(this.theme))
+            .margin({ top: 4 })
             .maxLines(1)
-          
-          // 下载信息
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+
           Row() {
             Text(this.getStatusText(task.status))
               .fontSize(11)
               .fontColor(this.getStatusColor(task.status))
-            
+              .fontWeight(FontWeight.Medium)
             Text(` · ${task.quality}`)
               .fontSize(11)
-              .fontColor('#999999')
+              .fontColor(DesignTokens.labelTertiary(this.theme))
               .margin({ left: 4 })
-            
             Text(` · ${this.formatFileSize(task.downloadedSize)}/${this.formatFileSize(task.totalSize)}`)
               .fontSize(11)
-              .fontColor('#999999')
+              .fontColor(DesignTokens.labelTertiary(this.theme))
               .margin({ left: 4 })
           }
-          .margin({ top: 4 })
-          
-          // 进度条
+          .margin({ top: 8 })
+
           if (task.status === DownloadStatus.DOWNLOADING || task.status === DownloadStatus.PAUSED) {
             Progress({
               value: task.progress,
@@ -417,77 +566,75 @@ export struct DownloadPage {
               .width('100%')
               .height(4)
               .color(this.getStatusColor(task.status))
-              .backgroundColor('#E0E0E0')
-              .margin({ top: 8 })
+              .backgroundColor(DesignTokens.mutedFill(this.theme))
+              .margin({ top: 10 })
           }
-          
-          // 错误信息
+
           if (task.status === DownloadStatus.FAILED && task.error) {
-            Text(`错误: ${task.error}`)
+            Text(task.error)
               .fontSize(11)
               .fontColor('#F44336')
-              .margin({ top: 4 })
+              .margin({ top: 6 })
               .maxLines(2)
           }
         }
         .layoutWeight(1)
-        
-        // 操作按钮
+
         if (!this.isSelectMode) {
-          if (task.status === DownloadStatus.DOWNLOADING) {
-            Image($r('sys.symbol.pause'))
-              .width(20)
-              .height(20)
-              .fillColor('#E63946')
-              .onClick(() => {
-                download.pauseDownload(task.id);
-              })
-          } else if (task.status === DownloadStatus.PAUSED) {
-            Image($r('sys.symbol.play'))
-              .width(20)
-              .height(20)
-              .fillColor('#E63946')
-              .onClick(() => {
-                download.resumeDownload(task.id);
-              })
-           } else if (task.status === DownloadStatus.FAILED) {
-            Image($r('sys.symbol.arrow_clockwise'))
-              .width(20)
-              .height(20)
-              .fillColor('#E63946')
-              .onClick(() => {
-                // 重新下载
-                this.retryDownload(task.id);
-              })
+          Column() {
+            if (task.status === DownloadStatus.DOWNLOADING) {
+              Image($r('sys.symbol.pause'))
+                .width(22)
+                .height(22)
+                .fillColor(DesignTokens.accent())
+                .onClick(() => {
+                  download.pauseDownload(task.id);
+                })
+            } else if (task.status === DownloadStatus.PAUSED) {
+              Image($r('sys.symbol.play'))
+                .width(22)
+                .height(22)
+                .fillColor(DesignTokens.accent())
+                .onClick(() => {
+                  void download.resumeDownload(task.id);
+                })
+            } else if (task.status === DownloadStatus.FAILED) {
+              Image($r('sys.symbol.arrow_clockwise'))
+                .width(22)
+                .height(22)
+                .fillColor(DesignTokens.accent())
+                .onClick(() => {
+                  void this.retryDownload(task.id);
+                })
+            }
+
+            if (task.status !== DownloadStatus.COMPLETED) {
+              Image($r('sys.symbol.xmark'))
+                .width(22)
+                .height(22)
+                .fillColor('#F44336')
+                .margin({ top: 14 })
+                .onClick(() => {
+                  download.cancelDownload(task.id);
+                })
+            }
           }
-          
-          if (task.status !== DownloadStatus.COMPLETED) {
-            Image($r('sys.symbol.xmark'))
-              .width(20)
-              .height(20)
-              .fillColor('#F44336')
-              .margin({ left: 12 })
-              .onClick(() => {
-                download.cancelDownload(task.id);
-              })
-          }
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
+          .padding({ left: 8 })
         }
       }
-      .width('100%')
-      .padding({ top: 12, bottom: 12, left: 16, right: 16 })
-
-      if (!isLast) {
-        Divider()
-          .strokeWidth(0.5)
-          .color(this.theme === 'dark' ? '#333333' : '#E8E8E8')
-          .margin({ left: this.isSelectMode ? 48 : 16, right: 16 })
-      }
+      .layoutWeight(1)
+      .alignItems(VerticalAlign.Center)
+      .padding({ top: 14, bottom: 14, left: 12, right: 14 })
     }
     .width('100%')
-    .margin({ left: 12, right: 12, top: 6 })
-    .borderRadius(12)
+    .margin({ left: 12, right: 12, top: 8 })
+    .borderRadius(DesignTokens.radiusCard())
     .clip(true)
-    .backgroundColor(this.theme === 'dark' ? '#252525' : '#FFFFFF')
+    .backgroundColor(DesignTokens.card(this.theme))
+    .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
+    .alignItems(VerticalAlign.Center)
     .onClick(() => {
       if (this.isSelectMode) {
         this.toggleTaskSelection(task.id);
@@ -573,107 +720,100 @@ export struct DownloadPage {
   @Builder
   buildSettings() {
     Column() {
-      Text('下载设置')
-        .fontSize(16)
-        .fontWeight(FontWeight.Medium)
-        .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
-        .padding({ left: 16, top: 16, bottom: 12 })
-        .width('100%')
-      
-      // 下载路径设置
-      Row() {
-        Column() {
-          Text('下载路径')
-            .fontSize(14)
-            .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
-          Text(this.downloadPath)
-            .fontSize(12)
-            .fontColor('#999999')
-            .margin({ top: 2 })
-            .maxLines(1)
+      Column() {
+        Row() {
+          Column() {
+            Text('保存位置')
+              .fontSize(15)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(DesignTokens.labelPrimary(this.theme))
+            Text(this.downloadPath)
+              .fontSize(12)
+              .fontColor(DesignTokens.labelTertiary(this.theme))
+              .margin({ top: 6 })
+              .maxLines(2)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
+          .layoutWeight(1)
+          .alignItems(HorizontalAlign.Start)
+
+          Image($r('sys.symbol.folder'))
+            .width(20)
+            .height(20)
+            .fillColor(DesignTokens.labelTertiary(this.theme))
         }
-        .layoutWeight(1)
-        
-        Image($r('sys.symbol.chevron_right'))
-          .width(16)
-          .height(16)
-          .fillColor('#999999')
+        .width('100%')
+        .padding({ left: 16, right: 14, top: 14, bottom: 14 })
+        .onClick(() => {
+          this.selectDownloadPath();
+        })
+
+        Divider()
+          .strokeWidth(0.5)
+          .color(DesignTokens.cardBorder(this.theme))
+          .margin({ left: 16, right: 16 })
+
+        Row() {
+          Text('自动开始下载')
+            .fontSize(15)
+            .fontColor(DesignTokens.labelPrimary(this.theme))
+            .layoutWeight(1)
+
+          Toggle({ type: ToggleType.Switch, isOn: this.autoStartDownload })
+            .onChange((isOn: boolean) => {
+              this.autoStartDownload = isOn;
+              this.saveDownloadSettings();
+            })
+        }
+        .width('100%')
+        .height(52)
+        .padding({ left: 16, right: 14 })
+
+        Divider()
+          .strokeWidth(0.5)
+          .color(DesignTokens.cardBorder(this.theme))
+          .margin({ left: 16, right: 16 })
+
+        Row() {
+          Text('同时下载数量')
+            .fontSize(15)
+            .fontColor(DesignTokens.labelPrimary(this.theme))
+            .layoutWeight(1)
+
+          Text(this.maxConcurrentDownloads.toString())
+            .fontSize(15)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(DesignTokens.labelSecondary(this.theme))
+            .margin({ right: 6 })
+
+          Image($r('sys.symbol.chevron_right'))
+            .width(14)
+            .height(14)
+            .fillColor(DesignTokens.labelTertiary(this.theme))
+        }
+        .width('100%')
+        .height(52)
+        .padding({ left: 16, right: 14 })
+        .onClick(() => {
+          this.selectMaxConcurrentDownloads();
+        })
       }
       .width('100%')
-      .height(56)
-      .padding({ left: 16, right: 16 })
-      .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
-       .onClick(() => {
-        // 选择下载路径
-        this.selectDownloadPath();
-      })
-      
-      Divider()
-        .strokeWidth(0.5)
-        .color(this.theme === 'dark' ? '#2C2C2C' : '#E8E8E8')
-        .margin({ left: 16, right: 16 })
-      
-      // 自动开始下载
-      Row() {
-        Text('自动开始下载')
-          .fontSize(14)
-          .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
-          .layoutWeight(1)
-        
-        Toggle({ type: ToggleType.Switch, isOn: this.autoStartDownload })
-          .onChange((isOn: boolean) => {
-            this.autoStartDownload = isOn;
-            this.saveDownloadSettings();
-          })
-      }
-      .width('100%')
-      .height(50)
-      .padding({ left: 16, right: 16 })
-      .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
-      
-      Divider()
-        .strokeWidth(0.5)
-        .color(this.theme === 'dark' ? '#2C2C2C' : '#E8E8E8')
-        .margin({ left: 16, right: 16 })
-      
-      // 同时下载数量
-      Row() {
-        Text('同时下载数量')
-          .fontSize(14)
-          .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
-          .layoutWeight(1)
-        
-        Text(this.maxConcurrentDownloads.toString())
-          .fontSize(14)
-          .fontColor('#999999')
-          .margin({ right: 8 })
-        
-        Image($r('sys.symbol.chevron_right'))
-          .width(16)
-          .height(16)
-          .fillColor('#999999')
-      }
-      .width('100%')
-      .height(50)
-      .padding({ left: 16, right: 16 })
-      .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
-       .onClick(() => {
-        // 选择同时下载数量
-        this.selectMaxConcurrentDownloads();
-      })
+      .borderRadius(DesignTokens.radiusCard())
+      .backgroundColor(DesignTokens.card(this.theme))
+      .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
+      .clip(true)
     }
     .width('100%')
-    .margin({ top: 8 })
-    .padding({ bottom: 24 })
+    .padding({ left: 16, right: 16, top: 12, bottom: 24 })
   }
 
   build() {
     Column() {
-      this.buildHeader()
+      this.buildTopChrome()
       this.buildToolbar()
-      this.buildFilterTabs()
 
-      if (this.filterTabIndex === 4) {
+      if (this.showDownloadSettings) {
         Scroll() {
           Column() {
             this.buildSettings()
@@ -681,7 +821,7 @@ export struct DownloadPage {
           .width('100%')
         }
         .layoutWeight(1)
-        .backgroundColor(this.theme === 'dark' ? '#121212' : '#F5F5F5')
+        .backgroundColor(DesignTokens.pageBg(this.theme))
       } else {
         Scroll() {
           Column() {
@@ -689,7 +829,7 @@ export struct DownloadPage {
               this.buildEmptyForFilter()
             } else {
               ForEach(this.getFilteredTasks(), (task: DownloadTask, index: number) => {
-                this.buildTaskItem(task, index === this.getFilteredTasks().length - 1);
+                this.buildTaskItem(task);
               }, (task: DownloadTask) => task.id)
             }
 
@@ -697,15 +837,16 @@ export struct DownloadPage {
               Row() {
                 Text('清理所有已完成')
                   .fontSize(14)
-                  .fontColor('#E63946')
+                  .fontColor(DesignTokens.accent())
                   .layoutWeight(1)
                   .textAlign(TextAlign.Center)
               }
               .width('100%')
               .height(48)
               .margin({ left: 12, right: 12, top: 12 })
-              .borderRadius(12)
-              .backgroundColor(this.theme === 'dark' ? '#252525' : '#FFFFFF')
+              .borderRadius(DesignTokens.radiusCard())
+              .backgroundColor(DesignTokens.card(this.theme))
+              .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
               .onClick(() => {
                 this.clearCompletedTasks();
               })
@@ -715,12 +856,12 @@ export struct DownloadPage {
           .padding({ top: 8, bottom: 24 })
         }
         .layoutWeight(1)
-        .backgroundColor(this.theme === 'dark' ? '#121212' : '#F5F5F5')
+        .backgroundColor(DesignTokens.pageBg(this.theme))
       }
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.theme === 'dark' ? '#121212' : '#F5F5F5')
+    .backgroundColor(DesignTokens.pageBg(this.theme))
   }
 
   private hasSelectedTasksWithStatus(status: DownloadStatus): boolean {
@@ -787,12 +928,23 @@ export struct DownloadPage {
     }
   }
 
-  // 显示确认对话框
-  private async showConfirmDialog(title: string, message: string): Promise<boolean> {
-    // 在实际应用中，这里应该显示一个确认对话框
-    // 暂时返回true（用户确认）
-    hilog.info(DOMAIN, TAG, 'Confirm dialog: %{public}s - %{public}s', title, message);
-    return true;
+  private showConfirmDialog(title: string, message: string): Promise<boolean> {
+    return new Promise((resolve: (v: boolean) => void) => {
+      this.getUIContext().getPromptAction().showDialog({
+        title: title,
+        message: message,
+        buttons: [
+          { text: '取消', color: DesignTokens.labelSecondary(this.theme) },
+          { text: '确定', color: DesignTokens.accent() },
+        ],
+      }, (err: BusinessError, data: PromptPickResult) => {
+        if (err) {
+          resolve(false);
+          return;
+        }
+        resolve(data.index === 1);
+      });
+    });
   }
 
   // 重新创建下载任务
@@ -843,20 +995,34 @@ export struct DownloadPage {
     }
   }
 
-  // 显示路径选择器
-  private async showPathSelector(title: string, options: string[]): Promise<string | null> {
-    // 在实际应用中，这里应该显示一个路径选择对话框
-    // 暂时选择第一个选项作为示例
-    hilog.info(DOMAIN, TAG, 'Path selector: %{public}s', title);
-    for (const option of options) {
-      hilog.info(DOMAIN, TAG, '  - %{public}s', option);
-    }
-    
-    if (options.length > 0) {
-      return options[0];
-    }
-    
-    return null;
+  private showPathSelector(title: string, options: string[]): Promise<string | null> {
+    const shortLabel = (opt: string): string => {
+      return opt.length > 36 ? opt.substring(0, 33) + '…' : opt;
+    };
+    const c1 = DesignTokens.labelPrimary(this.theme);
+    const c2 = DesignTokens.labelTertiary(this.theme);
+    return new Promise((resolve: (v: string | null) => void) => {
+      this.getUIContext().getPromptAction().showActionMenu({
+        title: title,
+        buttons: [
+          { text: shortLabel(options[0]), color: c1 },
+          { text: shortLabel(options[1]), color: c1 },
+          { text: shortLabel(options[2]), color: c1 },
+          { text: '取消', color: c2 },
+        ],
+      }, (err: BusinessError, data: PromptPickResult) => {
+        if (err) {
+          resolve(null);
+          return;
+        }
+        const ix = data.index;
+        if (ix >= 0 && ix < options.length) {
+          resolve(options[ix]);
+        } else {
+          resolve(null);
+        }
+      });
+    });
   }
 
   // 选择同时下载数量
@@ -889,23 +1055,33 @@ export struct DownloadPage {
     }
   }
 
-  // 显示数量选择器
-  private async showCountSelector(title: string, options: number[]): Promise<number | null> {
-    // 在实际应用中，这里应该显示一个数量选择对话框
-    // 暂时选择当前值或第一个选项
-    hilog.info(DOMAIN, TAG, 'Count selector: %{public}s', title);
-    for (const option of options) {
-      hilog.info(DOMAIN, TAG, '  - %{public}d', option);
-    }
-    
-    // 如果当前值在选项中，返回当前值，否则返回第一个选项
-    if (options.includes(this.maxConcurrentDownloads)) {
-      return this.maxConcurrentDownloads;
-    } else if (options.length > 0) {
-      return options[0];
-    }
-    
-    return null;
+  private showCountSelector(title: string, options: number[]): Promise<number | null> {
+    const c1 = DesignTokens.labelPrimary(this.theme);
+    const c2 = DesignTokens.labelTertiary(this.theme);
+    return new Promise((resolve: (v: number | null) => void) => {
+      this.getUIContext().getPromptAction().showActionMenu({
+        title: title,
+        buttons: [
+          { text: `${options[0]} 个`, color: c1 },
+          { text: `${options[1]} 个`, color: c1 },
+          { text: `${options[2]} 个`, color: c1 },
+          { text: `${options[3]} 个`, color: c1 },
+          { text: `${options[4]} 个`, color: c1 },
+          { text: '取消', color: c2 },
+        ],
+      }, (err: BusinessError, data: PromptPickResult) => {
+        if (err) {
+          resolve(null);
+          return;
+        }
+        const ix = data.index;
+        if (ix >= 0 && ix < options.length) {
+          resolve(options[ix]);
+        } else {
+          resolve(null);
+        }
+      });
+    });
   }
 
   // 更新下载并发数量
@@ -934,10 +1110,14 @@ export struct DownloadPage {
     }
   }
 
-  // 显示提示
   private showToast(message: string): void {
-    // 在实际应用中，这里应该显示一个Toast提示
-    // 暂时使用日志输出
-    hilog.info(DOMAIN, TAG, 'Toast: %{public}s', message);
+    try {
+      this.getUIContext().getPromptAction().showToast({
+        message: message,
+        duration: 2200,
+      });
+    } catch (_e) {
+      hilog.info(DOMAIN, TAG, 'Toast fallback: %{public}s', message);
+    }
   }
 }

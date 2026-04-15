@@ -6,6 +6,8 @@ import { httpRequest } from '../network/http';
 import hilog from '@ohos.hilog';
 import { getStorageService } from '../interfaces/IStorageService';
 import { CustomSourcePlugin } from './CustomSourcePlugin';
+import fs from '@ohos.file.fs';
+import { utf8Decode } from '../../utils/TextCodec';
 
 const TAG = 'PluginManager';
 const DOMAIN = 0x0001;
@@ -166,8 +168,8 @@ class PluginManagerImpl {
   /** 加载自定义源插件 */
   async loadCustomSource(url: string): Promise<boolean> {
     if (this.pluginLoading) {
-      hilog.warn(DOMAIN, TAG, 'Plugin is already loading');
-      return false;
+      hilog.warn(DOMAIN, TAG, 'Plugin is already loading, waiting for current load to finish');
+      return await this.waitForCurrentLoading();
     }
 
     hilog.info(DOMAIN, TAG, 'Loading custom source from: %{public}s', url);
@@ -178,10 +180,8 @@ class PluginManagerImpl {
     let createdPluginId: string | null = null;
 
     try {
-      // 下载JS脚本
-      const task = httpRequest(url, { method: 'GET' });
-      const response = await task.promise;
-      const scriptContent: string = response.result as string;
+      // 加载JS脚本（支持在线链接与本地文件URI）
+      const scriptContent: string = await this.loadCustomSourceScript(url);
 
       if (!scriptContent || scriptContent.length === 0) {
         throw new Error('Empty script content');
@@ -240,6 +240,66 @@ class PluginManagerImpl {
       this.pluginLoaded = false;
       return false;
     }
+  }
+
+  private async loadCustomSourceScript(source: string): Promise<string> {
+    const trimmed = source.trim();
+    if (/^https?:\/\//i.test(trimmed)) {
+      const task = httpRequest(trimmed, { method: 'GET' });
+      const response = await task.promise;
+      return response.result as string;
+    }
+    return await this.readScriptFromLocalUri(trimmed);
+  }
+
+  private async readScriptFromLocalUri(uriOrPath: string): Promise<string> {
+    const candidates: string[] = [];
+    candidates.push(uriOrPath);
+    if (uriOrPath.startsWith('file://')) {
+      candidates.push(uriOrPath.substring(7));
+    }
+    try {
+      candidates.push(decodeURIComponent(uriOrPath));
+    } catch (_e) {
+      // ignore decode failure
+    }
+
+    let lastError: Error | null = null;
+    for (let i = 0; i < candidates.length; i++) {
+      const candidate = candidates[i];
+      try {
+        const file = await fs.open(candidate, fs.OpenMode.READ_ONLY);
+        try {
+          const stat = await fs.stat(file.fd);
+          const buffer = new ArrayBuffer(stat.size);
+          await fs.read(file.fd, buffer);
+          const text = utf8Decode(new Uint8Array(buffer));
+          if (text && text.length > 0) {
+            return text;
+          }
+        } finally {
+          await fs.close(file.fd);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : JSON.stringify(err);
+        lastError = new Error(msg);
+      }
+    }
+    throw new Error(lastError ? lastError.message : '无法读取本地插件文件');
+  }
+
+  /** 等待当前加载中的插件流程结束，避免并发调用导致首播失败 */
+  private async waitForCurrentLoading(timeoutMs: number = 12000): Promise<boolean> {
+    const start = Date.now();
+    while (this.pluginLoading) {
+      if (Date.now() - start > timeoutMs) {
+        hilog.warn(DOMAIN, TAG, 'Wait plugin loading timeout: %{public}dms', timeoutMs);
+        break;
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, 120));
+    }
+    const active = this.getActivePlugin();
+    return !!(this.pluginLoaded && active);
   }
 
   /** 解析插件元信息 */

@@ -22,6 +22,68 @@ async function delayMs(ms: number): Promise<void> {
   });
 }
 
+function normalizeWindowColor(color: string): string {
+  const raw = (color ?? '').trim();
+  if (!raw) {
+    return '#FFFFFF';
+  }
+  const compact = raw.replace(/\s+/g, '');
+  if (compact.startsWith('#')) {
+    return compact;
+  }
+
+  const rgbMatch = compact.match(/^rgb\((\d{1,3}),(\d{1,3}),(\d{1,3})\)$/i);
+  if (rgbMatch) {
+    const r = clampColorInt(Number(rgbMatch[1]));
+    const g = clampColorInt(Number(rgbMatch[2]));
+    const b = clampColorInt(Number(rgbMatch[3]));
+    return `#${toHex2(r)}${toHex2(g)}${toHex2(b)}`;
+  }
+
+  const rgbaMatch = compact.match(/^rgba\((\d{1,3}),(\d{1,3}),(\d{1,3}),([0-9]*\.?[0-9]+)\)$/i);
+  if (rgbaMatch) {
+    const r = clampColorInt(Number(rgbaMatch[1]));
+    const g = clampColorInt(Number(rgbaMatch[2]));
+    const b = clampColorInt(Number(rgbaMatch[3]));
+    const alpha = clampAlpha01(Number(rgbaMatch[4]));
+    // Window 接口对 rgba(...) 兼容性差，统一转 #AARRGGBB 避免 invalid color string。
+    const a = Math.round(alpha * 255);
+    return `#${toHex2(a)}${toHex2(r)}${toHex2(g)}${toHex2(b)}`;
+  }
+
+  return raw;
+}
+
+function clampColorInt(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  if (value < 0) {
+    return 0;
+  }
+  if (value > 255) {
+    return 255;
+  }
+  return Math.round(value);
+}
+
+function clampAlpha01(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+  if (value < 0) {
+    return 0;
+  }
+  if (value > 1) {
+    return 1;
+  }
+  return value;
+}
+
+function toHex2(value: number): string {
+  return value.toString(16).padStart(2, '0').toUpperCase();
+}
+
 // 窗口实例
 let mainWindow: window.Window | null = null;
 
@@ -73,7 +135,7 @@ export async function applyThemeToWindow(): Promise<void> {
     
     if (activeTheme) {
       // 使用主题的主背景色
-      backgroundColor = getAppBackground();
+      backgroundColor = normalizeWindowColor(getAppBackground());
       
       // 判断是否为深色主题
       const isDark = activeTheme.get('c-000') === 'rgb(0,0,0)' || 
@@ -81,12 +143,12 @@ export async function applyThemeToWindow(): Promise<void> {
       
       if (isDark) {
         // 深色主题：使用深色背景，浅色文字
-        systemBarColor = activeTheme.get('c-050') || '#141414';
+        systemBarColor = normalizeWindowColor(activeTheme.get('c-050') || '#141414');
         statusBarContentColor = '#FFFFFF';
         navigationBarContentColor = '#FFFFFF';
       } else {
         // 浅色主题：使用浅色背景，深色文字
-        systemBarColor = activeTheme.get('c-000') || '#FFFFFF';
+        systemBarColor = normalizeWindowColor(activeTheme.get('c-000') || '#FFFFFF');
         statusBarContentColor = '#000000';
         navigationBarContentColor = '#000000';
       }
@@ -98,6 +160,8 @@ export async function applyThemeToWindow(): Promise<void> {
       statusBarContentColor = currentTheme === 'dark' ? '#FFFFFF' : '#000000';
       navigationBarContentColor = currentTheme === 'dark' ? '#FFFFFF' : '#000000';
     }
+    backgroundColor = normalizeWindowColor(backgroundColor);
+    systemBarColor = normalizeWindowColor(systemBarColor);
     
     // 窗口背景与系统栏分开设置；initTheme 会触发第二次 apply，背景字符串与上次相同则不再调系统 API
     let backgroundApplied = false;

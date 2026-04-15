@@ -119,6 +119,31 @@ function buildEmptyLeaderboardListResult(page: number): LeaderboardListResult {
   return result;
 }
 
+function wyCoverHttps(url: string): string {
+  if (!url || url.length === 0) {
+    return '';
+  }
+  return url.replace(/^http:\/\//, 'https://');
+}
+
+/** 榜单内部分 track 无 al.picUrl，用歌单封面兜底以便排行榜卡片封面能显示 */
+function applyWyPlaylistCoverFallback(list: MusicInfo[], playlist: WYBoardDetailPlaylist | undefined): void {
+  if (!playlist || list.length === 0) {
+    return;
+  }
+  const fb = wyCoverHttps(playlist.coverImgUrl || '');
+  if (fb.length === 0) {
+    return;
+  }
+  for (let i = 0; i < list.length; i++) {
+    const it = list[i];
+    const cur = it.img;
+    if (cur === null || cur === undefined || cur.length === 0) {
+      it.img = fb;
+    }
+  }
+}
+
 // 解析歌曲信息
 function parseTrackItem(item: WYTrackItem): MusicInfo {
   const types: MusicQualityType[] = [];
@@ -246,6 +271,7 @@ class WyLeaderboardImpl implements LeaderboardInterface {
           for (const track of tracks) {
             musicList.push(parseTrackItem(track));
           }
+          applyWyPlaylistCoverFallback(musicList, body.playlist);
 
           const result: LeaderboardListResult = {
             list: musicList,
@@ -289,6 +315,7 @@ class WyLeaderboardImpl implements LeaderboardInterface {
         for (const track of tracks) {
           musicList.push(parseTrackItem(track));
         }
+        applyWyPlaylistCoverFallback(musicList, body.playlist);
         return {
           list: musicList,
           total: musicList.length,

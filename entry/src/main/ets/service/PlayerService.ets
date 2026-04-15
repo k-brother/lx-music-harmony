@@ -21,6 +21,7 @@ import {
 import { playerState } from '../store/PlayerStoreState';
 import type { MusicInfo, MusicSource } from '../types/MusicTypes';
 import { formatPlayTime } from '../utils/CommonUtils';
+import { recordPlayedSong } from './PlayHistoryService';
 
 export type { MusicInfo } from '../types/MusicTypes';
 
@@ -33,6 +34,7 @@ export type PlayStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'stopped' |
 // 歌曲信息
 export interface SongInfo {
   id: string;
+  songmid?: string;
   url: string;
   title: string;
   artist: string;
@@ -40,6 +42,11 @@ export interface SongInfo {
   artwork: string | null;
   duration: number;
   source?: string; // 音乐源（kw/kg/tx/wy/mg）
+  hash?: string;
+  strMediaMid?: string;
+  songId?: number;
+  albumId?: string;
+  copyrightId?: string;
 }
 
 // 事件监听器类型
@@ -204,14 +211,22 @@ export class PlayerService {
   // 通知状态变化
   private notifyStateChange(): void {
     for (let i = 0; i < this.stateListeners.length; i++) {
-      this.stateListeners[i](this.currentStatus);
+      try {
+        this.stateListeners[i](this.currentStatus);
+      } catch (err) {
+        hilog.error(DOMAIN, TAG, 'state listener failed: %{public}s', JSON.stringify(err));
+      }
     }
   }
 
   // 通知播放状态变化
   private notifyPlayStateChange(isPlay: boolean): void {
     for (let i = 0; i < this.playStateListeners.length; i++) {
-      this.playStateListeners[i](isPlay);
+      try {
+        this.playStateListeners[i](isPlay);
+      } catch (err) {
+        hilog.error(DOMAIN, TAG, 'playState listener failed: %{public}s', JSON.stringify(err));
+      }
     }
   }
 
@@ -226,7 +241,11 @@ export class PlayerService {
     playerStateData.progress.progress = duration ? position / duration : 0;
 
     for (let i = 0; i < this.progressListeners.length; i++) {
-      this.progressListeners[i](position, duration);
+      try {
+        this.progressListeners[i](position, duration);
+      } catch (err) {
+        hilog.error(DOMAIN, TAG, 'progress listener failed: %{public}s', JSON.stringify(err));
+      }
     }
 
     const progressInfo: ProgressInfo = {
@@ -238,7 +257,11 @@ export class PlayerService {
     };
 
     for (let i = 0; i < this.progressInfoListeners.length; i++) {
-      this.progressInfoListeners[i](progressInfo);
+      try {
+        this.progressInfoListeners[i](progressInfo);
+      } catch (err) {
+        hilog.error(DOMAIN, TAG, 'progressInfo listener failed: %{public}s', JSON.stringify(err));
+      }
     }
   }
 
@@ -276,7 +299,12 @@ export class PlayerService {
     const alb: string | undefined = song.album.length > 0 ? song.album : undefined;
     const musicInfo: MusicInfo = {
       id: song.id,
-      songmid: song.id,
+      songmid: song.songmid || song.id,
+      hash: song.hash,
+      strMediaMid: song.strMediaMid,
+      songId: song.songId,
+      albumId: song.albumId,
+      copyrightId: song.copyrightId,
       img: art ?? null,
       pic: art,
       lrc: null,
@@ -301,6 +329,18 @@ export class PlayerService {
         playerStateData.progress.maxPlayTime = duration;
         playerStateData.progress.maxPlayTimeStr = formatPlayTime(duration);
       }
+
+      // 记录试听历史，供“我的-试听列表”展示最近听过的歌曲
+      void recordPlayedSong({
+        id: song.id,
+        songmid: song.id,
+        name: song.title,
+        singer: song.artist,
+        album: song.album,
+        pic: song.artwork,
+        source: song.source || 'kw',
+        duration: song.duration,
+      });
     } catch (err) {
       const error: BusinessError = err as BusinessError;
       hilog.error(DOMAIN, TAG, 'Failed to set source: code=%{public}d, name=%{public}s, msg=%{public}s', error.code, error.name || 'unknown', error.message || 'unknown');
@@ -315,6 +355,12 @@ export class PlayerService {
   private notifyMusicInfoChange(): void {
     const musicInfoCopy: MusicInfo = {
       id: playerStateData.musicInfo.id,
+      songmid: playerStateData.musicInfo.songmid,
+      hash: playerStateData.musicInfo.hash,
+      strMediaMid: playerStateData.musicInfo.strMediaMid,
+      songId: playerStateData.musicInfo.songId,
+      albumId: playerStateData.musicInfo.albumId,
+      copyrightId: playerStateData.musicInfo.copyrightId,
       img: playerStateData.musicInfo.img,
       pic: playerStateData.musicInfo.pic,
       lrc: playerStateData.musicInfo.lrc,
@@ -326,7 +372,11 @@ export class PlayerService {
       album: playerStateData.musicInfo.album ?? undefined,
     };
     for (let i = 0; i < this.musicInfoListeners.length; i++) {
-      this.musicInfoListeners[i](musicInfoCopy);
+      try {
+        this.musicInfoListeners[i](musicInfoCopy);
+      } catch (err) {
+        hilog.error(DOMAIN, TAG, 'musicInfo listener failed: %{public}s', JSON.stringify(err));
+      }
     }
   }
 
@@ -493,6 +543,12 @@ export class PlayerService {
   getCurrentMusicInfo(): MusicInfo {
     return {
       id: playerStateData.musicInfo.id,
+      songmid: playerStateData.musicInfo.songmid,
+      hash: playerStateData.musicInfo.hash,
+      strMediaMid: playerStateData.musicInfo.strMediaMid,
+      songId: playerStateData.musicInfo.songId,
+      albumId: playerStateData.musicInfo.albumId,
+      copyrightId: playerStateData.musicInfo.copyrightId,
       img: playerStateData.musicInfo.img,
       pic: playerStateData.musicInfo.pic ?? undefined,
       lrc: playerStateData.musicInfo.lrc,

@@ -8,6 +8,7 @@ import { getStorageService } from '../../core/interfaces/IStorageService';
 
 const TAG = 'AppBootstrap';
 const DOMAIN = 0x0001;
+const CUSTOM_SOURCE_RESTORE_DELAY_MS = 3000;
 
 function handleLaunchWant(want?: object): void {
   if (!want) {
@@ -26,18 +27,31 @@ function handleLaunchWant(want?: object): void {
 
 export async function runBootstrapAfterServices(want?: object): Promise<void> {
   await initMusicSDK();
-  try {
-    const storage = getStorageService();
-    const currentSource = await storage.getString('plugin.currentSource', 'kw');
-    const customSourceUrl = await storage.getString('plugin.customSourceUrl', '');
-    if (currentSource === 'custom' && customSourceUrl.length > 0) {
-      hilog.info(DOMAIN, TAG, 'Restoring custom source on bootstrap: %{public}s', customSourceUrl);
-      const loaded = await loadCustomSource(customSourceUrl);
-      hilog.info(DOMAIN, TAG, 'Custom source restore result: %{public}s', loaded.toString());
-    }
-  } catch (err) {
-    hilog.warn(DOMAIN, TAG, 'Custom source restore skipped: %{public}s', JSON.stringify(err));
-  }
+  hilog.info(
+    DOMAIN,
+    TAG,
+    'Bootstrap marker v2: custom source restore scheduled in %{public}dms',
+    CUSTOM_SOURCE_RESTORE_DELAY_MS
+  );
+  scheduleDeferredCustomSourceRestore();
   handleLaunchWant(want);
   runVersionCheckDeferred();
+}
+
+function scheduleDeferredCustomSourceRestore(): void {
+  setTimeout(async () => {
+    try {
+      const storage = getStorageService();
+      const currentSource = await storage.getString('plugin.currentSource', 'kw');
+      const customSourceUrl = await storage.getString('plugin.customSourceUrl', '');
+      if (currentSource !== 'custom' || customSourceUrl.length <= 0) {
+        return;
+      }
+      hilog.info(DOMAIN, TAG, 'Deferred custom source restore start: %{public}s', customSourceUrl);
+      const loaded = await loadCustomSource(customSourceUrl);
+      hilog.info(DOMAIN, TAG, 'Deferred custom source restore result: %{public}s', loaded.toString());
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'Deferred custom source restore skipped: %{public}s', JSON.stringify(err));
+    }
+  }, CUSTOM_SOURCE_RESTORE_DELAY_MS);
 }

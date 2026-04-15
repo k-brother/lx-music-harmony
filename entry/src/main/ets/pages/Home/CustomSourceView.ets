@@ -7,6 +7,8 @@ import { pluginManager, PluginMeta } from '../../core/plugin/PluginManager';
 import { navigationService } from '../../service/NavigationService';
 import { storageService } from '../../service/StorageService';
 import hilog from '@ohos.hilog';
+import { DesignTokens } from '../../theme/DesignTokens';
+import { NavBackButton } from '../../components/common/NavBackButton';
 
 const TAG = 'CustomSource';
 const DOMAIN = 0x0001;
@@ -95,11 +97,28 @@ export struct CustomSourceView {
       } else {
         this.loadStatus = '';
         this.errorMessage = pluginManager.getError() || '插件加载失败';
+        this.showPluginErrorDialog(this.errorMessage);
       }
     } catch (error) {
       this.errorMessage = (error as Error).message || '加载失败';
+      this.showPluginErrorDialog(this.errorMessage);
     } finally {
       this.isLoading = false;
+    }
+  }
+
+  private showPluginErrorDialog(message: string): void {
+    const msg = message && message.length > 0 ? message : '未知错误';
+    try {
+      this.getUIContext().getPromptAction().showDialog({
+        title: '插件加载失败',
+        message: msg,
+        buttons: [
+          { text: '知道了', color: DesignTokens.accent() },
+        ],
+      });
+    } catch (_e) {
+      hilog.warn(DOMAIN, TAG, 'showPluginErrorDialog fallback: %{public}s', msg);
     }
   }
 
@@ -192,24 +211,22 @@ export struct CustomSourceView {
     Column() {
       // 标题栏
       Row() {
-        Image($r('sys.symbol.chevron_left'))
-          .width(24)
-          .height(24)
-          .fillColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
-          .onClick(() => {
-            navigationService.back();
-          })
+        NavBackButton()
 
         Text('自定义源')
-          .fontSize(17)
+          .fontSize(DesignTokens.fontTitle())
           .fontWeight(FontWeight.Medium)
-          .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
-          .margin({ left: 16 })
+          .fontColor(DesignTokens.labelPrimary(this.theme))
+          .layoutWeight(1)
+          .margin({ left: 12 })
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
       .width('100%')
-      .height(56)
-      .padding({ left: 16 })
-      .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
+      .height(60)
+      .padding({ left: 14, right: 14, top: 8, bottom: 6 })
+      .backgroundColor(DesignTokens.chromeBar(this.theme))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
 
       Scroll() {
         Column() {
@@ -390,5 +407,6 @@ export struct CustomSourceView {
     .width('100%')
     .height('100%')
     .backgroundColor(this.theme === 'dark' ? '#121212' : '#F5F5F5')
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
   }
 }

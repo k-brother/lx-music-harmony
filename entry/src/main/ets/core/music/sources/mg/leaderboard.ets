@@ -49,7 +49,7 @@ const MG_STATIC_BOARDS: LeaderboardItem[] = [
   { id: 'mg__76557745', name: '会员臻爱榜', bangid: '76557745' },
   { id: 'mg__23189800', name: '港台榜', bangid: '23189800' },
   { id: 'mg__23189399', name: '内地榜', bangid: '23189399' },
-  { id: 'mg__19190036', name: '欧美榜', bangid: '19190036' },
+  /** 原「欧美榜」columnId 19190036：querycontentbyId 长期 302001（columnInfo 空），已从静态表移除 */
   { id: 'mg__83176390', name: '国风金曲榜', bangid: '83176390' },
 ];
 
@@ -97,6 +97,7 @@ interface MgColumnInfo {
 
 interface MgQueryColumnBody {
   code?: string;
+  info?: string;
   columnInfo?: MgColumnInfo;
 }
 
@@ -203,6 +204,30 @@ function filterRankObjectInfoList(rawList: MgRankSongInfo[]): MusicInfo[] {
   return list;
 }
 
+/** 部分 objectInfo 无 albumImgs：用本榜第一条有图的封面填其余，便于卡片与预览展示 */
+function applyMgChartCoverFallback(list: MusicInfo[]): void {
+  if (list.length === 0) {
+    return;
+  }
+  let fb: string | null = null;
+  for (let i = 0; i < list.length; i++) {
+    const im = list[i].img;
+    if (im !== null && im !== undefined && im.length > 0) {
+      fb = im;
+      break;
+    }
+  }
+  if (fb === null || fb.length === 0) {
+    return;
+  }
+  for (let j = 0; j < list.length; j++) {
+    const cur = list[j].img;
+    if (cur === null || cur === undefined || cur.length === 0) {
+      list[j].img = fb;
+    }
+  }
+}
+
 /** "00:03:43" / "03:43" → 秒 */
 function parseLengthToSeconds(length: string): number {
   const parts = length.split(':').map((p: string) => parseInt(p, 10));
@@ -226,6 +251,21 @@ function buildMgPcHeaders(): Map<string, string> {
   return headers;
 }
 
+/** 拉取专栏内容；needAll=0 失败时（如 302001）可再试 needAll=1 */
+async function fetchMgQueryColumn(bangid: string, needAll: number): Promise<MgQueryColumnBody | null> {
+  const url =
+    `https://app.c.nf.migu.cn/MIGUM2.0/v1.0/content/querycontentbyId.do?columnId=${encodeURIComponent(bangid)}&needAll=${needAll}`;
+  const headers = buildMgPcHeaders();
+  const req: HttpRequestConfig = {
+    method: 'GET',
+    header: headers,
+    responseType: 'text',
+  };
+  const response = await httpRequest(url, req).promise;
+  const raw = (response.result !== undefined ? response.result : response.data) as string | Object;
+  return parseHttpBodyJson<MgQueryColumnBody>(raw);
+}
+
 class MgLeaderboardImpl implements LeaderboardInterface {
   /**
    * 获取排行榜列表（与安卓一致：静态表，避免失效 remoting 接口）
@@ -244,22 +284,38 @@ class MgLeaderboardImpl implements LeaderboardInterface {
    */
   async getList(bangid: string, page: number = 1): Promise<LeaderboardListResult> {
     try {
-      const url =
-        `https://app.c.nf.migu.cn/MIGUM2.0/v1.0/content/querycontentbyId.do?columnId=${encodeURIComponent(bangid)}&needAll=0`;
-      const headers = buildMgPcHeaders();
-      const req: HttpRequestConfig = {
-        method: 'GET',
-        header: headers,
-      };
-      const response = await httpRequest(url, req).promise;
-      const raw = (response.result !== undefined ? response.result : response.data) as string | Object;
-      const root = parseHttpBodyJson<MgQueryColumnBody>(raw);
+      let root = await fetchMgQueryColumn(bangid, 0);
       if (root === null) {
         hilog.warn(0x0001, 'MGLeaderboard', 'getList empty body bangid=%{public}s', bangid);
         return buildEmptyLeaderboardListResult(page);
       }
       if (root.code !== SUCCESS_CODE) {
-        hilog.warn(0x0001, 'MGLeaderboard', 'getList code=%{public}s bangid=%{public}s', String(root.code ?? ''), bangid);
+        const c0 = String(root.code ?? '');
+        // 302001：服务端 column 无内容，needAll=1 亦同，避免多余请求
+        if (c0 !== '302001') {
+          hilog.warn(
+            0x0001,
+            'MGLeaderboard',
+            'getList code=%{public}s bangid=%{public}s needAll=0, retry needAll=1',
+            c0,
+            bangid,
+          );
+          root = await fetchMgQueryColumn(bangid, 1);
+          if (root === null) {
+            return buildEmptyLeaderboardListResult(page);
+          }
+        }
+      }
+      if (root.code !== SUCCESS_CODE) {
+        const info = root.info ? String(root.info) : '';
+        hilog.warn(
+          0x0001,
+          'MGLeaderboard',
+          'getList code=%{public}s bangid=%{public}s %{public}s',
+          String(root.code ?? ''),
+          bangid,
+          info,
+        );
         return buildEmptyLeaderboardListResult(page);
       }
       const contents = root.columnInfo?.contents ?? [];
@@ -271,6 +327,7 @@ class MgLeaderboardImpl implements LeaderboardInterface {
         }
       }
       const musicList = filterRankObjectInfoList(rows);
+      applyMgChartCoverFallback(musicList);
       const result: LeaderboardListResult = {
         list: musicList,
         total: musicList.length,

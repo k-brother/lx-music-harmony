@@ -1,8 +1,8 @@
 // 首页 - 对应 src/screens/Home/Vertical/index.tsx
-// 包含 顶部音乐源Tab + 搜索框、底部TabBar 和 PlayerBar
+// 顶部音乐源 Tab；全局搜歌仅在「歌单」Tab 内容区上方（与排行榜页内搜索条样式一致）
 
 import hilog from '@ohos.hilog';
-import { searchMusic, getHotSearch, HotSearchItem, MusicSearchResult, Source } from '../core/search/search';
+import { searchMusic, getHotSearch, HotSearchItem, Source } from '../core/search/search';
 
 // 导入播放器栏组件
 import { PlayerBar } from '../components/player/PlayerBar';
@@ -17,6 +17,8 @@ import { common } from '@kit.AbilityKit';
 import type { MusicSource, MusicInfo } from '../types/MusicTypes';
 import { formatPlayTime } from '../utils/CommonUtils';
 import { playerService, SongInfo } from '../service/PlayerService';
+import { DesignTokens } from '../theme/DesignTokens';
+import { SearchStripActions } from '../components/common/SearchStrip';
 
 // 音乐信息类型
 export interface MusicInfoType {
@@ -34,12 +36,18 @@ interface SourceOption {
 // 搜索结果项
 interface SearchResultItem {
   id: string;
+  songmid?: string;
   name: string;
   singer: string;
   album: string;
   pic: string;
   duration: number;
   source: string;
+  albumId?: string;
+  hash?: string;
+  strMediaMid?: string;
+  songId?: number;
+  copyrightId?: string;
 }
 
 // 搜索状态枚举
@@ -75,9 +83,12 @@ export struct HomePage {
   private searchEpoch: number = 0;
   private searchResultsEpoch: number = 0;
   private hotSearchEpoch: number = 0;
+  /** 记录上一次成功展示结果的关键词，避免同词重复请求抖动把结果清空 */
+  private lastResolvedSearchQuery: string = '';
+  private sourceSwitchLocked: boolean = false;
 
-  // 底部 Tab 列表
-  private bottomTabs: string[] = ['歌单', '排行榜', '下载', '我的'];
+  /** 歌单顶栏下搜索条：与 SearchStrip 共享回调 */
+  private globalSearchStripActions: SearchStripActions = new SearchStripActions();
 
   // 音乐源选项
   private sourceOptions: SourceOption[] = [
@@ -99,6 +110,14 @@ export struct HomePage {
       this.singer = musicInfo.singer || '';
       this.pic = musicInfo.pic || '';
     });
+
+    this.globalSearchStripActions.onMagnifierClick = (): void => {
+      this.openSearch();
+    };
+    this.globalSearchStripActions.onSubmit = (): void => {
+      void this.submitGlobalSearchFromStrip();
+    };
+    this.globalSearchStripActions.onTextChange = (_t: string): void => {};
 
     // 设置下载上下文
     this.setDownloadContext();
@@ -164,36 +183,63 @@ export struct HomePage {
 
   // 执行搜索
   async doSearch(): Promise<void> {
-    if (!this.searchText.trim()) return;
+    const query = this.searchText.trim();
+    if (!query) return;
     const currentEpoch = ++this.searchEpoch;
+    const previousResults = this.searchResults.slice();
     this.isSearching = true;
     try {
-      const results = await searchMusic(this.searchText, 1, this.currentSource as Source);
+      // 使用统一搜索入口（core/search），避免首页与其他页面走不同链路。
+      let results = await searchMusic(query, 1, this.currentSource as Source);
+      // 当前源无结果时，回退全源聚合
+      if (results.length === 0 && this.currentSource !== 'all') {
+        results = await searchMusic(query, 1, 'all');
+      }
+      hilog.info(0x0001, 'HomePage', 'doSearch query=%{public}s source=%{public}s count=%{public}d',
+        query, this.currentSource, results.length);
       // 检查版本是否过期（用户可能已发起新搜索）
       if (currentEpoch !== this.searchEpoch) {
         return;
       }
       const items: SearchResultItem[] = [];
       for (let i = 0; i < results.length; i++) {
-        const r: MusicSearchResult = results[i];
+        const r = results[i];
         const item: SearchResultItem = {
           id: r.id,
+          songmid: r.songmid,
           name: r.name,
           singer: r.singer,
           album: r.album,
           pic: r.pic || '',
           duration: r.duration,
           source: r.source,
+          albumId: r.albumId,
+          hash: r.hash,
+          strMediaMid: r.strMediaMid,
+          songId: r.songId,
+          copyrightId: r.copyrightId,
         };
         items.push(item);
       }
-      this.searchResults = items;
+      // 同关键词重复请求若返回空，保留已有结果，避免点击歌曲后因偶发重复搜索导致“瞬间空列表”
+      if (items.length === 0 && previousResults.length > 0 && query === this.lastResolvedSearchQuery) {
+        hilog.warn(0x0001, 'HomePage', 'doSearch keep previous results for query: %{public}s', query);
+        this.searchResults = previousResults;
+      } else {
+        this.searchResults = items;
+        this.lastResolvedSearchQuery = query;
+      }
       this.searchResultsEpoch = currentEpoch;
       this.searchViewState = SearchViewState.RESULT;
     } catch (err) {
       hilog.error(0x0001, 'HomePage', 'Search failed: %{public}s', JSON.stringify(err));
       if (currentEpoch === this.searchEpoch) {
-        this.searchResults = [];
+        // 同关键词异常时保留已有结果，避免误显示“未找到相关结果”
+        if (previousResults.length > 0 && query === this.lastResolvedSearchQuery) {
+          this.searchResults = previousResults;
+        } else {
+          this.searchResults = [];
+        }
       }
     } finally {
       if (currentEpoch === this.searchEpoch) {
@@ -216,107 +262,108 @@ export struct HomePage {
     }
   }
 
-  // 顶部音乐源TabBar + 搜索框
+  /** 歌单主页：与排行榜页内搜索条一致的圆角灰底 + 放大镜 + 输入（提交即打开结果浮层） */
+  async submitGlobalSearchFromStrip(): Promise<void> {
+    const q = this.searchText.trim();
+    if (q.length === 0) {
+      this.openSearch();
+      return;
+    }
+    this.searchViewState = SearchViewState.RESULT;
+    await this.doSearch();
+  }
+
+  // 顶部栏：大标题层次 + 源切换（歌单/排行榜）与系统导航栏气质对齐
   @Builder
   TopBar() {
     Column() {
-      // 音乐源 Tab + 搜索框（同一行）
       Row() {
-        // Tab 横向滚动区（只在歌单/排行榜显示）
         if (this.currentTab === 0 || this.currentTab === 1) {
-          Scroll() {
-            Row() {
-              ForEach(this.sourceOptions, (source: SourceOption) => {
-                Text(source.name)
-                  .fontSize(this.currentSource === source.id ? 20 : 17)
-                  .fontColor(this.currentSource === source.id ? '#E63946' : (this.theme === 'dark' ? '#CCCCCC' : '#666666'))
-                  .fontWeight(this.currentSource === source.id ? FontWeight.Bold : FontWeight.Normal)
-                  .padding({ left: 10, right: 10, top: 4, bottom: 4 })
-                  .margin({ right: 6 })
-                  .onClick(() => {
-                    if (this.currentSource !== source.id) {
-                      this.sourceContentEpoch++;
-                    }
-                    this.currentSource = source.id;
-                    if (this.searchViewState === SearchViewState.INPUT) {
-                      void this.loadHotSearch();
-                    }
-                  })
-              })
-            }
-            .padding({ left: 4 })
-            .alignItems(VerticalAlign.Center)
+          Row() {
+            ForEach(this.sourceOptions, (source: SourceOption) => {
+              Text(source.name)
+                .layoutWeight(1)
+                .textAlign(TextAlign.Center)
+                .fontSize(16)
+                .fontColor(this.currentSource === source.id ? DesignTokens.accent() : DesignTokens.labelSecondary(this.theme))
+                .fontWeight(this.currentSource === source.id ? FontWeight.Medium : FontWeight.Normal)
+                .padding({ top: 8, bottom: 8 })
+                .onClick(() => {
+                  if (this.currentSource === source.id || this.sourceSwitchLocked) {
+                    return;
+                  }
+                  this.sourceSwitchLocked = true;
+                  this.sourceContentEpoch++;
+                  this.currentSource = source.id;
+                  setTimeout((): void => {
+                    this.sourceSwitchLocked = false;
+                  }, 180);
+                  if (this.searchViewState === SearchViewState.INPUT) {
+                    void this.loadHotSearch();
+                  }
+                })
+            })
           }
-          .scrollable(ScrollDirection.Horizontal)
-          .scrollBar(BarState.Off)
           .layoutWeight(1)
-          .align(Alignment.Start)
+          .padding({ left: DesignTokens.spaceGutter() - 4, right: DesignTokens.spaceGutter() - 4 })
+          .alignItems(VerticalAlign.Center)
+        } else if (this.currentTab === 2) {
+          Column() {
+            Text('下载')
+              .fontSize(28)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(DesignTokens.labelPrimary(this.theme))
+              .letterSpacing(-0.5)
+            Text('传输与缓存')
+              .fontSize(13)
+              .fontColor(DesignTokens.labelSecondary(this.theme))
+              .margin({ top: 2 })
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
+          .padding({ left: DesignTokens.spaceGutter() })
+          .justifyContent(FlexAlign.Center)
         } else {
-          // 我的页面：标题
-          Text('我的')
-            .fontSize(20)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
-            .margin({ left: 12 })
-        }
+          Row() {
+            Column() {
+              Text('我的')
+                .fontSize(28)
+                .fontWeight(FontWeight.Bold)
+                .fontColor(DesignTokens.labelPrimary(this.theme))
+                .letterSpacing(-0.5)
+              Text('歌单与收藏')
+                .fontSize(13)
+                .fontColor(DesignTokens.labelSecondary(this.theme))
+                .margin({ top: 2 })
+            }
+            .alignItems(HorizontalAlign.Start)
+            .layoutWeight(1)
+            .padding({ left: DesignTokens.spaceGutter() })
+            .justifyContent(FlexAlign.Center)
 
-        // 搜索框（仅在歌单/排行榜显示）
-        if (this.currentTab === 0 || this.currentTab === 1) {
-          TextInput({ placeholder: '🔍 搜索', text: this.searchText })
-            .width('25%')
-            .height(32)
-            .flexShrink(0)
-            .constraintSize({ minWidth: 50, maxWidth: 90 })
-            .backgroundColor(this.theme === 'dark' ? '#2C2C2C' : '#F5F5F5')
-            .borderRadius(16)
-            .fontSize(10)
-            .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
-            .placeholderColor('#999999')
-            .margin({ right: 8 })
-            .textAlign(TextAlign.Start)
-            .caretColor('#E63946')
-            .onClick(() => { this.openSearch(); })
-            .onChange((text: string) => { this.searchText = text; })
-        }
-
-      // "我的"页面：搜索框居中 + 右侧设置按钮
-      if (this.currentTab === 3) {
-        Blank()
+            Text('设置')
+              .fontSize(16)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(DesignTokens.accent())
+              .padding({ left: 8, right: 4, top: 6, bottom: 6 })
+            .margin({ right: DesignTokens.spaceGutter() })
+            .onClick(() => {
+              navigationService.navigateTo(RouteName.SETTINGS);
+            })
+          }
+          .width('100%')
           .layoutWeight(1)
-
-        TextInput({ placeholder: '搜索歌曲、歌手、专辑', text: this.searchText })
-          .width('40%')
-          .height(36)
-          .backgroundColor(this.theme === 'dark' ? '#2C2C2C' : '#F0F0F0')
-          .borderRadius(18)
-          .padding({ left: 16, right: 16 })
-          .fontSize(14)
-          .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
-          .onChange((value: string) => {
-            this.searchText = value;
-          })
-
-        Blank()
-          .layoutWeight(1)
-
-        // 设置按钮
-        Image($r('sys.symbol.gearshape'))
-          .width(26)
-          .height(26)
-          .fillColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
-          .margin({ right: 12 })
-          .onClick(() => {
-            navigationService.navigateTo(RouteName.SETTINGS);
-          })
-      }
+          .alignItems(VerticalAlign.Center)
+        }
       }
       .width('100%')
-      .height(48)
+      .constraintSize({ minHeight: 52 })
       .alignItems(VerticalAlign.Center)
-      .padding({ left: 8, right: 4 })
+      .padding({ top: 2, bottom: 6 })
     }
     .width('100%')
-    .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
+    .backgroundColor(DesignTokens.chromeBar(this.theme))
+    .border({ width: { bottom: 0.33 }, color: DesignTokens.hairlineSeparator(this.theme) })
   }
 
   // 搜索面板（覆盖在内容区上方）
@@ -324,36 +371,48 @@ export struct HomePage {
   SearchOverlay() {
     if (this.searchViewState !== SearchViewState.HIDDEN) {
       Column() {
-        // 搜索输入栏
         Row() {
-          TextInput({ placeholder: '搜索歌曲、歌手、专辑', text: this.searchText })
-            .layoutWeight(1)
-            .height(36)
-            .backgroundColor(this.theme === 'dark' ? '#2C2C2C' : '#F0F0F0')
-            .borderRadius(18)
-            .padding({ left: 14, right: 14 })
-            .fontSize(14)
-            .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
-            .placeholderColor('#999999')
-            .onChange((text: string) => {
-              this.searchText = text;
-            })
-            .onSubmit(() => {
-              this.doSearch();
-            })
+          Row() {
+            Image($r('sys.symbol.magnifyingglass'))
+              .width(17)
+              .height(17)
+              .fillColor(DesignTokens.labelSecondary(this.theme))
+              .margin({ left: 10, right: 6 })
+            TextInput({ placeholder: '搜索歌曲、歌手、专辑', text: this.searchText })
+              .layoutWeight(1)
+              .height(DesignTokens.heightSearchField())
+              .backgroundColor('rgba(0,0,0,0)')
+              .fontSize(16)
+              .fontColor(DesignTokens.labelPrimary(this.theme))
+              .placeholderColor(DesignTokens.labelTertiary(this.theme))
+              .padding({ right: 10 })
+              .onChange((text: string) => {
+                this.searchText = text;
+              })
+              .onSubmit(() => {
+                void this.submitGlobalSearchFromStrip();
+              })
+          }
+          .layoutWeight(1)
+          .height(DesignTokens.heightSearchField())
+          .backgroundColor(DesignTokens.mutedFill(this.theme))
+          .borderRadius(DesignTokens.radiusSearch())
+          .border({ width: 0.5, color: DesignTokens.searchFieldBorder(this.theme) })
+          .alignItems(VerticalAlign.Center)
 
-          // 取消按钮
           Text('取消')
-            .fontSize(14)
-            .fontColor('#E63946')
-            .padding({ left: 12, right: 4 })
+            .fontSize(16)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(DesignTokens.accent())
+            .padding({ left: 12, right: 4, top: 8, bottom: 8 })
+            .margin({ left: 4 })
             .onClick(() => {
               this.closeSearch();
             })
         }
         .width('100%')
-        .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-        .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
+        .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter() - 8, top: 10, bottom: 6 })
+        .alignItems(VerticalAlign.Center)
 
         // 搜索内容
         if (this.searchViewState === SearchViewState.INPUT) {
@@ -364,7 +423,7 @@ export struct HomePage {
       }
       .width('100%')
       .height('100%')
-      .backgroundColor(this.theme === 'dark' ? '#121212' : '#F5F5F5')
+      .backgroundColor(DesignTokens.pageBg(this.theme))
     }
   }
 
@@ -372,15 +431,15 @@ export struct HomePage {
   @Builder
   SearchInputContent() {
     Column() {
-      // 热搜标题
+      // 热搜标题（小号大写感：次级标签样式）
       Row() {
         Text('热门搜索')
-          .fontSize(15)
-          .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
+          .fontSize(13)
+          .fontColor(DesignTokens.labelSecondary(this.theme))
           .fontWeight(FontWeight.Medium)
       }
       .width('100%')
-      .padding({ left: 16, top: 16, bottom: 8 })
+      .padding({ left: DesignTokens.spaceGutter(), top: 8, bottom: 6 })
 
       // 热搜列表
       List() {
@@ -388,23 +447,29 @@ export struct HomePage {
           ListItem() {
             Row() {
               Text((item.index).toString())
-                .fontSize(14)
-                .fontColor(item.index <= 3 ? '#E63946' : '#999999')
-                .fontWeight(item.index <= 3 ? FontWeight.Bold : FontWeight.Normal)
-                .width(32)
+                .fontSize(15)
+                .fontColor(item.index <= 3 ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
+                .fontWeight(item.index <= 3 ? FontWeight.Medium : FontWeight.Normal)
+                .width(28)
 
               Text(item.title)
-                .fontSize(14)
-                .fontColor(this.theme === 'dark' ? '#CCCCCC' : '#666666')
+                .fontSize(16)
+                .fontColor(DesignTokens.labelPrimary(this.theme))
                 .layoutWeight(1)
 
               Image($r('sys.symbol.chevron_right'))
-                .width(16)
-                .height(16)
-                .fillColor('#999999')
+                .width(14)
+                .height(14)
+                .fillColor(DesignTokens.labelTertiary(this.theme))
             }
             .width('100%')
-            .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+            .padding({
+              left: DesignTokens.spaceGutter(),
+              right: DesignTokens.spaceGutter(),
+              top: 12,
+              bottom: 12,
+            })
+            .border({ width: { bottom: 0.33 }, color: DesignTokens.hairlineSeparator(this.theme) })
             .onClick(() => {
               this.onHotSearchClick(item.title);
             })
@@ -413,7 +478,7 @@ export struct HomePage {
       }
       .width('100%')
       .layoutWeight(1)
-      .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
+      .backgroundColor(DesignTokens.pageBg(this.theme))
     }
     .width('100%')
     .layoutWeight(1)
@@ -428,9 +493,10 @@ export struct HomePage {
           LoadingProgress()
             .width(32)
             .height(32)
-          Text('搜索中...')
-            .fontSize(14)
-            .fontColor('#999999')
+            .color(DesignTokens.accent())
+          Text('搜索中…')
+            .fontSize(15)
+            .fontColor(DesignTokens.labelSecondary(this.theme))
             .margin({ top: 12 })
         }
         .width('100%')
@@ -439,8 +505,8 @@ export struct HomePage {
       } else if (this.searchResults.length === 0) {
         Column() {
           Text('未找到相关结果')
-            .fontSize(14)
-            .fontColor('#999999')
+            .fontSize(15)
+            .fontColor(DesignTokens.labelSecondary(this.theme))
         }
         .width('100%')
         .layoutWeight(1)
@@ -452,26 +518,35 @@ export struct HomePage {
               Row() {
                 Column() {
                   Text(item.name)
-                    .fontSize(15)
-                    .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
+                    .fontSize(16)
+                    .fontWeight(FontWeight.Medium)
+                    .fontColor(DesignTokens.labelPrimary(this.theme))
                     .maxLines(1)
-                  Text(item.singer + ' - ' + item.album)
-                    .fontSize(12)
-                    .fontColor('#999999')
+                  Text(item.singer + ' · ' + item.album)
+                    .fontSize(14)
+                    .fontColor(DesignTokens.labelSecondary(this.theme))
                     .maxLines(1)
+                    .margin({ top: 4 })
                 }
                 .alignItems(HorizontalAlign.Start)
                 .layoutWeight(1)
 
                 Text(this.getSourceName(item.source))
-                  .fontSize(11)
-                  .fontColor('#E63946')
-                  .padding({ left: 8, right: 8, top: 2, bottom: 2 })
-                  .backgroundColor('rgba(230, 57, 70, 0.1)')
-                  .borderRadius(4)
+                  .fontSize(12)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor(DesignTokens.accent())
+                  .padding({ left: 8, right: 8, top: 4, bottom: 4 })
+                  .backgroundColor(DesignTokens.accentSoft(this.theme))
+                  .borderRadius(DesignTokens.radiusSearch())
               }
               .width('100%')
-              .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+              .padding({
+                left: DesignTokens.spaceGutter(),
+                right: DesignTokens.spaceGutter(),
+                top: 12,
+                bottom: 12,
+              })
+              .border({ width: { bottom: 0.33 }, color: DesignTokens.hairlineSeparator(this.theme) })
             }
             .onClick(() => {
               void this.playSearchResult(item);
@@ -480,7 +555,7 @@ export struct HomePage {
         }
         .width('100%')
         .layoutWeight(1)
-        .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
+        .backgroundColor(DesignTokens.pageBg(this.theme))
       }
     }
     .width('100%')
@@ -505,12 +580,17 @@ export struct HomePage {
         name: item.name,
         singer: item.singer,
         source: src,
-        songmid: item.id,
-        strMediaMid: src === 'tx' ? item.id : undefined,
+        songmid: item.songmid || item.id,
+        strMediaMid: src === 'tx' ? (item.strMediaMid || item.songmid || item.id) : item.strMediaMid,
+        hash: item.hash,
+        songId: item.songId,
+        albumId: item.albumId,
+        copyrightId: item.copyrightId,
         albumName: item.album,
         album: item.album,
         interval: item.duration > 0 ? formatPlayTime(item.duration) : null,
         img: item.pic && item.pic.length > 0 ? item.pic : null,
+        pic: item.pic && item.pic.length > 0 ? item.pic : undefined,
         lrc: null,
         types: [],
         _types: new Map(),
@@ -531,6 +611,7 @@ export struct HomePage {
       const durSec = item.duration > 0 ? item.duration : 0;
       const songInfo: SongInfo = {
         id: item.id,
+        songmid: item.songmid || item.id,
         url: url,
         title: item.name,
         artist: item.singer,
@@ -538,6 +619,11 @@ export struct HomePage {
         artwork: item.pic || null,
         duration: durSec,
         source: item.source,
+        hash: item.hash,
+        strMediaMid: item.strMediaMid,
+        songId: item.songId,
+        albumId: item.albumId,
+        copyrightId: item.copyrightId,
       };
       await playerService.setSource(songInfo, url, durSec);
       await playerService.play();
@@ -548,37 +634,63 @@ export struct HomePage {
     }
   }
 
-  // 底部 TabBar
+  @Builder
+  MainTabItem(index: number, icon: Resource, label: string) {
+    Column() {
+      Image(icon)
+        .width(DesignTokens.iconLg() + 3)
+        .height(DesignTokens.iconLg() + 3)
+        .fillColor(this.currentTab === index ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
+      Text(label)
+        .fontSize(DesignTokens.fontCaption())
+        .fontColor(this.currentTab === index ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
+        .fontWeight(this.currentTab === index ? FontWeight.Medium : FontWeight.Normal)
+        .margin({ top: 2 })
+    }
+    .layoutWeight(1)
+    .height(50)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .onClick(() => {
+      this.currentTab = index;
+    })
+  }
+
+  // 底部 TabBar：与 iOS UITabBar 类似 — 选中 tint、未选中弱化
   @Builder
   BottomTabBar() {
-    Row() {
-      ForEach(this.bottomTabs, (tab: string, index: number) => {
-        Column() {
-          Text(tab)
-            .fontSize(this.currentTab === index ? 14 : 12)
-            .fontColor(this.currentTab === index ? '#E63946' : (this.theme === 'dark' ? '#AAAAAA' : '#999999'))
-            .fontWeight(this.currentTab === index ? FontWeight.Bold : FontWeight.Normal)
-            .onClick(() => {
-              this.currentTab = index;
-            })
-        }
-        .layoutWeight(1)
-        .height(50)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
-      })
+    Column() {
+      Row() {
+        this.MainTabItem(0, $r('sys.symbol.music_note_list'), '歌单')
+        this.MainTabItem(1, $r('sys.symbol.list_number'), '排行榜')
+        this.MainTabItem(2, $r('sys.symbol.arrow_down_circle'), '下载')
+        this.MainTabItem(3, $r('sys.symbol.person'), '我的')
+      }
+      .width('100%')
+      .height(58)
+      .padding({ top: 3, bottom: 5 })
+      .border({ width: { top: 0.33 }, color: DesignTokens.hairlineSeparator(this.theme) })
+
+      // 底部安全区填充，确保系统手势条区域与 TabBar 同底色
+      Blank()
+        .width('100%')
+        .height(14)
     }
     .width('100%')
-    .height(50)
-    .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
-    .border({ width: { top: 0.5 }, color: this.theme === 'dark' ? '#333333' : '#E0E0E0' })
+    .backgroundColor(DesignTokens.tabBarBg(this.theme))
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
   }
 
   // 内容区域
   @Builder
   ContentArea() {
     if (this.currentTab === 0) {
-      SongListView({ sourceId: this.currentSource, reCreateKey: this.sourceContentEpoch })
+      SongListView({
+        sourceId: this.currentSource,
+        reCreateKey: this.sourceContentEpoch,
+        searchText: $searchText,
+        searchStripActions: this.globalSearchStripActions,
+      })
     } else if (this.currentTab === 1) {
       LeaderboardView({ sourceId: this.currentSource, reCreateKey: this.sourceContentEpoch })
     } else if (this.currentTab === 2) {
@@ -596,6 +708,8 @@ export struct HomePage {
         // 顶部音乐源TabBar（去掉状态栏间距）
         this.TopBar()
 
+        // 歌单 Tab：搜索条已放入 SongListView 内垂直 Scroll 顶部，随列表上滑滚出、回顶再现
+
         // 内容区
         Column() {
           this.ContentArea()
@@ -611,12 +725,13 @@ export struct HomePage {
       }
       .width('100%')
       .height('100%')
-      .backgroundColor(this.theme === 'dark' ? '#121212' : '#F5F5F5')
+      .backgroundColor(DesignTokens.pageBg(this.theme))
 
       // 搜索面板覆盖层
       this.SearchOverlay()
     }
     .width('100%')
     .height('100%')
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
   }
 }

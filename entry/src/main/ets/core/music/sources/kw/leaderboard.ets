@@ -182,8 +182,39 @@ interface HandleSongResult {
   otherSource: null;
 }
 
+/** 酷我封面常为 http 或 //，鸿蒙 Image 与部分网络栈对 https 更友好 */
+function normalizeKwCoverUrl(url: string | null | undefined): string | null {
+  if (url === null || url === undefined) {
+    return null;
+  }
+  const s = url.trim();
+  if (s.length === 0) {
+    return null;
+  }
+  if (s.startsWith('//')) {
+    return `https:${s}`;
+  }
+  if (s.startsWith('http://')) {
+    return `https://${s.substring(7)}`;
+  }
+  return s;
+}
+
+/** 从榜单 content 根节点取可用封面（单曲项常无 pic；根 pic 有时是目录 URL） */
+function pickKwChartCoverFromBangData(data: KwBangApiData): string | null {
+  const v9 = normalizeKwCoverUrl(data.v9_pic2);
+  if (v9 !== null && v9.length > 0) {
+    return v9;
+  }
+  const p = normalizeKwCoverUrl(data.pic);
+  if (p !== null && p.length > 0 && !p.endsWith('/BangPic/') && !p.endsWith('/bangpic/')) {
+    return p;
+  }
+  return null;
+}
+
 // 处理歌曲数据
-function handleSongData(rawList: KwBangMusicItem[]): MusicInfo[] {
+function handleSongData(rawList: KwBangMusicItem[], chartCover: string | null): MusicInfo[] {
   return rawList.map((item: KwBangMusicItem): MusicInfo => {
     const parseResult: ParseTypesResult = parseTypes(item.n_minfo || '');
     const types: QualityTypeItem[] = parseResult.types;
@@ -198,7 +229,7 @@ function handleSongData(rawList: KwBangMusicItem[]): MusicInfo[] {
       albumId: item.albumId || '',
       interval: formatPlayTime(parseInt(item.duration || '0')),
       albumName: decodeHtmlEntities(item.album || ''),
-      img: item.pic || null,
+      img: normalizeKwCoverUrl(item.pic) ?? chartCover,
       lrc: null,
       types: types,
       _types: _types,
@@ -226,6 +257,9 @@ interface KwBangApiData {
   errcode?: number;
   musiclist?: KwBangMusicItem[];
   total?: string;
+  /** 榜单头图（单曲项常无 pic，用此补封面） */
+  v9_pic2?: string;
+  pic?: string;
 }
 
 /** 仅当 errcode 为数字且非 0 时视为失败（缺省 errcode 表示 content 接口成功形态） */
@@ -284,7 +318,7 @@ export const leaderboard: LeaderboardInterface = {
    */
   getBoards(): Promise<LeaderboardResult> {
     // 调用真实 API 获取排行榜列表
-    const url = 'http://kbangserver.kuwo.cn/ksong.s?from=pc&fmt=json&pn=0&rn=100&type=bang&data=all&isbang=1';
+    const url = 'https://kbangserver.kuwo.cn/ksong.s?from=pc&fmt=json&pn=0&rn=100&type=bang&data=all&isbang=1';
 
     return new Promise((resolve) => {
       const task = httpRequest(url, {
@@ -353,9 +387,9 @@ export const leaderboard: LeaderboardInterface = {
    */
   getList(bangid: string, page: number = 1): Promise<LeaderboardListResult> {
     const limit = DEFAULT_LIMIT;
-    const url = `http://kbangserver.kuwo.cn/ksong.s?from=pc&fmt=json&pn=${page - 1}&rn=${limit}&type=bang&data=content&id=${bangid}&show_copyright_off=0&pcmp4=1&isbang=1`;
+    const url = `https://kbangserver.kuwo.cn/ksong.s?from=pc&fmt=json&pn=${page - 1}&rn=${limit}&type=bang&data=content&id=${bangid}&show_copyright_off=0&pcmp4=1&isbang=1`;
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const task = httpRequest(url, {
         responseType: 'text',
       });
@@ -380,7 +414,8 @@ export const leaderboard: LeaderboardInterface = {
             return;
           }
 
-          const list: MusicInfo[] = handleSongData(data.musiclist || []);
+          const chartCover = pickKwChartCoverFromBangData(data);
+          const list: MusicInfo[] = handleSongData(data.musiclist || [], chartCover);
           const totalNum = parseInt(data.total || '0', 10);
           const total: number = Number.isNaN(totalNum) ? list.length : (totalNum > 0 ? totalNum : list.length);
 
@@ -393,10 +428,26 @@ export const leaderboard: LeaderboardInterface = {
           };
           resolve(result);
         } catch (err) {
-          reject(new Error('解析排行榜数据失败'));
+          hilog.error(0x0001, 'KWLeaderboard', 'Failed to parse getList response bangid=%{public}s', bangid);
+          const emptyResult: LeaderboardListResult = {
+            list: [],
+            total: 0,
+            page: page,
+            limit: limit,
+            source: 'kw',
+          };
+          resolve(emptyResult);
         }
       }).catch(() => {
-        reject(new Error('请求排行榜数据失败'));
+        hilog.error(0x0001, 'KWLeaderboard', 'Failed to request getList bangid=%{public}s', bangid);
+        const emptyResult: LeaderboardListResult = {
+          list: [],
+          total: 0,
+          page: page,
+          limit: limit,
+          source: 'kw',
+        };
+        resolve(emptyResult);
       });
     });
   },

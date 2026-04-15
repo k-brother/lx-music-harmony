@@ -77,6 +77,14 @@ function doRequest<T>(
     connectTimeout: config.connectTimeout ?? timeout,
     readTimeout: config.readTimeout ?? timeout,
   };
+  // 服务端常标 application/json，正文却含 BOM/JSONP/前后杂质；系统层自动解析会抛 SyntaxError。
+  // 强制以字符串接收，由 parseHttpBodyJson / 业务层自行解析。
+  const rt = config.responseType ?? 'json';
+  if (rt === 'json' || rt === 'text') {
+    opts.expectDataType = http.HttpDataType.STRING;
+  } else if (rt === 'arraybuffer' || rt === 'blob' || rt === 'binary') {
+    opts.expectDataType = http.HttpDataType.ARRAY_BUFFER;
+  }
 
   // 处理请求体
   if (config.extraData !== undefined) {

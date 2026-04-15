@@ -5,6 +5,7 @@ import { httpRequest, type HttpRequestConfig, type HttpResponse } from '../../..
 import { decodeHtmlEntities } from '../../../../utils/CommonUtils';
 
 const HOT_SEARCH_URL = 'http://gateway.kugou.com/api/v3/search/hot_tab?signature=ee44edb9d7155821412d220bcaf509dd&appid=1005&clientver=10026&plat=0';
+const KG_HOT_SEARCH_FALLBACK: string[] = ['周杰伦', '林俊杰', '陈奕迅', 'Taylor Swift', 'Adele', 'Coldplay'];
 
 // 热搜头部
 const HOT_SEARCH_HEADERS: Map<string, string> = new Map([
@@ -59,6 +60,13 @@ function filterList(rawList: KGHotSearchGroup[]): string[] {
   return list;
 }
 
+function buildFallbackListResult(): HotSearchListResult {
+  return {
+    source: 'kg',
+    list: KG_HOT_SEARCH_FALLBACK,
+  };
+}
+
 export const hotSearch: HotSearchInterface = {
   /**
    * 获取热搜列表
@@ -78,8 +86,8 @@ export const hotSearch: HotSearchInterface = {
     return task.promise.then((response: HttpResponse<Object>) => {
       const body = response.data as KGHotSearchResponse;
 
-      if (body.errcode !== 0) {
-        return Promise.reject(new Error('获取热搜词失败'));
+      if (!body || body.errcode !== 0 || !body.data?.list) {
+        return buildFallbackListResult();
       }
 
       const result: HotSearchListResult = {
@@ -87,6 +95,8 @@ export const hotSearch: HotSearchInterface = {
         list: filterList(body.data.list),
       };
       return result;
+    }).catch(() => {
+      return buildFallbackListResult();
     });
   },
 

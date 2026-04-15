@@ -43,6 +43,9 @@ export interface NavigationParams {
 export class NavigationService {
   private static instance: NavigationService;
   private navPathStack: NavPathStack | null = null;
+  private lastNavigateAtMs: number = 0;
+  private lastNavigateRoute: string = '';
+  private navigateSeq: number = 0;
 
   private constructor() {}
 
@@ -66,11 +69,42 @@ export class NavigationService {
       return;
     }
     const routeNameStr = routeName.toString();
-    hilog.info(0x0001, 'NavigationService', 'Navigating to: %{public}s with params: %{public}s', routeNameStr, JSON.stringify(params));
+    this.navigateSeq += 1;
+    const navId = this.navigateSeq;
+    const now = Date.now();
+    // 防止极短时间内重复 push 同一路由（迷你播放器点击时偶发双触发）
+    if (this.lastNavigateRoute === routeNameStr && now - this.lastNavigateAtMs < 800) {
+      hilog.warn(0x0001, 'NavigationService', 'Skip duplicate navigate id=%{public}d route=%{public}s', navId, routeNameStr);
+      return;
+    }
+    this.lastNavigateRoute = routeNameStr;
+    this.lastNavigateAtMs = now;
+    let sizeBefore = -1;
+    try {
+      sizeBefore = this.navPathStack.size();
+    } catch (_e) {
+      sizeBefore = -1;
+    }
+    hilog.info(0x0001, 'NavigationService',
+      'Navigating id=%{public}d to: %{public}s with params: %{public}s, stackBefore=%{public}d',
+      navId, routeNameStr, JSON.stringify(params), sizeBefore);
 
     // 使用 pushPathByName 进行跳转
     const param: NavigationParams = params || {} as NavigationParams;
-    this.navPathStack.pushPathByName(routeNameStr, param);
+    try {
+      this.navPathStack.pushPathByName(routeNameStr, param);
+      let sizeAfter = -1;
+      try {
+        sizeAfter = this.navPathStack.size();
+      } catch (_e) {
+        sizeAfter = -1;
+      }
+      hilog.info(0x0001, 'NavigationService', 'Navigate id=%{public}d push success, stackAfter=%{public}d', navId, sizeAfter);
+    } catch (e) {
+      hilog.error(0x0001, 'NavigationService', 'Navigate id=%{public}d push failed: %{public}s', navId, JSON.stringify(e));
+      const msg = e instanceof Error ? e.message : JSON.stringify(e);
+      throw new Error(msg);
+    }
   }
 
   // 返回上一页

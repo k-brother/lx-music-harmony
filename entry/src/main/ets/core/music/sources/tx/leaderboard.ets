@@ -1,7 +1,8 @@
 /**
  * QQ音乐 - 排行榜
+ * 详情走 v8 fcg_v8_toplist_cp（与周期无关）；旧版 musicu + PC 页刮周期易失效且 code!=0 时会无限递归。
  */
-import { httpRequest, type HttpRequestConfig } from '../../../../core/network/http';
+import { httpGet, parseHttpBodyJson, type HttpRequestConfig } from '../../../../core/network/http';
 import { decodeName, formatPlayTime, sizeFormate } from '../../../../utils/CommonUtils';
 import { formatSingerName } from './utils/crypto';
 import type { MusicInfo, MusicQualityType, Quality, QualityDetail } from '../../../../types/MusicTypes';
@@ -59,18 +60,9 @@ const boardList: LeaderboardItem[] = [
   { id: 'tx__67', name: '听歌识曲榜', bangid: '67' },
   { id: 'tx__72', name: '动漫音乐榜', bangid: '72' },
   { id: 'tx__73', name: '游戏音乐榜', bangid: '73' },
-  { id: 'tx__75', name: '有声榜', bangid: '75' },
+  /** v8 toplist_cp 对 75 返回的 songlist 无有效 data 块（仅占位），预览与详情均无法解析，已从静态表移除 */
   { id: 'tx__131', name: '校园音乐人排行榜', bangid: '131' }
 ];
-
-// 构建空排行榜结果
-function buildEmptyLeaderboardResult(): LeaderboardResult {
-  const result: LeaderboardResult = {
-    list: [],
-    source: 'tx',
-  };
-  return result;
-}
 
 // 构建空排行榜列表结果
 function buildEmptyLeaderboardListResult(page: number): LeaderboardListResult {
@@ -119,54 +111,37 @@ interface SongInfo {
   file?: FileInfo;
 }
 
-interface ToplistData {
-  songInfoList?: SongInfo[];
+/** v8 榜单接口单页条数（接口稳定，过大易被截断） */
+const TX_TOPLIST_PAGE_SIZE = 80;
+
+interface V8SongData {
+  songname?: string;
+  songmid?: string;
+  strMediaMid?: string;
+  songid?: number;
+  singer?: SingerInfo[];
+  albumname?: string;
+  albummid?: string;
+  interval?: number;
+  size128?: number;
+  size320?: number;
+  sizeflac?: number;
+  sizeape?: number;
+  size5_1?: number;
 }
 
-interface ToplistInfo {
-  data?: ToplistData;
+interface V8SongEntry {
+  data?: V8SongData;
 }
 
-interface ToplistResponse {
-  code: number;
-  toplist?: ToplistInfo;
-}
-
-interface PeriodInfo {
-  name: string;
-  bangid: string;
-  period: string;
-}
-
-interface ToplistParam {
-  topid: number;
-  num: number;
-  period: string;
-}
-
-interface CommParam {
-  uin: number;
-  format: string;
-  ct: number;
-  cv: number;
-}
-
-interface ToplistModule {
-  module: string;
-  method: string;
-  param: ToplistParam;
-}
-
-interface RequestBody {
-  toplist: ToplistModule;
-  comm: CommParam;
+interface V8ToplistCpResponse {
+  code?: number;
+  songlist?: V8SongEntry[];
+  total_song_num?: number | string;
 }
 
 // QQ音乐排行榜实现
 class TXLeaderboard implements LeaderboardInterface {
-  private readonly limit: number = 300;
-  private readonly periodUrl: string = 'https://c.y.qq.com/node/pc/wk_v15/top.html';
-  private periods: Map<string, PeriodInfo> = new Map();
 
   /**
    * 获取排行榜列表
@@ -184,86 +159,88 @@ class TXLeaderboard implements LeaderboardInterface {
    * 获取排行榜歌曲列表
    */
   async getList(bangid: string, page: number = 1): Promise<LeaderboardListResult> {
-    const bangidNum = parseInt(bangid);
-    let period: string | null = null;
-
+    const bangidNum = parseInt(bangid, 10);
+    if (Number.isNaN(bangidNum)) {
+      return buildEmptyLeaderboardListResult(page);
+    }
+    const begin = (page - 1) * TX_TOPLIST_PAGE_SIZE;
+    const url =
+      'https://c.y.qq.com/v8/fcg-bin/fcg_v8_toplist_cp.fcg?g_tk=5381&uin=0&format=json' +
+      '&inCharset=utf-8&outCharset=utf-8&notice=0&platform=h5&needNewCode=1&tpl=3&page=detail&type=top' +
+      `&topid=${bangidNum}&song_begin=${begin}&song_num=${TX_TOPLIST_PAGE_SIZE}`;
     try {
-      // 尝试获取周期信息
-      const info = this.periods.get(bangid);
-      period = info ? info.period : await this.getPeriods(bangid);
-
-      const response = await this.listDetailRequest(bangidNum, period || '', this.limit);
-      const body: ToplistResponse = JSON.parse(response);
-
-      if (body.code !== 0) {
-        return this.getList(bangid, page);
+      const qqHeaders: Record<string, string> = {};
+      qqHeaders['User-Agent'] =
+        'Mozilla/5.0 (Linux; Android 12; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Mobile Safari/537.36';
+      qqHeaders['Referer'] = 'https://y.qq.com/';
+      const qqReq: HttpRequestConfig = {};
+      qqReq.responseType = 'text';
+      qqReq.header = qqHeaders;
+      const response = await httpGet(url, qqReq).promise;
+      const raw = (response.result !== undefined ? response.result : response.data) as string | Object;
+      const body = parseHttpBodyJson<V8ToplistCpResponse>(raw);
+      if (!body || body.code !== 0 || !body.songlist) {
+        return buildEmptyLeaderboardListResult(page);
       }
-
-      const songList = body.toplist?.data?.songInfoList || [];
-
+      const songList: SongInfo[] = [];
+      for (let i = 0; i < body.songlist.length; i++) {
+        const raw = body.songlist[i].data;
+        // 部分榜（如有声榜历史 topid）data 为 null/字符串，仅跳过；避免把非对象当歌曲解析
+        if (raw !== null && raw !== undefined && typeof raw === 'object') {
+          songList.push(this.mapV8SongDataToSongInfo(raw as V8SongData));
+        }
+      }
+      const totalRaw = body.total_song_num;
+      let total: number;
+      if (typeof totalRaw === 'string') {
+        total = parseInt(totalRaw, 10);
+      } else if (typeof totalRaw === 'number') {
+        total = totalRaw;
+      } else {
+        total = songList.length;
+      }
+      if (Number.isNaN(total)) {
+        total = songList.length;
+      }
       const listResult: LeaderboardListResult = {
-        total: songList.length,
+        total,
         list: this.filterData(songList),
-        limit: this.limit,
-        page: 1,
+        limit: TX_TOPLIST_PAGE_SIZE,
+        page,
         source: 'tx',
       };
       return listResult;
     } catch (error) {
-      // 如果获取失败，返回空结果
       console.error('QQ音乐排行榜获取失败:', error);
       return buildEmptyLeaderboardListResult(page);
     }
   }
 
-  /**
-   * 排行榜详情请求
-   */
-  private async listDetailRequest(id: number, period: string, limit: number): Promise<string> {
-    const toplistParam: ToplistParam = {
-      topid: id,
-      num: limit,
-      period: period,
+  private mapV8SongDataToSongInfo(d: V8SongData): SongInfo {
+    const file: FileInfo = {
+      media_mid: d.strMediaMid || d.songmid || '',
+      size_128mp3: d.size128,
+      size_320mp3: d.size320,
+      size_flac: d.sizeflac,
     };
-
-    const commParam: CommParam = {
-      uin: 0,
-      format: 'json',
-      ct: 20,
-      cv: 1859,
+    let albumPart: AlbumInfo | undefined = undefined;
+    if (d.albumname) {
+      const al: AlbumInfo = {
+        name: d.albumname,
+        mid: d.albummid,
+      };
+      albumPart = al;
+    }
+    const song: SongInfo = {
+      title: d.songname,
+      singer: d.singer,
+      mid: d.songmid,
+      id: d.songid,
+      album: albumPart,
+      interval: d.interval,
+      file,
     };
-
-    const requestBody: RequestBody = {
-      toplist: {
-        module: 'musicToplist.ToplistInfoServer',
-        method: 'GetDetail',
-        param: toplistParam,
-      },
-      comm: commParam,
-    };
-
-    const headers: Record<string, string> = {
-      'User-Agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0)',
-    };
-
-    const musicuReq: HttpRequestConfig = {
-      method: 'POST',
-      header: headers,
-      extraData: requestBody,
-    };
-    const response = await httpRequest('https://u.y.qq.com/cgi-bin/musicu.fcg', musicuReq).promise;
-
-    return response.data as string;
-  }
-
-  /**
-   * 获取数据
-   */
-  private async getData(url: string): Promise<string> {
-    const requestDataObj = httpRequest(url);
-    const response = await requestDataObj.promise;
-
-    return response.data as string;
+    return song;
   }
 
   /**
@@ -306,14 +283,12 @@ class TXLeaderboard implements LeaderboardInterface {
         _types.set('flac24bit', qualityDetail);
       }
 
-      // 构建图片URL
+      // 构建图片 URL：优先专辑 mid；仅有专辑名无 mid 时用歌手头像兜底
       let imgUrl: string | null = null;
-      if (!item.album?.name || item.album.name === '空') {
-        if (item.singer && item.singer.length > 0 && item.singer[0].mid) {
-          imgUrl = `https://y.gtimg.cn/music/photo_new/T001R500x500M000${item.singer[0].mid}.jpg`;
-        }
-      } else if (item.album?.mid) {
+      if (item.album?.mid) {
         imgUrl = `https://y.gtimg.cn/music/photo_new/T002R500x500M000${item.album.mid}.jpg`;
+      } else if (item.singer && item.singer.length > 0 && item.singer[0].mid) {
+        imgUrl = `https://y.gtimg.cn/music/photo_new/T001R500x500M000${item.singer[0].mid}.jpg`;
       }
 
       const songmid = item.mid || '';
@@ -342,47 +317,16 @@ class TXLeaderboard implements LeaderboardInterface {
   }
 
   /**
-   * 获取周期信息
-   */
-  private async getPeriods(bangid: string): Promise<string | null> {
-    try {
-      const html = await this.getData(this.periodUrl);
-      const periodListRegExp = /<i class="play_cover__btn c_tx_link js_icon_play" data-listkey=".+?" data-listname=".+?" data-tid=".+?" data-date=".+?" .+?<\/i>/g;
-      const periodRegExp = /data-listname="(.+?)" data-tid=".*?\/(.+?)" data-date="(.+?)" .+?<\/i>/;
-
-      const result = html.match(periodListRegExp);
-
-      if (!result) {
-        throw new Error('get data failed');
-      }
-
-      for (const item of result) {
-        const match = item.match(periodRegExp);
-        if (!match) continue;
-
-        const periodInfo: PeriodInfo = {
-          name: match[1],
-          bangid: match[2],
-          period: match[3],
-        };
-        this.periods.set(match[2], periodInfo);
-      }
-
-      const info = this.periods.get(bangid);
-      return info ? info.period : null;
-    } catch (error) {
-      throw new Error(`Failed to get periods: ${error}`);
-    }
-  }
-
-  /**
    * 获取详情页URL
    */
   getDetailPageUrl(id: string): string {
-    if (typeof id === 'string') {
-      id = id.replace('tx__', '');
+    let sid = id;
+    if (typeof sid === 'string') {
+      while (sid.startsWith('tx__')) {
+        sid = sid.substring(4);
+      }
     }
-    return `https://y.qq.com/n/ryqq/toplist/${id}`;
+    return `https://y.qq.com/n/ryqq/toplist/${sid}`;
   }
 }
 

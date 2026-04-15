@@ -10,18 +10,24 @@ const DOMAIN = 0x0006;
 
 const PRIMARY_VERSION_URL =
   'https://raw.githubusercontent.com/lyswhut/lx-music-mobile/master/publish/version.json';
+const VERSION_CHECK_DEFER_MS = 9000;
 
 function parseVersionPayload(text: string): VersionInfo | null {
   try {
-    const root = JSON.parse(text) as Record<string, string | Object>;
-    const ver = root['version'];
-    const desc = root['desc'];
-    if (typeof ver !== 'string' || ver.length === 0) {
+    const trimmed = text.trim();
+    if (trimmed.length === 0) {
       return null;
     }
+    const root = JSON.parse(trimmed) as Record<string, string | number | Object | undefined>;
+    const rawVer = root['version'];
+    const versionStr = typeof rawVer === 'number' ? String(rawVer) : rawVer;
+    if (typeof versionStr !== 'string' || versionStr.length === 0) {
+      return null;
+    }
+    const desc = root['desc'];
     const descStr = typeof desc === 'string' ? desc : '';
     const info: VersionInfo = {
-      version: ver,
+      version: versionStr,
       desc: descStr,
       publishTime: '',
     };
@@ -34,12 +40,16 @@ function parseVersionPayload(text: string): VersionInfo | null {
 async function fetchAndEmitVersionInfo(): Promise<void> {
   try {
     const body = await fetchUtf8Text(PRIMARY_VERSION_URL);
+    if (body.length === 0) {
+      hilog.warn(DOMAIN, TAG, 'Version check empty response');
+      return;
+    }
     const info = parseVersionPayload(body);
     if (info) {
       stateEvent.versionInfoUpdated(info);
       hilog.info(DOMAIN, TAG, 'Remote version: %{public}s', info.version);
     } else {
-      hilog.warn(DOMAIN, TAG, 'Version JSON missing version field');
+      hilog.warn(DOMAIN, TAG, 'Version check unparsable or no top-level version (len=%{public}d)', body.length);
     }
   } catch (e) {
     hilog.warn(DOMAIN, TAG, 'Version check failed: %{public}s', JSON.stringify(e));
@@ -50,5 +60,5 @@ async function fetchAndEmitVersionInfo(): Promise<void> {
 export function runVersionCheckDeferred(): void {
   setTimeout(() => {
     void fetchAndEmitVersionInfo();
-  }, 2500);
+  }, VERSION_CHECK_DEFER_MS);
 }

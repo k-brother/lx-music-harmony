@@ -4,6 +4,7 @@
  */
 import hilog from '@ohos.hilog';
 import StorageService from './StorageService';
+import { emitListUpdated } from './EventBus';
 import type { IMusicItem } from '../core/interfaces/IMusicItem';
 
 // Re-export IMusicItem as MusicItem for consumers
@@ -465,6 +466,7 @@ export function onListChange(listener: ListChangeListener): () => void {
  * 通知监听器
  */
 function notifyListeners(listId: string): void {
+  emitListUpdated(listId);
   for (let i = 0; i < listeners.length; i++) {
     listeners[i](listId);
   }

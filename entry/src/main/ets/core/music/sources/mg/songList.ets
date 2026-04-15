@@ -404,7 +404,7 @@ class MgSongListImpl implements MgSongListModule {
     return httpRequest(url, mgDefaultHttpLegacy()).promise.then((response) => {
       const body = parseHttpBodyJson<MgListBody>(response.result as string | Object);
       const emptyList: SongListResult = { list: [], total: 0, page, limit: LIMIT_LIST, source: 'mg' };
-      if (!body || body.code !== '000000' || !body.data) {
+      if (!body || body.code !== SUCCESS_CODE || !body.data) {
         return emptyList;
       }
       const d = body.data;
@@ -414,9 +414,12 @@ class MgSongListImpl implements MgSongListModule {
       } else if (d.contentItemList && d.contentItemList.length > 1 && d.contentItemList[1].itemList) {
         list = filterList(d.contentItemList[1].itemList!);
       }
+      if (list.length === 0) {
+        return emptyList;
+      }
       const okList: SongListResult = {
         list,
-        total: 99999,
+        total: list.length,
         page,
         limit: LIMIT_LIST,
         source: 'mg',

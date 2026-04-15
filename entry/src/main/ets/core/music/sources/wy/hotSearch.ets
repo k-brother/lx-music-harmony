@@ -44,6 +44,20 @@ interface WYHotSearchAPIResponse {
   data: WYHotSearchAPIData;
 }
 
+interface WyHotDetailItem {
+  first?: string;
+  score?: number;
+}
+
+interface WyHotDetailResult {
+  hots?: WyHotDetailItem[];
+}
+
+interface WyHotDetailResponse {
+  code?: number;
+  result?: WyHotDetailResult;
+}
+
 // 网易云请求参数接口
 interface WYRequestItem {
   id: string;
@@ -60,6 +74,47 @@ function buildEmptyHotSearchResult(): HotSearchResult {
     source: 'wy',
   };
   return result;
+}
+
+function mapToHotSearchResult(sourceList: WYHotSearchAPIItem[]): HotSearchResult {
+  const hotSearchList: HotSearchItem[] = [];
+  for (let i = 0; i < sourceList.length; i++) {
+    const item = sourceList[i];
+    const hotItem: HotSearchItem = {
+      index: i + 1,
+      title: item.searchWord,
+      source: 'wy',
+      url: item.url,
+      hot: item.score || 0,
+    };
+    hotSearchList.push(hotItem);
+  }
+  return {
+    list: hotSearchList,
+    source: 'wy',
+  };
+}
+
+function mapLegacyToHotSearchResult(sourceList: WyHotDetailItem[]): HotSearchResult {
+  const hotSearchList: HotSearchItem[] = [];
+  for (let i = 0; i < sourceList.length; i++) {
+    const item = sourceList[i];
+    const title = item.first ?? '';
+    if (!title) {
+      continue;
+    }
+    hotSearchList.push({
+      index: hotSearchList.length + 1,
+      title,
+      source: 'wy',
+      url: null,
+      hot: item.score ?? 0,
+    });
+  }
+  return {
+    list: hotSearchList,
+    source: 'wy',
+  };
 }
 
 // 网易云音乐热搜榜实现
@@ -94,31 +149,24 @@ export const hotSearch: HotSearchInterface = {
 
       const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
       const body = parseHttpBodyJson<WYHotSearchAPIResponse>(resultData);
-      if (body) {
-        if (body.code === 200 && body.data && body.data.itemList) {
-          const hotSearchList: HotSearchItem[] = [];
-
-          for (let i = 0; i < body.data.itemList.length; i++) {
-            const item = body.data.itemList[i];
-            const hotItem: HotSearchItem = {
-              index: i + 1,
-              title: item.searchWord,
-              source: 'wy',
-              url: item.url,
-              hot: item.score || 0,
-            };
-            hotSearchList.push(hotItem);
-          }
-
-          const result: HotSearchResult = {
-            list: hotSearchList,
-            source: 'wy',
-          };
-          return result;
-        }
+      if (body && body.code === 200 && body.data?.itemList && body.data.itemList.length > 0) {
+        return mapToHotSearchResult(body.data.itemList);
       }
 
-      // 如果API调用失败，返回空结果
+      const legacyUrl = 'https://music.163.com/api/search/hot/detail';
+      const legacyHeaders: Record<string, string> = {
+        'User-Agent': headers['User-Agent'],
+        'Referer': 'https://music.163.com/',
+      };
+      const legacyOptions: HttpRequestConfig = {
+        method: 'GET',
+        header: legacyHeaders,
+      };
+      const legacyResponse = await httpRequest(legacyUrl, legacyOptions).promise;
+      const legacyBody = parseHttpBodyJson<WyHotDetailResponse>(legacyResponse.result as string | Object | ArrayBuffer);
+      if (legacyBody && legacyBody.code === 200 && legacyBody.result?.hots && legacyBody.result.hots.length > 0) {
+        return mapLegacyToHotSearchResult(legacyBody.result.hots);
+      }
       return buildEmptyHotSearchResult();
     } catch (error) {
       console.error('网易云音乐热搜榜获取失败:', error);

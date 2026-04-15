@@ -38,6 +38,12 @@ export interface SearchResultItem {
   duration: number;
   interval: string | null;
   pic: string;
+  songmid?: string;
+  albumId?: string;
+  hash?: string;
+  strMediaMid?: string;
+  songId?: number;
+  copyrightId?: string;
 }
 
 // 获取歌词参数接口
@@ -113,8 +119,48 @@ export async function searchMusic(params: SearchMusicParams): Promise<SearchResu
   const keyword = singer ? `${name} ${singer}` : name;
 
   try {
-    // 检查是否是自定义源（如果 source 不是内置源且有激活的插件，则使用自定义源搜索）
-    if (!isBuiltinMusicSourceId(source)) {
+    // all 源：聚合内置源搜索结果（禁止路由到插件分支）
+    if (source === 'all') {
+      const builtinSources: string[] = ['kw', 'kg', 'tx', 'wy', 'mg'];
+      const mergedResults: SearchResultItem[] = [];
+      for (let i = 0; i < builtinSources.length; i++) {
+        const src = builtinSources[i];
+        try {
+          const sdkResult = await getMusicSourceFactory().getSdk(src).musicSearch.search(keyword, page, limit);
+          if (!sdkResult || !sdkResult.list || sdkResult.list.length === 0) {
+            continue;
+          }
+          for (const item of sdkResult.list) {
+            let duration = 0;
+            if (item.interval) {
+              const parts = item.interval.split(':');
+              let multiplier = 1;
+              for (let j = parts.length - 1; j >= 0; j--) {
+                duration += parseInt(parts[j]) * multiplier;
+                multiplier *= 60;
+              }
+            }
+            mergedResults.push({
+              id: item.songmid || item.id || '',
+              name: item.name || '',
+              singer: item.singer || '',
+              album: item.albumName || item.album || '',
+              source: item.source || src,
+              duration: duration,
+              interval: item.interval || null,
+              pic: item.img || item.pic || '',
+            });
+          }
+        } catch (err) {
+          hilog.warn(DOMAIN, TAG, 'searchMusic all-source branch failed on %{public}s: %{public}s',
+            src, JSON.stringify(err));
+        }
+      }
+      return mergedResults;
+    }
+
+    // 自定义源：仅 custom 源走插件搜索
+    if (source === 'custom') {
       const activePlugin = pluginManager.getActivePlugin();
       if (activePlugin && activePlugin.onSearch) {
         hilog.info(DOMAIN, TAG, 'Searching via custom source plugin');
@@ -126,18 +172,25 @@ export async function searchMusic(params: SearchMusicParams): Promise<SearchResu
             const pluginItem = item as PluginSongInfo;
             convertedList.push({
               id: pluginItem.songmid || '',
+              songmid: pluginItem.songmid || '',
               name: pluginItem.name || '',
               singer: pluginItem.singer || '',
               album: pluginItem.albumName || '',
               source: 'custom',
               duration: 0,
               interval: pluginItem.duration || null,
-              pic: ''
+              pic: '',
             });
           }
           return convertedList;
         }
       }
+      return [];
+    }
+
+    // 未知非内置源：直接返回空
+    if (!isBuiltinMusicSourceId(source)) {
+      hilog.warn(DOMAIN, TAG, 'searchMusic unknown source: %{public}s', source);
       return [];
     }
 
@@ -164,13 +217,19 @@ export async function searchMusic(params: SearchMusicParams): Promise<SearchResu
 
         const convertedItem: SearchResultItem = {
           id: item.songmid || item.id || '',
+          songmid: item.songmid || item.id || '',
           name: item.name || '',
           singer: item.singer || '',
           album: item.albumName || item.album || '',
           source: item.source || source,
           duration: duration,
           interval: item.interval || null,
-          pic: item.img || item.pic || ''
+          pic: item.img || item.pic || '',
+          albumId: item.albumId,
+          hash: item.hash,
+          strMediaMid: item.strMediaMid,
+          songId: item.songId,
+          copyrightId: item.copyrightId,
         };
         convertedList.push(convertedItem);
       }
@@ -218,13 +277,19 @@ export async function findMusic(params: FindMusicParams): Promise<SearchResultIt
 
             const convertedItem: SearchResultItem = {
               id: item.songmid || item.id || '',
+              songmid: item.songmid || item.id || '',
               name: item.name || '',
               singer: item.singer || '',
               album: item.albumName || item.album || '',
               source: item.source || src,
               duration: duration,
               interval: item.interval || null,
-              pic: item.img || item.pic || ''
+              pic: item.img || item.pic || '',
+              albumId: item.albumId,
+              hash: item.hash,
+              strMediaMid: item.strMediaMid,
+              songId: item.songId,
+              copyrightId: item.copyrightId,
             };
             results.push(convertedItem);
           }

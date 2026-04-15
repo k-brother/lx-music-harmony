@@ -15,3 +15,4 @@ export { FilterChip } from './FilterChip';
 export { SkeletonView, SkeletonListItem, SkeletonGridItem } from './SkeletonView';
 export { ActionButton, PrimaryActionButton } from './ActionButton';
 export { ListItemView } from './ListItemView';
+export { SearchStrip, SearchStripActions } from './SearchStrip';

@@ -36,11 +36,61 @@ export interface Board {
 const cache: Map<string, ListDetailInfo[]> = new Map();
 const LIST_LOAD_LIMIT = 30;
 
+function parseBoardSource(id: string): string {
+  const ix = id.indexOf('__');
+  if (ix < 0) {
+    return id;
+  }
+  return id.substring(0, ix);
+}
+
+function parseBoardBangId(id: string): string {
+  const ix = id.indexOf('__');
+  if (ix < 0) {
+    return '';
+  }
+  return id.substring(ix + 2);
+}
+
+/** 防止 `tx__tx__4` 等重复前缀拼进 fullId，预览与详情与 BoardDetail 首段 split 不一致 */
+function httpsifyMediaUrl(url: string): string {
+  if (!url || url.length === 0) {
+    return '';
+  }
+  if (url.startsWith('//')) {
+    return `https:${url}`;
+  }
+  if (url.startsWith('http://')) {
+    return `https://${url.substring(7)}`;
+  }
+  return url;
+}
+
+function stripRepeatedSourcePrefix(source: string, bang: string): string {
+  const prefix = `${source}__`;
+  let out = bang;
+  while (out.startsWith(prefix)) {
+    out = out.substring(prefix.length);
+  }
+  return out;
+}
+
+/**
+ * 各源 `LeaderboardItem.id` 形态不一：`tx__4`、`kg__8888`、`wy19723756`。
+ * 统一成「源__业务 id」，避免拼成 `kg__kg__8888` 导致预览/详情请求参数错误。
+ */
+function canonicalBoardRowId(source: string, item: LeaderboardItem): string {
+  const sid = item.id ? item.id : '';
+  if (sid.indexOf('__') >= 0) {
+    return sid;
+  }
+  return `${source}__${item.bangid}`;
+}
+
 // 设置排行榜详情信息
 export function setListDetailInfo(id: string): void {
   clearListDetail();
-  const parts = id.split('__');
-  const source = parts[0];
+  const source = parseBoardSource(id);
   leaderboardState.activeSource = source as BoardSource;
 }
 
@@ -71,14 +121,22 @@ export async function getBoardsList(source: BoardSource): Promise<BoardItem[]> {
       try {
         const pluginBoards = await activePlugin.onGetBoards();
         if (pluginBoards && pluginBoards.length > 0) {
-          const boardItems: BoardItem[] = pluginBoards.map((item, idx): BoardItem => ({
-            id: `${source}__${item.id || String(idx + 1)}`,
-            name: item.name || '',
-            description: '',
-            pic: item.pic || '',
-            source: source as BoardSource,
-            playCount: item.playCount ?? null,
-          }));
+          const boardItems: BoardItem[] = pluginBoards.map((item, idx): BoardItem => {
+            const idStr = item.id != null && item.id !== '' ? String(item.id) : String(idx + 1);
+            const row: LeaderboardItem = {
+              id: idStr,
+              name: item.name || '',
+              bangid: idStr,
+            };
+            return {
+              id: canonicalBoardRowId(source, row),
+              name: item.name || '',
+              description: '',
+              pic: httpsifyMediaUrl(item.pic || ''),
+              source: source as BoardSource,
+              playCount: item.playCount ?? null,
+            };
+          });
           const board: Board = {
             id: source,
             name: source,
@@ -118,10 +176,10 @@ export async function getBoardsList(source: BoardSource): Promise<BoardItem[]> {
     if (result && result.list) {
       // 统一为「源__榜单业务 id」，供详情页 split 与 SDK getList(bangid) 使用；勿与各源自带的 tx__ / kg__ 前缀再拼一次
       const boardItems: BoardItem[] = result.list.map((item: LeaderboardItem): BoardItem => ({
-        id: `${source}__${item.bangid}`,
+        id: canonicalBoardRowId(source, item),
         name: item.name,
         description: '',
-        pic: item.pic || '',
+        pic: httpsifyMediaUrl(item.pic || ''),
         source: source as BoardSource,
         playCount: null,
       }));
@@ -151,9 +209,9 @@ export async function getListDetail(
   page: number,
   isRefresh: boolean = false
 ): Promise<ListDetailInfo> {
-  const parts = id.split('__');
-  const source = parts[0];
-  const bangId = parts[1];
+  const source = parseBoardSource(id);
+  let bangId = parseBoardBangId(id);
+  bangId = stripRepeatedSourcePrefix(source, bangId);
   const listKey = `${source}__${bangId}`;
   const pageKey = `${listKey}__${page}`;
 
@@ -224,7 +282,7 @@ export async function getListDetail(
         singer: item.singer,
         album: item.albumName || item.album || '',
         duration: 0,
-        pic: item.img || item.pic || '',
+        pic: httpsifyMediaUrl(item.img || item.pic || ''),
         source: item.source as BoardSource,
       }));
       const detailInfo: ListDetailInfo = {
@@ -256,7 +314,8 @@ export async function getListDetail(
 // 获取排行榜详情
 export async function getLeaderboardDetail(source: string, id: string, page: number = 1): Promise<ListDetailInfo | null> {
   try {
-    const fullId = `${source}__${id}`;
+    const bang = stripRepeatedSourcePrefix(source, id);
+    const fullId = `${source}__${bang}`;
     return await getListDetail(fullId, page);
   } catch (e) {
     return null;
@@ -268,9 +327,9 @@ export async function getListDetailAll(
   id: string,
   isRefresh: boolean = false
 ): Promise<BoardMusicItem[]> {
-  const parts = id.split('__');
-  const source = parts[0];
-  const bangId = parts[1];
+  const source = parseBoardSource(id);
+  let bangId = parseBoardBangId(id);
+  bangId = stripRepeatedSourcePrefix(source, bangId);
   const allMusicList: BoardMusicItem[] = [];
   let currentPage = 1;
   let hasMore = true;
@@ -326,7 +385,7 @@ export async function getListDetailAll(
           singer: item.singer,
           album: item.albumName || item.album || '',
           duration: 0,
-          pic: item.img || item.pic || '',
+          pic: httpsifyMediaUrl(item.img || item.pic || ''),
           source: item.source as BoardSource,
         }));
         allMusicList.push(...musicItems);

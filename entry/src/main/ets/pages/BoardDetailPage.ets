@@ -9,6 +9,10 @@ import { playerService, SongInfo } from '../service/PlayerService';
 import { getMusicUrl } from '../core/music/MusicFeatureEntry';
 import type { MusicInfo } from '../types/MusicTypes';
 import { navigationService, NavigationParams } from '../service/NavigationService';
+import { DesignTokens } from '../theme/DesignTokens';
+import preferences from '@ohos.data.preferences';
+import { common } from '@kit.AbilityKit';
+import { NavBackButton } from '../components/common/NavBackButton';
 
 interface BoardDetailParams {
   boardId: string;
@@ -29,6 +33,20 @@ interface BoardSongItem {
   isPlaying: boolean;
 }
 
+interface DownloadTaskEntry {
+  id: string;
+  songId: string;
+  songName: string;
+  singer: string;
+  album: string;
+  source: string;
+  url: string;
+  quality: string;
+  status: string;
+  progress: number;
+  createTime: number;
+}
+
 @Component
 export struct BoardDetailPage {
   @StorageProp('theme') theme: string = 'light';
@@ -38,9 +56,39 @@ export struct BoardDetailPage {
   @State songList: BoardSongItem[] = [];
   @State isLoading: boolean = true;
   @State totalCount: number = 0;
+  @State headerCompact: boolean = false;
+  @State boardCoverLoadFailed: boolean = false;
 
   // 标记是否已加载数据（用于区分首次加载和参数更新）
   private hasLoadedData: boolean = false;
+  private songListScroller: Scroller = new Scroller();
+
+  private getSongListOffsetY(): number {
+    try {
+      const y = this.songListScroller.currentOffset().yOffset;
+      if (typeof y === 'number' && isFinite(y)) {
+        return y;
+      }
+      return 0;
+    } catch (_e) {
+      return 0;
+    }
+  }
+
+  private getBoardCover(): string {
+    for (let i = 0; i < this.songList.length; i++) {
+      const pic = (this.songList[i].pic ?? '').trim();
+      if (pic.length > 0) {
+        return pic;
+      }
+    }
+    return '';
+  }
+
+  private canRenderCover(url: string): boolean {
+    const value = (url ?? '').trim();
+    return value.startsWith('http://') || value.startsWith('https://') || value.startsWith('//');
+  }
 
   aboutToAppear() {
     hilog.info(0x0001, 'BoardDetail', 'BoardDetailPage aboutToAppear');
@@ -144,6 +192,7 @@ export struct BoardDetailPage {
           });
         }
         this.songList = items;
+        this.boardCoverLoadFailed = false;
         this.totalCount = result.total || items.length;
         hilog.info(0x0001, 'BoardDetail', 'Loaded %{public}d songs', items.length);
       }
@@ -236,42 +285,96 @@ export struct BoardDetailPage {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
 
+  private showToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message, duration: 1800 });
+    } catch (_e) {
+      hilog.info(0x0001, 'BoardDetail', 'Toast: %{public}s', message);
+    }
+  }
+
+  private buildMusicInfoForDownload(song: BoardSongItem): MusicInfo {
+    return {
+      id: song.id,
+      name: song.name,
+      singer: song.singer,
+      source: song.source as 'kw' | 'kg' | 'tx' | 'wy' | 'mg',
+      songmid: song.id,
+      interval: this.formatPlayTime(song.duration),
+      img: song.pic || null,
+      lrc: null,
+      album: song.album,
+      albumName: song.album,
+      types: [],
+      _types: new Map(),
+      typeUrl: new Map(),
+      otherSource: null,
+    };
+  }
+
+  private async downloadSong(song: BoardSongItem): Promise<void> {
+    try {
+      const url: string | null = await getMusicUrl({
+        musicInfo: this.buildMusicInfoForDownload(song),
+        quality: '128k',
+        isRefresh: false,
+        onToggleSource: null,
+        allowToggleSource: true,
+      });
+      if (!url || url.length === 0) {
+        this.showToast(`无法下载: ${song.name}`);
+        return;
+      }
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const pref = await preferences.getPreferences(context, 'music_downloads');
+      const tasksJson = await pref.get('tasks', '[]') as string;
+      const tasks = JSON.parse(tasksJson) as DownloadTaskEntry[];
+      const task: DownloadTaskEntry = {
+        id: `${song.id}-${Date.now()}`,
+        songId: song.id,
+        songName: song.name,
+        singer: song.singer,
+        album: song.album,
+        source: song.source,
+        url: url,
+        quality: '128k',
+        status: 'pending',
+        progress: 0,
+        createTime: Date.now(),
+      };
+      tasks.push(task);
+      await pref.put('tasks', JSON.stringify(tasks));
+      await pref.flush();
+      this.showToast(`已加入下载: ${song.name}`);
+    } catch (err) {
+      hilog.error(0x0001, 'BoardDetail', 'downloadSong failed: %{public}s', JSON.stringify(err));
+      this.showToast(`下载失败: ${song.name}`);
+    }
+  }
+
   build() {
     Column() {
-      // 状态栏
-      Row()
-        .width('100%')
-        .height(24)
-        .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
-
-      // 顶部导航栏
       Row() {
-        Image($r('sys.symbol.chevron_left'))
-          .width(24)
-          .height(24)
-          .fillColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
-          .onClick(() => {
-            navigationService.back();
-          })
+        NavBackButton()
 
         Text(this.boardName)
-          .fontSize(16)
-          .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
+          .fontSize(DesignTokens.fontTitle())
+          .fontColor(DesignTokens.labelPrimary(this.theme))
           .fontWeight(FontWeight.Medium)
-          .margin({ left: 16 })
+          .margin({ left: 12 })
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
 
         Blank()
 
         Text(`共 ${this.totalCount} 首`)
-          .fontSize(12)
-          .fontColor('#999999')
-          .margin({ right: 16 })
+          .fontSize(DesignTokens.fontCaption())
+          .fontColor(DesignTokens.labelSecondary(this.theme))
       }
       .width('100%')
-      .height(44)
-      .padding({ left: 12 })
+      .height(60)
+      .padding({ left: 14, right: 14, top: 8, bottom: 6 })
+      .backgroundColor(DesignTokens.chromeBar(this.theme))
 
       if (this.isLoading) {
         // 加载中
@@ -299,97 +402,193 @@ export struct BoardDetailPage {
         .layoutWeight(1)
         .justifyContent(FlexAlign.Center)
       } else {
-        // 歌曲列表
+        this.BoardHeaderCard()
         this.SongList()
       }
 
-      // 播放器栏
-      PlayerBar()
+      // 播放器栏（组件内部处理底部沉浸）
+      PlayerBar({ immersiveBottom: true })
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.theme === 'dark' ? '#121212' : '#FFFFFF')
+    .backgroundColor(DesignTokens.pageBg(this.theme))
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+  }
+
+  @Builder
+  BoardHeaderCard() {
+    Column({ space: this.headerCompact ? 6 : 10 }) {
+      if (!this.headerCompact) {
+        Row() {
+          Column({ space: 6 }) {
+            Stack() {
+              if (!this.boardCoverLoadFailed && this.canRenderCover(this.getBoardCover())) {
+                Image(this.getBoardCover())
+                  .width(106)
+                  .height(106)
+                  .borderRadius(12)
+                  .objectFit(ImageFit.Cover)
+                  .onError(() => {
+                    this.boardCoverLoadFailed = true;
+                  })
+              } else {
+                Image($r('app.media.ic_player_cover_placeholder'))
+                .width(106)
+                .height(106)
+                .borderRadius(12)
+                .objectFit(ImageFit.Cover)
+              }
+
+              Text(this.boardSource.toUpperCase())
+                .fontSize(10)
+                .fontColor('#FFFFFF')
+                .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+                .backgroundColor(DesignTokens.accent())
+                .borderRadius(9)
+                .margin({ right: 4, bottom: 4 })
+            }
+            .width(106)
+            .height(106)
+            .align(Alignment.BottomEnd)
+          }
+
+          Column({ space: 10 }) {
+            Row({ space: 5 }) {
+              Image($r('app.media.ic_pd_play'))
+                .width(14)
+                .height(14)
+                .fillColor('#FFFFFF')
+              Text('播放全部')
+                .fontSize(DesignTokens.fontBody())
+                .fontColor('#FFFFFF')
+                .fontWeight(FontWeight.Medium)
+            }
+            .height(38)
+            .width(112)
+            .backgroundColor(DesignTokens.accent())
+            .borderRadius(19)
+            .justifyContent(FlexAlign.Center)
+            .onClick(() => {
+              void this.playAll();
+            })
+
+            Text(`共 ${this.totalCount} 首`)
+              .fontSize(DesignTokens.fontCaption())
+              .fontColor(DesignTokens.labelSecondary(this.theme))
+          }
+          .alignItems(HorizontalAlign.End)
+          .layoutWeight(1)
+          .margin({ left: 14 })
+        }
+        .width('100%')
+      }
+
+      Row() {
+        Row({ space: 8 }) {
+          Row({ space: 5 }) {
+            Image($r('app.media.ic_pd_play'))
+              .width(14)
+              .height(14)
+              .fillColor('#FFFFFF')
+            Text('播放全部')
+              .fontSize(DesignTokens.fontBody())
+              .fontColor('#FFFFFF')
+              .fontWeight(FontWeight.Medium)
+          }
+          .height(38)
+          .width(112)
+          .backgroundColor(DesignTokens.accent())
+          .borderRadius(19)
+          .justifyContent(FlexAlign.Center)
+          .onClick(() => {
+            void this.playAll();
+          })
+
+          Text(this.boardSource.toUpperCase())
+            .fontSize(10)
+            .fontColor('#FFFFFF')
+            .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+            .backgroundColor(DesignTokens.accent())
+            .borderRadius(9)
+        }
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Start)
+      .alignItems(VerticalAlign.Center)
+      .opacity(this.headerCompact ? 1 : 0)
+      .height(this.headerCompact ? 38 : 0)
+    }
+    .width('100%')
+    .padding(14)
+    .backgroundColor(DesignTokens.card(this.theme))
+    .borderRadius(14)
+    .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
+    .margin({ left: 12, right: 12, top: 4, bottom: 8 })
   }
 
   @Builder
   SongList() {
-    Column() {
-      // 播放全部按钮
-      Row() {
-        Image($r('sys.symbol.play_fill'))
-          .width(18)
-          .height(18)
-          .fillColor('#FFFFFF')
-        Text('播放全部')
-          .fontSize(14)
-          .fontColor('#FFFFFF')
-          .margin({ left: 6 })
-      }
-      .padding({ left: 20, right: 20, top: 8, bottom: 8 })
-      .backgroundColor('#E63946')
-      .borderRadius(20)
-      .margin({ left: 16, top: 12, bottom: 12 })
-      .onClick(() => {
-        this.playAll();
-      })
+    List({ space: 8, scroller: this.songListScroller }) {
+      ForEach(this.songList, (song: BoardSongItem) => {
+        ListItem() {
+          Row() {
+            Text(song.index.toString())
+              .fontSize(DesignTokens.fontCaption())
+              .fontColor(song.isPlaying ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
+              .width(28)
+              .textAlign(TextAlign.Center)
 
-      // 歌曲列表
-      List() {
-        ForEach(this.songList, (song: BoardSongItem) => {
-          ListItem() {
-            Row() {
-              // 序号
-              Text(song.index.toString())
-                .fontSize(12)
-                .fontColor(song.isPlaying ? '#E63946' : '#999999')
-                .width(32)
-                .textAlign(TextAlign.Center)
-
-              // 歌曲信息
-              Column() {
-                Text(song.name)
-                  .fontSize(15)
-                  .fontColor(song.isPlaying ? '#E63946' : (this.theme === 'dark' ? '#FFFFFF' : '#333333'))
-                  .maxLines(1)
-                Text(song.singer)
-                  .fontSize(12)
-                  .fontColor('#999999')
-                  .maxLines(1)
-              }
-              .alignItems(HorizontalAlign.Start)
-              .layoutWeight(1)
-
-              // 播放中图标
-              if (song.isPlaying) {
-                Image($r('sys.symbol.play'))
-                  .width(20)
-                  .height(20)
-                  .fillColor('#E63946')
-              }
-
-              // 更多按钮
-              Image($r('sys.symbol.ellipsis_circle'))
-                .width(20)
-                .height(20)
-                .fillColor('#999999')
+            Column({ space: 2 }) {
+              Text(song.name)
+                .fontSize(DesignTokens.fontBody())
+                .fontColor(song.isPlaying ? DesignTokens.accent() : DesignTokens.labelPrimary(this.theme))
+                .maxLines(1)
+              Text(song.singer)
+                .fontSize(DesignTokens.fontCaption())
+                .fontColor(DesignTokens.labelSecondary(this.theme))
+                .maxLines(1)
             }
-            .width('100%')
-            .padding({ left: 8, right: 8, top: 12, bottom: 12 })
+            .alignItems(HorizontalAlign.Start)
+            .layoutWeight(1)
+            .margin({ left: 10, right: 10 })
+
+            Stack() {
+              Circle({ width: 28, height: 28 })
+                .fill(DesignTokens.mutedFill(this.theme))
+              Image($r('app.media.ic_common_download'))
+                .width(14)
+                .height(14)
+                .fillColor(DesignTokens.labelSecondary(this.theme))
+            }
+            .onClick(() => {
+              void this.downloadSong(song);
+            })
           }
-          .onClick(() => {
-            const idx = this.songList.indexOf(song);
-            if (idx >= 0) {
-              this.playSong(idx);
-            }
-          })
+          .width('100%')
+          .padding({ left: 10, right: 10, top: 12, bottom: 12 })
+          .backgroundColor(DesignTokens.card(this.theme))
+          .borderRadius(12)
+          .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
+        }
+        .onClick(() => {
+          const idx = this.songList.indexOf(song);
+          if (idx >= 0) {
+            void this.playSong(idx);
+          }
         })
-      }
-      .width('100%')
-      .layoutWeight(1)
-      .backgroundColor(this.theme === 'dark' ? '#121212' : '#F5F5F5')
-      .divider({ strokeWidth: 0.5, color: '#F0F0F0', startMargin: 40 })
+      })
     }
     .width('100%')
-    .height('100%')
+    .layoutWeight(1)
+    .padding({ left: 12, right: 12, bottom: 8 })
+    .edgeEffect(EdgeEffect.None)
+    .onDidScroll(() => {
+      const y = this.getSongListOffsetY();
+      if (y > 18 && !this.headerCompact) {
+        this.headerCompact = true;
+      } else if (y <= 4 && this.headerCompact) {
+        this.headerCompact = false;
+      }
+    })
   }
 }

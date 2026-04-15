@@ -5,8 +5,10 @@ import { navigationService, RouteName } from '../../service/NavigationService';
 import preferences from '@ohos.data.preferences';
 import { common } from '@kit.AbilityKit';
 import hilog from '@ohos.hilog';
+import { DesignTokens } from '../../theme/DesignTokens';
 import { backupService, BackupDataType } from '../../service/BackupService';
 import fs from '@ohos.file.fs';
+import filePicker from '@ohos.file.picker';
 import { utf8Encode, utf8Decode } from '../../utils/TextCodec';
 import { musicItemFromPlainObject } from '../../core/list/PlaylistRecordMapper';
 import {
@@ -18,6 +20,8 @@ import {
   addMusicToList,
   MusicItem
 } from '../../service/ListService';
+import { clearPlayHistory as clearPlayHistoryStore } from '../../service/PlayHistoryService';
+import { loadCustomSource } from '../../core/music/MusicFeatureEntry';
 
 const TAG = 'SETTING';
 const DOMAIN = 0x0001;
@@ -112,6 +116,10 @@ export struct SettingView {
   // 外观设置
   @State fontSize: number = 14;
   @State showAnimation: boolean = true;
+  @State showSourceImportDialog: boolean = false;
+  @State sourceImportUrl: string = '';
+  @State sourceImportLoading: boolean = false;
+  @State sourceImportError: string = '';
 
   aboutToAppear() {
     this.loadSettings();
@@ -219,41 +227,47 @@ export struct SettingView {
 
 
   build() {
-    Scroll() {
-      Column() {
-        // 基础设置
-        this.buildSettingSection('基础设置', this.buildBasicSettings())
+    Stack() {
+      Scroll() {
+        Column() {
+          // 基础设置
+          this.buildSettingSection('基础设置', this.buildBasicSettings())
 
-        // 播放设置
-        this.buildSettingSection('播放设置', this.buildPlaybackSettings())
+          // 播放设置
+          this.buildSettingSection('播放设置', this.buildPlaybackSettings())
 
-        // 搜索设置
-        this.buildSettingSection('搜索设置', this.buildSearchSettings())
+          // 搜索设置
+          this.buildSettingSection('搜索设置', this.buildSearchSettings())
 
-        // 列表设置
-        this.buildSettingSection('列表设置', this.buildListSettings())
+          // 列表设置
+          this.buildSettingSection('列表设置', this.buildListSettings())
 
-        // 备份与恢复
-        this.buildSettingSection('备份与恢复', this.buildBackupSettings())
+          // 备份与恢复
+          this.buildSettingSection('备份与恢复', this.buildBackupSettings())
 
-        // 同步设置
-        this.buildSettingSection('同步', this.buildSyncSettings())
+          // 同步设置
+          this.buildSettingSection('同步', this.buildSyncSettings())
 
-        // 外观设置
-        this.buildSettingSection('外观', this.buildAppearanceSettings())
+          // 外观设置
+          this.buildSettingSection('外观', this.buildAppearanceSettings())
 
-        // 自定义源设置
-        this.buildSettingSection('自定义源', this.buildCustomSourceSettings())
+          // 自定义源设置
+          this.buildSettingSection('自定义源', this.buildCustomSourceSettings())
 
-        // 关于
-        this.buildSettingSection('关于', this.buildAboutSettings())
+          // 关于
+          this.buildSettingSection('关于', this.buildAboutSettings())
+        }
+        .width('100%')
+        .padding({ bottom: 20 })
       }
       .width('100%')
-      .padding({ bottom: 20 })
+      .height('100%')
+      .backgroundColor(this.theme === 'dark' ? '#121212' : '#F5F5F5')
+
+      this.buildSourceImportDialog()
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.theme === 'dark' ? '#121212' : '#F5F5F5')
   }
 
   @Builder
@@ -777,17 +791,213 @@ export struct SettingView {
   private buildCustomSourceSettings(): SettingSectionItem[] {
     const items: SettingSectionItem[] = [];
 
-    const customItem: SettingSectionItem = {
+    const importItem: SettingSectionItem = {
       type: 'button',
-      title: '自定义源设置',
-      description: '设置在线JS源文件地址',
+      title: '音源配置',
+      description: '仅支持弹框配置：在线链接导入或本地JS文件导入',
       onClick: () => {
-        navigationService.navigateTo(RouteName.CUSTOM_SOURCE);
+        this.openSourceImportDialog();
       }
     };
-    items.push(customItem);
+    items.push(importItem);
 
     return items;
+  }
+
+  private openSourceImportDialog(): void {
+    this.sourceImportError = '';
+    this.sourceImportLoading = false;
+    this.showSourceImportDialog = true;
+  }
+
+  private closeSourceImportDialog(): void {
+    if (this.sourceImportLoading) {
+      return;
+    }
+    this.showSourceImportDialog = false;
+    this.sourceImportError = '';
+  }
+
+  private showPluginLoadErrorDialog(message: string): void {
+    const content = message.trim().length > 0 ? message : '未知错误';
+    try {
+      this.getUIContext().getPromptAction().showDialog({
+        title: '音源导入失败',
+        message: content,
+        buttons: [
+          { text: '知道了', color: DesignTokens.accent() },
+        ],
+      });
+    } catch (_e) {
+      hilog.warn(DOMAIN, TAG, 'showPluginLoadErrorDialog fallback: %{public}s', content);
+    }
+  }
+
+  private isValidSourceUrl(url: string): boolean {
+    const value = url.trim();
+    return /^https?:\/\/.+/i.test(value);
+  }
+
+  private async importSourceFromUrl(): Promise<void> {
+    const url = this.sourceImportUrl.trim();
+    if (!url) {
+      this.sourceImportError = '请输入在线JS源链接';
+      return;
+    }
+    if (!this.isValidSourceUrl(url)) {
+      this.sourceImportError = '链接格式无效，请输入 http(s) 地址';
+      return;
+    }
+    this.sourceImportLoading = true;
+    this.sourceImportError = '';
+    try {
+      const ok = await loadCustomSource(url);
+      if (ok) {
+        this.showSourceImportDialog = false;
+        this.showToast('音源导入成功');
+      } else {
+        const msg = '导入失败，请检查链接内容是否为可用JS插件';
+        this.sourceImportError = msg;
+        this.showPluginLoadErrorDialog(msg);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : JSON.stringify(err);
+      this.sourceImportError = msg;
+      this.showPluginLoadErrorDialog(msg);
+    } finally {
+      this.sourceImportLoading = false;
+    }
+  }
+
+  private async importSourceFromLocalFile(): Promise<void> {
+    this.sourceImportLoading = true;
+    this.sourceImportError = '';
+    try {
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const pickerOptions = new filePicker.DocumentSelectOptions();
+      pickerOptions.fileSuffixFilters = ['.js'];
+      const picker = new filePicker.DocumentViewPicker(context);
+      const uris = await picker.select(pickerOptions);
+      if (!uris || uris.length === 0) {
+        this.showToast('已取消导入');
+        return;
+      }
+      const selectedUri = uris[0];
+      const ok = await loadCustomSource(selectedUri);
+      if (ok) {
+        this.showSourceImportDialog = false;
+        this.showToast('本地音源导入成功');
+      } else {
+        const msg = '本地文件导入失败，请确认文件内容正确';
+        this.sourceImportError = msg;
+        this.showPluginLoadErrorDialog(msg);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : JSON.stringify(err);
+      this.sourceImportError = msg;
+      this.showPluginLoadErrorDialog(msg);
+    } finally {
+      this.sourceImportLoading = false;
+    }
+  }
+
+  @Builder
+  private buildSourceImportDialog() {
+    if (this.showSourceImportDialog) {
+      Stack() {
+        Column()
+          .width('100%')
+          .height('100%')
+          .backgroundColor('rgba(0, 0, 0, 0.35)')
+          .onClick(() => {
+            this.closeSourceImportDialog();
+          })
+
+        Column() {
+          Row() {
+            Text('导入音源')
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(DesignTokens.labelPrimary(this.theme))
+            Blank()
+              .layoutWeight(1)
+            Stack() {
+              Circle({ width: 30, height: 30 })
+                .fill(DesignTokens.mutedFill(this.theme))
+              Text('×')
+                .fontSize(16)
+                .fontColor(DesignTokens.labelSecondary(this.theme))
+            }
+            .onClick(() => {
+              this.closeSourceImportDialog();
+            })
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
+
+          TextInput({ placeholder: '输入在线JS链接（https://...）', text: this.sourceImportUrl })
+            .width('100%')
+            .height(44)
+            .fontSize(14)
+            .fontColor(DesignTokens.labelPrimary(this.theme))
+            .placeholderColor(DesignTokens.labelTertiary(this.theme))
+            .backgroundColor(DesignTokens.mutedFill(this.theme))
+            .borderRadius(12)
+            .padding({ left: 12, right: 12 })
+            .margin({ top: 14 })
+            .onChange((value: string) => {
+              this.sourceImportUrl = value;
+            })
+
+          if (this.sourceImportError.length > 0) {
+            Text(this.sourceImportError)
+              .fontSize(12)
+              .fontColor('#F44336')
+              .width('100%')
+              .margin({ top: 8 })
+          }
+
+          Row({ space: 10 }) {
+            Button(this.sourceImportLoading ? '导入中…' : '导入在线链接')
+              .layoutWeight(1)
+              .height(40)
+              .fontSize(14)
+              .fontColor('#FFFFFF')
+              .backgroundColor(DesignTokens.accent())
+              .enabled(!this.sourceImportLoading)
+              .onClick(() => {
+                void this.importSourceFromUrl();
+              })
+            Button(this.sourceImportLoading ? '处理中…' : '选择本地文件')
+              .layoutWeight(1)
+              .height(40)
+              .fontSize(14)
+              .fontColor(DesignTokens.labelPrimary(this.theme))
+              .backgroundColor(DesignTokens.mutedFill(this.theme))
+              .enabled(!this.sourceImportLoading)
+              .onClick(() => {
+                void this.importSourceFromLocalFile();
+              })
+          }
+          .width('100%')
+          .margin({ top: 16 })
+
+          Text('支持两种方式：在线JS链接导入 / 文件管理器选择本地JS文件')
+            .fontSize(11)
+            .fontColor(DesignTokens.labelTertiary(this.theme))
+            .width('100%')
+            .margin({ top: 10 })
+        }
+        .width('88%')
+        .padding(18)
+        .backgroundColor(DesignTokens.card(this.theme))
+        .borderRadius(16)
+        .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
+        .onClick(() => {})
+      }
+      .width('100%')
+      .height('100%')
+    }
   }
 
   private buildAboutSettings(): SettingSectionItem[] {
@@ -999,9 +1209,14 @@ export struct SettingView {
 
   // 显示提示
   private showToast(message: string): void {
-    // 在实际应用中，这里应该显示一个Toast提示
-    // 暂时使用日志输出
-    hilog.info(0x0001, 'SettingView', 'Toast: %{public}s', message);
+    try {
+      this.getUIContext().getPromptAction().showToast({
+        message,
+        duration: 2200,
+      });
+    } catch (_e) {
+      hilog.info(0x0001, 'SettingView', 'Toast: %{public}s', message);
+    }
   }
 
   // 导入歌单
@@ -1242,6 +1457,7 @@ export struct SettingView {
       // 清除播放历史
       await pref.delete('playHistory');
       await pref.flush();
+      await clearPlayHistoryStore();
       
       hilog.info(0x0001, 'SettingView', 'Play history cleared');
     } catch (err) {

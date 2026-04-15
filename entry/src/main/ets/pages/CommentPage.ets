@@ -3,8 +3,11 @@
 
 import hilog from '@ohos.hilog';
 import { navigationService, RouteName } from '../service/NavigationService';
-import { MusicInfo } from '../types/MusicTypes';
+import { MusicInfo, MusicSource } from '../types/MusicTypes';
 import { commentService } from '../service/CommentService';
+import type { NavigationParams } from '../service/NavigationService';
+import { DesignTokens } from '../theme/DesignTokens';
+import { NavBackButton } from '../components/common/NavBackButton';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'CommentPage';
@@ -24,7 +27,7 @@ interface Comment {
 
 // 评论参数
 interface CommentParams {
-  musicInfo: MusicInfo;
+  musicInfo: MusicInfo | null;
   commentType: 'hot' | 'new'; // 热门评论或最新评论
 }
 
@@ -58,9 +61,28 @@ export struct CommentPage {
   }
 
   private getParams(): CommentParams | null {
-    // 这里需要从导航参数中获取音乐信息
-    // 实际实现中需要从NavDestinationContext获取
-    return null;
+    const navParams = navigationService.getCurrentParams() as NavigationParams | null;
+    if (!navParams || !navParams.musicName) {
+      return null;
+    }
+    const musicInfo: MusicInfo = {
+      id: navParams.musicId ?? '',
+      songmid: navParams.musicId ?? '',
+      name: navParams.musicName ?? '',
+      singer: navParams.musicSinger ?? '',
+      source: (navParams.musicSource as MusicSource) ?? 'kw',
+      interval: null,
+      img: navParams.musicPic ?? null,
+      pic: navParams.musicPic ?? undefined,
+      lrc: null,
+      album: navParams.musicAlbum ?? '',
+      albumName: navParams.musicAlbum ?? '',
+    };
+    const cp: CommentParams = {
+      musicInfo,
+      commentType: (navParams.commentType === 'new' ? 'new' : 'hot'),
+    };
+    return cp;
   }
 
   // 加载评论
@@ -229,23 +251,21 @@ export struct CommentPage {
   @Builder
   buildHeader() {
     Row() {
+      NavBackButton()
+
       Text('评论')
-        .fontSize(18)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
+        .fontSize(DesignTokens.fontTitle())
+        .fontWeight(FontWeight.Medium)
+        .fontColor(DesignTokens.labelPrimary(this.theme))
+        .margin({ left: 12 })
         .layoutWeight(1)
-      
-      Text('关闭')
-        .fontSize(14)
-        .fontColor('#2196F3')
-        .onClick(() => {
-          navigationService.back();
-        })
+
+      Blank()
     }
     .width('100%')
-    .height(56)
-    .padding({ left: 16, right: 16 })
-    .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
+    .height(60)
+    .padding({ left: 14, right: 14, top: 8, bottom: 6 })
+    .backgroundColor(DesignTokens.chromeBar(this.theme))
     .alignItems(VerticalAlign.Center)
   }
 

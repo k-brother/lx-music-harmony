@@ -41,6 +41,7 @@ export struct NavIndex {
       NavDestination() {
         PlayDetailPage()
       }
+      .hideTitleBar(true)
       .onReady((context: NavDestinationContext) => {
         const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
         hilog.info(0x0001, 'NavIndex', 'PlayDetailPage onReady with params: %{public}s', JSON.stringify(params));
@@ -49,6 +50,7 @@ export struct NavIndex {
       NavDestination() {
         SonglistDetailPage()
       }
+      .hideTitleBar(true)
       .onReady((context: NavDestinationContext) => {
         const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
         hilog.info(0x0001, 'NavIndex', 'SonglistDetailPage onReady with params: %{public}s', JSON.stringify(params));
@@ -57,6 +59,7 @@ export struct NavIndex {
       NavDestination() {
         BoardDetailPage()
       }
+      .hideTitleBar(true)
       .onReady((context: NavDestinationContext) => {
         const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
         hilog.info(0x0001, 'NavIndex', 'BoardDetailPage onReady with params: %{public}s', JSON.stringify(params));
@@ -65,6 +68,7 @@ export struct NavIndex {
       NavDestination() {
         CustomSourceView()
       }
+      .hideTitleBar(true)
       .onReady((context: NavDestinationContext) => {
         const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
         hilog.info(0x0001, 'NavIndex', 'CustomSourceView onReady with params: %{public}s', JSON.stringify(params));
@@ -73,6 +77,7 @@ export struct NavIndex {
       NavDestination() {
         AboutView()
       }
+      .hideTitleBar(true)
       .onReady((context: NavDestinationContext) => {
         const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
         hilog.info(0x0001, 'NavIndex', 'AboutView onReady with params: %{public}s', JSON.stringify(params));
@@ -97,6 +102,7 @@ export struct NavIndex {
       NavDestination() {
         CommentPage()
       }
+      .hideTitleBar(true)
       .onReady((context: NavDestinationContext) => {
         const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
         hilog.info(0x0001, 'NavIndex', 'CommentPage onReady with params: %{public}s', JSON.stringify(params));

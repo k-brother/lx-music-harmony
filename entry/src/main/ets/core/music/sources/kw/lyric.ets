@@ -103,7 +103,7 @@ function parseLrc(lrc: string): ParseLrcResult {
   let tags: string[] = [];
   let lrcArr: LyricLineItem[] = [];
 
-  const timeExp = /^\[([\d:.]*)\]{1}/g;
+  const timeExp = /^\[([\d:.]*)\]{1}/;
 
   for (const line of lines) {
     const trimmedLine = line.trim();
@@ -199,7 +199,10 @@ export const lyric: LyricModuleInterface = {
    * 获取歌词
    */
   getLyric(songInfo: MusicInfo, isGetLyricx: boolean = true): Promise<LyricInfo> {
-    const songmid = songInfo.songmid || '';
+    const songmid = songInfo.songmid || songInfo.id || '';
+    if (!songmid || songmid.length === 0) {
+      return Promise.resolve(EMPTY_LYRIC);
+    }
 
     // 方式1：通过 API 获取歌词
     return lyric.getLyricFromApi(songmid, isGetLyricx);
@@ -209,9 +212,12 @@ export const lyric: LyricModuleInterface = {
    * 从 API 获取歌词
    */
   getLyricFromApi(songmid: string, isGetLyricx: boolean = true): Promise<LyricInfo> {
+    if (!songmid || songmid.length === 0) {
+      return Promise.resolve(EMPTY_LYRIC);
+    }
     // 使用加密参数请求歌词
     const encryptedParams = buildParams(songmid, isGetLyricx);
-    const url = `http://newlyric.kuwo.cn/newlyric.lrc?${encryptedParams}`;
+    const url = `https://newlyric.kuwo.cn/newlyric.lrc?${encryptedParams}`;
 
     return new Promise((resolve, reject) => {
       const reqOpts: HttpRequestConfig = {
@@ -270,7 +276,10 @@ export const lyric: LyricModuleInterface = {
    * 备用方式：通过移动端 API 获取歌词
    */
   getLyricFromMobileApi(songmid: string): Promise<LyricInfo> {
-    const url = `http://m.kuwo.cn/newh5/singles/songinfoandlrc?musicId=${songmid}`;
+    if (!songmid || songmid.length === 0) {
+      return Promise.resolve(EMPTY_LYRIC);
+    }
+    const url = `https://m.kuwo.cn/newh5/singles/songinfoandlrc?musicId=${songmid}`;
 
     return new Promise((resolve) => {
       const reqOpts2: HttpRequestConfig = {

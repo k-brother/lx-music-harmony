@@ -14,6 +14,7 @@ export interface ListInfo {
 // 音乐信息项
 export interface MusicInfoItem {
   id: string;
+  songmid?: string;
   name: string;
   singer: string;
   album: string;
@@ -21,6 +22,10 @@ export interface MusicInfoItem {
   duration: number;
   source: string;
   pic: string;
+  hash?: string;
+  strMediaMid?: string;
+  songId?: number;
+  copyrightId?: string;
   lrc: string | null;
   interval: string | null;
 }

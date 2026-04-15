@@ -45,6 +45,21 @@ const HOT_TAG_URL = 'https://c.y.qq.com/node/pc/wk_v15/category_playlist.html';
 function getListUrl(sortId: string, tagId: string, page: number): string {
   if (tagId && tagId.length > 0) {
     const tid = parseInt(tagId, 10);
+    if (!Number.isFinite(tid)) {
+      const order = !sortId || sortId === 'default' ? 'hot' : sortId;
+      const sin = LIMIT_LIST * (page - 1);
+      const fallbackDataStr =
+        '{"comm":{"cv":1602,"ct":20},"playlist":{"method":"get_playlist_by_tag","param":{"id":10000000,"sin":' +
+        String(sin) +
+        ',"size":' +
+        String(LIMIT_LIST) +
+        ',"order":"' +
+        order +
+        '","cur_page":' +
+        String(page) +
+        '},"module":"playlist.PlayListPlazaServer"}}';
+      return `https://u.y.qq.com/cgi-bin/musicu.fcg?loginUin=0&hostUin=0&format=json&inCharset=utf-8&outCharset=utf-8&notice=0&platform=wk_v15.json&needNewCode=0&data=${encodeURIComponent(fallbackDataStr)}`;
+    }
     const p = page - 1;
     const dataStr =
       '{"comm":{"cv":1602,"ct":20},"playlist":{"method":"get_category_content","param":{"titleid":' +

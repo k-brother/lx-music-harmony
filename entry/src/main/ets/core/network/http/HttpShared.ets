@@ -26,3 +26,66 @@ export function flattenHeaders(h: Record<string, string | string[]>): Record<str
   }
   return out;
 }
+
+/**
+ * @ohos.net.http 对 application/json 可能直接返回 Object；空串 / 非法 JSON 返回 null。
+ * 与 parseHttpBodyJson 同文件导出，避免经 index 二次导出时 Ark 运行时丢符号。
+ */
+
+export interface HttpResponseBodyHolder {
+  result?: Object | string;
+  data?: Object | string;
+}
+
+export function httpResponseBody(res: HttpResponseBodyHolder): string | Object | undefined {
+  const r = res.result;
+  if (r !== undefined && r !== null) {
+    return r as string | Object;
+  }
+  const d = res.data;
+  if (d !== undefined && d !== null) {
+    return d as string | Object;
+  }
+  return undefined;
+}
+
+/** 去掉 UTF-8 BOM、JSONP 外壳；不再按首尾 `}` 截断（易误伤字段中含 `}` 的合法 JSON）。 */
+function normalizeHttpJsonText(text: string): string {
+  let t = text.trim();
+  if (t.length === 0) {
+    return t;
+  }
+  if (t.charCodeAt(0) === 0xfeff) {
+    t = t.substring(1).trim();
+  }
+  const head = t.charCodeAt(0);
+  if (head !== 0x7b && head !== 0x5b) {
+    const lp = t.indexOf('(');
+    const rp = t.lastIndexOf(')');
+    if (lp >= 0 && rp > lp) {
+      t = t.substring(lp + 1, rp).trim();
+    }
+  }
+  return t;
+}
+
+export function parseHttpBodyJson<T>(raw: string | Object | ArrayBuffer | undefined | null): T | null {
+  if (raw === undefined || raw === null) {
+    return null;
+  }
+  if (typeof raw === 'string') {
+    const text = normalizeHttpJsonText(raw);
+    if (text.length === 0) {
+      return null;
+    }
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof raw === 'object' && raw !== null) {
+    return raw as T;
+  }
+  return null;
+}

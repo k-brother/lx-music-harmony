@@ -1,12 +1,13 @@
 /**
  * 酷狗音乐 - 歌曲搜索
  */
-import { httpRequest } from '../../../../core/network/http';
+import { httpRequest, parseHttpBodyJson } from '../../../../core/network/http';
 import { decodeName, formatPlayTime, sizeFormate } from '../../../../utils/CommonUtils';
 import { formatSingerName } from './util';
 import type { MusicInfo, SearchResult, Quality, QualityDetail } from '../../../../types/MusicTypes';
 
 const LIMIT = 30;
+const MAX_RETRY = 2;
 
 interface KGMusicItem {
   FileSize: number;
@@ -57,33 +58,44 @@ export const musicSearch: MusicSearchInterface = {
    */
   async search(keyword: string, page: number = 1, limit: number = LIMIT): Promise<SearchResult> {
     const url = `https://songsearch.kugou.com/song_search_v2?keyword=${encodeURIComponent(keyword)}&page=${page}&pagesize=${limit}&userid=0&clientver=&platform=WebFilter&filter=2&iscorrection=1&privilege_filter=0&area_code=1`;
-
-    const searchLimit: number = limit;
+    const emptyResult = (): SearchResult => ({
+      list: [],
+      allPage: 0,
+      total: 0,
+      limit,
+      source: 'kg',
+    });
     const handleFn = musicSearch.handleResult;
-
-    try {
-      const response = await httpRequest(url).promise;
-      const body = JSON.parse(response.result as string) as KGSearchResponse;
-
-      if (!body || body.error_code !== 0) {
-        throw new Error('Search failed');
+    const requestOnce = async (retry: number): Promise<SearchResult> => {
+      try {
+        const response = await httpRequest(url).promise;
+        const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
+        const body = parseHttpBodyJson<KGSearchResponse>(resultData);
+        if (!body || body.error_code !== 0 || !body.data) {
+          if (retry < MAX_RETRY) {
+            return requestOnce(retry + 1);
+          }
+          return emptyResult();
+        }
+        const list = handleFn(body.data.lists ?? []);
+        const total = body.data.total ?? 0;
+        const allPage = Math.ceil(total / limit);
+        const result: SearchResult = {
+          list,
+          allPage,
+          total,
+          limit,
+          source: 'kg',
+        };
+        return result;
+      } catch {
+        if (retry < MAX_RETRY) {
+          return requestOnce(retry + 1);
+        }
+        return emptyResult();
       }
-
-      const list = handleFn(body.data.lists);
-      const total = body.data.total;
-      const allPage = Math.ceil(total / searchLimit);
-
-      const result: SearchResult = {
-        list,
-        allPage,
-        total,
-        limit: searchLimit,
-        source: 'kg',
-      };
-      return result;
-    } catch {
-      return musicSearch.search(keyword, page, searchLimit);
-    }
+    };
+    return requestOnce(0);
   },
 
   /**

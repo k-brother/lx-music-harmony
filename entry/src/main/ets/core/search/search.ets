@@ -112,12 +112,18 @@ export async function clearHistoryList(): Promise<void> {
 // 音乐搜索结果项
 export interface MusicSearchResult {
   id: string;
+  songmid?: string;
   name: string;
   singer: string;
   album: string;
   pic: string;
   duration: number;
   source: string;
+  albumId?: string;
+  hash?: string;
+  strMediaMid?: string;
+  songId?: number;
+  copyrightId?: string;
 }
 
 // 歌单搜索结果项
@@ -168,12 +174,18 @@ function convertToMusicSearchResult(items: MusicInfoItem[]): MusicSearchResult[]
     console.log('convertToMusicSearchResult: item.pic =', item.pic, 'item.name =', item.name);
     const result: MusicSearchResult = {
       id: item.id,
+      songmid: item.songmid,
       name: item.name,
       singer: item.singer,
       album: item.album,
       pic: item.pic,
       duration: item.duration,
-      source: item.source
+      source: item.source,
+      albumId: item.albumId || undefined,
+      hash: item.hash,
+      strMediaMid: item.strMediaMid,
+      songId: item.songId,
+      copyrightId: item.copyrightId,
     };
     results.push(result);
   }
@@ -217,14 +229,19 @@ export async function searchMusic(text: string, page: number, sourceId: Source):
           const r = result[j];
           allResults.push({
             id: r.id,
+            songmid: r.songmid,
             name: r.name,
             singer: r.singer,
             album: r.album,
             source: r.source,
             interval: r.interval,
             pic: r.pic,
-            albumId: null,
-            duration: 0,
+            albumId: r.albumId || null,
+            duration: r.duration || 0,
+            hash: r.hash,
+            strMediaMid: r.strMediaMid,
+            songId: r.songId,
+            copyrightId: r.copyrightId,
             lrc: null,
           });
         }
@@ -242,44 +259,8 @@ export async function searchMusic(text: string, page: number, sourceId: Source):
     listInfo.key = key;
 
     try {
-      const activePlugin = pluginManager.getActivePlugin();
-      if (activePlugin && activePlugin.onSearch) {
-        try {
-          const pluginResult = await activePlugin.onSearch(text, page);
-          if (pluginResult && pluginResult.list && pluginResult.list.length > 0) {
-            const pluginMapped: MusicInfoItem[] = [];
-            for (const item of pluginResult.list) {
-              if (item.source && item.source.length > 0 && item.source !== sourceId) {
-                continue;
-              }
-              pluginMapped.push({
-                id: item.songmid || '',
-                name: item.name || '',
-                singer: item.singer || '',
-                album: item.albumName || '',
-                albumId: item.albumId || null,
-                duration: 0,
-                source: item.source || sourceId,
-                pic: '',
-                lrc: null,
-                interval: item.duration || null,
-              });
-            }
-            if (pluginMapped.length > 0) {
-              musicSearchAction.setListInfo({
-                list: pluginMapped,
-                source: sourceId,
-                total: pluginMapped.length,
-              }, page, text);
-              return convertToMusicSearchResult(pluginMapped);
-            }
-          }
-        } catch (err) {
-          hilog.warn(DOMAIN, TAG, 'Plugin search failed, fallback to builtin source: %{public}s', (err as Error).message);
-        }
-      }
-
-      // 调用音乐源API进行搜索
+      // 内置源必须固定走内置 SDK，避免插件返回的 songmid/id 与内置解析链不兼容导致“可搜不可播”。
+      // 插件搜索仅用于非内置源（该分支在上方已处理）。
       const result: SearchResultItem[] = await searchMusicApi({
         name: text,
         singer: null,
@@ -295,15 +276,20 @@ export async function searchMusic(text: string, page: number, sourceId: Source):
         console.log('searchMusic convert: item.pic =', item.pic, 'item.name =', item.name);
         const musicInfoItem: MusicInfoItem = {
           id: item.id,
+          songmid: item.songmid,
           name: item.name,
           singer: item.singer,
           album: item.album,
-          albumId: null,
+          albumId: item.albumId || null,
           duration: item.duration,
           source: item.source,
           pic: item.pic ?? '',
+          hash: item.hash,
+          strMediaMid: item.strMediaMid,
+          songId: item.songId,
+          copyrightId: item.copyrightId,
           lrc: null,
-          interval: null
+          interval: item.interval
         };
         convertedResults.push(musicInfoItem);
       }

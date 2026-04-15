@@ -38,6 +38,38 @@ function toPluginSongInfo(musicInfo: MusicInfo): PluginSongInfoType {
   };
 }
 
+let lazyCustomSourceRestorePromise: Promise<boolean> | null = null;
+
+async function ensureCustomSourcePluginReady(): Promise<boolean> {
+  const active = pluginManager.getActivePlugin();
+  if (active && active.onGetMusicUrl) {
+    return true;
+  }
+  if (lazyCustomSourceRestorePromise) {
+    return await lazyCustomSourceRestorePromise;
+  }
+  lazyCustomSourceRestorePromise = (async (): Promise<boolean> => {
+    try {
+      const storage = getStorageService();
+      const currentSource = await storage.getString('plugin.currentSource', 'kw');
+      const customSourceUrl = await storage.getString('plugin.customSourceUrl', '');
+      if (currentSource !== 'custom' || customSourceUrl.length === 0) {
+        return false;
+      }
+      hilog.warn(DOMAIN, TAG, 'Lazy restoring custom source for playback: %{public}s', customSourceUrl);
+      return await pluginManager.loadCustomSource(customSourceUrl);
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'Lazy custom source restore failed: %{public}s', JSON.stringify(err));
+      return false;
+    }
+  })();
+  try {
+    return await lazyCustomSourceRestorePromise;
+  } finally {
+    lazyCustomSourceRestorePromise = null;
+  }
+}
+
 // 尝试获取的音乐品质列表
 const TRY_QUALITYS_LIST: string[] = ['flac24bit', 'flac', '320k', '128k'];
 
@@ -106,6 +138,20 @@ interface LyricResultObj {
   lyricInfo: LyricInfo;
   musicInfo: MusicInfo;
   isFromCache: boolean;
+}
+
+function isUsableLyric(lyricInfo: LyricInfo | null | undefined): boolean {
+  if (!lyricInfo) {
+    return false;
+  }
+  const lyric = (lyricInfo.lyric ?? '').trim();
+  if (lyric.length === 0) {
+    return false;
+  }
+  if (lyric.includes('暂无歌词') || lyric.includes('纯音乐')) {
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -378,31 +424,34 @@ interface MusicUrlFromSourceResult {
  */
 async function getMusicUrlFromSource(musicInfo: MusicInfo, quality: Quality): Promise<MusicUrlFromSourceResult | null> {
   const source = musicInfo.source as string;
-
-  // 原版行为：激活自定义插件后，优先由插件处理在线源(kw/kg/tx/wy/mg)链接获取；
-  // 插件失败时回退内置源，保证可用性。
-  const activePlugin = pluginManager.getActivePlugin();
-  if (source !== 'local' && activePlugin && activePlugin.onGetMusicUrl) {
-    try {
-      hilog.warn(DOMAIN, TAG, 'Route=plugin-first, source=%{public}s, quality=%{public}s', source, quality);
-      const pluginSongInfo: PluginSongInfoType = {
-        songmid: musicInfo.songmid || musicInfo.id || '',
-        name: musicInfo.name || '',
-        singer: musicInfo.singer || '',
-        source: source,
-        albumName: musicInfo.album || musicInfo.albumName || '',
-        duration: musicInfo.interval || '',
-        hash: musicInfo.hash || musicInfo.songmid || musicInfo.id || '',
-      };
-      const url = await activePlugin.onGetMusicUrl(pluginSongInfo, quality);
-      if (url && url.length > 0) {
-        hilog.warn(DOMAIN, TAG, 'Route=plugin-success, source=%{public}s', source);
-        return { url, type: quality, mode: 'plugin' };
+  if (source !== 'local') {
+    let activePlugin = pluginManager.getActivePlugin();
+    if (!activePlugin || !activePlugin.onGetMusicUrl) {
+      await ensureCustomSourcePluginReady();
+      activePlugin = pluginManager.getActivePlugin();
+    }
+    if (activePlugin && activePlugin.onGetMusicUrl) {
+      try {
+        hilog.warn(DOMAIN, TAG, 'Route=plugin-first, source=%{public}s, quality=%{public}s', source, quality);
+        const pluginSongInfo: PluginSongInfoType = {
+          songmid: musicInfo.songmid || musicInfo.id || '',
+          name: musicInfo.name || '',
+          singer: musicInfo.singer || '',
+          source: source,
+          albumName: musicInfo.album || musicInfo.albumName || '',
+          duration: musicInfo.interval || '',
+          hash: musicInfo.hash || musicInfo.songmid || musicInfo.id || '',
+        };
+        const url = await activePlugin.onGetMusicUrl(pluginSongInfo, quality);
+        if (url && url.length > 0) {
+          hilog.warn(DOMAIN, TAG, 'Route=plugin-success, source=%{public}s', source);
+          return { url, type: quality, mode: 'plugin' };
+        }
+        hilog.warn(DOMAIN, TAG, 'Plugin returned empty URL, fallback to builtin source');
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : JSON.stringify(err);
+        hilog.warn(DOMAIN, TAG, 'Plugin getMusicUrl failed, fallback to builtin source: %{public}s', errMsg);
       }
-      hilog.warn(DOMAIN, TAG, 'Custom source plugin returned empty URL, fallback to builtin source');
-    } catch (err) {
-      const errMsg = (err as Error).message;
-      hilog.warn(DOMAIN, TAG, 'Custom source plugin failed, fallback to builtin source: %{public}s', errMsg);
     }
   }
 
@@ -493,7 +542,7 @@ async function handleGetOnlineLyricInfo(params: HandleGetOnlineLyricInfoParams):
   try {
     const lyricInfo = await getLyricFromSource(musicInfo);
 
-    if (lyricInfo && lyricInfo.lyric) {
+    if (isUsableLyric(lyricInfo)) {
       const retObj: LyricResultObj = {
         lyricInfo,
         musicInfo,
@@ -521,7 +570,7 @@ async function handleGetOnlineLyricInfo(params: HandleGetOnlineLyricInfoParams):
       for (const mInfo of otherSource) {
         try {
           const lyricInfo = await getLyricFromSource(mInfo);
-          if (lyricInfo && lyricInfo.lyric) {
+          if (isUsableLyric(lyricInfo)) {
             const retObj: LyricResultObj = {
               lyricInfo,
               musicInfo: mInfo,
@@ -544,23 +593,29 @@ async function handleGetOnlineLyricInfo(params: HandleGetOnlineLyricInfoParams):
  */
 async function getLyricFromSource(musicInfo: MusicInfo): Promise<LyricInfo> {
   const source = musicInfo.source as string;
-  const activePlugin = pluginManager.getActivePlugin();
-
-  if (source !== 'local' && activePlugin && activePlugin.onGetLyric) {
-    try {
-      const pluginResult = await activePlugin.onGetLyric(toPluginSongInfo(musicInfo));
-      if (pluginResult && pluginResult.lyric && pluginResult.lyric.length > 0) {
-        hilog.warn(DOMAIN, TAG, 'Route=plugin-lyric-success, source=%{public}s', source);
-        return {
-          lyric: pluginResult.lyric || '',
-          tlyric: pluginResult.tlyric || null,
-          lxlyric: pluginResult.lxlyric || null,
-          rlyric: pluginResult.rlyric || null,
-        };
+  if (source !== 'local') {
+    let activePlugin = pluginManager.getActivePlugin();
+    if (!activePlugin || !activePlugin.onGetLyric) {
+      await ensureCustomSourcePluginReady();
+      activePlugin = pluginManager.getActivePlugin();
+    }
+    if (activePlugin && activePlugin.onGetLyric) {
+      try {
+        const pluginResult = await activePlugin.onGetLyric(toPluginSongInfo(musicInfo));
+        if (pluginResult && pluginResult.lyric && pluginResult.lyric.length > 0) {
+          hilog.warn(DOMAIN, TAG, 'Route=plugin-lyric-success, source=%{public}s', source);
+          return {
+            lyric: pluginResult.lyric || '',
+            tlyric: pluginResult.tlyric || null,
+            lxlyric: pluginResult.lxlyric || null,
+            rlyric: pluginResult.rlyric || null,
+          };
+        }
+        hilog.warn(DOMAIN, TAG, 'Plugin returned empty lyric, fallback to builtin source');
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : JSON.stringify(err);
+        hilog.warn(DOMAIN, TAG, 'Plugin lyric failed, fallback to builtin source: %{public}s', errMsg);
       }
-      hilog.warn(DOMAIN, TAG, 'Custom source plugin returned empty lyric, fallback to builtin source');
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'Custom source lyric failed, fallback to builtin source: %{public}s', (err as Error).message);
     }
   }
 
@@ -597,9 +652,10 @@ export async function getPicUrl(params: GetPicUrlParams): Promise<string> {
     return '';
   }
 
-  // 如果已经有封面URL，直接返回
-  if (musicInfo.img && !isRefresh) {
-    return musicInfo.img;
+  // 如果已经有封面URL，直接返回（兼容 img / pic）
+  const inlinePic = (musicInfo.img || musicInfo.pic || '').trim();
+  if (inlinePic.length > 0 && !isRefresh) {
+    return inlinePic;
   }
 
   try {
@@ -612,7 +668,7 @@ export async function getPicUrl(params: GetPicUrlParams): Promise<string> {
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
     hilog.error(DOMAIN, TAG, 'getPicUrl failed: %{public}s', errMsg);
-    return musicInfo.img || '';
+    return (musicInfo.img || musicInfo.pic || '').trim();
   }
 }
 
@@ -625,9 +681,10 @@ async function handleGetOnlinePicUrl(params: HandleGetOnlinePicUrlParams): Promi
   const allowToggleSource = params.allowToggleSource;
   const onToggleSource = params.onToggleSource;
 
-  // 如果已经有封面，直接返回
-  if (musicInfo.img && !isRefresh) {
-    return musicInfo.img;
+  // 如果已经有封面，直接返回（兼容 img / pic）
+  const inlinePic = (musicInfo.img || musicInfo.pic || '').trim();
+  if (inlinePic.length > 0 && !isRefresh) {
+    return inlinePic;
   }
 
   try {
@@ -672,18 +729,24 @@ async function handleGetOnlinePicUrl(params: HandleGetOnlinePicUrlParams): Promi
  */
 async function getPicFromSource(musicInfo: MusicInfo): Promise<string> {
   const source = musicInfo.source as string;
-  const activePlugin = pluginManager.getActivePlugin();
-
-  if (source !== 'local' && activePlugin && activePlugin.onGetPic) {
-    try {
-      const pluginPic = await activePlugin.onGetPic(toPluginSongInfo(musicInfo));
-      if (pluginPic && pluginPic.length > 0) {
-        hilog.warn(DOMAIN, TAG, 'Route=plugin-pic-success, source=%{public}s', source);
-        return pluginPic;
+  if (source !== 'local') {
+    let activePlugin = pluginManager.getActivePlugin();
+    if (!activePlugin || !activePlugin.onGetPic) {
+      await ensureCustomSourcePluginReady();
+      activePlugin = pluginManager.getActivePlugin();
+    }
+    if (activePlugin && activePlugin.onGetPic) {
+      try {
+        const pluginPic = await activePlugin.onGetPic(toPluginSongInfo(musicInfo));
+        if (pluginPic && pluginPic.length > 0) {
+          hilog.warn(DOMAIN, TAG, 'Route=plugin-pic-success, source=%{public}s', source);
+          return pluginPic;
+        }
+        hilog.warn(DOMAIN, TAG, 'Plugin returned empty pic, fallback to builtin source');
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : JSON.stringify(err);
+        hilog.warn(DOMAIN, TAG, 'Plugin pic failed, fallback to builtin source: %{public}s', errMsg);
       }
-      hilog.warn(DOMAIN, TAG, 'Custom source plugin returned empty pic, fallback to builtin source');
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'Custom source pic failed, fallback to builtin source: %{public}s', (err as Error).message);
     }
   }
 

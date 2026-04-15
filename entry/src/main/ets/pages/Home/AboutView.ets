@@ -3,6 +3,8 @@
 
 import hilog from '@ohos.hilog';
 import { navigationService } from '../../service/NavigationService';
+import { DesignTokens } from '../../theme/DesignTokens';
+import { NavBackButton } from '../../components/common/NavBackButton';
 
 const TAG = 'About';
 const DOMAIN = 0x0001;
@@ -17,12 +19,6 @@ export struct AboutView {
 
   build() {
     Column() {
-      // 状态栏
-      Row()
-        .width('100%')
-        .height(24)
-        .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
-
       // 顶部导航栏
       this.HeaderBar()
 
@@ -120,31 +116,27 @@ export struct AboutView {
     .width('100%')
     .height('100%')
     .backgroundColor(this.theme === 'dark' ? '#121212' : '#F5F5F5')
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
   }
 
   @Builder
   HeaderBar() {
     Row() {
-      Image($r('sys.symbol.chevron_left'))
-        .width(24)
-        .height(24)
-        .fillColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
-        .onClick(() => {
-          navigationService.back();
-        })
+      NavBackButton()
 
       Text('关于')
-        .fontSize(16)
-        .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
+        .fontSize(DesignTokens.fontTitle())
+        .fontColor(DesignTokens.labelPrimary(this.theme))
         .fontWeight(FontWeight.Medium)
-        .margin({ left: 16 })
+        .margin({ left: 12 })
 
       Blank()
     }
     .width('100%')
-    .height(44)
-    .padding({ left: 12 })
-    .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
+    .height(60)
+    .padding({ left: 14, right: 14, top: 8, bottom: 6 })
+    .backgroundColor(DesignTokens.chromeBar(this.theme))
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
   }
 
   onBackPressed(): boolean {

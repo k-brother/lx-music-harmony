@@ -112,6 +112,23 @@ interface KwSongListApiData {
   data?: KwSongListDataContainer;
 }
 
+interface KwTagRawItem {
+  id?: number | string;
+  name?: string;
+  digest?: number | string;
+}
+
+interface KwTagRawCategory {
+  id?: number | string;
+  name?: string;
+  data?: KwTagRawItem[];
+}
+
+interface KwTagListApiData {
+  code?: number;
+  data?: KwTagRawCategory[];
+}
+
 // 酷我歌单项
 interface KwSongListItem {
   id?: string | number;
@@ -251,48 +268,117 @@ export const songList: SongListInterface = {
    * 获取歌单标签
    */
   getTags(): Promise<SongListTagsResult> {
-    // 使用预定义的标签
-    const categories: SongListTagCategory[] = [
-      { name: '语种', id: 'kw_lang', list: [
-        { id: 'kw_lang_1', name: '华语', parent_id: 'kw_lang', parent_name: '语种' },
-        { id: 'kw_lang_2', name: '欧美', parent_id: 'kw_lang', parent_name: '语种' },
-        { id: 'kw_lang_3', name: '日本', parent_id: 'kw_lang', parent_name: '语种' },
-        { id: 'kw_lang_4', name: '韩国', parent_id: 'kw_lang', parent_name: '语种' },
-      ]},
-      { name: '风格', id: 'kw_style', list: [
-        { id: 'kw_style_1', name: '流行', parent_id: 'kw_style', parent_name: '风格' },
-        { id: 'kw_style_2', name: '摇滚', parent_id: 'kw_style', parent_name: '风格' },
-        { id: 'kw_style_3', name: '民谣', parent_id: 'kw_style', parent_name: '风格' },
-        { id: 'kw_style_4', name: '电子', parent_id: 'kw_style', parent_name: '风格' },
-      ]},
-      { name: '场景', id: 'kw_scene', list: [
-        { id: 'kw_scene_1', name: '清晨', parent_id: 'kw_scene', parent_name: '场景' },
-        { id: 'kw_scene_2', name: '夜晚', parent_id: 'kw_scene', parent_name: '场景' },
-        { id: 'kw_scene_3', name: '午后', parent_id: 'kw_scene', parent_name: '场景' },
-      ]},
-    ];
+    const url =
+      'http://wapi.kuwo.cn/api/pc/classify/playlist/getTagList?cmd=rcm_keyword_playlist&user=0&prod=kwplayer_pc_9.0.5.0&vipver=9.0.5.0&source=kwplayer_pc_9.0.5.0&loginUid=0&loginSid=0&appUid=76039576';
+    return new Promise((resolve) => {
+      const task = httpRequest(url, {
+        responseType: 'text',
+      });
+      task.promise.then((response) => {
+        try {
+          const data: KwTagListApiData = JSON.parse(response.data as string) as KwTagListApiData;
+          if (data.code !== 200 || !data.data) {
+            resolve({
+              tags: [
+                { id: '37-10000', name: '华语' },
+                { id: '35-10000', name: '欧美' },
+                { id: '1093-10000', name: '韩语' },
+                { id: '1091-10000', name: '日语' },
+                { id: '393-10000', name: '流行' },
+                { id: '392-10000', name: '民谣' },
+                { id: '391-10000', name: '电子' },
+                { id: '389-10000', name: '摇滚' },
+              ],
+              hotTag: [
+                { id: '393-10000', name: '流行' },
+                { id: '37-10000', name: '华语' },
+                { id: '35-10000', name: '欧美' },
+                { id: '1093-10000', name: '韩语' },
+                { id: '1091-10000', name: '日语' },
+              ],
+              source: 'kw',
+            });
+            return;
+          }
 
-    const tags: SongListTag[] = [];
-    for (const cat of categories) {
-      for (const tag of cat.list) {
-        tags.push(tag);
-      }
-    }
-
-    const hotTag: SongListTag[] = [
-      { id: 'kw__hot_1', name: '流行' },
-      { id: 'kw__hot_2', name: '华语' },
-      { id: 'kw__hot_3', name: '欧美' },
-      { id: 'kw__hot_4', name: '韩语' },
-      { id: 'kw__hot_5', name: '日语' },
-    ];
-
-    const result: SongListTagsResult = {
-      tags,
-      hotTag,
-      source: 'kw',
-    };
-    return Promise.resolve(result);
+          const tags: SongListTag[] = [];
+          for (let i = 0; i < data.data.length; i++) {
+            const cat = data.data[i];
+            const catName = cat.name || '';
+            const catId = String(cat.id || '');
+            const rows = cat.data || [];
+            for (let j = 0; j < rows.length; j++) {
+              const row = rows[j];
+              const digest = String(row.digest || '');
+              // 仅保留可直接走 getTagPlayList 的类型，避免 43 等类型无数据导致“只有全部有数据”
+              if (digest !== '10000') {
+                continue;
+              }
+              tags.push({
+                id: `${String(row.id || '')}-${digest}`,
+                name: row.name || '',
+                parent_id: catId,
+                parent_name: catName,
+              });
+            }
+          }
+          const hotTag: SongListTag[] = [];
+          for (let k = 0; k < tags.length && hotTag.length < 8; k++) {
+            const t = tags[k];
+            if (t.name && (t.name.includes('流行') || t.name.includes('华语') || t.name.includes('欧美') || t.name.includes('韩语') || t.name.includes('日语'))) {
+              hotTag.push({ id: t.id, name: t.name });
+            }
+          }
+          resolve({
+            tags,
+            hotTag,
+            source: 'kw',
+          });
+        } catch {
+          resolve({
+            tags: [
+              { id: '37-10000', name: '华语' },
+              { id: '35-10000', name: '欧美' },
+              { id: '1093-10000', name: '韩语' },
+              { id: '1091-10000', name: '日语' },
+              { id: '393-10000', name: '流行' },
+              { id: '392-10000', name: '民谣' },
+              { id: '391-10000', name: '电子' },
+              { id: '389-10000', name: '摇滚' },
+            ],
+            hotTag: [
+              { id: '393-10000', name: '流行' },
+              { id: '37-10000', name: '华语' },
+              { id: '35-10000', name: '欧美' },
+              { id: '1093-10000', name: '韩语' },
+              { id: '1091-10000', name: '日语' },
+            ],
+            source: 'kw',
+          });
+        }
+      }).catch(() => {
+        resolve({
+          tags: [
+            { id: '37-10000', name: '华语' },
+            { id: '35-10000', name: '欧美' },
+            { id: '1093-10000', name: '韩语' },
+            { id: '1091-10000', name: '日语' },
+            { id: '393-10000', name: '流行' },
+            { id: '392-10000', name: '民谣' },
+            { id: '391-10000', name: '电子' },
+            { id: '389-10000', name: '摇滚' },
+          ],
+          hotTag: [
+            { id: '393-10000', name: '流行' },
+            { id: '37-10000', name: '华语' },
+            { id: '35-10000', name: '欧美' },
+            { id: '1093-10000', name: '韩语' },
+            { id: '1091-10000', name: '日语' },
+          ],
+          source: 'kw',
+        });
+      });
+    });
   },
 
   /**
@@ -307,10 +393,27 @@ export const songList: SongListInterface = {
       url = `http://wapi.kuwo.cn/api/pc/classify/playlist/getRcmPlayList?loginUid=0&loginSid=0&appUid=76039576&pn=${page}&rn=${limit}&order=${sortId === 'new' ? 'new' : 'hot'}`;
     } else {
       // 分类歌单
-      const parts: string[] = tagId.split('_');
-      const parentId: string = parts[parts.length - 2];
-      const childId: string = parts[parts.length - 1];
-      url = `http://wapi.kuwo.cn/api/pc/classify/playlist/getTagPlayList?loginUid=0&loginSid=0&appUid=76039576&pn=${page}&id=${childId || parentId}&rn=${limit}`;
+      let id = '';
+      let type = '';
+      if (tagId.indexOf('-') > 0) {
+        const parts = tagId.split('-');
+        id = parts[0];
+        type = parts[1] || '10000';
+      } else if (tagId.indexOf('_') > 0) {
+        // 兼容旧缓存 tagId（kw_lang_1）
+        const parts = tagId.split('_');
+        id = parts[parts.length - 1];
+        type = '10000';
+      } else {
+        id = tagId;
+        type = '10000';
+      }
+      if (type === '10000') {
+        url = `http://wapi.kuwo.cn/api/pc/classify/playlist/getTagPlayList?loginUid=0&loginSid=0&appUid=76039576&pn=${page}&id=${id}&rn=${limit}`;
+      } else {
+        // 43 等类型接口返回形态不稳定，这里退化为推荐歌单，避免分类必空
+        url = `http://wapi.kuwo.cn/api/pc/classify/playlist/getRcmPlayList?loginUid=0&loginSid=0&appUid=76039576&pn=${page}&rn=${limit}&order=${sortId === 'new' ? 'new' : 'hot'}`;
+      }
     }
 
     return new Promise((resolve) => {
