@@ -183,3 +183,26 @@ export const RegExps: RegExpsInterface = {
   // 歌词标签
   lyricTag: /\[(ver|ti|ar|al|offset|by|kuwo):\s*(\S+(?:\s+\S+)*)\s*\]/,
 };
+
+// 归一化封面 URL
+// 处理 // 前缀、http://、非法 URL 等情况
+export function normalizeCoverUrl(url: string, fallback?: string): string {
+  const value = (url ?? '').trim();
+  if (value.length === 0) {
+    return fallback ?? '';
+  }
+  // 处理 // 前缀（如 //y.gtimg.cn/... -> https://y.gtimg.cn/...）
+  if (value.startsWith('//')) {
+    return `https:${value}`;
+  }
+  // 处理 http:// -> https://
+  if (value.startsWith('http://')) {
+    return `https://${value.substring(7)}`;
+  }
+  // 已经是 https:// 或合法相对路径
+  if (value.startsWith('https://') || value.startsWith('/')) {
+    return value;
+  }
+  // 其他非法格式
+  return fallback ?? '';
+}

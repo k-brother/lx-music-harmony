@@ -9,6 +9,9 @@ import { signatureParams } from './util';
 import type { MusicUrlResult } from '../MusicSdkContracts';
 import hilog from '@ohos.hilog';
 
+const TAG = 'KgPlayUrl';
+const DOMAIN = 0x0001;
+
 const KG_WEB_KEY = 'NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt';
 /** 与常见 H5 请求一致的设备 mid（32 位 hex） */
 const KG_DEFAULT_MID = '233207ed64cadbb7a8fcc40b4fff185a';
@@ -45,7 +48,8 @@ function extractPlayUrl(text: string): string | null {
         return playUrl;
       }
     }
-  } catch {
+  } catch (e) {
+    hilog.warn(DOMAIN, TAG, 'extractPlayUrl failed: %{public}s', (e as Error)?.message);
     return null;
   }
   return null;
@@ -69,7 +73,8 @@ async function fetchPlayUrlByParamString(paramStr: string): Promise<string | nul
       hilog.info(0x0001, 'KG_URL', 'no play_url, body head: %{public}s', text.length > 200 ? text.substring(0, 200) : text);
     }
     return play;
-  } catch {
+  } catch (e) {
+    hilog.warn(DOMAIN, TAG, 'fetchPlayUrlByParamString failed: %{public}s', (e as Error)?.message);
     return null;
   }
 }

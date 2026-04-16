@@ -1,11 +1,15 @@
 /**
  * 酷狗音乐 - 排行榜（对齐 src/utils/musicSdk/kg/leaderboard.js）
  */
+import hilog from '@ohos.hilog';
 import { httpRequest, type HttpRequestConfig } from '../../../../core/network/http';
 import { decodeName, formatPlayTime, sizeFormate } from '../../../../utils/CommonUtils';
 import { formatSingerName } from './util';
 import type { MusicInfo, MusicQualityType, MusicQualityTypeKg, Quality, QualityDetail } from '../../../../types/MusicTypes';
 import { parseKgHttpJson } from './kgHttpJson';
+
+const TAG = 'KgLeaderboard';
+const DOMAIN = 0x0001;
 
 interface LeaderboardItem {
   id: string;
@@ -226,7 +230,8 @@ class KgLeaderboardImpl implements LeaderboardInterface {
       let body: KGRankListResponse;
       try {
         body = parseKgHttpJson<KGRankListResponse>(raw);
-      } catch {
+      } catch (e) {
+        hilog.warn(DOMAIN, TAG, 'getBoards parse failed: %{public}s', (e as Error)?.message);
         const fb: LeaderboardResult = { list: KG_STATIC_BOARDS, source: 'kg' };
         this.list = KG_STATIC_BOARDS;
         return fb;
@@ -239,8 +244,8 @@ class KgLeaderboardImpl implements LeaderboardInterface {
           return ok;
         }
       }
-    } catch {
-      // 回落静态表
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'getBoards request failed: %{public}s, falling back to static list', (e as Error)?.message);
     }
     const fallback: LeaderboardResult = { list: KG_STATIC_BOARDS, source: 'kg' };
     this.list = KG_STATIC_BOARDS;
@@ -266,7 +271,8 @@ class KgLeaderboardImpl implements LeaderboardInterface {
     try {
       const response = await httpRequest(url, kgRankListHeaders()).promise;
       body = parseKgHttpJson<KGRankSongResponse>(response.result as string | Object);
-    } catch {
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'getList request failed: %{public}s, retrying', (e as Error)?.message);
       return this.getList(bangid, page, tryNum + 1);
     }
     if (body.errcode !== 0) {

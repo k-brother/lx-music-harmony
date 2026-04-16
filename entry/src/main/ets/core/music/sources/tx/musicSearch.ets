@@ -2,7 +2,8 @@
  * QQ音乐 - 歌曲搜索
  */
 import { httpRequest, parseHttpBodyJson } from '../../../../core/network/http';
-import { decodeName } from '../../../../utils/CommonUtils';
+import { decodeName, formatPlayTime, normalizeCoverUrl } from '../../../../utils/CommonUtils';
+import { BaseMusicSource } from '../BaseMusicSource';
 import type { MusicInfo, SearchResult, Quality, QualityDetail, MusicQualityType } from '../../../../types/MusicTypes';
 
 const LIMIT = 30;
@@ -49,26 +50,12 @@ export interface MusicSearchInterface {
 }
 
 // 构建空搜索结果
-function buildEmptySearchResult(): SearchResult {
-  const result: SearchResult = {
-    list: [],
-    allPage: 0,
-    total: 0,
-    limit: 0,
-    source: 'tx',
-  };
-  return result;
-}
+// 使用 BaseMusicSource.buildEmptySearchResult
 
 /**
  * 格式化时长
  */
-function formatInterval(seconds: number): string {
-  if (!seconds) return '';
-  const m: number = Math.floor(seconds / 60);
-  const s: number = seconds % 60;
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-}
+// 使用 CommonUtils.formatPlayTime
 
 /**
  * 构建歌曲信息
@@ -78,7 +65,7 @@ function buildMusicInfo(rawData: TXMusicItem): MusicInfo {
   const _types: Map<Quality, QualityDetail> = new Map();
   const typeUrl: Map<string, string> = new Map();
 
-  const img: string = `https://y.gtimg.cn/music/photo_new/T002R500x500M000${rawData.album.mid}.jpg`;
+  const img: string = normalizeCoverUrl(`https://y.gtimg.cn/music/photo_new/T002R500x500M000${rawData.album.mid}.jpg`);
 
   const musicInfo: MusicInfo = {
     name: decodeName(rawData.name),
@@ -89,7 +76,7 @@ function buildMusicInfo(rawData: TXMusicItem): MusicInfo {
     songId: rawData.songId,
     albumId: rawData.album.mid,
     albumName: decodeName(rawData.album.name),
-    interval: formatInterval(rawData.interval),
+    interval: formatPlayTime(rawData.interval),
     img,
     lrc: null,
     otherSource: null,
@@ -116,7 +103,7 @@ export const musicSearch: MusicSearchInterface = {
       const body = parseHttpBodyJson<TXSearchResponse>(resultData);
 
       if (!body || body.code !== 0) {
-        return buildEmptySearchResult();
+        return BaseMusicSource.buildEmptySearchResult('tx');
       }
 
       const songData: TXSearchSongData | undefined = body.data?.song;
@@ -136,7 +123,7 @@ export const musicSearch: MusicSearchInterface = {
         source: 'tx',
       };
       return result;
-    }).catch(() => buildEmptySearchResult());
+    }).catch(() => BaseMusicSource.buildEmptySearchResult('tx'));
   },
 };
 

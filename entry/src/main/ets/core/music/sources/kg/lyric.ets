@@ -1,10 +1,14 @@
 /**
  * 酷狗音乐 - 歌词获取
  */
+import hilog from '@ohos.hilog';
 import { httpRequest } from '../../../../core/network/http';
 import { decodeName } from '../../../../utils/CommonUtils';
 import { decodeKrc } from './util';
 import type { MusicInfo, LyricInfo } from '../../../../types/MusicTypes';
+
+const TAG = 'KgLyric';
+const DOMAIN = 0x0001;
 
 // 歌词内容接口
 interface LyricContent {
@@ -50,8 +54,8 @@ function parseLyric(str: string): LyricInfo {
             break;
         }
       }
-    } catch {
-      // 解析失败，忽略
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'parseLyric JSON parse failed: %{public}s', (e as Error)?.message);
     }
   }
 
@@ -231,8 +235,7 @@ export const lyric: LyricInterface = {
 
     return searchFn(songInfo.name, songInfo.hash || '', time).then((result: LyricSearchResult | null): Promise<LyricInfo> => {
       if (!result) {
-        const error: Promise<LyricInfo> = Promise.reject(new Error('Get lyric failed'));
-        return error;
+        return Promise.reject(new Error('Get lyric failed'));
       }
       return downloadFn(result.id, result.accessKey, result.fmt);
     });

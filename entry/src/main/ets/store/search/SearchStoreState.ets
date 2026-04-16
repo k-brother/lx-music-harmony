@@ -43,7 +43,6 @@ export interface HotSearchItem {
   title: string;
   source: SearchSource;
   url: string;
-  engine: string;
 }
 
 // 歌手热门搜索项

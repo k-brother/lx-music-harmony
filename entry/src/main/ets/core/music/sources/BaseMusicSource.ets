@@ -5,6 +5,7 @@
 
 import hilog from '@ohos.hilog';
 import { httpClient, type HttpRequestConfig } from '../../../core/network/http';
+import type { SearchResult } from '../../../types/MusicTypes';
 
 const DOMAIN: number = 0x0001;
 
@@ -64,5 +65,32 @@ export abstract class BaseMusicSource {
     };
     const resp = await httpClient.request<T>(url, mergedCfg);
     return resp.data;
+  }
+
+  /** 构建空搜索结果（各 source 通用） */
+  public static buildEmptySearchResult(source: string): SearchResult {
+    return {
+      list: [],
+      allPage: 0,
+      total: 0,
+      limit: 0,
+      source: source,
+    };
+  }
+
+  /** 带重试的请求封装（默认重试2次） */
+  protected async fetchWithRetry<T>(fetcher: () => Promise<T>, maxRetry: number = 2): Promise<T> {
+    let lastError: Error | undefined;
+    for (let attempt = 0; attempt <= maxRetry; attempt++) {
+      try {
+        return await fetcher();
+      } catch (e) {
+        lastError = e instanceof Error ? e : new Error(String(e));
+        if (attempt < maxRetry) {
+          this.warn(`Request failed (attempt ${attempt + 1}/${maxRetry + 1}), retrying: ${lastError.message}`);
+        }
+      }
+    }
+    throw lastError ?? new Error('fetchWithRetry failed');
   }
 }

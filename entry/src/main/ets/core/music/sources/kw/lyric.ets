@@ -3,9 +3,13 @@
  * 对应安卓源码: src/utils/musicSdk/kw/lyric.js
  */
 
+import hilog from '@ohos.hilog';
 import { httpRequest, type HttpRequestConfig, type HttpResponse } from '../../../../core/network/http';
 import type { MusicInfo, LyricInfo } from '../../../../types/MusicTypes';
 import { decodeHtmlEntities } from '../../../../utils/CommonUtils';
+
+const TAG = 'KwLyric';
+const DOMAIN = 0x0001;
 
 // 密钥
 const BUF_KEY = 'yeelion';
@@ -234,7 +238,8 @@ export const lyric: LyricModuleInterface = {
           // 尝试解码 base64
           try {
             lrcText = base64Decode(lrcText);
-          } catch {
+          } catch (e) {
+            hilog.warn(DOMAIN, TAG, 'base64Decode failed: %{public}s', (e as Error)?.message);
             // 如果不是 base64，保持原样
           }
 
@@ -251,7 +256,8 @@ export const lyric: LyricModuleInterface = {
           } else {
             resolve(parsed);
           }
-        } catch {
+        } catch (e) {
+          hilog.warn(DOMAIN, TAG, 'getLyricFromApi parse failed: %{public}s', (e as Error)?.message);
           // 解析失败，尝试备用方式
           lyric.getLyricFromMobileApi(songmid).then((lyricInfo: LyricInfo) => {
             resolve(lyricInfo);
@@ -323,7 +329,8 @@ export const lyric: LyricModuleInterface = {
             };
             resolve(lyricInfo);
           }
-        } catch {
+        } catch (e) {
+          hilog.warn(DOMAIN, TAG, 'getLyricFromMobileApi parse failed: %{public}s', (e as Error)?.message);
           resolve(EMPTY_LYRIC);
         }
       }).catch(() => {

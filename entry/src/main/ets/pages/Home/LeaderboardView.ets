@@ -79,8 +79,8 @@ export struct LeaderboardView {
       }
       try {
         this.leaderboardScroller.scrollTo({ xOffset: 0, yOffset: 0, animation: false });
-      } catch {
-        // ignore
+      } catch (e) {
+        hilog.warn(0x0001, 'LeaderboardView', 'scrollToTop failed: %{public}s', (e as Error)?.message);
       }
       this.scrollTopTimer = -1;
     }, 0);

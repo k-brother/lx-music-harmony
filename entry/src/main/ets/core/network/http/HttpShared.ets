@@ -1,5 +1,10 @@
 /** HTTP 层共用工具，供 HttpClient / HttpCompat 复用，避免两套实现漂移 */
 
+import hilog from '@ohos.hilog';
+
+const TAG = 'HttpShared';
+const DOMAIN = 0x0001;
+
 export function withQuery(url: string, params?: Record<string, string | number | boolean>): string {
   if (!params) {
     return url;
@@ -80,7 +85,8 @@ export function parseHttpBodyJson<T>(raw: string | Object | ArrayBuffer | undefi
     }
     try {
       return JSON.parse(text) as T;
-    } catch {
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'parseHttpBodyJson JSON.parse failed: %{public}s', (e as Error)?.message);
       return null;
     }
   }

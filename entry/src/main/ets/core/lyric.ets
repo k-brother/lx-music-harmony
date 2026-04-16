@@ -1,8 +1,12 @@
 // Lyric - 对应 src/core/lyric.ts
 // 歌词功能：在线拉取走 musicSdk；LRC 解析与 `core/music/MusicParsingUtils` 单源对齐（避免与 parseLrc 重复实现）
 
+import hilog from '@ohos.hilog';
 import { musicSdk } from './music/MusicFeatureEntry';
 import type { MusicInfo, LyricInfo } from '../types/MusicTypes';
+
+const TAG = 'Lyric';
+const DOMAIN = 0x0001;
 
 export type { LyricLine } from './music/MusicParsingUtils';
 export { parseLrc as parseLyric, getCurrentLyricIndex } from './music/MusicParsingUtils';
@@ -31,8 +35,8 @@ export async function getLyric(musicInfo: MusicInfo): Promise<LyricInfo> {
     if (result) {
       return result;
     }
-  } catch {
-    // 忽略错误
+  } catch (e) {
+    hilog.warn(DOMAIN, TAG, 'getLyric failed: %{public}s', (e as Error)?.message);
   }
 
   return {

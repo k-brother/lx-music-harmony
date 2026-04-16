@@ -1,11 +1,15 @@
 /**
  * 网易云音乐 - 歌曲搜索
  */
+import hilog from '@ohos.hilog';
 import { httpRequest, parseHttpBodyJson } from '../../../../core/network/http';
-import { decodeName } from '../../../../utils/CommonUtils';
+import { decodeName, formatPlayTime, normalizeCoverUrl } from '../../../../utils/CommonUtils';
+import { BaseMusicSource } from '../BaseMusicSource';
 import type { MusicInfo, SearchResult, Quality, QualityDetail, MusicQualityType } from '../../../../types/MusicTypes';
 import { neteaseWeapi, buildWeapiFormBody, type WeapiJsonObject } from './NeteaseCrypto';
 
+const TAG = 'WYMUSIC';
+const DOMAIN = 0x0001;
 const LIMIT = 30;
 
 // 网易云歌手信息
@@ -49,27 +53,12 @@ export interface MusicSearchInterface {
 }
 
 // 构建空搜索结果
-function buildEmptySearchResult(): SearchResult {
-  const result: SearchResult = {
-    list: [],
-    allPage: 0,
-    total: 0,
-    limit: 0,
-    source: 'wy',
-  };
-  return result;
-}
+// 使用 BaseMusicSource.buildEmptySearchResult('wy')
 
 /**
  * 格式化时长
  */
-function formatInterval(milliseconds: number): string {
-  if (!milliseconds) return '';
-  const seconds: number = Math.floor(milliseconds / 1000);
-  const m: number = Math.floor(seconds / 60);
-  const s: number = seconds % 60;
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-}
+// 使用 CommonUtils.formatPlayTime(Math.floor(dt / 1000))
 
 /**
  * 构建歌曲信息
@@ -79,7 +68,7 @@ function buildMusicInfo(rawData: WYMusicItem): MusicInfo {
   const _types: Map<Quality, QualityDetail> = new Map();
   const typeUrl: Map<string, string> = new Map();
 
-  const picUrl: string = rawData.al.picUrl ? rawData.al.picUrl.replace(/^http:/, 'https:') : '';
+  const picUrl: string = normalizeCoverUrl(rawData.al.picUrl || '');
 
   const musicInfo: MusicInfo = {
     name: decodeName(rawData.name),
@@ -88,7 +77,7 @@ function buildMusicInfo(rawData: WYMusicItem): MusicInfo {
     songmid: rawData.id.toString(),
     albumId: rawData.al.id.toString(),
     albumName: decodeName(rawData.al.name),
-    interval: formatInterval(rawData.dt),
+    interval: formatPlayTime(Math.floor(rawData.dt / 1000)),
     img: picUrl,
     lrc: null,
     otherSource: null,
@@ -129,7 +118,7 @@ export const musicSearch: MusicSearchInterface = {
       const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
       const body = parseHttpBodyJson<WYSearchResponse>(resultData);
       if (!body || body.code !== 200) {
-        return buildEmptySearchResult();
+        return BaseMusicSource.buildEmptySearchResult('wy');
       }
 
       const rawData: WYMusicItem[] = body.result?.songs || [];
@@ -146,7 +135,8 @@ export const musicSearch: MusicSearchInterface = {
         limit,
         source: 'wy',
       };
-    } catch {
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'wy search failed, falling back to legacy: %{public}s', (e as Error)?.message);
       return this.searchByLegacyApi(keyword, page, limit);
     }
   },
@@ -161,7 +151,7 @@ export const musicSearch: MusicSearchInterface = {
       const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
       const body = parseHttpBodyJson<WYSearchResponse>(resultData);
       if (!body || body.code !== 200) {
-        return buildEmptySearchResult();
+        return BaseMusicSource.buildEmptySearchResult('wy');
       }
       const rawData: WYMusicItem[] = body.result?.songs || [];
       const list: MusicInfo[] = [];
@@ -177,8 +167,9 @@ export const musicSearch: MusicSearchInterface = {
         limit,
         source: 'wy',
       };
-    } catch {
-      return buildEmptySearchResult();
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'wy searchByLegacyApi failed: %{public}s', (e as Error)?.message);
+      return BaseMusicSource.buildEmptySearchResult('wy');
     }
   },
 };

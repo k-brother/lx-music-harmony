@@ -155,7 +155,8 @@ function quickjsRequest(source: string, action: string, info: QuickJSRequestInfo
 
   try {
     return JSON.parse(result) as QuickJSRequestResult;
-  } catch {
+  } catch (e) {
+    hilog.warn(DOMAIN, TAG, 'JSON.parse failed in quickjsRequest: %{public}s', (e as Error)?.message);
     return { url: '', lyric: '', list: [], total: 0 };
   }
 }
@@ -210,7 +211,8 @@ function parsePluginInfo(scriptContent: string): PluginInfo | null {
     }
 
     return info;
-  } catch {
+  } catch (e) {
+    hilog.warn(DOMAIN, TAG, 'parsePluginInfo failed: %{public}s', (e as Error)?.message);
     return null;
   }
 }
@@ -275,7 +277,8 @@ function loadPluginToQuickJS(scriptContent: string, pluginInfo: PluginInfo, sour
           hilog.error(DOMAIN, TAG, 'Plugin init failed: %{public}s', parsed.error);
           return false;
         }
-      } catch {
+      } catch (e) {
+        hilog.warn(DOMAIN, TAG, 'Plugin init result parse failed: %{public}s', (e as Error)?.message);
         // ignore parse error, keep compatibility with non-JSON init responses
       }
     }
@@ -388,7 +391,8 @@ export class CustomSourcePlugin implements Plugin {
         total: result.total || 0,
         page,
       };
-    } catch {
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'onSearch failed: %{public}s', (e as Error)?.message);
       return { list: [], total: 0, page };
     }
   }
@@ -425,11 +429,13 @@ export class CustomSourcePlugin implements Plugin {
         return await this.getMusicUrlByScriptApi(songInfo, quality);
       }
       return '';
-    } catch {
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'onGetMusicUrl failed: %{public}s', (e as Error)?.message);
       if (this.fallbackApiUrl.length > 0 && this.fallbackApiKey.length > 0) {
         hilog.warn(DOMAIN, TAG, 'QuickJS musicUrl threw error, fallback to script-api');
         return await this.getMusicUrlByScriptApi(songInfo, quality);
       }
+      hilog.warn(DOMAIN, TAG, 'QuickJS musicUrl failed and no fallback available');
       return '';
     }
   }
@@ -449,7 +455,8 @@ export class CustomSourcePlugin implements Plugin {
         musicInfo: songInfo,
       });
       return { lyric: result.lyric || '' };
-    } catch {
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'onGetLyric failed: %{public}s', (e as Error)?.message);
       return { lyric: '' };
     }
   }
@@ -468,7 +475,8 @@ export class CustomSourcePlugin implements Plugin {
         musicInfo: songInfo,
       });
       return result.url || result.pic || '';
-    } catch {
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'onGetPic failed: %{public}s', (e as Error)?.message);
       return '';
     }
   }
@@ -489,7 +497,8 @@ export class CustomSourcePlugin implements Plugin {
         page,
         limit: 20,
       };
-    } catch {
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'onGetSongList failed: %{public}s', (e as Error)?.message);
       return { list: [], total: 0, page, limit: 20 };
     }
   }
@@ -505,7 +514,8 @@ export class CustomSourcePlugin implements Plugin {
     try {
       const result = quickjsRequest('custom', 'hotSearch', {});
       return (result.list || []) as PluginHotSearch[];
-    } catch {
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'onGetHotSearch failed: %{public}s', (e as Error)?.message);
       return [];
     }
   }
@@ -520,7 +530,8 @@ export class CustomSourcePlugin implements Plugin {
     try {
       const result = quickjsRequest('custom', 'boards', {});
       return (result.list || []) as PluginBoard[];
-    } catch {
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'onGetBoards failed: %{public}s', (e as Error)?.message);
       return [];
     }
   }
@@ -541,7 +552,8 @@ export class CustomSourcePlugin implements Plugin {
         total: result.total || 0,
         page,
       };
-    } catch {
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'onGetBoardList failed: %{public}s', (e as Error)?.message);
       return { name: '', list: [], total: 0, page };
     }
   }

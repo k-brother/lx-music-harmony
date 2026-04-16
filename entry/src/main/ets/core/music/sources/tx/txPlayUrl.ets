@@ -3,9 +3,13 @@
  * vkey 请求需带 comm；歌单页须传 strMediaMid（与 song mid 不同）。失败时依次尝试 express 接口。
  */
 
+import hilog from '@ohos.hilog';
 import type { MusicInfo } from '../../../../types/MusicTypes';
 import { httpRequest, httpPost } from '../../../../core/network/http';
 import type { MusicUrlResult } from '../MusicSdkContracts';
+
+const TAG = 'TxPlayUrl';
+const DOMAIN = 0x0001;
 
 interface TXUrlData {
   sip: string[];
@@ -136,7 +140,8 @@ function parseVkeyResponseJson(text: string, quality: string): MusicUrlResult | 
   let body: TXUrlEnvelope;
   try {
     body = JSON.parse(text) as TXUrlEnvelope;
-  } catch {
+  } catch (e) {
+    hilog.warn(DOMAIN, TAG, 'parseVkeyResponseJson JSON.parse failed: %{public}s', (e as Error)?.message);
     return null;
   }
   const req = body.req;
@@ -185,7 +190,8 @@ async function fetchTxStrMediaMid(songMid: string): Promise<string | null> {
     if (mm && mm.length > 0) {
       return mm;
     }
-  } catch {
+  } catch (e) {
+    hilog.warn(DOMAIN, TAG, 'fetchTxStrMediaMid failed: %{public}s', (e as Error)?.message);
     return null;
   }
   return null;
@@ -195,7 +201,8 @@ function parsePlaySingleSong(text: string, quality: string): MusicUrlResult | nu
   let root: PlaySingleRoot;
   try {
     root = JSON.parse(text) as PlaySingleRoot;
-  } catch {
+  } catch (e) {
+    hilog.warn(DOMAIN, TAG, 'parsePlaySingleSong JSON.parse failed: %{public}s', (e as Error)?.message);
     return null;
   }
   const arr = root.data;
@@ -226,8 +233,8 @@ async function tryExpressMobile(trackMid: string, mediaMid: string, quality: str
         `&guid=${VKEY_GUID}&uin=0&fromtag=66`;
       return { url, type: quality };
     }
-  } catch {
-    // ignore
+  } catch (e) {
+    hilog.warn(DOMAIN, TAG, 'tryExpressMobile failed: %{public}s', (e as Error)?.message);
   }
   return { url: '', type: quality };
 }
@@ -251,8 +258,8 @@ async function tryVkeyMatrix(
         if (hit && hit.url.length > 0) {
           return hit;
         }
-      } catch {
-        // next
+      } catch (e) {
+        hilog.warn(DOMAIN, TAG, 'tryVkeyMatrix request failed: %{public}s', (e as Error)?.message);
       }
     }
   }
@@ -294,8 +301,8 @@ export async function getTxMusicUrl(songInfo: MusicInfo, quality: string): Promi
     if (single && single.url.length > 0) {
       return single;
     }
-  } catch {
-    // continue
+  } catch (e) {
+    hilog.warn(DOMAIN, TAG, 'getTxMusicUrl single song request failed: %{public}s', (e as Error)?.message);
   }
 
   return tryExpressMobile(songmid, mediaMid, quality);

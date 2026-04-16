@@ -556,7 +556,8 @@ export class BackupService {
   private async ensureBackupDirectoryExists(): Promise<void> {
     try {
       await fs.access(this.config.backupLocation);
-    } catch {
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'access backup directory failed: %{public}s', (e as Error)?.message);
       try {
         await fs.mkdir(this.config.backupLocation);
         hilog.info(DOMAIN, TAG, 'Created backup directory: %{public}s', this.config.backupLocation);

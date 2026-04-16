@@ -66,14 +66,16 @@ harmony/                          # HarmonyOS implementation
 ```bash
 cd harmony
 
-# Debug build
-./hvigor.sh assembleDebug
+# App package build (macOS/Linux/Windows)
+./hvigor.sh assembleApp
+# 或 Windows CMD:
+hvigor.bat assembleApp
 
-# Release build
+# Release build (需配置签名)
 ./hvigor.sh assembleRelease
 ```
 
-The build output is located in `harmony/.hvigor/outputs/`.
+构建产物位于 `harmony/.hvigor/outputs/`。
 
 ## Architecture
 

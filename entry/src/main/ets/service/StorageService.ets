@@ -97,7 +97,8 @@ class StorageServiceImpl implements IStorageService {
     try {
       const value = await this.prefs.get(key, defaultValue);
       return value as string;
-    } catch {
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'getString failed: %{public}s', (e as Error)?.message);
       return defaultValue;
     }
   }
@@ -106,7 +107,8 @@ class StorageServiceImpl implements IStorageService {
     try {
       const value = await this.prefs.get(key, defaultValue);
       return value as number;
-    } catch {
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'getNumber failed: %{public}s', (e as Error)?.message);
       return defaultValue;
     }
   }
@@ -115,7 +117,8 @@ class StorageServiceImpl implements IStorageService {
     try {
       const value = await this.prefs.get(key, defaultValue);
       return value as boolean;
-    } catch {
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'getBoolean failed: %{public}s', (e as Error)?.message);
       return defaultValue;
     }
   }

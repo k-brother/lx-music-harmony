@@ -11,6 +11,10 @@ import {
 } from './music/MusicFeatureEntry';
 import type { MusicInfo } from '../types/MusicTypes';
 import { pluginManager } from './plugin/PluginManager';
+import hilog from '@ohos.hilog';
+
+const DOMAIN = 0xFF00;
+const TAG = 'Leaderboard';
 
 // 排行榜详情信息
 export interface ListDetailInfo {
@@ -148,8 +152,8 @@ export async function getBoardsList(source: BoardSource): Promise<BoardItem[]> {
           setBoard(board, source);
           return boardItems;
         }
-      } catch {
-        // fallback to builtin source
+      } catch (e) {
+        hilog.warn(DOMAIN, TAG, 'Plugin leaderboard fetch failed, falling back to builtin: %{public}s', e?.message);
       }
     }
 
@@ -195,7 +199,8 @@ export async function getBoardsList(source: BoardSource): Promise<BoardItem[]> {
       return boardItems;
     }
     return [];
-  } catch {
+  } catch (e) {
+    hilog.warn(DOMAIN, TAG, 'Leaderboard fetch failed: %{public}s', e?.message);
     return [];
   }
 }
@@ -214,14 +219,6 @@ export async function getListDetail(
   bangId = stripRepeatedSourcePrefix(source, bangId);
   const listKey = `${source}__${bangId}`;
   const pageKey = `${listKey}__${page}`;
-
-  // 缓存逻辑（暂时禁用）
-  // let listCache = cache.get(listKey);
-  // if (!listCache || isRefresh) {
-  //   cache.set(listKey, listCache = new Map());
-  // }
-  // let pageCache = listCache.get(pageKey);
-  // if (pageCache) return pageCache.data;
 
   // 调用对应音乐源的API
   try {
@@ -250,8 +247,8 @@ export async function getListDetail(
           setListDetail(detailInfo, id, page);
           return detailInfo;
         }
-      } catch {
-        // fallback to builtin source
+      } catch (e) {
+        hilog.warn(DOMAIN, TAG, 'Plugin list detail fetch failed, falling back to builtin: %{public}s', e?.message);
       }
     }
 
@@ -297,8 +294,8 @@ export async function getListDetail(
       setListDetail(detailInfo, id, page);
       return detailInfo;
     }
-  } catch {
-    // 忽略错误
+  } catch (e) {
+    hilog.warn(DOMAIN, TAG, 'Builtin list detail failed: %{public}s', e?.message);
   }
 
   return {
@@ -394,7 +391,8 @@ export async function getListDetailAll(
       } else {
         hasMore = false;
       }
-    } catch {
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'Board songs pagination failed: %{public}s', e?.message);
       hasMore = false;
     }
   }

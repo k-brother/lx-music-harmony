@@ -3,7 +3,11 @@
  * 单一实现：HttpClient 类 + 便捷函数均基于同一底层
  */
 import http from '@ohos.net.http';
+import hilog from '@ohos.hilog';
 import { flattenHeaders, withQuery } from './HttpShared';
+
+const TAG = 'HttpClient';
+const DOMAIN = 0x0001;
 
 // ============ 类型定义 ============
 
@@ -124,7 +128,8 @@ function doRequest<T>(
           if (text.length > 0) {
             try {
               data = JSON.parse(text) as T;
-            } catch {
+            } catch (e) {
+              hilog.warn(DOMAIN, TAG, 'doRequest JSON.parse failed: %{public}s', (e as Error)?.message);
               // 如果 JSON 解析失败，返回原始文本
               data = raw as T;
             }

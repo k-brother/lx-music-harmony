@@ -22,6 +22,9 @@ import {
 } from './NeteaseCrypto';
 import hilog from '@ohos.hilog';
 
+const TAG = 'WySongList';
+const DOMAIN = 0x0001;
+
 interface WySongListModule extends SongListSdkInterface {
   getDetailPageUrl(rawId: string): string;
 }
@@ -448,7 +451,8 @@ class WySongListImpl implements WySongListModule {
       const url = `https://music.163.com/api/v3/playlist/detail?id=${encodeURIComponent(id)}&n=1000`;
       const res = await httpRequest(url, { method: 'GET', header: headers, responseType: 'text' }).promise;
       return parseHttpBodyJson<WyPlaylistDetailBody>(httpResponseBody(res));
-    } catch {
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'fetchPlaylistDetailPublic failed: %{public}s', (e as Error)?.message);
       return null;
     }
   }

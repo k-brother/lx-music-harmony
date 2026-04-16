@@ -72,8 +72,8 @@ export struct SongListView {
       }
       try {
         this.songListScroller.scrollTo({ xOffset: 0, yOffset: 0, animation: false });
-      } catch {
-        // ignore
+      } catch (e) {
+        hilog.warn(0x0001, 'SongListView', 'scrollToTop failed: %{public}s', (e as Error)?.message);
       }
       this.scrollTopTimer = -1;
     }, 0);
@@ -364,9 +364,11 @@ export struct SongListView {
 
   private getSafeScrollOffsetY(): number {
     try {
-      const rawY = this.songListScroller.currentOffset().yOffset;
+      const offset = this.songListScroller.currentOffset();
+      const rawY = offset?.yOffset;
       return typeof rawY === 'number' && Number.isFinite(rawY) ? rawY : 0;
-    } catch {
+    } catch (e) {
+      hilog.warn(0x0001, 'SongListView', 'getSafeScrollOffsetY failed: %{public}s', (e as Error)?.message);
       return 0;
     }
   }

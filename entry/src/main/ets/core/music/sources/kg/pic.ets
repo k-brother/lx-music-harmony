@@ -50,16 +50,14 @@ export const pic: PicInterface = {
       const body = JSON.parse(response.result as string) as KGPicResponse;
 
       if (body.error_code !== 0) {
-        const error: Promise<string> = Promise.reject(new Error('图片获取失败'));
-        return error;
+        return Promise.reject(new Error('图片获取失败'));
       }
 
       const info = body.data[0].info;
       const img = info.imgsize ? info.image.replace('{size}', info.imgsize[0]) : info.image;
 
       if (!img) {
-        const error: Promise<string> = Promise.reject(new Error('Pic get failed'));
-        return error;
+        return Promise.reject(new Error('Pic get failed'));
       }
 
       return img;

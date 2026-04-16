@@ -776,7 +776,8 @@ export class CommentService {
       } else {
         return date.toLocaleDateString();
       }
-    } catch {
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'formatTime failed: %{public}s', (e as Error)?.message);
       return '未知时间';
     }
   }

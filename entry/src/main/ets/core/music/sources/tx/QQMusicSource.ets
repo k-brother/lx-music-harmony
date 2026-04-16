@@ -1,4 +1,5 @@
 import { musicSearch } from './musicSearch';
+import { normalizeCoverUrl } from '../../../../utils/CommonUtils';
 import { lyric } from './lyric';
 import { leaderboard } from './leaderboard';
 import { hotSearch } from './hotSearch';
@@ -38,7 +39,7 @@ export class QQMusicSource extends AbstractMusicSource {
   getPic(songInfo: MusicInfo): Promise<string> {
     const albumId: string | undefined = songInfo.albumId;
     if (albumId && albumId !== '空') {
-      return Promise.resolve(`https://y.gtimg.cn/music/photo_new/T002R500x500M000${albumId}.jpg`);
+      return Promise.resolve(normalizeCoverUrl(`https://y.gtimg.cn/music/photo_new/T002R500x500M000${albumId}.jpg`));
     }
     return Promise.resolve('');
   }

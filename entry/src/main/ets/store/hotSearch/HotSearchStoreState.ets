@@ -10,7 +10,6 @@ export interface HotSearchItem {
   title: string;
   source: HotSearchSource;
   url: string;
-  engine: string;
 }
 
 // 热搜状态

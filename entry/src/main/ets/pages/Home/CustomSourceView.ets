@@ -126,7 +126,8 @@ export struct CustomSourceView {
     try {
       const regex = /^https?:\/\/.+\.js(\?.*)?$/i;
       return regex.test(url);
-    } catch {
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'isValidUrl failed: %{public}s', (e as Error)?.message);
       return false;
     }
   }

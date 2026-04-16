@@ -2,9 +2,13 @@
  * 网易云 — 播放地址，由 {@link NeteaseMusicSource} 调用。
  */
 
+import hilog from '@ohos.hilog';
 import type { MusicInfo } from '../../../../types/MusicTypes';
 import { httpRequest, parseHttpBodyJson, httpResponseBody } from '../../../../core/network/http';
 import type { MusicUrlResult } from '../MusicSdkContracts';
+
+const TAG = 'WyPlayUrl';
+const DOMAIN = 0x0001;
 
 interface WYUrlData {
   url?: string | null;
@@ -42,7 +46,8 @@ async function requestWyPlayUrlOnce(songmid: string, br: number): Promise<string
         return u;
       }
     }
-  } catch {
+  } catch (e) {
+    hilog.warn(DOMAIN, TAG, 'requestWyPlayUrlOnce failed: %{public}s', (e as Error)?.message);
     return null;
   }
   return null;
@@ -63,8 +68,8 @@ export async function getWyMusicUrl(songInfo: MusicInfo, quality: string): Promi
         return ok;
       }
     }
-  } catch {
-    // fall through
+  } catch (e) {
+    hilog.warn(DOMAIN, TAG, 'getWyMusicUrl request failed: %{public}s', (e as Error)?.message);
   }
   const empty: MusicUrlResult = { url: '', type: quality };
   return empty;

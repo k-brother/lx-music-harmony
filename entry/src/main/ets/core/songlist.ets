@@ -1,6 +1,7 @@
 // Songlist Core Module - 对应 src/core/songlist.ts
 // 歌单核心模块
 
+import hilog from '@ohos.hilog';
 import { songlistState, SonglistInfo, Source, TagInfo } from '../store/songlist/SonglistStoreState';
 import {
   musicSdk,
@@ -10,6 +11,9 @@ import {
   type SongListDetailInfo as SdkDetailInfo,
 } from './music/MusicFeatureEntry';
 import { pluginManager } from './plugin/PluginManager';
+
+const TAG = 'Songlist';
+const DOMAIN = 0x0001;
 
 // 歌曲信息接口
 export interface SongInfoItem {
@@ -282,7 +286,8 @@ export async function getListDetail(
           cache.set(pageKey, { type: 'detail', data: pluginDetail });
           return pluginDetail;
         }
-      } catch {
+      } catch (e) {
+        hilog.warn(DOMAIN, TAG, 'getListDetail plugin fallback: %{public}s', (e as Error)?.message);
         // fallback to builtin source
       }
     }

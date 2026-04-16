@@ -1,10 +1,14 @@
 /**
  * 酷狗音乐 - 歌曲搜索
  */
+import hilog from '@ohos.hilog';
 import { httpRequest, parseHttpBodyJson } from '../../../../core/network/http';
 import { decodeName, formatPlayTime, sizeFormate } from '../../../../utils/CommonUtils';
 import { formatSingerName } from './util';
 import type { MusicInfo, SearchResult, Quality, QualityDetail } from '../../../../types/MusicTypes';
+
+const TAG = 'KgMusicSearch';
+const DOMAIN = 0x0001;
 
 const LIMIT = 30;
 const MAX_RETRY = 2;
@@ -88,7 +92,8 @@ export const musicSearch: MusicSearchInterface = {
           source: 'kg',
         };
         return result;
-      } catch {
+      } catch (e) {
+        hilog.warn(DOMAIN, TAG, 'search request failed: %{public}s', (e as Error)?.message);
         if (retry < MAX_RETRY) {
           return requestOnce(retry + 1);
         }

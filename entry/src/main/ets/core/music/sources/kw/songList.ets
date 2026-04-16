@@ -1,6 +1,10 @@
+import hilog from '@ohos.hilog';
 import { httpRequest } from '../../../../core/network/http';
 import type { MusicInfo, Quality, QualityDetail } from '../../../../types/MusicTypes';
 import { formatPlayTime, decodeHtmlEntities, formatSinger, formatPlayCount } from '../../../../utils/CommonUtils';
+
+const TAG = 'KwSongList';
+const DOMAIN = 0x0001;
 
 // 歌单标签
 export interface SongListTag {
@@ -334,7 +338,8 @@ export const songList: SongListInterface = {
             hotTag,
             source: 'kw',
           });
-        } catch {
+        } catch (e) {
+          hilog.warn(DOMAIN, TAG, 'getTags parse failed: %{public}s', (e as Error)?.message);
           resolve({
             tags: [
               { id: '37-10000', name: '华语' },

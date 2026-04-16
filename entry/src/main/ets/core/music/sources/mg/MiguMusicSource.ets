@@ -1,4 +1,5 @@
 import { musicSearch } from './musicSearch';
+import { normalizeCoverUrl } from '../../../../utils/CommonUtils';
 import { lyric } from './lyric';
 import { leaderboard } from './leaderboard';
 import { hotSearch } from './hotSearch';
@@ -38,7 +39,7 @@ export class MiguMusicSource extends AbstractMusicSource {
   }
 
   getPic(songInfo: MusicInfo): Promise<string> {
-    return Promise.resolve(songInfo.img || '');
+    return Promise.resolve(normalizeCoverUrl(songInfo.img || ''));
   }
 
   getMusicUrl(songInfo: MusicInfo, quality: string): Promise<MusicUrlResult> {

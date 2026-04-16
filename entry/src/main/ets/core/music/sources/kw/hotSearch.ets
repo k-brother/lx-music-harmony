@@ -1,5 +1,9 @@
+import hilog from '@ohos.hilog';
 import { httpRequest, type HttpRequestConfig, type HttpResponse } from '../../../../core/network/http';
 import { decodeHtmlEntities } from '../../../../utils/CommonUtils';
+
+const TAG = 'KwHotSearch';
+const DOMAIN = 0x0001;
 
 // 热门搜索项
 export interface HotSearchItem {
@@ -85,7 +89,8 @@ export const hotSearch: HotSearchInterface = {
               resolve(result);
             });
           }
-        } catch {
+        } catch (e) {
+          hilog.warn(DOMAIN, TAG, 'search parse failed: %{public}s', (e as Error)?.message);
           // 尝试备用热搜API
           hotSearch.getHotSearchFromNewApi().then((hotResult: HotSearchResult) => {
             resolve(hotResult);
@@ -149,10 +154,12 @@ export const hotSearch: HotSearchInterface = {
           } else {
             reject(new Error('Empty hot search result'));
           }
-        } catch {
+        } catch (e) {
+          hilog.warn(DOMAIN, TAG, 'getHotSearchFromNewApi parse failed: %{public}s', (e as Error)?.message);
           reject(new Error('Parse hot search failed'));
         }
-      }).catch(() => {
+      }).catch((e: Error) => {
+        hilog.warn(DOMAIN, TAG, 'getHotSearchFromNewApi request failed: %{public}s', (e as Error)?.message);
         reject(new Error('Hot search request failed'));
       });
     });

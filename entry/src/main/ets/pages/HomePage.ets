@@ -173,7 +173,8 @@ export struct HomePage {
         items.push(newItem);
       }
       this.hotSearchList = items;
-    } catch {
+    } catch (e) {
+      hilog.warn(0x0001, 'HomePage', 'loadHotSearch failed: %{public}s', (e as Error)?.message);
       if (currentEpoch !== this.hotSearchEpoch) {
         return;
       }

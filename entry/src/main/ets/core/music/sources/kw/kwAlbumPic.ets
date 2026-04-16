@@ -6,6 +6,7 @@ import type { MusicInfo } from '../../../../types/MusicTypes';
 import { httpGet, checkNetworkConnection } from '../../../../core/network/http';
 import type { HttpRequestConfig } from '../../../../core/network/http';
 import hilog from '@ohos.hilog';
+import { normalizeCoverUrl } from '../../../../utils/CommonUtils';
 
 const TAG = 'KwAlbumPic';
 const DOMAIN = 0x0001;
@@ -47,22 +48,7 @@ interface KwMobilePicData {
 
 let musicPicRequestObj: RequestObj | null = null;
 
-function normalizePicUrl(url: string): string {
-  const value = (url ?? '').trim();
-  if (value.length === 0) {
-    return '';
-  }
-  if (value.startsWith('//')) {
-    return `https:${value}`;
-  }
-  if (value.startsWith('http://')) {
-    return `https://${value.substring(7)}`;
-  }
-  if (value.startsWith('https://')) {
-    return value;
-  }
-  return '';
-}
+// normalizeCoverUrl 已移至 CommonUtils
 
 async function tryGetPicFromPrimaryApi(songmid: string): Promise<string> {
   const url = `https://www.kuwo.cn/api/www/music/pic?mid=${songmid}&size=500`;
@@ -84,7 +70,7 @@ async function tryGetPicFromPrimaryApi(songmid: string): Promise<string> {
   const data = JSON.parse(bodyText) as KwMusicPicResponse;
   const code = Number(data.code ?? 0);
   if (code === 200 && data.data && data.data.pic) {
-    return normalizePicUrl(data.data.pic);
+    return normalizeCoverUrl(data.data.pic);
   }
   return '';
 }
@@ -107,11 +93,11 @@ async function tryGetPicFromMobileApi(songmid: string): Promise<string> {
   if (!song) {
     return '';
   }
-  return normalizePicUrl(song.pic || song.pic300 || song.pic120 || song.albumpic || '');
+  return normalizeCoverUrl(song.pic || song.pic300 || song.pic120 || song.albumpic || '');
 }
 
 export async function getKwAlbumPic(songInfo: MusicInfo): Promise<string> {
-  const inlinePic = normalizePicUrl(songInfo.img || songInfo.pic || '');
+  const inlinePic = normalizeCoverUrl(songInfo.img || songInfo.pic || '');
   if (inlinePic.length > 0) {
     return inlinePic;
   }

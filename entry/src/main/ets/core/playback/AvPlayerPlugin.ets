@@ -397,9 +397,8 @@ async function setResourceUnlocked(
       await waitForMediaState(['idle'], 8000);
     }
 
-    // 设置播放URL - 如果prepare超时且是HTTP URL则尝试HTTPS
-    let useUrl = url;
-    let httpsFallback = false;
+    // 设置播放URL
+    const useUrl = url;
 
     avPlayer.url = useUrl;
     try {
@@ -416,25 +415,7 @@ async function setResourceUnlocked(
     } catch (waitErr) {
       const wm: string = waitErr instanceof Error ? waitErr.message : JSON.stringify(waitErr);
       hilog.error(DOMAIN, TAG, 'wait prepared failed: %{public}s, lastState=%{public}s', wm, lastMediaState);
-
-      // 如果HTTP URL prepare超时，尝试HTTPS
-      if (url.startsWith('http://') && !httpsFallback) {
-        hilog.info(DOMAIN, TAG, 'HTTP URL prepare timeout, trying HTTPS');
-        httpsFallback = true;
-        useUrl = 'https://' + url.substring(7);
-
-        // 重置播放器
-        await avPlayer.reset();
-        await waitForMediaState(['idle'], 8000);
-
-        // 用HTTPS URL重试
-        avPlayer.url = useUrl;
-        await waitForMediaState(['initialized'], 5000);
-        await avPlayer.prepare();
-        await waitForMediaState(['prepared'], 15000);
-      } else {
-        throw waitErr instanceof Error ? waitErr : new Error(wm);
-      }
+      throw waitErr instanceof Error ? waitErr : new Error(wm);
     }
     isPrepared = true;
     applyStoredVolumeAndSpeedAfterPrepare();

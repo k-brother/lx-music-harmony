@@ -116,7 +116,8 @@ export async function getKwMusicUrl(songInfo: MusicInfo, quality: string = '320k
           const result: MusicUrlResult = { url: data.data as string, type: quality };
           return result;
         }
-      } catch {
+      } catch (e) {
+        hilog.warn(DOMAIN, TAG, '酷我音乐API %{public}s 解析异常: %{public}s', attempt.name, (e as Error)?.message);
         const responseText = response.data as string;
         if (responseText.startsWith('http')) {
           hilog.info(DOMAIN, TAG, '酷我音乐API %{public}s 成功获取URL (直接URL)', attempt.name);

@@ -32,7 +32,8 @@ function parseVersionPayload(text: string): VersionInfo | null {
       publishTime: '',
     };
     return info;
-  } catch {
+  } catch (e) {
+    hilog.warn(DOMAIN, TAG, 'parseVersionPayload failed: %{public}s', (e as Error)?.message);
     return null;
   }
 }

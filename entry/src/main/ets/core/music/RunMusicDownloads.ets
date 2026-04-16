@@ -137,7 +137,8 @@ async function ensureDirectoryExists(filePath: string): Promise<void> {
       // 检查目录是否存在
       fs.accessSync(dirPath);
       hilog.debug(DOMAIN, TAG, '目录已存在: %{public}s', dirPath);
-    } catch {
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, '目录不存在，创建目录: %{public}s', (e as Error)?.message);
       // 目录不存在，创建它
       fs.mkdirSync(dirPath);
       hilog.info(DOMAIN, TAG, '创建目录: %{public}s', dirPath);
@@ -219,8 +220,8 @@ export async function cancelDownload(taskId: string): Promise<boolean> {
         await fs.access(task.filePath);
         await fs.unlink(task.filePath);
         hilog.info(DOMAIN, TAG, '删除部分下载文件: %{public}s', task.filePath);
-      } catch {
-        // 文件不存在，忽略
+      } catch (e) {
+        hilog.warn(DOMAIN, TAG, '删除部分下载文件失败（文件可能不存在）: %{public}s', (e as Error)?.message);
       }
     }
 
@@ -320,7 +321,8 @@ async function startActualDownload(task: DownloadTask, onProgress?: DownloadProg
     } else if (err && typeof err === 'object') {
       try {
         errorMessage = JSON.stringify(err);
-      } catch {
+      } catch (e) {
+        hilog.warn(DOMAIN, TAG, 'JSON.stringify failed: %{public}s', (e as Error)?.message);
         errorMessage = String(err);
       }
     }
@@ -546,7 +548,8 @@ export function getLyricSavePath(musicInfo: MusicInfo): string {
       .replace(/\s+/g, ' ')
       .trim();
     return `${filesDir}/lyrics/${cleanName}.lrc`;
-  } catch {
+  } catch (e) {
+    hilog.warn(DOMAIN, TAG, 'getLyricSavePath failed: %{public}s', (e as Error)?.message);
     return `/data/local/tmp/LxMusic/lyrics/${musicInfo.name} - ${musicInfo.singer}.lrc`;
   }
 }
@@ -563,7 +566,8 @@ export function getPicSavePath(musicInfo: MusicInfo): string {
       .replace(/\s+/g, ' ')
       .trim();
     return `${filesDir}/covers/${cleanName}.jpg`;
-  } catch {
+  } catch (e) {
+    hilog.warn(DOMAIN, TAG, 'getPicSavePath failed: %{public}s', (e as Error)?.message);
     return `/data/local/tmp/LxMusic/covers/${musicInfo.name} - ${musicInfo.singer}.jpg`;
   }
 }

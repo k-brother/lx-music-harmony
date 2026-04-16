@@ -126,6 +126,7 @@ export class PlayerService {
   private volume: number = 1.0;
   private playbackRate: number = 1.0;
   private progressTimer: number = -1;
+  private progressFailCount: number = 0;
 
   // 事件监听器数组
   private stateListeners: StateChangeListener[] = [];
@@ -185,15 +186,23 @@ export class PlayerService {
   // 启动进度定时器（轮询 AvPlayerPlugin）
   private startProgressTimer(): void {
     this.stopProgressTimer();
+    this.progressFailCount = 0;
     this.progressTimer = setInterval(() => {
       if (this.currentStatus === 'playing') {
         void (async (): Promise<void> => {
           try {
             const posSec = await avGetPosition();
             const durSec = await avGetDuration();
+            this.progressFailCount = 0;
             this.notifyProgress(posSec, durSec);
-          } catch {
-            // 忽略单次轮询错误
+          } catch (e) {
+            this.progressFailCount++;
+            if (this.progressFailCount >= 5) {
+              this.stopProgressTimer();
+              hilog.warn(DOMAIN, TAG, 'Progress timer stopped after 5 consecutive failures: %{public}s', (e as Error)?.message);
+              return;
+            }
+            hilog.warn(DOMAIN, TAG, 'Progress poll failed (%{public}d/5): %{public}s', this.progressFailCount, (e as Error)?.message);
           }
         })();
       }
@@ -206,6 +215,7 @@ export class PlayerService {
       clearInterval(this.progressTimer);
       this.progressTimer = -1;
     }
+    this.progressFailCount = 0;
   }
 
   // 通知状态变化

@@ -2,7 +2,8 @@
  * 咪咕音乐 - 歌曲搜索
  */
 import { httpRequest, parseHttpBodyJson } from '../../../../core/network/http';
-import { decodeName } from '../../../../utils/CommonUtils';
+import { decodeName, formatPlayTime, normalizeCoverUrl } from '../../../../utils/CommonUtils';
+import { BaseMusicSource } from '../BaseMusicSource';
 import type { MusicInfo, SearchResult, Quality, QualityDetail, MusicQualityType } from '../../../../types/MusicTypes';
 
 const LIMIT = 30;
@@ -36,28 +37,6 @@ export interface MusicSearchInterface {
   search: (keyword: string, page: number, limit: number) => Promise<SearchResult>;
 }
 
-// 构建空搜索结果
-function buildEmptySearchResult(): SearchResult {
-  const result: SearchResult = {
-    list: [],
-    allPage: 0,
-    total: 0,
-    limit: 0,
-    source: 'mg',
-  };
-  return result;
-}
-
-/**
- * 格式化时长
- */
-function formatInterval(seconds: number): string {
-  if (!seconds) return '';
-  const m: number = Math.floor(seconds / 60);
-  const s: number = seconds % 60;
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-}
-
 /**
  * 构建歌曲信息
  */
@@ -66,7 +45,7 @@ function buildMusicInfo(rawData: MGMusicItem): MusicInfo {
   const _types: Map<Quality, QualityDetail> = new Map();
   const typeUrl: Map<string, string> = new Map();
 
-  const img: string = rawData.picUrl ? rawData.picUrl.replace(/^http:/, 'https:') : '';
+  const img: string = normalizeCoverUrl(rawData.picUrl);
 
   const musicInfo: MusicInfo = {
     name: decodeName(rawData.name),
@@ -76,7 +55,7 @@ function buildMusicInfo(rawData: MGMusicItem): MusicInfo {
     copyrightId: rawData.copyrightId,
     albumId: rawData.albumId,
     albumName: decodeName(rawData.albumName),
-    interval: formatInterval(rawData.duration),
+    interval: formatPlayTime(rawData.duration),
     img,
     lrc: null,
     otherSource: null,
@@ -103,7 +82,7 @@ export const musicSearch: MusicSearchInterface = {
       const body = parseHttpBodyJson<MGSearchResponse>(resultData);
 
       if (!body || body.returnCode !== '000000') {
-        return buildEmptySearchResult();
+        return BaseMusicSource.buildEmptySearchResult('mg');
       }
 
       const rawData: MGMusicItem[] = body.data?.contentList || [];
@@ -122,7 +101,7 @@ export const musicSearch: MusicSearchInterface = {
         source: 'mg',
       };
       return result;
-    }).catch(() => buildEmptySearchResult());
+    }).catch(() => BaseMusicSource.buildEmptySearchResult('mg'));
   },
 };
 
