@@ -13,6 +13,8 @@ import { navigationService, RouteName, NavigationParams } from '../service/Navig
 import { DownloadPage } from './DownloadPage';
 import { CommentPage } from './CommentPage';
 import { HistoryListPage } from './HistoryListPage';
+import { UserListsPage } from './UserListsPage';
+import { LoveListPage } from './LoveListPage';
 
 
 @Component
@@ -117,6 +119,24 @@ export struct NavIndex {
       .onReady((context: NavDestinationContext) => {
         const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
         hilog.info(0x0001, 'NavIndex', 'HistoryListPage onReady with params: %{public}s', JSON.stringify(params));
+      })
+    } else if (name === 'userlists') {
+      NavDestination() {
+        UserListsPage()
+      }
+      .hideTitleBar(true)
+      .onReady((context: NavDestinationContext) => {
+        const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
+        hilog.info(0x0001, 'NavIndex', 'UserListsPage onReady with params: %{public}s', JSON.stringify(params));
+      })
+    } else if (name === 'lovelist') {
+      NavDestination() {
+        LoveListPage()
+      }
+      .hideTitleBar(true)
+      .onReady((context: NavDestinationContext) => {
+        const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
+        hilog.info(0x0001, 'NavIndex', 'LoveListPage onReady with params: %{public}s', JSON.stringify(params));
       })
     }
   }

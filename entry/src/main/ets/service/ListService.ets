@@ -85,6 +85,7 @@ export async function initListService(): Promise<void> {
   try {
     // 从存储加载列表数据
     await loadLists();
+    notifyListeners('__init__');
     hilog.info(DOMAIN, TAG, 'ListService initialized');
   } catch (err) {
     hilog.error(DOMAIN, TAG, 'Failed to init list: %{public}s', JSON.stringify(err));
@@ -140,7 +141,21 @@ async function loadLists(): Promise<void> {
         const key = `list.user.${info.id}`;
         const musicData = await StorageService.getString(key, '');
         if (musicData) {
-          listState.userListMusic.set(info.id, JSON.parse(musicData) as MusicItem[]);
+          try {
+            const parsed = JSON.parse(musicData) as Object;
+            const asRecord = parsed as Record<string, Object>;
+            if (Array.isArray(parsed)) {
+              listState.userListMusic.set(info.id, parsed as MusicItem[]);
+            } else if (Array.isArray(asRecord['music'])) {
+              listState.userListMusic.set(info.id, asRecord['music'] as MusicItem[]);
+            } else {
+              listState.userListMusic.set(info.id, []);
+            }
+          } catch (_e) {
+            listState.userListMusic.set(info.id, []);
+          }
+        } else {
+          listState.userListMusic.set(info.id, []);
         }
       }
     } catch (e) {
@@ -347,6 +362,20 @@ export async function deleteUserList(listId: string): Promise<void> {
   }
 }
 
+/**
+ * 重命名用户列表
+ */
+export async function renameUserList(listId: string, newName: string): Promise<void> {
+  const info = findListInfoById(listState.userList, listId);
+  if (info) {
+    info.name = newName;
+    info.updateTime = Date.now();
+    const data = JSON.stringify({ info: listState.userList });
+    await StorageService.setString(StorageService.StorageKeys.LIST_USER, data);
+    notifyListeners(listId);
+  }
+}
+
 function findListIndexById(list: ListInfo[], id: string): number {
   for (let i = 0; i < list.length; i++) {
     if (list[i].id === id) {
@@ -484,6 +513,7 @@ export interface ListServiceInterface {
   removeMusicFromList: (listId: string, musicId: string) => Promise<void>;
   createUserList: (name: string) => Promise<ListInfo>;
   deleteUserList: (listId: string) => Promise<void>;
+  renameUserList: (listId: string, newName: string) => Promise<void>;
   setPlayList: (listId: string | null, music: MusicItem[]) => void;
   getPlayList: () => PlayListResult;
   setPlayIndex: (index: number) => void;
@@ -507,6 +537,7 @@ const listService: ListServiceInterface = {
   removeMusicFromList,
   createUserList,
   deleteUserList,
+  renameUserList,
   setPlayList,
   getPlayList,
   setPlayIndex,

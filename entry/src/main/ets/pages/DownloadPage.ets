@@ -462,6 +462,7 @@ export struct DownloadPage {
               .maxLines(2)
           }
         }
+        .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
 
         if (!this.isSelectMode) {
@@ -596,8 +597,6 @@ export struct DownloadPage {
       }
     }
     .width('100%')
-    .constraintSize({ minHeight: 280 })
-    .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
   }
 
@@ -634,8 +633,10 @@ export struct DownloadPage {
           }
         }
         .width('100%')
+        .alignItems(HorizontalAlign.Start)
         .padding({ top: 8, bottom: 24 })
       }
+      .align(Alignment.TopStart)
       .layoutWeight(1)
       .backgroundColor(DesignTokens.pageBg(this.theme))
     }

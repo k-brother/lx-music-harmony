@@ -5,6 +5,7 @@ import { navigationService, RouteName } from '../../service/NavigationService';
 import preferences from '@ohos.data.preferences';
 import { common } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
+import { Environment } from '@kit.CoreFileKit';
 import hilog from '@ohos.hilog';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { backupService, BackupDataType } from '../../service/BackupService';
@@ -22,10 +23,11 @@ import {
   MusicItem
 } from '../../service/ListService';
 import { clearPlayHistory as clearPlayHistoryStore } from '../../service/PlayHistoryService';
-import { loadCustomSource } from '../../core/music/MusicFeatureEntry';
+import { loadCustomSource, setMaxConcurrentDownloads } from '../../core/music/MusicFeatureEntry';
 
 const TAG = 'SETTING';
 const DOMAIN = 0x0001;
+const DEFAULT_DOWNLOAD_DIR = '/storage/Users/currentUser/Download';
 
 // 导出歌单 JSON 中单条歌单结构
 interface ExportedPlaylistRow {
@@ -87,6 +89,10 @@ interface PromptPickResult {
   index: number;
 }
 
+interface ActionMenuResult {
+  index: number;
+}
+
 @Component
 export struct SettingView {
   @StorageProp('theme') theme: string = 'light';
@@ -125,9 +131,9 @@ export struct SettingView {
   @State sourceImportUrl: string = '';
   @State sourceImportLoading: boolean = false;
   @State sourceImportError: string = '';
-  @State downloadPath: string = '/storage/emulated/0/Download/LxMusic';
+  @State downloadPath: string = '';
   @State autoStartDownload: boolean = true;
-  @State maxConcurrentDownloads: number = 3;
+  @State maxConcurrentDownloads: number = 1;
 
   aboutToAppear() {
     void this.loadSettings();
@@ -223,9 +229,18 @@ export struct SettingView {
     try {
       const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
       const pref = await preferences.getPreferences(context, 'download_settings');
-      this.downloadPath = await pref.get('downloadPath', '/storage/emulated/0/Download/LxMusic') as string;
+      const fallbackPath = this.getDefaultDownloadPath(context);
+      const storedPathRaw = await pref.get('downloadPath', fallbackPath) as string;
+      const storedPath = (storedPathRaw || '').trim();
+      // 只接受 docs:// URI 格式的路径，否则使用默认
+      this.downloadPath = (!storedPath || storedPath.length === 0) ? fallbackPath : storedPath;
+      if (this.downloadPath !== storedPath) {
+        await pref.put('downloadPath', this.downloadPath);
+      }
       this.autoStartDownload = await pref.get('autoStartDownload', true) as boolean;
-      this.maxConcurrentDownloads = await pref.get('maxConcurrentDownloads', 3) as number;
+      const concurrent = await pref.get('maxConcurrentDownloads', 1) as number;
+      this.maxConcurrentDownloads = Math.min(Math.max(concurrent, 1), 3);
+      setMaxConcurrentDownloads(this.maxConcurrentDownloads);
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to load download settings: %{public}s', JSON.stringify(err));
     }
@@ -235,6 +250,9 @@ export struct SettingView {
     try {
       const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
       const pref = await preferences.getPreferences(context, 'download_settings');
+      if (!this.downloadPath || this.downloadPath.trim().length === 0) {
+        this.downloadPath = this.getDefaultDownloadPath(context);
+      }
       await pref.put('downloadPath', this.downloadPath);
       await pref.put('autoStartDownload', this.autoStartDownload);
       await pref.put('maxConcurrentDownloads', this.maxConcurrentDownloads);
@@ -242,6 +260,19 @@ export struct SettingView {
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to save download settings: %{public}s', JSON.stringify(err));
     }
+  }
+
+  private getDefaultDownloadPath(context: common.UIAbilityContext): string {
+    // 返回“我的手机/Download”的系统真实路径
+    try {
+      const systemDir = Environment.getUserDownloadDir();
+      if (systemDir && systemDir.trim().length > 0) {
+        return systemDir;
+      }
+    } catch (_err) {
+      // ignore and fallback
+    }
+    return DEFAULT_DOWNLOAD_DIR;
   }
 
   async saveThemeSetting() {
@@ -643,95 +674,70 @@ export struct SettingView {
 
   private async selectDownloadPath(): Promise<void> {
     try {
-      const pathOptions = [
-        '/storage/emulated/0/Download/LxMusic',
-        '/storage/emulated/0/Music/LxMusic',
-        '/storage/emulated/0/DCIM/LxMusic'
-      ];
-      const selectedPath = await this.showPathSelector('选择下载路径', pathOptions);
-      if (selectedPath) {
-        this.downloadPath = selectedPath;
-        await this.saveDownloadSettings();
-        this.showToast('下载路径已更新');
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const picker = new filePicker.DocumentViewPicker(context);
+      const saveOptions = new filePicker.DocumentSaveOptions();
+      saveOptions.newFileNames = ['lxmusic-folder-marker.tmp'];
+      const saveUris = await picker.save(saveOptions);
+      if (!saveUris || saveUris.length === 0) {
+        this.showToast('已取消选择');
+        return;
       }
+      const selectedUri = saveUris[0];
+      // 尝试清理占位文件（失败不阻塞）。
+      try {
+        await fs.unlink(selectedUri);
+      } catch (_e) {}
+
+      // 提取 docs:// URI 的目录部分（去掉文件名）
+      let dirUri = selectedUri;
+      const lastSlash = dirUri.lastIndexOf('/');
+      if (lastSlash > 0) {
+        dirUri = dirUri.substring(0, lastSlash);
+      }
+
+      this.downloadPath = dirUri;
+      await this.saveDownloadSettings();
+      this.showToast('下载保存位置已更新');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
       this.showToast('选择下载路径失败: ' + errorMsg);
     }
   }
 
-  private showPathSelector(title: string, options: string[]): Promise<string | null> {
-    const shortLabel = (opt: string): string => {
-      return opt.length > 36 ? opt.substring(0, 33) + '…' : opt;
-    };
-    const c1 = DesignTokens.labelPrimary(this.theme);
-    const c2 = DesignTokens.labelTertiary(this.theme);
-    return new Promise((resolve: (v: string | null) => void) => {
-      this.getUIContext().getPromptAction().showActionMenu({
-        title: title,
-        buttons: [
-          { text: shortLabel(options[0]), color: c1 },
-          { text: shortLabel(options[1]), color: c1 },
-          { text: shortLabel(options[2]), color: c1 },
-          { text: '取消', color: c2 },
-        ],
-      }, (err: BusinessError, data: PromptPickResult) => {
-        if (err) {
-          resolve(null);
-          return;
-        }
-        const ix = data.index;
-        if (ix >= 0 && ix < options.length) {
-          resolve(options[ix]);
-        } else {
-          resolve(null);
-        }
-      });
-    });
-  }
-
   private async selectMaxConcurrentDownloads(): Promise<void> {
     try {
-      const countOptions = [1, 2, 3, 5, 10];
-      const selectedCount = await this.showCountSelector('选择同时下载数量', countOptions);
+      const countOptions = [1, 2, 3];
+      const selectedCount = await new Promise<number | null>((resolve: (v: number | null) => void) => {
+        this.getUIContext().getPromptAction().showActionMenu({
+          title: '同时下载数量',
+          buttons: [
+            { text: `${this.maxConcurrentDownloads === 1 ? '✓ ' : ''}1 个任务`, color: DesignTokens.labelPrimary(this.theme) },
+            { text: `${this.maxConcurrentDownloads === 2 ? '✓ ' : ''}2 个任务`, color: DesignTokens.labelPrimary(this.theme) },
+            { text: `${this.maxConcurrentDownloads === 3 ? '✓ ' : ''}3 个任务`, color: DesignTokens.labelPrimary(this.theme) },
+            { text: '取消', color: DesignTokens.labelTertiary(this.theme) },
+          ],
+        }, (err: BusinessError, data: ActionMenuResult) => {
+          if (err || data.index < 0 || data.index >= countOptions.length) {
+            resolve(null);
+            return;
+          }
+          resolve(countOptions[data.index]);
+        });
+      });
       if (selectedCount !== null) {
+        if (selectedCount === this.maxConcurrentDownloads) {
+          return;
+        }
         this.maxConcurrentDownloads = selectedCount;
         await this.saveDownloadSettings();
+        setMaxConcurrentDownloads(selectedCount);
         this.showToast(`同时下载数量已设置为: ${selectedCount}`);
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
       this.showToast('设置同时下载数量失败: ' + errorMsg);
     }
-  }
-
-  private showCountSelector(title: string, options: number[]): Promise<number | null> {
-    const c1 = DesignTokens.labelPrimary(this.theme);
-    const c2 = DesignTokens.labelTertiary(this.theme);
-    return new Promise((resolve: (v: number | null) => void) => {
-      this.getUIContext().getPromptAction().showActionMenu({
-        title: title,
-        buttons: [
-          { text: `${options[0]} 个`, color: c1 },
-          { text: `${options[1]} 个`, color: c1 },
-          { text: `${options[2]} 个`, color: c1 },
-          { text: `${options[3]} 个`, color: c1 },
-          { text: `${options[4]} 个`, color: c1 },
-          { text: '取消', color: c2 },
-        ],
-      }, (err: BusinessError, data: PromptPickResult) => {
-        if (err) {
-          resolve(null);
-          return;
-        }
-        const ix = data.index;
-        if (ix >= 0 && ix < options.length) {
-          resolve(options[ix]);
-        } else {
-          resolve(null);
-        }
-      });
-    });
   }
 
   private buildListSettings(): SettingSectionItem[] {

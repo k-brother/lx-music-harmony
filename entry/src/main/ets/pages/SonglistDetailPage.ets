@@ -3,13 +3,13 @@
 
 import hilog from '@ohos.hilog';
 import { PlayerBar } from '../components/player/PlayerBar';
-import { getSongListDetail, getMusicUrl, type SongListDetailResult } from '../core/music/MusicFeatureEntry';
+import { getSongListDetail, getMusicUrl, setDownloadContext, download, type SongListDetailResult } from '../core/music/MusicFeatureEntry';
 import { NavigationParams } from '../service/NavigationService';
 import { playerService, SongInfo } from '../service/PlayerService';
 import { navigationService } from '../service/NavigationService';
 import preferences from '@ohos.data.preferences';
 import { common } from '@kit.AbilityKit';
-import { addMusicToList, LIST_IDS, MusicItem } from '../service/ListService';
+import { addMusicToList, getUserList, getUserListMusic, LIST_IDS, MusicItem, ListInfo } from '../service/ListService';
 import type { MusicInfo, MusicSource } from '../types/MusicTypes';
 import { DesignTokens } from '../theme/DesignTokens';
 import { NavBackButton } from '../components/common/NavBackButton';
@@ -85,6 +85,9 @@ export struct SonglistDetailPage {
 
   aboutToAppear() {
     hilog.info(0x0001, 'SonglistDetail', 'SonglistDetailPage appearing');
+    // 初始化下载上下文
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    setDownloadContext(context);
     // 防止重复加载
     if (this.detailLoaded) {
       hilog.info(0x0001, 'SonglistDetail', 'Detail already loaded, skipping');
@@ -371,6 +374,12 @@ export struct SonglistDetailPage {
   async loadSonglistDetail(source: string, id: string) {
     hilog.info(0x0001, 'SonglistDetail', 'Loading detail for source: %{public}s, id: %{public}s', source, id);
     this.isLoading = true;
+    this.hasError = false;
+
+    if (source === 'local') {
+      this.loadLocalSonglistDetail(id);
+      return;
+    }
 
     // 检查是否支持该源的歌单详情
     const supportedSources = ['kw', 'tx', 'kg', 'wy', 'mg'];
@@ -427,6 +436,59 @@ export struct SonglistDetailPage {
       this.detailLoaded = true;
     } catch (err) {
       hilog.error(0x0001, 'SonglistDetail', 'Failed to load song list detail: %{public}s', JSON.stringify(err));
+      this.hasError = true;
+      this.detailLoaded = false;
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  private loadLocalSonglistDetail(id: string): void {
+    try {
+      const listInfo: ListInfo | undefined = getUserList().find((item: ListInfo) => item.id === id);
+      if (!listInfo) {
+        hilog.warn(0x0001, 'SonglistDetail', 'Local list not found: %{public}s', id);
+        this.hasError = true;
+        this.detailLoaded = false;
+        return;
+      }
+
+      const localSongs: MusicItem[] = getUserListMusic(id);
+      this.listInfo = {
+        source: 'local',
+        id: listInfo.id,
+        name: listInfo.name,
+        creator: '本地歌单',
+        pic: listInfo.pic || (localSongs[0]?.pic ?? ''),
+        desc: listInfo.desc || '',
+        playCount: 0,
+      };
+      this.listCoverLoadFailed = false;
+
+      const items: SongItem[] = [];
+      for (let i = 0; i < localSongs.length; i++) {
+        const song = localSongs[i];
+        items.push({
+          id: song.id || '',
+          name: song.name || '',
+          singer: song.singer || '',
+          album: song.album || '',
+          duration: song.duration || 0,
+          isPlaying: false,
+          source: song.source || 'local',
+          pic: song.pic || '',
+          albumId: song.albumId || '',
+          songmid: song.id || '',
+          hash: '',
+          strMediaMid: '',
+          copyrightId: '',
+        });
+      }
+
+      this.songList = items;
+      this.detailLoaded = true;
+    } catch (err) {
+      hilog.error(0x0001, 'SonglistDetail', 'Failed to load local song list: %{public}s', JSON.stringify(err));
       this.hasError = true;
       this.detailLoaded = false;
     } finally {
@@ -837,116 +899,17 @@ export struct SonglistDetailPage {
   private async downloadSong(song: SongItem): Promise<void> {
     try {
       const musicInfo: MusicInfo = this.buildMusicInfoForDownload(song);
-      const urlStr: string | null = await getMusicUrl({
+      // 使用真实的下载服务
+      const taskId = await download.startDownload({
         musicInfo: musicInfo,
         quality: '128k',
-        isRefresh: false,
-        onToggleSource: null,
-        allowToggleSource: true,
       });
-      
-      if (!urlStr || urlStr.length === 0) {
-        throw new Error('无法获取音乐URL');
-      }
-      
-      const downloadTask: DownloadTask = {
-        id: `${song.id}-${Date.now()}`,
-        songId: song.id,
-        songName: song.name,
-        singer: song.singer,
-        album: song.album,
-        source: song.source,
-        url: urlStr,
-        quality: '128k',
-        status: 'pending',
-        progress: 0,
-        createTime: Date.now()
-      };
-      
-      await this.saveDownloadTask(downloadTask);
-      await this.startDownload(downloadTask);
-      
-      hilog.info(0x0001, 'SonglistDetail', 'Download task created: %{public}s', song.name);
-      
+      hilog.info(0x0001, 'SonglistDetail', 'Download started: %{public}s, taskId: %{public}s', song.name, taskId);
     } catch (err) {
       hilog.error(0x0001, 'SonglistDetail', 'Failed to download song %{public}s: %{public}s',
         song.name, JSON.stringify(err));
       const msg = err instanceof Error ? err.message : JSON.stringify(err);
       throw new Error(msg);
-    }
-  }
-
-  // 保存下载任务
-  private async saveDownloadTask(task: DownloadTask): Promise<void> {
-    try {
-      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-      const pref = await preferences.getPreferences(context, 'music_downloads');
-      
-      // 获取现有下载任务
-      const tasksJson = await pref.get('tasks', '[]') as string;
-      const tasks = JSON.parse(tasksJson) as DownloadTask[];
-      
-      // 添加新任务
-      tasks.push(task);
-      
-      // 保存任务列表
-      await pref.put('tasks', JSON.stringify(tasks));
-      await pref.flush();
-      
-      hilog.info(0x0001, 'SonglistDetail', 'Download task saved: %{public}s', task.id);
-    } catch (err) {
-      hilog.error(0x0001, 'SonglistDetail', 'Failed to save download task: %{public}s', JSON.stringify(err));
-      const msg = err instanceof Error ? err.message : JSON.stringify(err);
-      throw new Error(msg);
-    }
-  }
-
-  // 开始下载（模拟实现）
-  private async startDownload(task: DownloadTask): Promise<void> {
-    // 启动下载服务
-    hilog.info(0x0001, 'SonglistDetail', 'Starting download: %{public}s', task.songName);
-    
-    try {
-      // TODO: 调用真实的下载服务
-      await new Promise<void>((resolve: () => void) => {
-        setTimeout((): void => {
-          resolve();
-        }, 1000);
-      });
-      
-      await this.updateDownloadTaskStatus(task.id, 'completed', 100);
-      
-      hilog.info(0x0001, 'SonglistDetail', 'Download completed: %{public}s', task.songName);
-    } catch (error) {
-      hilog.error(0x0001, 'SonglistDetail', 'Download failed: %{public}s', JSON.stringify(error));
-      await this.updateDownloadTaskStatus(task.id, 'failed', 0);
-    }
-  }
-
-  // 更新下载任务状态
-  private async updateDownloadTaskStatus(taskId: string, status: DownloadTaskStatus, progress: number): Promise<void> {
-    try {
-      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-      const pref = await preferences.getPreferences(context, 'music_downloads');
-      
-      // 获取现有下载任务
-      const tasksJson = await pref.get('tasks', '[]') as string;
-      const tasks = JSON.parse(tasksJson) as DownloadTask[];
-      
-      // 更新任务状态
-      const taskIndex = tasks.findIndex(t => t.id === taskId);
-      if (taskIndex !== -1) {
-        tasks[taskIndex].status = status;
-        tasks[taskIndex].progress = progress;
-        
-        // 保存更新后的任务列表
-        await pref.put('tasks', JSON.stringify(tasks));
-        await pref.flush();
-        
-        hilog.info(0x0001, 'SonglistDetail', 'Download task updated: %{public}s - %{public}s', taskId, status);
-      }
-    } catch (err) {
-      hilog.error(0x0001, 'SonglistDetail', 'Failed to update download task: %{public}s', JSON.stringify(err));
     }
   }
 

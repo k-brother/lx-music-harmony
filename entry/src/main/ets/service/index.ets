@@ -10,6 +10,7 @@ import { default as listService, initListService, LIST_IDS, getDefaultList, getL
 import { default as eventBus, EventTypes, on, once, off, emit, clear, emitPlayStateChanged, emitPlayProgressChanged, emitPlayMusicChanged, emitSearchStarted, emitSearchCompleted, emitListUpdated, emitThemeChanged, emitError, emitToast, EventBusInterface } from './EventBus';
 import { playerService, PlayStatus, SongInfo, MusicInfo, ProgressInfo, PlayerService } from './PlayerService';
 import { navigationService, RouteName, NavigationService } from './NavigationService';
+import { initDownloadService } from '../core/music/MusicFeatureEntry';
 
 // HTTP服务（统一从 core/network/http 导出）
 export { httpRequest, httpGet, httpPost } from '../core/network/http';
@@ -44,6 +45,9 @@ export async function initAllServices(): Promise<void> {
 
   // 初始化列表
   await initListService();
+
+  // 初始化下载服务（加载下载历史）
+  await initDownloadService();
 
   // 初始化播放器
   await playerService.init();

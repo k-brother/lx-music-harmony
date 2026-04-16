@@ -328,6 +328,8 @@ export {
   downloadLyric,
   downloadPic,
   setDownloadContext,
+  setMaxConcurrentDownloads,
+  initDownloadService,
   createDownloadTask,
   DownloadTask,
   DownloadStatus,

@@ -273,9 +273,7 @@ export struct MylistView {
         $r('sys.symbol.heart_fill'),
         DesignTokens.accent(),
         () => {
-          if (this.loveList) {
-            this.navigateToList(this.loveList.id, '我喜欢的', 'local');
-          }
+          navigationService.navigateTo(RouteName.LOVE_LIST);
         }
       )
       this.LibraryQuickCard(
@@ -285,15 +283,6 @@ export struct MylistView {
         DesignTokens.labelSecondary(this.theme),
         () => {
           this.openHistoryList();
-        }
-      )
-      this.LibraryQuickCard(
-        '自建歌单',
-        `${this.userLists.length} 个`,
-        $r('sys.symbol.folder'),
-        DesignTokens.labelSecondary(this.theme),
-        () => {
-          this.toast('在下方歌单库中管理自建歌单');
         }
       )
     }
@@ -333,6 +322,66 @@ export struct MylistView {
     .borderRadius(DesignTokens.radiusCard())
     .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
     .onClick(onClick)
+  }
+
+  @Builder
+  LoveListSection() {
+    Column() {
+      Row() {
+        Column() {
+          Text('我喜欢的')
+            .fontSize(20)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(DesignTokens.labelPrimary(this.theme))
+          Text('收藏的歌曲')
+            .fontSize(12)
+            .fontColor(DesignTokens.labelTertiary(this.theme))
+            .margin({ top: 4 })
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+
+        if (this.loveList && this.loveList.musicList.length > 0) {
+          Row({ space: 2 }) {
+            Text('查看全部')
+              .fontSize(13)
+              .fontColor(DesignTokens.accent())
+              .fontWeight(FontWeight.Medium)
+              .padding({ left: 10, right: 10, top: 6, bottom: 6 })
+              .onClick(() => {
+                navigationService.navigateTo(RouteName.LOVE_LIST);
+              })
+          }
+        }
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      if (!this.loveList || this.loveList.musicList.length === 0) {
+        Column() {
+          Text('暂无收藏歌曲')
+            .fontSize(14)
+            .fontColor(DesignTokens.labelSecondary(this.theme))
+          Text('播放时点击心形按钮收藏')
+            .fontSize(12)
+            .fontColor(DesignTokens.labelTertiary(this.theme))
+            .margin({ top: 6 })
+        }
+        .width('100%')
+        .padding({ top: 20, bottom: 18 })
+        .alignItems(HorizontalAlign.Center)
+      } else {
+        Column({ space: 0 }) {
+          ForEach(this.loveList.musicList.slice(0, 6), (song: MyListSongRow, index: number) => {
+            this.HistorySongRow(song, index)
+          }, (song: MyListSongRow, index: number) => `${song.id}_${song.source}_${index}`)
+        }
+        .width('100%')
+        .margin({ top: 10 })
+      }
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 8, bottom: 8 })
   }
 
   @Builder
@@ -473,25 +522,35 @@ export struct MylistView {
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
 
-      Button({ type: ButtonType.Capsule }) {
-        Row({ space: 6 }) {
-          Image($r('app.media.ic_common_create'))
-            .width(16)
-            .height(16)
-            .fillColor(Color.White)
-          Text('新建')
-            .fontSize(14)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(Color.White)
+      Row({ space: 8 }) {
+        Text('查看全部')
+          .fontSize(13)
+          .fontColor(DesignTokens.accent())
+          .fontWeight(FontWeight.Medium)
+          .padding({ left: 8, right: 8, top: 4, bottom: 4 })
+          .onClick(() => {
+            navigationService.navigateTo(RouteName.USER_LISTS);
+          })
+        Button({ type: ButtonType.Capsule }) {
+          Row({ space: 4 }) {
+            Image($r('app.media.ic_common_create'))
+              .width(14)
+              .height(14)
+              .fillColor(Color.White)
+            Text('新建')
+              .fontSize(13)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(Color.White)
+          }
         }
+        .height(30)
+        .padding({ left: 10, right: 10 })
+        .backgroundColor(DesignTokens.accent())
+        .onClick(() => {
+          this.newListName = '';
+          this.showCreateSheet = true;
+        })
       }
-      .height(36)
-      .padding({ left: 14, right: 14 })
-      .backgroundColor(DesignTokens.accent())
-      .onClick(() => {
-        this.newListName = '';
-        this.showCreateSheet = true;
-      })
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 16, bottom: 8 })
@@ -559,7 +618,11 @@ export struct MylistView {
     .borderRadius(DesignTokens.radiusCard())
     .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
     .onClick(() => {
-      this.navigateToList(list.id, list.name, 'local');
+      navigationService.navigateTo(RouteName.SONGLIST_DETAIL, {
+        songListId: list.id,
+        songListName: list.name,
+        songListSource: 'local',
+      });
     })
   }
 
@@ -586,6 +649,7 @@ export struct MylistView {
               if (this.loveList) {
                 this.LibraryHero()
               }
+              this.LoveListSection()
               this.HistorySection()
               this.SectionHeader()
 

@@ -19,6 +19,10 @@ export enum RouteName {
   /** 关于页「测试功能」内：下载链路调试 */
   DOWNLOAD_TEST = 'downloadtest',
   COMMENT = 'comment',
+  /** 自建歌单管理页 */
+  USER_LISTS = 'userlists',
+  /** 我喜欢的列表页 */
+  LOVE_LIST = 'lovelist',
 }
 
 // 导航参数类型

@@ -452,6 +452,7 @@ export struct SongListView {
           }
           .width('100%')
         }
+        .align(Alignment.TopStart)
         .layoutWeight(1)
         .width('100%')
         .scrollable(ScrollDirection.Vertical)
