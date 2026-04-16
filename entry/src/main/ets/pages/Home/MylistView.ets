@@ -51,7 +51,6 @@ export struct MylistView {
   @State showCreateSheet: boolean = false;
   @State newListName: string = '';
   @State playHistory: MyListSongRow[] = [];
-  @State showAllHistory: boolean = false;
   private listUnsubscribe: (() => void) | null = null;
 
   aboutToAppear() {
@@ -166,7 +165,6 @@ export struct MylistView {
       }
       await clearPlayHistory();
       this.playHistory = [];
-      this.showAllHistory = false;
       this.toast('已清空试听列表');
     } catch (e) {
       hilog.warn(0x0001, 'MylistView', 'clear history failed: %{public}s', JSON.stringify(e));
@@ -262,6 +260,10 @@ export struct MylistView {
     }
   }
 
+  private openHistoryList(): void {
+    navigationService.navigateTo(RouteName.HISTORY_LIST);
+  }
+
   @Builder
   LibraryHero() {
     Row({ space: 10 }) {
@@ -282,7 +284,7 @@ export struct MylistView {
         $r('sys.symbol.music_note_list'),
         DesignTokens.labelSecondary(this.theme),
         () => {
-          this.showAllHistory = true;
+          this.openHistoryList();
         }
       )
       this.LibraryQuickCard(
@@ -352,13 +354,13 @@ export struct MylistView {
 
         if (this.playHistory.length > 0) {
           Row({ space: 2 }) {
-            Text(this.showAllHistory ? '收起' : '查看全部')
+            Text('查看全部')
               .fontSize(13)
               .fontColor(DesignTokens.accent())
               .fontWeight(FontWeight.Medium)
               .padding({ left: 10, right: 10, top: 6, bottom: 6 })
               .onClick(() => {
-                this.showAllHistory = !this.showAllHistory;
+                this.openHistoryList();
               })
             Text('清空')
               .fontSize(13)
@@ -388,7 +390,7 @@ export struct MylistView {
         .alignItems(HorizontalAlign.Center)
       } else {
         Column({ space: 0 }) {
-          ForEach(this.showAllHistory ? this.playHistory : this.playHistory.slice(0, 6), (song: MyListSongRow, index: number) => {
+          ForEach(this.playHistory.slice(0, 6), (song: MyListSongRow, index: number) => {
             this.HistorySongRow(song, index)
           }, (song: MyListSongRow, index: number) => `${song.id}_${song.source}_${index}`)
         }
@@ -473,7 +475,7 @@ export struct MylistView {
 
       Button({ type: ButtonType.Capsule }) {
         Row({ space: 6 }) {
-          Image($r('sys.symbol.plus'))
+          Image($r('app.media.ic_common_create'))
             .width(16)
             .height(16)
             .fillColor(Color.White)

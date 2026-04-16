@@ -4,10 +4,8 @@
 import hilog from '@ohos.hilog';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { DownloadTask, DownloadStatus, download, setDownloadContext } from '../core/music/MusicFeatureEntry';
-import preferences from '@ohos.data.preferences';
 import { common } from '@kit.AbilityKit';
 import { DesignTokens } from '../theme/DesignTokens';
-import { NavBackButton } from '../components/common/NavBackButton';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'DownloadPage';
@@ -22,12 +20,8 @@ export struct DownloadPage {
   @State downloadTasks: DownloadTask[] = [];
   @State selectedTasks: Set<string> = new Set();
   @State isSelectMode: boolean = false;
-  @State downloadPath: string = '/storage/emulated/0/Download/LxMusic';
-  @State autoStartDownload: boolean = true;
-  @State maxConcurrentDownloads: number = 3;
   /** 0 全部 1 进行中 2 已完成 3 失败 */
   @State filterTabIndex: number = 0;
-  @State showDownloadSettings: boolean = false;
 
   private refreshInterval: number | null = null;
 
@@ -108,7 +102,6 @@ export struct DownloadPage {
   }
 
   aboutToAppear() {
-    this.loadDownloadSettings();
     this.setDownloadContext();
     this.refreshDownloadTasks();
     
@@ -136,45 +129,11 @@ export struct DownloadPage {
     }
   }
 
-  async loadDownloadSettings() {
-    try {
-      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-      const pref = await preferences.getPreferences(context, 'download_settings');
-      
-      this.downloadPath = await pref.get('downloadPath', '/storage/emulated/0/Download/LxMusic') as string;
-      this.autoStartDownload = await pref.get('autoStartDownload', true) as boolean;
-      this.maxConcurrentDownloads = await pref.get('maxConcurrentDownloads', 3) as number;
-      
-      hilog.info(DOMAIN, TAG, 'Download settings loaded');
-    } catch (err) {
-      hilog.error(DOMAIN, TAG, 'Failed to load download settings: %{public}s', JSON.stringify(err));
-    }
-  }
-
-  async saveDownloadSettings() {
-    try {
-      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-      const pref = await preferences.getPreferences(context, 'download_settings');
-      
-      await pref.put('downloadPath', this.downloadPath);
-      await pref.put('autoStartDownload', this.autoStartDownload);
-      await pref.put('maxConcurrentDownloads', this.maxConcurrentDownloads);
-      
-      await pref.flush();
-      hilog.info(DOMAIN, TAG, 'Download settings saved');
-    } catch (err) {
-      hilog.error(DOMAIN, TAG, 'Failed to save download settings: %{public}s', JSON.stringify(err));
-    }
-  }
-
   refreshDownloadTasks() {
     this.downloadTasks = download.getAllDownloadTasks();
   }
 
   toggleSelectMode() {
-    if (this.showDownloadSettings) {
-      this.showDownloadSettings = false;
-    }
     this.isSelectMode = !this.isSelectMode;
     if (!this.isSelectMode) {
       this.selectedTasks = new Set();
@@ -263,127 +222,66 @@ export struct DownloadPage {
   @Builder
   buildTopChrome() {
     Column() {
-      if (this.showDownloadSettings) {
-        Row() {
-          Stack() {
-            Circle({ width: 34, height: 34 })
-              .fill(DesignTokens.mutedFill(this.theme))
-            Image($r('app.media.ic_pd_back'))
-              .width(16)
-              .height(16)
-              .fillColor(DesignTokens.labelPrimary(this.theme))
+      Row() {
+        if (this.isSelectMode) {
+          Row({ space: 6 }) {
+            Text('✕')
+              .fontSize(22)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(DesignTokens.labelPrimary(this.theme))
+            Text('取消')
+              .fontSize(24)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(DesignTokens.labelPrimary(this.theme))
           }
-          .margin({ right: 8 })
+          .padding({ left: 2, right: 8, top: 8, bottom: 8 })
           .onClick(() => {
-            this.showDownloadSettings = false;
+            this.toggleSelectMode();
           })
-          Text('下载设置')
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
+        } else {
+          Text('下载')
+            .fontSize(24)
+            .fontWeight(FontWeight.Bold)
             .fontColor(DesignTokens.labelPrimary(this.theme))
-          Blank()
-            .layoutWeight(1)
         }
-        .width('100%')
-        .height(60)
-        .padding({ left: 12, right: 16, top: 8, bottom: 4 })
-        .alignItems(VerticalAlign.Center)
-        .backgroundColor(DesignTokens.chromeBar(this.theme))
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
-      } else if (this.isSelectMode) {
-        Row() {
-          Text(`已选 ${this.selectedTasks.size} 项`)
-            .fontSize(17)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-            .layoutWeight(1)
-          Text('完成')
-            .fontSize(16)
+
+        Blank()
+          .layoutWeight(1)
+
+        Row({ space: 4 }) {
+          Image($r('app.media.ic_common_multiselect'))
+            .width(14)
+            .height(14)
+            .fillColor(DesignTokens.accent())
+          Text(this.isSelectMode ? (this.isAllScopeSelected() ? '取消全选' : '全选') : '多选')
+            .fontSize(14)
             .fontWeight(FontWeight.Medium)
             .fontColor(DesignTokens.accent())
-            .onClick(() => {
-              this.toggleSelectMode();
-            })
         }
-        .width('100%')
-        .height(48)
-        .padding({ left: 16, right: 16 })
-        .alignItems(VerticalAlign.Center)
-      } else {
-        Column() {
-          Row() {
-            Column() {
-              Text('下载')
-                .fontSize(34)
-                .fontWeight(FontWeight.Bold)
-                .fontColor(DesignTokens.labelPrimary(this.theme))
-              Text('传输与缓存')
-                .fontSize(14)
-                .fontColor(DesignTokens.labelTertiary(this.theme))
-                .margin({ top: 4 })
-            }
-            .alignItems(HorizontalAlign.Start)
-            .layoutWeight(1)
-
-            Stack() {
-              Circle({ width: 34, height: 34 })
-                .fill(DesignTokens.mutedFill(this.theme))
-              Image($r('sys.symbol.gearshape'))
-                .width(18)
-                .height(18)
-                .fillColor(DesignTokens.labelSecondary(this.theme))
-            }
-            .onClick(() => {
-              this.isSelectMode = false;
-              this.selectedTasks = new Set();
-              this.showDownloadSettings = true;
-            })
+        .padding({ top: 8, bottom: 8, left: 12, right: 12 })
+        .backgroundColor(DesignTokens.accentSoft(this.theme))
+        .borderRadius(16)
+        .onClick(() => {
+          if (this.isSelectMode) {
+            this.selectAllTasks();
+          } else {
+            this.toggleSelectMode();
           }
-          .width('100%')
-          .padding({ left: 16, right: 16, top: 10, bottom: 6 })
-          .alignItems(VerticalAlign.Center)
-
-          Text('传输队列')
-            .fontSize(13)
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-            .width('100%')
-            .padding({ left: 16, right: 16, top: 2, bottom: 6 })
-
-          Column() {
-            this.buildSegmentStrip()
-          }
-          .width('100%')
-          .backgroundColor(DesignTokens.card(this.theme))
-          .borderRadius(DesignTokens.radiusCard())
-          .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
-          .margin({ left: 12, right: 12, bottom: 4 })
-
-          Row() {
-            Blank()
-              .layoutWeight(1)
-            Row({ space: 4 }) {
-              Image($r('sys.symbol.checkmark_square'))
-                .width(15)
-                .height(15)
-                .fillColor(DesignTokens.accent())
-              Text('多选')
-                .fontSize(14)
-                .fontWeight(FontWeight.Medium)
-                .fontColor(DesignTokens.accent())
-            }
-            .padding({ top: 8, bottom: 8, left: 12, right: 12 })
-            .backgroundColor(DesignTokens.accentSoft(this.theme))
-            .borderRadius(16)
-              .onClick(() => {
-                this.toggleSelectMode();
-              })
-          }
-          .width('100%')
-          .padding({ left: 8, right: 12, top: 2, bottom: 8 })
-          .alignItems(VerticalAlign.Center)
-        }
-        .width('100%')
+        })
       }
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 14, bottom: 8 })
+      .alignItems(VerticalAlign.Center)
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
+
+      Column() {
+        this.buildSegmentStrip()
+      }
+      .width('100%')
+      .backgroundColor(DesignTokens.card(this.theme))
+      .borderRadius(DesignTokens.radiusCard())
+      .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
+      .margin({ left: 12, right: 12, bottom: 8 })
     }
     .width('100%')
     .backgroundColor(DesignTokens.chromeBar(this.theme))
@@ -391,45 +289,31 @@ export struct DownloadPage {
 
   @Builder
   buildSegmentStrip() {
-    Row() {
-      this.SegmentCell(0, '全部', this.downloadTasks.length)
-      Column()
-        .width(0.5)
-        .height(36)
-        .backgroundColor(DesignTokens.cardBorder(this.theme))
-      this.SegmentCell(1, '进行中', this.countActiveTasks())
-      Column()
-        .width(0.5)
-        .height(36)
-        .backgroundColor(DesignTokens.cardBorder(this.theme))
-      this.SegmentCell(2, '已完成', this.countCompletedTasks())
-      Column()
-        .width(0.5)
-        .height(36)
-        .backgroundColor(DesignTokens.cardBorder(this.theme))
-      this.SegmentCell(3, '失败', this.countFailedTasks())
+    Row({ space: 8 }) {
+      this.FilterTabButton(0, `全部 (${this.downloadTasks.length})`)
+      this.FilterTabButton(1, `进行中 (${this.countActiveTasks()})`)
+      this.FilterTabButton(2, `已完成 (${this.countCompletedTasks()})`)
+      this.FilterTabButton(3, `失败 (${this.countFailedTasks()})`)
     }
     .width('100%')
-    .padding({ left: 12, right: 12, bottom: 4 })
-    .justifyContent(FlexAlign.SpaceEvenly)
+    .padding({ left: 12, right: 12, top: 6, bottom: 6 })
   }
 
   @Builder
-  SegmentCell(index: number, label: string, count: number) {
-    Column() {
-      Text(count.toString())
-        .fontSize(20)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(this.filterTabIndex === index ? DesignTokens.accent() : DesignTokens.labelPrimary(this.theme))
-      Text(label)
-        .fontSize(11)
-        .fontColor(DesignTokens.labelSecondary(this.theme))
-        .margin({ top: 4 })
+  FilterTabButton(index: number, text: string) {
+    Row() {
+      Text(text)
+        .fontSize(13)
+        .fontWeight(this.filterTabIndex === index ? FontWeight.Medium : FontWeight.Normal)
+        .fontColor(this.filterTabIndex === index ? DesignTokens.accent() : DesignTokens.labelSecondary(this.theme))
     }
     .layoutWeight(1)
-    .padding({ top: 10, bottom: 10 })
+    .height(36)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(VerticalAlign.Center)
     .backgroundColor(this.filterTabIndex === index ? DesignTokens.accentSoft(this.theme) : 'rgba(0,0,0,0)')
-    .borderRadius(12)
+    .border({ width: 0.5, color: this.filterTabIndex === index ? DesignTokens.accentSoft(this.theme) : DesignTokens.cardBorder(this.theme) })
+    .borderRadius(10)
     .onClick(() => {
       this.filterTabIndex = index;
     })
@@ -717,147 +601,43 @@ export struct DownloadPage {
     .alignItems(HorizontalAlign.Center)
   }
 
-  @Builder
-  buildSettings() {
-    Column() {
-      Column() {
-        Row() {
-          Column() {
-            Text('保存位置')
-              .fontSize(15)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(DesignTokens.labelPrimary(this.theme))
-            Text(this.downloadPath)
-              .fontSize(12)
-              .fontColor(DesignTokens.labelTertiary(this.theme))
-              .margin({ top: 6 })
-              .maxLines(2)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-          }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Start)
-
-          Image($r('sys.symbol.folder'))
-            .width(20)
-            .height(20)
-            .fillColor(DesignTokens.labelTertiary(this.theme))
-        }
-        .width('100%')
-        .padding({ left: 16, right: 14, top: 14, bottom: 14 })
-        .onClick(() => {
-          this.selectDownloadPath();
-        })
-
-        Divider()
-          .strokeWidth(0.5)
-          .color(DesignTokens.cardBorder(this.theme))
-          .margin({ left: 16, right: 16 })
-
-        Row() {
-          Text('自动开始下载')
-            .fontSize(15)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-            .layoutWeight(1)
-
-          Toggle({ type: ToggleType.Switch, isOn: this.autoStartDownload })
-            .onChange((isOn: boolean) => {
-              this.autoStartDownload = isOn;
-              this.saveDownloadSettings();
-            })
-        }
-        .width('100%')
-        .height(52)
-        .padding({ left: 16, right: 14 })
-
-        Divider()
-          .strokeWidth(0.5)
-          .color(DesignTokens.cardBorder(this.theme))
-          .margin({ left: 16, right: 16 })
-
-        Row() {
-          Text('同时下载数量')
-            .fontSize(15)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-            .layoutWeight(1)
-
-          Text(this.maxConcurrentDownloads.toString())
-            .fontSize(15)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(DesignTokens.labelSecondary(this.theme))
-            .margin({ right: 6 })
-
-          Image($r('sys.symbol.chevron_right'))
-            .width(14)
-            .height(14)
-            .fillColor(DesignTokens.labelTertiary(this.theme))
-        }
-        .width('100%')
-        .height(52)
-        .padding({ left: 16, right: 14 })
-        .onClick(() => {
-          this.selectMaxConcurrentDownloads();
-        })
-      }
-      .width('100%')
-      .borderRadius(DesignTokens.radiusCard())
-      .backgroundColor(DesignTokens.card(this.theme))
-      .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
-      .clip(true)
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 12, bottom: 24 })
-  }
-
   build() {
     Column() {
       this.buildTopChrome()
-      this.buildToolbar()
-
-      if (this.showDownloadSettings) {
-        Scroll() {
-          Column() {
-            this.buildSettings()
+      Scroll() {
+        Column() {
+          if (this.getFilteredTasks().length === 0) {
+            this.buildEmptyForFilter()
+          } else {
+            ForEach(this.getFilteredTasks(), (task: DownloadTask, index: number) => {
+              this.buildTaskItem(task);
+            }, (task: DownloadTask) => task.id)
           }
-          .width('100%')
-        }
-        .layoutWeight(1)
-        .backgroundColor(DesignTokens.pageBg(this.theme))
-      } else {
-        Scroll() {
-          Column() {
-            if (this.getFilteredTasks().length === 0) {
-              this.buildEmptyForFilter()
-            } else {
-              ForEach(this.getFilteredTasks(), (task: DownloadTask, index: number) => {
-                this.buildTaskItem(task);
-              }, (task: DownloadTask) => task.id)
-            }
 
-            if (this.hasAnyCompleted() && (this.filterTabIndex === 0 || this.filterTabIndex === 2)) {
-              Row() {
-                Text('清理所有已完成')
-                  .fontSize(14)
-                  .fontColor(DesignTokens.accent())
-                  .layoutWeight(1)
-                  .textAlign(TextAlign.Center)
-              }
-              .width('100%')
-              .height(48)
-              .margin({ left: 12, right: 12, top: 12 })
-              .borderRadius(DesignTokens.radiusCard())
-              .backgroundColor(DesignTokens.card(this.theme))
-              .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
-              .onClick(() => {
-                this.clearCompletedTasks();
-              })
+          if (this.hasAnyCompleted() && (this.filterTabIndex === 0 || this.filterTabIndex === 2)) {
+            Row() {
+              Text('清理所有已完成')
+                .fontSize(14)
+                .fontColor(DesignTokens.accent())
+                .layoutWeight(1)
+                .textAlign(TextAlign.Center)
             }
+            .width('100%')
+            .height(48)
+            .margin({ left: 12, right: 12, top: 12 })
+            .borderRadius(DesignTokens.radiusCard())
+            .backgroundColor(DesignTokens.card(this.theme))
+            .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
+            .onClick(() => {
+              this.clearCompletedTasks();
+            })
           }
-          .width('100%')
-          .padding({ top: 8, bottom: 24 })
         }
-        .layoutWeight(1)
-        .backgroundColor(DesignTokens.pageBg(this.theme))
+        .width('100%')
+        .padding({ top: 8, bottom: 24 })
       }
+      .layoutWeight(1)
+      .backgroundColor(DesignTokens.pageBg(this.theme))
     }
     .width('100%')
     .height('100%')
@@ -960,153 +740,6 @@ export struct DownloadPage {
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to recreate download task: %{public}s', JSON.stringify(err));
       return null;
-    }
-  }
-
-  // 选择下载路径
-  private async selectDownloadPath(): Promise<void> {
-    try {
-      hilog.info(DOMAIN, TAG, 'Selecting download path');
-      
-      // 在实际应用中，这里应该使用文件选择器选择目录
-      // 暂时使用固定路径选择对话框
-      
-      const pathOptions = [
-        '/storage/emulated/0/Download/LxMusic',
-        '/storage/emulated/0/Music/LxMusic',
-        '/storage/emulated/0/DCIM/LxMusic'
-      ];
-      
-      // 显示路径选择对话框
-      const selectedPath = await this.showPathSelector('选择下载路径', pathOptions);
-      
-      if (selectedPath) {
-        this.downloadPath = selectedPath;
-        await this.saveDownloadSettings();
-        this.showToast('下载路径已更新: ' + selectedPath);
-      } else {
-        this.showToast('已取消选择');
-      }
-      
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
-      hilog.error(DOMAIN, TAG, 'Failed to select download path: %{public}s', errorMsg);
-      this.showToast('选择下载路径失败: ' + errorMsg);
-    }
-  }
-
-  private showPathSelector(title: string, options: string[]): Promise<string | null> {
-    const shortLabel = (opt: string): string => {
-      return opt.length > 36 ? opt.substring(0, 33) + '…' : opt;
-    };
-    const c1 = DesignTokens.labelPrimary(this.theme);
-    const c2 = DesignTokens.labelTertiary(this.theme);
-    return new Promise((resolve: (v: string | null) => void) => {
-      this.getUIContext().getPromptAction().showActionMenu({
-        title: title,
-        buttons: [
-          { text: shortLabel(options[0]), color: c1 },
-          { text: shortLabel(options[1]), color: c1 },
-          { text: shortLabel(options[2]), color: c1 },
-          { text: '取消', color: c2 },
-        ],
-      }, (err: BusinessError, data: PromptPickResult) => {
-        if (err) {
-          resolve(null);
-          return;
-        }
-        const ix = data.index;
-        if (ix >= 0 && ix < options.length) {
-          resolve(options[ix]);
-        } else {
-          resolve(null);
-        }
-      });
-    });
-  }
-
-  // 选择同时下载数量
-  private async selectMaxConcurrentDownloads(): Promise<void> {
-    try {
-      hilog.info(DOMAIN, TAG, 'Selecting max concurrent downloads');
-      
-      // 可选的下载数量
-      const countOptions = [1, 2, 3, 5, 10];
-      
-      // 显示数量选择对话框
-      const selectedCount = await this.showCountSelector('选择同时下载数量', countOptions);
-      
-      if (selectedCount !== null) {
-        this.maxConcurrentDownloads = selectedCount;
-        await this.saveDownloadSettings();
-        
-        // 更新下载服务的并发数量
-        await this.updateDownloadConcurrency(selectedCount);
-        
-        this.showToast(`同时下载数量已设置为: ${selectedCount}`);
-      } else {
-        this.showToast('已取消选择');
-      }
-      
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
-      hilog.error(DOMAIN, TAG, 'Failed to select max concurrent downloads: %{public}s', errorMsg);
-      this.showToast('设置同时下载数量失败: ' + errorMsg);
-    }
-  }
-
-  private showCountSelector(title: string, options: number[]): Promise<number | null> {
-    const c1 = DesignTokens.labelPrimary(this.theme);
-    const c2 = DesignTokens.labelTertiary(this.theme);
-    return new Promise((resolve: (v: number | null) => void) => {
-      this.getUIContext().getPromptAction().showActionMenu({
-        title: title,
-        buttons: [
-          { text: `${options[0]} 个`, color: c1 },
-          { text: `${options[1]} 个`, color: c1 },
-          { text: `${options[2]} 个`, color: c1 },
-          { text: `${options[3]} 个`, color: c1 },
-          { text: `${options[4]} 个`, color: c1 },
-          { text: '取消', color: c2 },
-        ],
-      }, (err: BusinessError, data: PromptPickResult) => {
-        if (err) {
-          resolve(null);
-          return;
-        }
-        const ix = data.index;
-        if (ix >= 0 && ix < options.length) {
-          resolve(options[ix]);
-        } else {
-          resolve(null);
-        }
-      });
-    });
-  }
-
-  // 更新下载并发数量
-  private async updateDownloadConcurrency(maxConcurrent: number): Promise<void> {
-    try {
-      // 在实际应用中，这里应该更新下载服务的并发设置
-      // 暂时只记录日志
-      hilog.info(DOMAIN, TAG, 'Updated download concurrency to: %{public}d', maxConcurrent);
-      
-      // 如果有正在下载的任务超过并发数，暂停部分任务
-      const downloadingTasks = this.downloadTasks.filter(task => 
-        task.status === DownloadStatus.DOWNLOADING
-      );
-      
-      if (downloadingTasks.length > maxConcurrent) {
-        // 暂停超出并发数的任务
-        const tasksToPause = downloadingTasks.slice(maxConcurrent);
-        for (const task of tasksToPause) {
-          await download.pauseDownload(task.id);
-          hilog.info(DOMAIN, TAG, 'Paused task to maintain concurrency limit: %{public}s', task.id);
-        }
-      }
-      
-    } catch (err) {
-      hilog.error(DOMAIN, TAG, 'Failed to update download concurrency: %{public}s', JSON.stringify(err));
     }
   }
 

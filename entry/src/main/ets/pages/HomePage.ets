@@ -326,21 +326,12 @@ export struct HomePage {
           .justifyContent(FlexAlign.Center)
         } else {
           Row() {
-            Column() {
-              Text('我的')
-                .fontSize(28)
-                .fontWeight(FontWeight.Bold)
-                .fontColor(DesignTokens.labelPrimary(this.theme))
-                .letterSpacing(-0.5)
-              Text('歌单与收藏')
-                .fontSize(13)
-                .fontColor(DesignTokens.labelSecondary(this.theme))
-                .margin({ top: 2 })
-            }
-            .alignItems(HorizontalAlign.Start)
+            Text('我的')
+              .fontSize(24)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(DesignTokens.labelPrimary(this.theme))
             .layoutWeight(1)
-            .padding({ left: DesignTokens.spaceGutter() })
-            .justifyContent(FlexAlign.Center)
+              .padding({ left: DesignTokens.spaceGutter() })
 
             Text('设置')
               .fontSize(16)
@@ -706,8 +697,10 @@ export struct HomePage {
     Stack() {
       // 主界面
       Column() {
-        // 顶部音乐源TabBar（去掉状态栏间距）
-        this.TopBar()
+        // 下载页使用自身头部，避免与 Home 顶栏重复
+        if (this.currentTab !== 2) {
+          this.TopBar()
+        }
 
         // 歌单 Tab：搜索条已放入 SongListView 内垂直 Scroll 顶部，随列表上滑滚出、回顶再现
 

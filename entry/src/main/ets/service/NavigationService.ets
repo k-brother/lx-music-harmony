@@ -15,6 +15,7 @@ export enum RouteName {
   TEST_KW = 'testkw',
   SETTINGS = 'settings',
   DOWNLOAD = 'download',
+  HISTORY_LIST = 'historylist',
   /** 关于页「测试功能」内：下载链路调试 */
   DOWNLOAD_TEST = 'downloadtest',
   COMMENT = 'comment',

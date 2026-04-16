@@ -12,6 +12,7 @@ import { SettingView } from './Home/SettingView';
 import { navigationService, RouteName, NavigationParams } from '../service/NavigationService';
 import { DownloadPage } from './DownloadPage';
 import { CommentPage } from './CommentPage';
+import { HistoryListPage } from './HistoryListPage';
 
 
 @Component
@@ -94,6 +95,7 @@ export struct NavIndex {
       NavDestination() {
         DownloadPage()
       }
+      .hideTitleBar(true)
       .onReady((context: NavDestinationContext) => {
         const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
         hilog.info(0x0001, 'NavIndex', 'DownloadPage onReady with params: %{public}s', JSON.stringify(params));
@@ -106,6 +108,15 @@ export struct NavIndex {
       .onReady((context: NavDestinationContext) => {
         const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
         hilog.info(0x0001, 'NavIndex', 'CommentPage onReady with params: %{public}s', JSON.stringify(params));
+      })
+    } else if (name === 'historylist') {
+      NavDestination() {
+        HistoryListPage()
+      }
+      .hideTitleBar(true)
+      .onReady((context: NavDestinationContext) => {
+        const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
+        hilog.info(0x0001, 'NavIndex', 'HistoryListPage onReady with params: %{public}s', JSON.stringify(params));
       })
     }
   }
