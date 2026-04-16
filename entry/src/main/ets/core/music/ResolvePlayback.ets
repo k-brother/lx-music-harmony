@@ -209,6 +209,10 @@ interface LyricResultObj {
   isFromCache: boolean;
 }
 
+function getInlinePic(musicInfo: MusicInfo): string {
+  return (musicInfo.img || musicInfo.pic || '').trim();
+}
+
 function musicInfoTrace(info: MusicInfo): string {
   const singerValue = normalizeSingerText(info.singer);
   return `name=${info.name || ''},singer=${singerValue},source=${info.source || ''},id=${info.id || ''},songmid=${info.songmid || ''},hash=${info.hash || ''},copyrightId=${info.copyrightId || ''}`;
@@ -739,7 +743,7 @@ export async function getPicUrl(params: GetPicUrlParams): Promise<string> {
   }
 
   // 如果已经有封面URL，直接返回（兼容 img / pic）
-  const inlinePic = (musicInfo.img || musicInfo.pic || '').trim();
+  const inlinePic = getInlinePic(musicInfo);
   if (inlinePic.length > 0 && !isRefresh) {
     return inlinePic;
   }
@@ -754,7 +758,7 @@ export async function getPicUrl(params: GetPicUrlParams): Promise<string> {
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
     hilog.error(DOMAIN, TAG, 'getPicUrl failed: %{public}s', errMsg);
-    return (musicInfo.img || musicInfo.pic || '').trim();
+    return getInlinePic(musicInfo);
   }
 }
 
@@ -768,7 +772,7 @@ async function handleGetOnlinePicUrl(params: HandleGetOnlinePicUrlParams): Promi
   const onToggleSource = params.onToggleSource;
 
   // 如果已经有封面，直接返回（兼容 img / pic）
-  const inlinePic = (musicInfo.img || musicInfo.pic || '').trim();
+  const inlinePic = getInlinePic(musicInfo);
   if (inlinePic.length > 0 && !isRefresh) {
     return inlinePic;
   }

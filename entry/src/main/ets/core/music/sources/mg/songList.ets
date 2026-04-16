@@ -21,24 +21,33 @@ interface MgSongListModule extends SongListSdkInterface {
 const LIMIT_LIST = 30;
 const LIMIT_SONG = 10000;
 const SUCCESS_CODE = '000000';
+const defaultHeaders: Map<string, string> = new Map([
+  ['User-Agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1'],
+  ['Referer', 'https://m.music.migu.cn/'],
+]);
 
-function buildMgDefaultHeaders(): Map<string, string> {
-  const m: Map<string, string> = new Map();
-  m.set('User-Agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1');
-  m.set('Referer', 'https://m.music.migu.cn/');
-  return m;
-}
-
-const defaultHeaders: Map<string, string> = buildMgDefaultHeaders();
-
-function mgDefaultHttpLegacy(): HttpRequestConfig {
-  const opts: HttpRequestConfig = { header: defaultHeaders };
-  return opts;
+function createMgHttpConfig(): HttpRequestConfig {
+  return { header: defaultHeaders };
 }
 
 const TAGS_URL = 'https://app.c.nf.migu.cn/pc/v1.0/template/musiclistplaza-taglist/release';
 
 const cachedDetailInfo: Map<string, SongListDetailInfo> = new Map();
+
+function createEmptyDetailInfo(): SongListDetailInfo {
+  return { name: '', img: '', desc: '', author: '', play_count: '' };
+}
+
+function createEmptyDetailResult(page: number): SongListDetailResult {
+  return {
+    list: [],
+    info: createEmptyDetailInfo(),
+    total: 0,
+    source: 'mg',
+    page,
+    limit: LIMIT_SONG,
+  };
+}
 
 function getSongListUrl(sortId: string, tagId: string, page: number): string {
   if (!tagId || tagId.length === 0) {
@@ -343,7 +352,7 @@ interface MgListDetailSongsResult {
 }
 
 function fetchMgListDetailSongs(id: string, page: number): Promise<MgListDetailSongsResult> {
-  return httpRequest(getSongListDetailUrl(id, page), mgDefaultHttpLegacy()).promise.then((response) => {
+  return httpRequest(getSongListDetailUrl(id, page), createMgHttpConfig()).promise.then((response) => {
     const body = parseHttpBodyJson<MgSongListBody>(response.result as string | Object);
     const emptySongs: MgListDetailSongsResult = { list: [], page, limit: LIMIT_SONG, total: 0, source: 'mg' };
     if (!body || body.code !== SUCCESS_CODE || !body.data) {
@@ -365,11 +374,10 @@ function fetchMgListDetailMeta(id: string): Promise<SongListDetailInfo> {
   if (cached) {
     return Promise.resolve(cached);
   }
-  return httpRequest(`https://c.musicapp.migu.cn/MIGUM3.0/resource/playlist/v2.0?playlistId=${id}`, mgDefaultHttpLegacy()).promise.then((response) => {
+  return httpRequest(`https://c.musicapp.migu.cn/MIGUM3.0/resource/playlist/v2.0?playlistId=${id}`, createMgHttpConfig()).promise.then((response) => {
     const body = parseHttpBodyJson<MgPlaylistInfoBody>(response.result as string | Object);
     if (!body || body.code !== SUCCESS_CODE || !body.data) {
-      const emptyMeta: SongListDetailInfo = { name: '', img: '', desc: '', author: '', play_count: '' };
-      return emptyMeta;
+      return createEmptyDetailInfo();
     }
     const d = body.data;
     const info: SongListDetailInfo = {
@@ -386,7 +394,7 @@ function fetchMgListDetailMeta(id: string): Promise<SongListDetailInfo> {
 
 class MgSongListImpl implements MgSongListModule {
   getTags(): Promise<SongListTagsResult> {
-    return httpRequest(TAGS_URL, mgDefaultHttpLegacy()).promise.then((response) => {
+    return httpRequest(TAGS_URL, createMgHttpConfig()).promise.then((response) => {
       const body = parseHttpBodyJson<MgTagsBody>(response.result as string | Object);
       const emptyTags: SongListTagsResult = { tags: [], hotTag: [], source: 'mg' };
       if (!body || body.code !== SUCCESS_CODE || !body.data) {
@@ -401,7 +409,7 @@ class MgSongListImpl implements MgSongListModule {
 
   getList(sortId: string, tagId: string, page: number): Promise<SongListResult> {
     const url = getSongListUrl(sortId, tagId, page);
-    return httpRequest(url, mgDefaultHttpLegacy()).promise.then((response) => {
+    return httpRequest(url, createMgHttpConfig()).promise.then((response) => {
       const body = parseHttpBodyJson<MgListBody>(response.result as string | Object);
       const emptyList: SongListResult = { list: [], total: 0, page, limit: LIMIT_LIST, source: 'mg' };
       if (!body || body.code !== SUCCESS_CODE || !body.data) {
@@ -432,7 +440,6 @@ class MgSongListImpl implements MgSongListModule {
   }
 
   getListDetail(rawId: string, page: number): Promise<SongListDetailResult> {
-    const empty: SongListDetailInfo = { name: '', img: '', desc: '', author: '', play_count: '' };
     let id = rawId;
     if (/\/playlist[/?]/.test(id)) {
       const parsed = /(?:playlistId|id)=(\d+)/.exec(id);
@@ -441,15 +448,7 @@ class MgSongListImpl implements MgSongListModule {
       const m = REG_LIST_DETAIL.exec(id);
       id = m ? m[1] : id;
     } else if (/[?&:/]/.test(id)) {
-      const emptyDetail: SongListDetailResult = {
-        list: [],
-        info: empty,
-        total: 0,
-        source: 'mg',
-        page,
-        limit: LIMIT_SONG,
-      };
-      return Promise.resolve(emptyDetail);
+      return Promise.resolve(createEmptyDetailResult(page));
     }
 
     return Promise.all([
@@ -468,15 +467,7 @@ class MgSongListImpl implements MgSongListModule {
       };
       return okDetail;
     }).catch(() => {
-      const failDetail: SongListDetailResult = {
-        list: [],
-        info: empty,
-        total: 0,
-        source: 'mg',
-        page,
-        limit: LIMIT_SONG,
-      };
-      return failDetail;
+      return createEmptyDetailResult(page);
     });
   }
 
