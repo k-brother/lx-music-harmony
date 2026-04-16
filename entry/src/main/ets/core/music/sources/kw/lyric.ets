@@ -4,7 +4,7 @@
  */
 
 import hilog from '@ohos.hilog';
-import { httpRequest, type HttpRequestConfig, type HttpResponse } from '../../../../core/network/http';
+import { httpRequest, parseHttpBodyJson, type HttpRequestConfig, type HttpResponse } from '../../../../core/network/http';
 import type { MusicInfo, LyricInfo } from '../../../../types/MusicTypes';
 import { decodeHtmlEntities } from '../../../../utils/CommonUtils';
 
@@ -207,9 +207,15 @@ export const lyric: LyricModuleInterface = {
     if (!songmid || songmid.length === 0) {
       return Promise.resolve(EMPTY_LYRIC);
     }
-
-    // 方式1：通过 API 获取歌词
-    return lyric.getLyricFromApi(songmid, isGetLyricx);
+    // 先走移动端接口（稳定返回结构化 lrclist），失败后再回退到旧接口。
+    return lyric.getLyricFromMobileApi(songmid).then((mobileLyric: LyricInfo) => {
+      if (mobileLyric.lyric && mobileLyric.lyric.trim().length > 0 && !mobileLyric.lyric.includes('暂无歌词')) {
+        return mobileLyric;
+      }
+      return lyric.getLyricFromApi(songmid, isGetLyricx);
+    }).catch(() => {
+      return lyric.getLyricFromApi(songmid, isGetLyricx);
+    });
   },
 
   /**
@@ -285,7 +291,7 @@ export const lyric: LyricModuleInterface = {
     if (!songmid || songmid.length === 0) {
       return Promise.resolve(EMPTY_LYRIC);
     }
-    const url = `https://m.kuwo.cn/newh5/singles/songinfoandlrc?musicId=${songmid}`;
+    const url = `http://m.kuwo.cn/newh5/singles/songinfoandlrc?musicId=${songmid}`;
 
     return new Promise((resolve) => {
       const reqOpts2: HttpRequestConfig = {
@@ -296,9 +302,9 @@ export const lyric: LyricModuleInterface = {
 
       task.promise.then((response: HttpResponse<Object>) => {
         try {
-          const data: KwLyricApiData = JSON.parse(response.data as string) as KwLyricApiData;
+          const data = parseHttpBodyJson<KwLyricApiData>(response.data as string | Object | ArrayBuffer | undefined | null);
 
-          if (data.data && data.data.lrclist && data.data.lrclist.length > 0) {
+          if (data && data.data && data.data.lrclist && data.data.lrclist.length > 0) {
             const songInfo: KwLyricSongInfo | undefined = data.data.songinfo;
             // 构建歌词
             const tags: string[] = [
@@ -309,7 +315,7 @@ export const lyric: LyricModuleInterface = {
 
             const lrcLines: string[] = data.data.lrclist.map((item: KwLyricListItem): string => {
               const mins = Math.floor(item.time / 60);
-              const secs = (item.time % 60).toFixed(2);
+              const secs = (item.time % 60).toFixed(2).padStart(5, '0');
               return `[${mins.toString().padStart(2, '0')}:${secs}]${item.lineLyric || ''}`;
             });
 

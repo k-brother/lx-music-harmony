@@ -59,6 +59,7 @@ export struct PlayDetailPage {
   private lyricRetryTimer: number = -1;
   private coverRetryCount: number = 0;
   private lyricRetryCount: number = 0;
+  private lyricSongKey: string = '';
 
   aboutToAppear() {
     this.alive = true;
@@ -132,10 +133,7 @@ export struct PlayDetailPage {
   private normalizeCoverUrl(rawUrl: string): string {
     const url = (rawUrl ?? '').trim();
     if (!url) return '';
-    if (url.startsWith('//')) return `https:${url}`;
-    if (url.startsWith('http://') && (url.includes('kuwo.cn') || url.includes('kwcdn.kuwo.cn'))) {
-      return `https://${url.substring(7)}`;
-    }
+    if (url.startsWith('//')) return `http:${url}`;
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url;
     }
@@ -151,6 +149,48 @@ export struct PlayDetailPage {
       return false;
     }
     return value.startsWith('http://') || value.startsWith('https://') || value.startsWith('//');
+  }
+
+  private downgradeCoverUrl(url: string): string {
+    const value = (url ?? '').trim();
+    if (!value.startsWith('https://')) {
+      return '';
+    }
+    return `http://${value.substring(8)}`;
+  }
+
+  private switchToCoverTab(): void {
+    if (this.currentTab === 0) {
+      return;
+    }
+    this.currentTab = 0;
+    if (!this.canRenderCover(this.pic)) {
+      const currentMusicInfo = playerService.getCurrentMusicInfo();
+      void this.ensureCoverReady(currentMusicInfo, false);
+    }
+  }
+
+  private switchToLyricTab(): void {
+    if (this.currentTab === 1) {
+      return;
+    }
+    this.currentTab = 1;
+    const hasLyric = this.lyricTimeline.length > 0 ||
+      (this.lyricLines.length > 0 && this.lyricLines[0] !== '暂无歌词');
+    if (!hasLyric) {
+      const currentMusicInfo = playerService.getCurrentMusicInfo();
+      void this.ensureLyricReady(currentMusicInfo, false);
+    }
+  }
+
+  private buildMusicKey(info: MusicInfo): string {
+    return [
+      info?.source ?? '',
+      info?.id ?? '',
+      info?.songmid ?? '',
+      info?.name ?? '',
+      info?.singer ?? '',
+    ].join('|');
   }
 
   private applyMusicInfo(info: MusicInfo): void {
@@ -182,7 +222,7 @@ export struct PlayDetailPage {
     if (!this.alive || !info || !info.name) {
       return;
     }
-    if (!force && this.pic.trim().length > 0) {
+    if (!force && this.pic.trim().length > 0 && this.canRenderCover(this.pic)) {
       return;
     }
     const seq = ++this.picLoadSeq;
@@ -194,7 +234,9 @@ export struct PlayDetailPage {
       if (!this.alive || seq !== this.picLoadSeq) {
         return;
       }
-      const normalized = this.normalizeCoverUrl(picPath || this.pic);
+      // 优先用 getPicPath 结果，否则用已有的 pic，都没有则尝试 info 中的原始字段
+      const raw = picPath || this.pic || info.pic || info.img || '';
+      const normalized = this.normalizeCoverUrl(raw);
       if (normalized.length > 0) {
         this.pic = normalized;
         this.coverRetryCount = 0;
@@ -219,11 +261,19 @@ export struct PlayDetailPage {
 
   private async ensureLyricReady(info: MusicInfo, force: boolean): Promise<void> {
     if (!this.alive || !info || !info.name) {
-      this.lyricLines = ['暂无歌词'];
-      this.secondaryLyricLines = [];
-      this.lyricTimeline = [];
-      this.currentLyricIndex = -1;
+      if (this.lyricLines.length === 0) {
+        this.lyricLines = ['暂无歌词'];
+      }
       return;
+    }
+    const targetKey = this.buildMusicKey(info);
+    const hasUsableLyric = this.lyricTimeline.length > 0 ||
+      (this.lyricLines.length > 0 && this.lyricLines[0] !== '加载歌词中...');
+    // 已有可用歌词时，后台刷新不抢占 UI，避免切 tab 期间出现“空白/失败占位”闪烁。
+    if ((force || this.lyricTimeline.length === 0) && !hasUsableLyric) {
+      this.lyricLines = ['加载歌词中...'];
+      this.secondaryLyricLines = [];
+      this.currentLyricIndex = -1;
     }
     const seq = ++this.lyricLoadSeq;
     try {
@@ -261,15 +311,19 @@ export struct PlayDetailPage {
       this.secondaryLyricLines = secondaries;
       const now = playerService.getProgress().nowPlayTime;
       this.currentLyricIndex = getCurrentLyricIndex(this.lyricTimeline, now);
+      this.lyricSongKey = targetKey;
       this.lyricRetryCount = 0;
     } catch (err) {
       if (!this.alive || seq !== this.lyricLoadSeq) {
         return;
       }
-      this.lyricTimeline = [];
-      this.lyricLines = ['歌词加载失败'];
-      this.secondaryLyricLines = [];
-      this.currentLyricIndex = -1;
+      const canKeepCurrentLyric = this.lyricSongKey === targetKey && this.lyricTimeline.length > 0;
+      if (!canKeepCurrentLyric) {
+        this.lyricTimeline = [];
+        this.lyricLines = ['歌词加载失败'];
+        this.secondaryLyricLines = [];
+        this.currentLyricIndex = -1;
+      }
       hilog.warn(DOMAIN, TAG, 'ensureLyricReady failed: %{public}s', JSON.stringify(err));
       if (this.lyricRetryCount < 2 && this.alive) {
         this.lyricRetryCount += 1;
@@ -512,10 +566,10 @@ export struct PlayDetailPage {
     }
     if (ix === 2) {
       const toLyric = this.currentTab === 0;
-      this.currentTab = toLyric ? 1 : 0;
       if (toLyric) {
-        const currentMusicInfo = playerService.getCurrentMusicInfo();
-        void this.ensureLyricReady(currentMusicInfo, true);
+        this.switchToLyricTab();
+      } else {
+        this.switchToCoverTab();
       }
       return;
     }
@@ -746,7 +800,7 @@ export struct PlayDetailPage {
         .backgroundColor(this.currentTab === 0 ? DesignTokens.segmentedThumb(this.theme) : Color.Transparent)
         .borderRadius(DesignTokens.radiusSearch())
         .onClick(() => {
-          this.currentTab = 0;
+          this.switchToCoverTab();
         })
       Text('歌词')
         .layoutWeight(1)
@@ -758,9 +812,7 @@ export struct PlayDetailPage {
         .backgroundColor(this.currentTab === 1 ? DesignTokens.segmentedThumb(this.theme) : Color.Transparent)
         .borderRadius(DesignTokens.radiusSearch())
         .onClick(() => {
-          this.currentTab = 1;
-          const currentMusicInfo = playerService.getCurrentMusicInfo();
-          void this.ensureLyricReady(currentMusicInfo, true);
+          this.switchToLyricTab();
         })
     }
     .width(176)
@@ -781,9 +833,19 @@ export struct PlayDetailPage {
           .borderRadius(20)
           .objectFit(ImageFit.Cover)
           .onError(() => {
+            const downgradedUrl = this.downgradeCoverUrl(this.pic);
+            if (downgradedUrl.length > 0 && downgradedUrl !== this.pic) {
+              this.pic = downgradedUrl;
+              return;
+            }
+            if (this.coverRetryCount < 1) {
+              this.coverRetryCount += 1;
+              const currentMusicInfo = playerService.getCurrentMusicInfo();
+              void this.ensureCoverReady(currentMusicInfo, true);
+              return;
+            }
+            // 二次失败后回退到占位图，避免页面出现大片空白区域。
             this.pic = '';
-            const currentMusicInfo = playerService.getCurrentMusicInfo();
-            void this.ensureCoverReady(currentMusicInfo, true);
           })
       } else {
         Image($r('app.media.ic_player_cover_placeholder'))

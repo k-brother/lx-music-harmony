@@ -23,6 +23,29 @@ const EMPTY_LYRIC: LyricInfo = {
   lxlyric: null,
   rlyric: null,
 };
+const LRC_TIME_TAG = /\[\d{1,2}:\d{1,2}(?:\.\d{1,3})?\]/;
+
+function decodeBase64Text(value: string | undefined): string {
+  if (!value) {
+    return '';
+  }
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '';
+  let i = 0;
+  const paddedStr = value.replace(/[^A-Za-z0-9+/=]/g, '');
+  while (i < paddedStr.length) {
+    const a = chars.indexOf(paddedStr.charAt(i++));
+    const b = chars.indexOf(paddedStr.charAt(i++));
+    const c = chars.indexOf(paddedStr.charAt(i++));
+    const d = chars.indexOf(paddedStr.charAt(i++));
+    if (a < 0 || b < 0) break;
+    const triplet = (a << 18) | (b << 12) | ((c < 0 ? 0 : c) << 6) | (d < 0 ? 0 : d);
+    result += String.fromCharCode((triplet >> 16) & 0xFF);
+    if (c >= 0) result += String.fromCharCode((triplet >> 8) & 0xFF);
+    if (d >= 0) result += String.fromCharCode(triplet & 0xFF);
+  }
+  return result;
+}
 
 // 歌词模块接口
 export interface LyricInterface {
@@ -52,9 +75,19 @@ export const lyric: LyricInterface = {
       const body = parseHttpBodyJson<QQMusicLyricResponse>(resultData);
 
       if (body && body.code === 0 && body.lyric) {
+        let lyricText = body.lyric || '';
+        let transText = body.trans || null;
+        if (!LRC_TIME_TAG.test(lyricText)) {
+          const decodedLyric = decodeBase64Text(lyricText);
+          if (LRC_TIME_TAG.test(decodedLyric)) {
+            lyricText = decodedLyric;
+            const decodedTrans = decodeBase64Text(body.trans);
+            transText = decodedTrans.length > 0 ? decodedTrans : null;
+          }
+        }
         const lyricInfo: LyricInfo = {
-          lyric: body.lyric || '',
-          tlyric: body.trans || null,
+          lyric: lyricText,
+          tlyric: transText,
           lxlyric: null,
           rlyric: null,
         };

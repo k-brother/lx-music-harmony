@@ -65,6 +65,79 @@ function getSongListDetailUrl(id: string): string {
   return `http://www2.kugou.kugou.com/yueku/v9/special/single/${id}-5-9999.html`;
 }
 
+const KG_REGEXP_LIST_DATA: RegExp = /global\.data\s*=\s*(\[[\s\S]+\]);/;
+const KG_REGEXP_LIST_INFO: RegExp = /global\s*=\s*\{[\s\S]+?name:\s*"(.+?)"[\s\S]+?pic:\s*"(.+?)"[\s\S]+?\};/;
+const KG_DESC_PREFIX = '<div class="pc_specail_text pc_singer_tab_content" id="specailIntroduceWrap">';
+
+function toResponseText(raw: string | Object): string {
+  if (typeof raw === 'string') {
+    return raw;
+  }
+  try {
+    return JSON.stringify(raw);
+  } catch (_e) {
+    return '';
+  }
+}
+
+function parseHtmlDesc(html: string): string {
+  const idx = html.indexOf(KG_DESC_PREFIX);
+  if (idx < 0) {
+    return '';
+  }
+  const after = html.substring(idx + KG_DESC_PREFIX.length);
+  const end = after.indexOf('</div>');
+  if (end < 0) {
+    return '';
+  }
+  return decodeName(after.substring(0, end));
+}
+
+function isPureHttpUrl(text: string): boolean {
+  const t = text.trim();
+  if (!/^https?:\/\//.test(t)) {
+    return false;
+  }
+  return t.indexOf('\n') < 0 && t.indexOf('<') < 0 && t.indexOf('{') < 0;
+}
+
+function extractRedirectUrlFromHtml(html: string): string {
+  const patterns: RegExp[] = [
+    /location\.href\s*=\s*['"]([^'"]+)['"]/i,
+    /window\.location\s*=\s*['"]([^'"]+)['"]/i,
+    /window\.open\(\s*['"]([^'"]+)['"]/i,
+    /url=([^"'\s>]+)/i,
+  ];
+  for (let i = 0; i < patterns.length; i++) {
+    const m = html.match(patterns[i]);
+    if (m && m[1]) {
+      return decodeURIComponent(m[1].trim());
+    }
+  }
+  return '';
+}
+
+async function fetchKgSongListDetailHtml(url: string): Promise<string> {
+  const req: HttpRequestConfig = {
+    header: songListHeaders,
+    responseType: 'text',
+  };
+  const response = await httpRequest(url, req).promise;
+  let body = toResponseText(response.result as string | Object);
+  const trimmed = body.trim();
+  if (isPureHttpUrl(trimmed)) {
+    const next = await httpRequest(trimmed, req).promise;
+    body = toResponseText(next.result as string | Object);
+    return body;
+  }
+  const redirectUrl = extractRedirectUrlFromHtml(body);
+  if (redirectUrl.length > 0 && redirectUrl !== url) {
+    const next = await httpRequest(redirectUrl, req).promise;
+    body = toResponseText(next.result as string | Object);
+  }
+  return body;
+}
+
 // 热门标签项
 interface HotTagItem {
   special_id: string;
@@ -120,12 +193,6 @@ interface TagListItem {
   id: string;
   name: string;
   source: string;
-}
-
-// 标签分组
-interface TagGroup {
-  name: string;
-  list: TagListItem[];
 }
 
 // 歌单标签项（与 index.ets 统一）
@@ -456,7 +523,7 @@ function parseHtmlSongList(body: string): KGSongRawItem[] {
 
   try {
     // 方法1: global.data = [...]
-    const match1 = body.match(/global\.data\s*=\s*(\[.*?\]);/s);
+    const match1 = body.match(KG_REGEXP_LIST_DATA);
     if (match1 && match1[1]) {
       const data: KGSongRawItem[] = JSON.parse(match1[1]);
       if (Array.isArray(data) && data.length > 0) {
@@ -465,7 +532,7 @@ function parseHtmlSongList(body: string): KGSongRawItem[] {
     }
 
     // 方法2: data = [...]
-    const match2 = body.match(/data\s*=\s*(\[.*?\]);/s);
+    const match2 = body.match(/data\s*=\s*(\[[\s\S]+\]);/);
     if (match2 && match2[1]) {
       const data: KGSongRawItem[] = JSON.parse(match2[1]);
       if (Array.isArray(data) && data.length > 0) {
@@ -616,7 +683,7 @@ interface SongListInterface {
   getList: (sortId: string, tagId: string, page: number) => Promise<SongListResult>;
   filterList: (rawData: RawSongListItem[]) => SongListItem[];
   getListDetail: (id: string, page: number) => Promise<SongListDetailResult>;
-  getListDetailBySpecialId: (id: string, page: number) => Promise<SongListDetailResult>;
+  getListDetailBySpecialId: (id: string, page: number, tryNum?: number) => Promise<SongListDetailResult>;
   getListDetailByLink: (link: string) => Promise<SongListDetailResult>;
   getListDetailByGlobalId: (globalId: string, page: number) => Promise<SongListDetailResult>;
   getDetailPageUrl: (id: string) => string;
@@ -736,24 +803,33 @@ export const songList: SongListInterface = {
   /**
    * 通过专题ID获取歌单详情
    */
-  async getListDetailBySpecialId(id: string, page: number): Promise<SongListDetailResult> {
+  async getListDetailBySpecialId(id: string, page: number, tryNum: number = 0): Promise<SongListDetailResult> {
+    if (tryNum > 2) {
+      return {
+        list: [],
+        total: 0,
+        source: 'kg',
+        info: {
+          name: '',
+          img: '',
+          desc: '',
+          author: '',
+          play_count: '',
+        },
+      };
+    }
     // 酷狗歌单详情 URL - HTML页面
     const url = getSongListDetailUrl(id);
 
     try {
-      const response = await httpRequest(url, {
-        header: songListHeaders,
-      }).promise;
-      const body = response.result as string;
-
-      // 从 HTML 中提取歌单信息
-      const imgMatch = body.match(/<img class="pic" src="([^"]+)"/);
-      const nameMatch = body.match(/<h3 class="title">([^<]+)<\/h3>/);
-      const authorMatch = body.match(/<a class="author"[^>]*>([^<]+)<\/a>/);
-      const descMatch = body.match(/<p class="desc"[^>]*>([^<]+)<\/p>/);
+      const body = await fetchKgSongListDetailHtml(url);
+      const listInfo = body.match(KG_REGEXP_LIST_INFO);
 
       // 从 HTML 中提取歌曲列表
       const rawList = parseHtmlSongList(body);
+      if (rawList.length === 0) {
+        return songList.getListDetailBySpecialId(id, page, tryNum + 1);
+      }
 
       // 去重
       const uniqueList = deDuplication(rawList);
@@ -800,31 +876,21 @@ export const songList: SongListInterface = {
 
       const result: SongListDetailResult = {
         list: musicList,
+        page: 1,
+        limit: songList.listDetailLimit,
         total: musicList.length,
         source: 'kg',
         info: {
-          name: nameMatch ? nameMatch[1].trim() : '',
-          img: imgMatch ? imgMatch[1] : '',
-          desc: descMatch ? descMatch[1].trim() : '',
-          author: authorMatch ? authorMatch[1].trim() : '',
-          play_count: '',
-        },
-      };
-      return result;
-    } catch (e) {
-      const result: SongListDetailResult = {
-        list: [],
-        total: 0,
-        source: 'kg',
-        info: {
-          name: '',
-          img: '',
-          desc: '',
+          name: listInfo && listInfo[1] ? decodeName(listInfo[1].trim()) : '',
+          img: listInfo && listInfo[2] ? listInfo[2] : '',
+          desc: parseHtmlDesc(body),
           author: '',
           play_count: '',
         },
       };
       return result;
+    } catch (e) {
+      return songList.getListDetailBySpecialId(id, page, tryNum + 1);
     }
   },
 
@@ -858,7 +924,7 @@ export const songList: SongListInterface = {
   /**
    * 通过global_collection_id获取歌单详情
    */
-  async getListDetailByGlobalId(globalId: string, page: number): Promise<SongListDetailResult> {
+  async getListDetailByGlobalId(globalId: string, _page: number): Promise<SongListDetailResult> {
     const params = `appid=1058&specialid=0&global_specialid=${globalId}&format=jsonp&srcappid=2919&clientver=20000&clienttime=1586163242519&mid=1586163242519&uuid=1586163242519&dfid=-`;
     const signature = signatureParams(params, 'web');
 

@@ -4,7 +4,7 @@
  */
 import http from '@ohos.net.http';
 import hilog from '@ohos.hilog';
-import { flattenHeaders, withQuery } from './HttpShared';
+import { flattenHeaders, withQuery, parseHttpBodyJson } from './HttpShared';
 
 const TAG = 'HttpClient';
 const DOMAIN = 0x0001;
@@ -119,21 +119,13 @@ function doRequest<T>(
         const responseType = config.responseType ?? 'json';
 
         if (responseType === 'json') {
-          let text = '';
-          if (typeof raw === 'string') {
-            text = raw;
-          } else if (raw !== null && raw !== undefined) {
-            text = JSON.stringify(raw);
-          }
-          if (text.length > 0) {
-            try {
-              data = JSON.parse(text) as T;
-            } catch (e) {
-              hilog.warn(DOMAIN, TAG, 'doRequest JSON.parse failed: %{public}s', (e as Error)?.message);
-              // 如果 JSON 解析失败，返回原始文本
-              data = raw as T;
-            }
+          const parsed = parseHttpBodyJson<T>(raw as string | Object | ArrayBuffer | undefined | null);
+          if (parsed !== null) {
+            data = parsed;
           } else {
+            if (typeof raw === 'string' && raw.trim().length > 0) {
+              hilog.warn(DOMAIN, TAG, 'doRequest JSON parse fallback to raw text');
+            }
             data = raw as T;
           }
         } else {

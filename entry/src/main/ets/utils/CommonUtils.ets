@@ -185,22 +185,22 @@ export const RegExps: RegExpsInterface = {
 };
 
 // 归一化封面 URL
-// 处理 // 前缀、http://、非法 URL 等情况
+// 处理 // 前缀与协议白名单，避免将可用 http 强制升级为 https 后触发证书错误。
 export function normalizeCoverUrl(url: string, fallback?: string): string {
   const value = (url ?? '').trim();
   if (value.length === 0) {
     return fallback ?? '';
   }
-  // 处理 // 前缀（如 //y.gtimg.cn/... -> https://y.gtimg.cn/...）
+  // 咪咕部分接口返回类似 /data/oss/resource/... 的相对路径，这里补全为完整 http URL
+  if (value.startsWith('/data/oss/')) {
+    return `http://d.musicapp.migu.cn${value}`;
+  }
+  // 处理 // 前缀（封面优先走 http，规避部分 CDN 证书链不完整）
   if (value.startsWith('//')) {
-    return `https:${value}`;
+    return `http:${value}`;
   }
-  // 处理 http:// -> https://
-  if (value.startsWith('http://')) {
-    return `https://${value.substring(7)}`;
-  }
-  // 已经是 https:// 或合法相对路径
-  if (value.startsWith('https://') || value.startsWith('/')) {
+  // 保持原始协议，避免不必要升级导致加载失败
+  if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('/')) {
     return value;
   }
   // 其他非法格式

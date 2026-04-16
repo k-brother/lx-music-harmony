@@ -54,7 +54,73 @@ export function httpResponseBody(res: HttpResponseBodyHolder): string | Object |
   return undefined;
 }
 
-/** 去掉 UTF-8 BOM、JSONP 外壳；不再按首尾 `}` 截断（易误伤字段中含 `}` 的合法 JSON）。 */
+function extractBalancedJson(text: string): string {
+  const firstObj = text.indexOf('{');
+  const firstArr = text.indexOf('[');
+  let start = -1;
+  if (firstObj >= 0 && firstArr >= 0) {
+    start = Math.min(firstObj, firstArr);
+  } else if (firstObj >= 0) {
+    start = firstObj;
+  } else if (firstArr >= 0) {
+    start = firstArr;
+  }
+  if (start < 0 || start >= text.length) {
+    return text;
+  }
+  const open = text[start];
+  const close = open === '{' ? '}' : ']';
+  let depth = 0;
+  let inString = false;
+  let escapeNext = false;
+  let quote = '"';
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escapeNext) {
+        escapeNext = false;
+        continue;
+      }
+      if (ch === '\\') {
+        escapeNext = true;
+        continue;
+      }
+      if (ch === quote) {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === '\'') {
+      inString = true;
+      quote = ch;
+      continue;
+    }
+    if (ch === open) {
+      depth += 1;
+      continue;
+    }
+    if (ch === close) {
+      depth -= 1;
+      if (depth === 0) {
+        return text.substring(start, i + 1).trim();
+      }
+    }
+  }
+  return text.trim();
+}
+
+function toLooseJson(text: string): string {
+  let t = text.trim();
+  // 1) JS 对象字面量未加引号的 key：{code:0,data:{...}} -> {"code":0,"data":{...}}
+  t = t.replace(/([{,]\s*)([A-Za-z_$][\w$]*)\s*:/g, '$1"$2":');
+  // 2) 单引号字符串 -> 双引号字符串（简单兜底）
+  t = t.replace(/'([^'\\]*(?:\\.[^'\\]*)*)'/g, '"$1"');
+  // 3) 去掉尾随逗号
+  t = t.replace(/,\s*([}\]])/g, '$1');
+  return t;
+}
+
+/** 去掉 UTF-8 BOM、JSONP 外壳，并尽量提取正文中的 JSON 片段。 */
 function normalizeHttpJsonText(text: string): string {
   let t = text.trim();
   if (t.length === 0) {
@@ -71,7 +137,7 @@ function normalizeHttpJsonText(text: string): string {
       t = t.substring(lp + 1, rp).trim();
     }
   }
-  return t;
+  return extractBalancedJson(t);
 }
 
 export function parseHttpBodyJson<T>(raw: string | Object | ArrayBuffer | undefined | null): T | null {
@@ -86,6 +152,14 @@ export function parseHttpBodyJson<T>(raw: string | Object | ArrayBuffer | undefi
     try {
       return JSON.parse(text) as T;
     } catch (e) {
+      const looseText = toLooseJson(text);
+      if (looseText !== text) {
+        try {
+          return JSON.parse(looseText) as T;
+        } catch (_e2) {
+          // ignore and fall through to warning
+        }
+      }
       hilog.warn(DOMAIN, TAG, 'parseHttpBodyJson JSON.parse failed: %{public}s', (e as Error)?.message);
       return null;
     }

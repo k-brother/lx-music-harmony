@@ -3,6 +3,7 @@
 
 import hilog from '@ohos.hilog';
 import { navigationService, RouteName } from '../../service';
+import { normalizeCoverUrl } from '../../utils/CommonUtils';
 
 // 导入播放器服务
 import { playerService } from '../../service/PlayerService';
@@ -33,23 +34,6 @@ export struct PlayerBar {
   private navUnlockTimer: number = -1;
   private clickSeq: number = 0;
 
-  private normalizeCoverUrl(rawUrl: string): string {
-    const url = (rawUrl ?? '').trim();
-    if (url.length === 0) {
-      return '';
-    }
-    if (url.startsWith('//')) {
-      return `https:${url}`;
-    }
-    if (url.startsWith('http://') && (url.includes('kuwo.cn') || url.includes('kwcdn.kuwo.cn'))) {
-      return `https://${url.substring(7)}`;
-    }
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url;
-    }
-    return '';
-  }
-
   private canRenderMiniCover(url: string): boolean {
     const value = (url ?? '').trim();
     if (value.length === 0) {
@@ -79,7 +63,7 @@ export struct PlayerBar {
       hilog.info(0x0001, 'PlayerBar', 'musicInfo updated - name: %{public}s, pic: %{public}s', info.name, info.pic || 'null');
       this.musicName = info.name;
       this.singer = info.singer;
-      this.pic = this.normalizeCoverUrl(info.pic || info.img || '');
+      this.pic = normalizeCoverUrl(info.pic || info.img || '');
     });
 
     // 订阅进度变化
@@ -100,7 +84,7 @@ export struct PlayerBar {
     if (currentMusicInfo && currentMusicInfo.name) {
       this.musicName = currentMusicInfo.name;
       this.singer = currentMusicInfo.singer;
-      this.pic = this.normalizeCoverUrl(currentMusicInfo.pic || currentMusicInfo.img || '');
+      this.pic = normalizeCoverUrl(currentMusicInfo.pic || currentMusicInfo.img || '');
     }
   }
 

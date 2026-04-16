@@ -39,11 +39,44 @@ export function signatureParams(params: string, platform: string = 'android', bo
   return toMD5(signParams);
 }
 
+interface SingerNameObj {
+  name?: string;
+  author_name?: string;
+  singername?: string;
+}
+
 /**
  * 解码歌手名称
  */
-export function formatSingerName(singers: string[], key: string = 'name'): string {
-  return singers.join('、');
+export function formatSingerName(singers: Array<string | SingerNameObj>, key: string = 'name'): string {
+  if (!Array.isArray(singers) || singers.length === 0) {
+    return '';
+  }
+  const out: string[] = [];
+  for (let i = 0; i < singers.length; i++) {
+    const item = singers[i];
+    if (typeof item === 'string') {
+      const v = item.trim();
+      if (v.length > 0 && v !== '[object Object]') {
+        out.push(v);
+      }
+      continue;
+    }
+    let val = '';
+    if (key === 'name') {
+      val = item.name ?? '';
+    } else if (key === 'author_name') {
+      val = item.author_name ?? '';
+    } else if (key === 'singername') {
+      val = item.singername ?? '';
+    } else {
+      val = item.name ?? item.author_name ?? item.singername ?? '';
+    }
+    if (typeof val === 'string' && val.trim().length > 0) {
+      out.push(val.trim());
+    }
+  }
+  return out.join('、');
 }
 
 /**

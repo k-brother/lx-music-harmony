@@ -1,7 +1,7 @@
 /**
  * 咪咕音乐 - 歌词获取
  */
-import { httpRequest } from '../../../../core/network/http';
+import { httpRequest, parseHttpBodyJson } from '../../../../core/network/http';
 import type { LyricInfo, MusicInfo } from '../../../../types/MusicTypes';
 
 // 歌词响应数据
@@ -47,7 +47,7 @@ export const lyric: LyricInterface = {
     headers.set('User-Agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1');
 
     return httpRequest(url, { header: headers }).promise.then((response) => {
-      const body: MGLyricResponse = response.result as MGLyricResponse;
+      const body = parseHttpBodyJson<MGLyricResponse>(response.result as string | Object | ArrayBuffer | undefined | null);
 
       if (body && body.data && body.data.lrcUrl) {
         return lyric.downloadLyric(body.data.lrcUrl);

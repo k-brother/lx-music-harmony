@@ -6,7 +6,6 @@ import { getStorageService } from '../interfaces/IStorageService';
 import { buildLyricInfo, getPlayQuality } from './MusicParsingUtils';
 import { pluginManager, PluginSongInfo as PluginSongInfoType } from '../plugin/PluginManager';
 import hilog from '@ohos.hilog';
-import fs from '@ohos.file.fs';
 import { httpRequest } from '../network/http/HttpClient';
 
 const TAG = 'ONLINE_MUSIC';
@@ -26,16 +25,89 @@ function isPluginPreferredForMusicUrl(musicInfo: MusicInfo): boolean {
 }
 
 function toPluginSongInfo(musicInfo: MusicInfo): PluginSongInfoType {
+  const singerValue = normalizeSingerText(musicInfo.singer);
   return {
     songmid: musicInfo.songmid || musicInfo.id || '',
     name: musicInfo.name || '',
-    singer: musicInfo.singer || '',
+    singer: singerValue,
     source: musicInfo.source as string,
     albumName: musicInfo.album || musicInfo.albumName || '',
     albumId: musicInfo.albumId || '',
     duration: musicInfo.interval || '',
     hash: musicInfo.hash || musicInfo.songmid || musicInfo.id || '',
   };
+}
+
+interface SingerNameLike {
+  name?: string;
+}
+
+function normalizeSingerText(singer: string | SingerNameLike | Array<string | SingerNameLike> | null | undefined): string {
+  if (typeof singer === 'string') {
+    let v = singer.trim();
+    if (v.length === 0) {
+      return '';
+    }
+    // 清理运行期对象被错误字符串化后的噪声（如 [object Object]、[object Object]、[object Object]）
+    v = v.replace(/\[object Object\]/g, '').replace(/、{2,}/g, '、').replace(/^[、\s]+|[、\s]+$/g, '');
+    return v;
+  }
+  if (Array.isArray(singer)) {
+    const names: string[] = [];
+    for (let i = 0; i < singer.length; i++) {
+      const item = singer[i];
+      if (typeof item === 'string') {
+        const name = item.trim();
+        if (name.length > 0) {
+          names.push(name);
+        }
+        continue;
+      }
+      const maybe = item?.name;
+      if (typeof maybe === 'string' && maybe.trim().length > 0) {
+        names.push(maybe.trim());
+      }
+    }
+    return names.join('、');
+  }
+  if (singer) {
+    const maybeName = singer.name;
+    if (typeof maybeName === 'string') {
+      return maybeName.trim();
+    }
+  }
+  return '';
+}
+
+function normalizeCompareText(text: string): string {
+  if (!text) {
+    return '';
+  }
+  // 去除版本后缀（如“(Live)”“（现场版）”）与空白符，做松弛匹配
+  let v = text
+    .replace(/\(.*?\)/g, '')
+    .replace(/（.*?）/g, '')
+    .replace(/\s+/g, '')
+    .toLowerCase()
+    .trim();
+  return v;
+}
+
+function scoreCandidate(baseName: string, baseSinger: string, candidate: MusicInfo): number {
+  const candName = normalizeCompareText(candidate.name || '');
+  const candSinger = normalizeCompareText(normalizeSingerText(candidate.singer));
+  let score = 0;
+  if (candName === baseName) {
+    score += 100;
+  } else if (candName.includes(baseName) || baseName.includes(candName)) {
+    score += 60;
+  }
+  if (candSinger === baseSinger) {
+    score += 50;
+  } else if (candSinger.includes(baseSinger) || baseSinger.includes(candSinger)) {
+    score += 30;
+  }
+  return score;
 }
 
 let lazyCustomSourceRestorePromise: Promise<boolean> | null = null;
@@ -69,9 +141,6 @@ async function ensureCustomSourcePluginReady(): Promise<boolean> {
     lazyCustomSourceRestorePromise = null;
   }
 }
-
-// 尝试获取的音乐品质列表
-const TRY_QUALITYS_LIST: string[] = ['flac24bit', 'flac', '320k', '128k'];
 
 /**
  * 获取音乐URL参数接口
@@ -140,6 +209,11 @@ interface LyricResultObj {
   isFromCache: boolean;
 }
 
+function musicInfoTrace(info: MusicInfo): string {
+  const singerValue = normalizeSingerText(info.singer);
+  return `name=${info.name || ''},singer=${singerValue},source=${info.source || ''},id=${info.id || ''},songmid=${info.songmid || ''},hash=${info.hash || ''},copyrightId=${info.copyrightId || ''}`;
+}
+
 function isUsableLyric(lyricInfo: LyricInfo | null | undefined): boolean {
   if (!lyricInfo) {
     return false;
@@ -183,22 +257,6 @@ interface HandleGetOnlinePicUrlParams {
   isRefresh: boolean;
   allowToggleSource: boolean;
   onToggleSource?: ((musicInfo?: MusicInfo) => void) | null;
-}
-
-/**
- * 获取其他源的音乐信息参数接口
- */
-interface GetOtherSourceParams {
-  musicInfo: MusicInfo;
-}
-
-/**
- * 搜索音乐参数接口
- */
-interface SearchMusicParams {
-  name: string;
-  singer?: string;
-  limit?: number;
 }
 
 /**
@@ -265,7 +323,6 @@ export async function getMusicUrl(params: GetMusicUrlParams): Promise<string | n
 async function handleGetOnlineMusicUrl(params: HandleGetOnlineMusicUrlParams): Promise<MusicUrlResultObj> {
   const musicInfo = params.musicInfo;
   const quality = params.quality;
-  const isRefresh = params.isRefresh;
   const allowToggleSource = params.allowToggleSource;
   const onToggleSource = params.onToggleSource;
 
@@ -307,7 +364,7 @@ async function handleGetOnlineMusicUrl(params: HandleGetOnlineMusicUrlParams): P
       return getOnlineOtherSourceMusicUrl({
         musicInfos: otherSource,
         quality,
-        isRefresh,
+        isRefresh: params.isRefresh,
         onToggleSource,
         retryedSource: [musicInfo.source as string],
       });
@@ -372,7 +429,6 @@ async function isPlayableMediaUrl(url: string): Promise<boolean> {
 async function getOnlineOtherSourceMusicUrl(params: GetOnlineOtherSourceMusicUrlParams): Promise<MusicUrlResultObj> {
   const musicInfos = params.musicInfos;
   const quality = params.quality;
-  const isRefresh = params.isRefresh;
   const onToggleSource = params.onToggleSource;
   const retryedSource: string[] = params.retryedSource ?? [];
 
@@ -535,14 +591,16 @@ export async function getLyricInfo(params: GetLyricInfoParams): Promise<LyricInf
  */
 async function handleGetOnlineLyricInfo(params: HandleGetOnlineLyricInfoParams): Promise<LyricResultObj> {
   const musicInfo = params.musicInfo;
-  const isRefresh = params.isRefresh;
   const allowToggleSource = params.allowToggleSource;
   const onToggleSource = params.onToggleSource;
 
   try {
+    hilog.info(DOMAIN, TAG, 'lyric fetch start: %{public}s', musicInfoTrace(musicInfo));
     const lyricInfo = await getLyricFromSource(musicInfo);
 
     if (isUsableLyric(lyricInfo)) {
+      hilog.info(DOMAIN, TAG, 'lyric fetch success: %{public}s lyricLen=%{public}d',
+        musicInfoTrace(musicInfo), (lyricInfo.lyric || '').length);
       const retObj: LyricResultObj = {
         lyricInfo,
         musicInfo,
@@ -569,8 +627,11 @@ async function handleGetOnlineLyricInfo(params: HandleGetOnlineLyricInfoParams):
     if (otherSource.length > 0) {
       for (const mInfo of otherSource) {
         try {
+          hilog.info(DOMAIN, TAG, 'lyric fallback source try: %{public}s', musicInfoTrace(mInfo));
           const lyricInfo = await getLyricFromSource(mInfo);
           if (isUsableLyric(lyricInfo)) {
+            hilog.info(DOMAIN, TAG, 'lyric fallback source success: %{public}s lyricLen=%{public}d',
+              musicInfoTrace(mInfo), (lyricInfo.lyric || '').length);
             const retObj: LyricResultObj = {
               lyricInfo,
               musicInfo: mInfo,
@@ -621,15 +682,40 @@ async function getLyricFromSource(musicInfo: MusicInfo): Promise<LyricInfo> {
 
   switch (source) {
     case 'kw':
-      return await musicSdk.kw.getLyric(musicInfo);
+      {
+        const info = await musicSdk.kw.getLyric(musicInfo);
+        hilog.info(DOMAIN, TAG, 'lyric source result kw: %{public}s lyricLen=%{public}d',
+          musicInfoTrace(musicInfo), (info.lyric || '').length);
+        return info;
+      }
     case 'kg':
-      return await musicSdk.kg.getLyric(musicInfo);
+      {
+        const info = await musicSdk.kg.getLyric(musicInfo);
+        hilog.info(DOMAIN, TAG, 'lyric source result kg: %{public}s lyricLen=%{public}d',
+          musicInfoTrace(musicInfo), (info.lyric || '').length);
+        return info;
+      }
     case 'tx':
-      return await musicSdk.tx.getLyric(musicInfo);
+      {
+        const info = await musicSdk.tx.getLyric(musicInfo);
+        hilog.info(DOMAIN, TAG, 'lyric source result tx: %{public}s lyricLen=%{public}d',
+          musicInfoTrace(musicInfo), (info.lyric || '').length);
+        return info;
+      }
     case 'wy':
-      return await musicSdk.wy.getLyric(musicInfo);
+      {
+        const info = await musicSdk.wy.getLyric(musicInfo);
+        hilog.info(DOMAIN, TAG, 'lyric source result wy: %{public}s lyricLen=%{public}d',
+          musicInfoTrace(musicInfo), (info.lyric || '').length);
+        return info;
+      }
     case 'mg':
-      return await musicSdk.mg.getLyric(musicInfo);
+      {
+        const info = await musicSdk.mg.getLyric(musicInfo);
+        hilog.info(DOMAIN, TAG, 'lyric source result mg: %{public}s lyricLen=%{public}d',
+          musicInfoTrace(musicInfo), (info.lyric || '').length);
+        return info;
+      }
     default:
       return createEmptyLyricInfo();
   }
@@ -771,14 +857,47 @@ async function getPicFromSource(musicInfo: MusicInfo): Promise<string> {
  */
 export async function getOtherSource(musicInfo: MusicInfo): Promise<MusicInfo[]> {
   try {
-    const keyword = `${musicInfo.name} ${musicInfo.singer || ''}`.trim();
+    const safeSinger = normalizeSingerText(musicInfo.singer);
+    const keyword = `${musicInfo.name} ${safeSinger}`.trim();
+    const baseName = normalizeCompareText(musicInfo.name || '');
+    const baseSinger = normalizeCompareText(safeSinger);
     const results = await sdkSearchMusic(keyword, 1, 10);
-
-    // 过滤掉当前源
-    if (results && results.length > 0) {
-      return results[0].list.filter((item: MusicInfo) => item.source !== musicInfo.source);
+    if (!results || results.length === 0) {
+      hilog.warn(DOMAIN, TAG, 'getOtherSource empty search result: %{public}s', musicInfoTrace(musicInfo));
+      return [];
     }
-    return [];
+    const merged: MusicInfo[] = [];
+    const seenKeys: Set<string> = new Set<string>();
+    for (let i = 0; i < results.length; i++) {
+      const group = results[i];
+      if (!group || !group.list || group.list.length === 0) {
+        continue;
+      }
+      for (let j = 0; j < group.list.length; j++) {
+        const item = group.list[j];
+        if (!item || item.source === musicInfo.source) {
+          continue;
+        }
+        const itemSinger = normalizeSingerText(item.singer);
+        const dedupeKey = `${item.source || ''}|${item.songmid || item.id || ''}|${item.name || ''}|${itemSinger}`;
+        if (seenKeys.has(dedupeKey)) {
+          continue;
+        }
+        seenKeys.add(dedupeKey);
+        const normalizedItem: MusicInfo = item;
+        normalizedItem.singer = itemSinger;
+        merged.push(normalizedItem);
+      }
+    }
+    merged.sort((a: MusicInfo, b: MusicInfo) => {
+      const sa = scoreCandidate(baseName, baseSinger, a);
+      const sb = scoreCandidate(baseName, baseSinger, b);
+      return sb - sa;
+    });
+    const ranked = merged.slice(0, 12);
+    hilog.info(DOMAIN, TAG, 'getOtherSource merged=%{public}d ranked=%{public}d for %{public}s',
+      merged.length, ranked.length, musicInfoTrace(musicInfo));
+    return ranked;
   } catch (err) {
     hilog.warn(DOMAIN, TAG, 'getOtherSource failed: %{public}s', (err as Error).message);
     return [];
@@ -879,6 +998,12 @@ function createEmptyLyricInfo(): LyricInfo {
 /**
  * 搜索音乐（多源搜索）
  */
+interface SearchMusicParams {
+  name: string;
+  singer?: string;
+  limit?: number;
+}
+
 export async function searchMusic(params: SearchMusicParams): Promise<MusicInfo[]> {
   const name = params.name;
   const singer = params.singer;
@@ -1173,15 +1298,7 @@ export function localToOnlineMusicInfo(localInfo: LocalMusicInfo): MusicInfo {
 /**
  * 检查文件是否存在
  */
-async function checkFileExists(filePath: string): Promise<boolean> {
-  // 文件系统API暂不可用
-  return false;
-}
-
-/**
- * 读取嵌入的封面
- */
-async function readEmbeddedPic(filePath: string): Promise<string | null> {
+async function readEmbeddedPic(_filePath: string): Promise<string | null> {
   // 媒体元数据API暂不支持
   return null;
 }
@@ -1189,7 +1306,7 @@ async function readEmbeddedPic(filePath: string): Promise<string | null> {
 /**
  * 读取歌词文件
  */
-async function readLyricFile(filePath: string): Promise<LyricInfo | null> {
+async function readLyricFile(_filePath: string): Promise<LyricInfo | null> {
   // 文件系统API暂不可用
   return null;
 }
@@ -1204,7 +1321,7 @@ export function getSupportedAudioFormats(): string[] {
 /**
  * 获取音乐文件元数据（HarmonyOS媒体元数据API暂不支持，返回null）
  */
-export async function getMusicFileMetadata(filePath: string): Promise<LocalMusicInfo | null> {
+export async function getMusicFileMetadata(_filePath: string): Promise<LocalMusicInfo | null> {
   // HarmonyOS的AVMetadataExtractor API在此版本不支持，直接返回null
   return null;
 }

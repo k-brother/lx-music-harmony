@@ -2,7 +2,7 @@
  * 酷狗音乐 - 歌词获取
  */
 import hilog from '@ohos.hilog';
-import { httpRequest } from '../../../../core/network/http';
+import { httpRequest, parseHttpBodyJson } from '../../../../core/network/http';
 import { decodeName } from '../../../../utils/CommonUtils';
 import { decodeKrc } from './util';
 import type { MusicInfo, LyricInfo } from '../../../../types/MusicTypes';
@@ -22,6 +22,7 @@ interface LyricJSON {
 }
 
 const headExp = /^[^\[]*\[id:\$\w+\]\n/;
+const LRC_TIME_TAG = /\[\d{1,2}:\d{1,2}(?:\.\d{1,3})?\]/;
 
 /**
  * 解析歌词
@@ -174,9 +175,9 @@ export const lyric: LyricInterface = {
     ]);
 
     return httpRequest(url, { header: headers }).promise.then((response) => {
-      const body = JSON.parse(response.result as string) as KGSearchLyricResponse;
+      const body = parseHttpBodyJson<KGSearchLyricResponse>(response.result as string | Object | ArrayBuffer | undefined | null);
 
-      if (body.candidates && body.candidates.length > 0) {
+      if (body && body.candidates && body.candidates.length > 0) {
         const info = body.candidates[0];
         const fmt = (info.krctype == 1 && info.contenttype != 1) ? 'krc' : 'lrc';
         const result: LyricSearchResult = {
@@ -203,7 +204,10 @@ export const lyric: LyricInterface = {
     ]);
 
     return httpRequest(url, { header: headers }).promise.then((response) => {
-      const body = JSON.parse(response.result as string) as KGLyricDownloadResponse;
+      const body = parseHttpBodyJson<KGLyricDownloadResponse>(response.result as string | Object | ArrayBuffer | undefined | null);
+      if (!body || !body.fmt || !body.content) {
+        return Promise.reject(new Error('Kugou lyric response invalid'));
+      }
 
       switch (body.fmt) {
         case 'krc':
@@ -237,7 +241,21 @@ export const lyric: LyricInterface = {
       if (!result) {
         return Promise.reject(new Error('Get lyric failed'));
       }
-      return downloadFn(result.id, result.accessKey, result.fmt);
+      return downloadFn(result.id, result.accessKey, result.fmt).then((info: LyricInfo): Promise<LyricInfo> => {
+        const lyricText = (info.lyric || '').trim();
+        if (lyricText.length > 0 && LRC_TIME_TAG.test(lyricText)) {
+          return Promise.resolve(info);
+        }
+        if (result.fmt !== 'lrc') {
+          return downloadFn(result.id, result.accessKey, 'lrc');
+        }
+        return Promise.resolve(info);
+      }).catch(() => {
+        if (result.fmt !== 'lrc') {
+          return downloadFn(result.id, result.accessKey, 'lrc');
+        }
+        return Promise.reject(new Error('Get lyric failed'));
+      });
     });
   },
 };
