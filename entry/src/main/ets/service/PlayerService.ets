@@ -1,7 +1,10 @@
 // 播放器服务：列表与订阅在此维护；底层播控统一走 core/playback/AvPlayerPlugin.ets（已移除 plugins/player）。
 
 import hilog from '@ohos.hilog';
-import { BusinessError } from '@kit.BasicServicesKit';
+import type { BusinessError } from '@kit.BasicServicesKit';
+import preferences from '@ohos.data.preferences';
+import { common } from '@kit.AbilityKit';
+import { avSession } from '@kit.AVSessionKit';
 import {
   initial as avInitial,
   isInitialized as avIsInitialized,
@@ -22,11 +25,16 @@ import { playerState } from '../store/PlayerStoreState';
 import type { MusicInfo, MusicSource } from '../types/MusicTypes';
 import { formatPlayTime } from '../utils/CommonUtils';
 import { recordPlayedSong } from './PlayHistoryService';
+import { backgroundRunningManager, type AvMediaMetadata, type AvSessionCallbacks } from './BackgroundRunningManager';
+import { getMusicUrl } from '../core/music/MusicFeatureEntry';
 
 export type { MusicInfo } from '../types/MusicTypes';
 
 const TAG = 'PlayerService';
 const DOMAIN = 0x0002;
+
+// 播放模式
+export type PlayMode = 'listLoop' | 'singleLoop' | 'random' | 'sequential';
 
 // 播放状态
 export type PlayStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'stopped' | 'buffering' | 'error';
@@ -115,8 +123,40 @@ interface ProgressReturnType {
   maxPlayTimeStr: string;
 }
 
+// 播放模式循环顺序（用于播控中心切换时的状态流转）
+const LOOP_MODE_ORDER: PlayMode[] = ['listLoop', 'singleLoop', 'random', 'sequential'];
+
+// PlayMode → avSession.LoopMode 映射
+function playModeToAvLoopMode(mode: PlayMode): avSession.LoopMode {
+  switch (mode) {
+    case 'singleLoop':
+      return avSession.LoopMode.LOOP_MODE_SINGLE;
+    case 'random':
+      return avSession.LoopMode.LOOP_MODE_SHUFFLE;
+    case 'sequential':
+      return avSession.LoopMode.LOOP_MODE_SEQUENCE;
+    case 'listLoop':
+    default:
+      return avSession.LoopMode.LOOP_MODE_LIST;
+  }
+}
+
+// avSession.LoopMode → PlayMode 映射
+function avLoopModeToPlayMode(mode: avSession.LoopMode): PlayMode {
+  switch (mode) {
+    case avSession.LoopMode.LOOP_MODE_SINGLE:
+      return 'singleLoop';
+    case avSession.LoopMode.LOOP_MODE_SHUFFLE:
+      return 'random';
+    case avSession.LoopMode.LOOP_MODE_SEQUENCE:
+      return 'sequential';
+    case avSession.LoopMode.LOOP_MODE_LIST:
+    default:
+      return 'listLoop';
+  }
+}
+
 // 播放器服务类
-// 导出单例
 export class PlayerService {
   private isInitialized: boolean = false;
   private currentStatus: PlayStatus = 'idle';
@@ -127,6 +167,10 @@ export class PlayerService {
   private playbackRate: number = 1.0;
   private progressTimer: number = -1;
   private progressFailCount: number = 0;
+  private playMode: PlayMode = 'listLoop';
+  // 随机播放历史（已播歌曲索引，避免短期内重复）
+  private randomHistory: number[] = [];
+  private context: common.UIAbilityContext | null = null;
 
   // 事件监听器数组
   private stateListeners: StateChangeListener[] = [];
@@ -134,6 +178,126 @@ export class PlayerService {
   private musicInfoListeners: MusicInfoListener[] = [];
   private playStateListeners: PlayStateListener[] = [];
   private progressInfoListeners: ProgressInfoListener[] = [];
+
+  /** 设置上下文（用于读取偏好设置） */
+  setContext(context: common.UIAbilityContext): void {
+    this.context = context;
+    // 注册 AVSession 播控回调
+    backgroundRunningManager.setCallbacks(this.createAvSessionCallbacks());
+    // 从偏好设置读取播放模式
+    this.loadPlayModeFromSettings().catch((err: Error) => {
+      hilog.warn(DOMAIN, TAG, 'loadPlayModeFromSettings failed: %{public}s', err.message);
+    });
+  }
+
+  /** 创建 AVSession 播控回调 */
+  private createAvSessionCallbacks(): AvSessionCallbacks {
+    const handleErr = (action: string, err: Error): void => {
+      hilog.error(DOMAIN, TAG, 'AVSession %{public}s failed: %{public}s', action, err.message || 'unknown');
+    };
+    return {
+      onPlay: (): void => {
+        this.play().catch((err: Error) => handleErr('play', err));
+      },
+      onPause: (): void => {
+        this.pause().catch((err: Error) => handleErr('pause', err));
+      },
+      onStop: (): void => {
+        this.stop().catch((err: Error) => handleErr('stop', err));
+      },
+      onPlayNext: (): void => {
+        this.playNext().catch((err: Error) => handleErr('playNext', err));
+      },
+      onPlayPrevious: (): void => {
+        this.playPrev().catch((err: Error) => handleErr('playPrev', err));
+      },
+      onSeek: (positionMs: number): void => {
+        this.seekTo(positionMs / 1000).catch((err: Error) => handleErr('seek', err));
+      },
+      onSetLoopMode: (loopMode: avSession.LoopMode): void => {
+        // 播控中心传来的 mode 是"当前"状态，应用需要据此切换到"下一个"循环模式
+        const currentAvMode = playModeToAvLoopMode(this.playMode);
+        if (currentAvMode === loopMode) {
+          // 需要切换到下一个模式
+          this.cyclePlayMode();
+        } else {
+          // 直接同步到播控中心传来的模式
+          this.setPlayMode(avLoopModeToPlayMode(loopMode));
+        }
+      },
+      onToggleFavorite: (_assetId: string): void => {
+        // 收藏功能暂不实现
+        hilog.info(DOMAIN, TAG, 'Toggle favorite not implemented');
+      },
+    };
+  }
+
+  /** 从偏好设置加载播放模式 */
+  private async loadPlayModeFromSettings(): Promise<void> {
+    if (!this.context) {
+      return;
+    }
+    try {
+      const pref = await preferences.getPreferences(this.context, 'music_settings');
+      const savedMode = await pref.get('playMode', 'listLoop') as string;
+      if (LOOP_MODE_ORDER.includes(savedMode as PlayMode)) {
+        this.playMode = savedMode as PlayMode;
+        hilog.info(DOMAIN, TAG, 'PlayMode loaded from settings: %{public}s', savedMode);
+      }
+      // 同步到 AVSession
+      backgroundRunningManager.setLoopMode(playModeToAvLoopMode(this.playMode));
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'Failed to load playMode: %{public}s', JSON.stringify(err));
+    }
+  }
+
+  /** 保存播放模式到偏好设置 */
+  private async savePlayModeToSettings(): Promise<void> {
+    if (!this.context) {
+      return;
+    }
+    try {
+      const pref = await preferences.getPreferences(this.context, 'music_settings');
+      await pref.put('playMode', this.playMode);
+      await pref.flush();
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'Failed to save playMode: %{public}s', JSON.stringify(err));
+    }
+  }
+
+  /** 设置播放模式 */
+  setPlayMode(mode: PlayMode): void {
+    this.playMode = mode;
+    backgroundRunningManager.setLoopMode(playModeToAvLoopMode(mode));
+    this.savePlayModeToSettings().catch((err: Error) => {
+      hilog.warn(DOMAIN, TAG, 'savePlayModeToSettings failed: %{public}s', err.message);
+    });
+    hilog.info(DOMAIN, TAG, 'PlayMode set to: %{public}s', mode);
+  }
+
+  /** 切换到下一个循环模式 */
+  cyclePlayMode(): PlayMode {
+    const currentIdx = LOOP_MODE_ORDER.indexOf(this.playMode);
+    const nextIdx = currentIdx >= 0 ? (currentIdx + 1) % LOOP_MODE_ORDER.length : 0;
+    this.setPlayMode(LOOP_MODE_ORDER[nextIdx]);
+    return this.playMode;
+  }
+
+  /** 获取当前播放模式 */
+  getPlayMode(): PlayMode {
+    return this.playMode;
+  }
+
+  /** 播放模式对应的中文名 */
+  getPlayModeLabel(): string {
+    switch (this.playMode) {
+      case 'listLoop': return '列表循环';
+      case 'singleLoop': return '单曲循环';
+      case 'random': return '随机播放';
+      case 'sequential': return '顺序播放';
+      default: return '列表循环';
+    }
+  }
 
   // 初始化播放器（委托 AvPlayerPlugin）
   async init(): Promise<void> {
@@ -145,8 +309,6 @@ export class PlayerService {
     }
 
     try {
-      hilog.info(DOMAIN, TAG, 'Skipping media permissions for network audio playback');
-
       playerState.volume = this.volume;
       playerState.playRate = this.playbackRate;
 
@@ -159,7 +321,9 @@ export class PlayerService {
       });
 
       setOnTrackCompleted((): void => {
-        void this.onAvTrackCompleted();
+        this.onAvTrackCompleted().catch((err: Error) => {
+          hilog.error(DOMAIN, TAG, 'onAvTrackCompleted failed: %{public}s', err.message);
+        });
       });
 
       this.isInitialized = avIsInitialized();
@@ -174,13 +338,180 @@ export class PlayerService {
     }
   }
 
+  /** 歌曲播放完成回调 */
   private async onAvTrackCompleted(): Promise<void> {
     this.stopProgressTimer();
     this.currentStatus = 'stopped';
     playerStateData.isPlay = false;
     this.notifyStateChange();
     this.notifyPlayStateChange(false);
-    await this.playNext();
+
+    // 更新 AVSession 状态
+    backgroundRunningManager.updatePlaybackState(false).catch((err: Error) => {
+      hilog.warn(DOMAIN, TAG, 'updatePlaybackState failed: %{public}s', err.message);
+    });
+
+    switch (this.playMode) {
+      case 'singleLoop':
+        // 单曲循环：重播当前歌曲
+        if (this.currentSong) {
+          await this.setSource(this.currentSong, this.currentSong.url);
+          await this.play();
+        }
+        break;
+      case 'random':
+        // 随机播放：随机选下一首
+        await this.playRandomNext();
+        break;
+      case 'sequential':
+        // 顺序播放：播放下一首，到末尾则停止
+        if (this.currentIndex < this.playList.length - 1) {
+          await this.playNextInternal();
+        } else {
+          hilog.info(DOMAIN, TAG, 'Sequential mode: end of playlist, stopping');
+          backgroundRunningManager.stopBackgroundRunning().catch((err: Error) => {
+            hilog.warn(DOMAIN, TAG, 'stopBackgroundRunning failed: %{public}s', err.message);
+          });
+        }
+        break;
+      case 'listLoop':
+      default:
+        // 列表循环：播放下一首，到末尾则回到第一首
+        await this.playNextInternal();
+        break;
+    }
+  }
+
+  /** 随机播放下一首 */
+  private async playRandomNext(): Promise<void> {
+    if (this.playList.length === 0) {
+      return;
+    }
+    if (this.playList.length === 1) {
+      // 只有一首歌，直接重播
+      const song = this.playList[0];
+      await this.playSongByIndex(0);
+      return;
+    }
+
+    // 构建可用索引列表（排除最近播过的歌曲，占播放列表的50%）
+    const recentCount = Math.max(1, Math.floor(this.playList.length * 0.5));
+    const recent = this.randomHistory.slice(-recentCount);
+    const availableIndices: number[] = [];
+    for (let i = 0; i < this.playList.length; i++) {
+      if (!recent.includes(i)) {
+        availableIndices.push(i);
+      }
+    }
+
+    // 如果所有歌都被排除（极少情况），则全部可用
+    const pool = availableIndices.length > 0 ? availableIndices :
+      this.playList.map((_, idx) => idx).filter(i => i !== this.currentIndex);
+
+    const randomIdx = pool[Math.floor(Math.random() * pool.length)];
+    this.randomHistory.push(randomIdx);
+    // 限制历史长度
+    if (this.randomHistory.length > 100) {
+      this.randomHistory = this.randomHistory.slice(-50);
+    }
+
+    await this.playSongByIndex(randomIdx);
+  }
+
+  /** 播放指定索引的歌曲（会获取URL） */
+  private async playSongByIndex(index: number): Promise<void> {
+    if (index < 0 || index >= this.playList.length) {
+      hilog.warn(DOMAIN, TAG, 'playSongByIndex: invalid index %{public}d, listLen=%{public}d', index, this.playList.length);
+      return;
+    }
+    this.currentIndex = index;
+    const song = this.playList[index];
+
+    // 如果 URL 为空，需要先从音乐源获取
+    let url = song.url;
+    if (!url || url.trim().length === 0) {
+      hilog.info(DOMAIN, TAG, 'playSongByIndex: URL empty for %{public}s, fetching from music source', song.title);
+      url = await this.fetchMusicUrl(song);
+      if (!url) {
+        hilog.error(DOMAIN, TAG, 'playSongByIndex: failed to get URL for %{public}s', song.title);
+        // 尝试下一首
+        if (this.playMode === 'listLoop' && index < this.playList.length - 1) {
+          await this.playNextInternal();
+        } else if (this.playMode === 'listLoop') {
+          await this.playSongByIndex(0);
+        }
+        return;
+      }
+      // 更新 playlist 中的 url
+      this.playList[index].url = url;
+    }
+
+    await this.setSource(song, url);
+    await this.play();
+  }
+
+  /** 内部下一曲实现（处理列表循环） */
+  private async playNextInternal(): Promise<void> {
+    if (this.playList.length === 0) {
+      hilog.info(DOMAIN, TAG, 'Playlist is empty, cannot play next');
+      return;
+    }
+
+    let nextIndex = this.currentIndex + 1;
+    if (nextIndex >= this.playList.length) {
+      nextIndex = 0; // 循环到第一首
+    }
+
+    await this.playSongByIndex(nextIndex);
+  }
+
+  /** 从音乐源获取播放URL */
+  private async fetchMusicUrl(song: SongInfo): Promise<string> {
+    try {
+      const musicInfo: MusicInfo = {
+        id: song.id,
+        songmid: song.songmid || song.id,
+        hash: song.hash,
+        strMediaMid: song.strMediaMid,
+        songId: song.songId,
+        albumId: song.albumId,
+        copyrightId: song.copyrightId,
+        name: song.title,
+        singer: song.artist,
+        source: (song.source as MusicSource) || 'kw',
+        interval: song.duration > 0 ? formatPlayTime(song.duration) : null,
+        img: song.artwork,
+        lrc: null,
+      };
+      const url = await getMusicUrl({ musicInfo });
+      if (url) {
+        hilog.info(DOMAIN, TAG, 'Fetched URL for %{public}s: %{public}s', song.title, url.substring(0, 80));
+        return url;
+      }
+      hilog.warn(DOMAIN, TAG, 'fetchMusicUrl: no URL returned for %{public}s', song.title);
+      return '';
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : JSON.stringify(err);
+      hilog.error(DOMAIN, TAG, 'fetchMusicUrl failed for %{public}s: %{public}s', song.title, msg);
+      return '';
+    }
+  }
+
+  /** 更新 AVSession 元数据 */
+  private updateAvMetadata(): void {
+    const info = playerStateData.musicInfo;
+    const progress = playerStateData.progress;
+    const metadata: AvMediaMetadata = {
+      assetId: info.id || info.songmid || '',
+      title: info.name || '未知歌曲',
+      artist: info.singer || '未知歌手',
+      album: info.albumName || info.album || undefined,
+      duration: progress.maxPlayTime * 1000, // 转为毫秒
+      mediaImage: info.pic || info.img || undefined,
+    };
+    backgroundRunningManager.updateMetadata(metadata).catch((err: Error) => {
+      hilog.warn(DOMAIN, TAG, 'updateMetadata failed: %{public}s', err.message);
+    });
   }
 
   // 启动进度定时器（轮询 AvPlayerPlugin）
@@ -189,7 +520,7 @@ export class PlayerService {
     this.progressFailCount = 0;
     this.progressTimer = setInterval(() => {
       if (this.currentStatus === 'playing') {
-        void (async (): Promise<void> => {
+        (async (): Promise<void> => {
           try {
             const posSec = await avGetPosition();
             const durSec = await avGetDuration();
@@ -204,7 +535,9 @@ export class PlayerService {
             }
             hilog.warn(DOMAIN, TAG, 'Progress poll failed (%{public}d/5): %{public}s', this.progressFailCount, (e as Error)?.message);
           }
-        })();
+        })().catch((_err: Error) => {
+          // already handled inside
+        });
       }
     }, 1000);
   }
@@ -299,8 +632,6 @@ export class PlayerService {
 
     hilog.info(DOMAIN, TAG, 'Setting source: %{public}s, url: %{public}s', song.title, url);
     this.currentSong = song;
-    const previousStatus = this.currentStatus;
-    hilog.info(DOMAIN, TAG, 'Previous status: %{public}s, artwork: %{public}s', previousStatus, song.artwork || 'null');
     this.currentStatus = 'loading';
     this.notifyStateChange();
 
@@ -326,11 +657,9 @@ export class PlayerService {
       album: alb,
     };
     playerStateData.musicInfo = musicInfo;
-    hilog.info(DOMAIN, TAG, 'MusicInfo set: name=%{public}s, pic=%{public}s', musicInfo.name, musicInfo.pic || 'null');
     this.notifyMusicInfoChange();
 
     try {
-      hilog.info(DOMAIN, TAG, 'AvPlayerPlugin setResource: %{public}s', url.substring(0, 80));
       await avSetResource(musicInfo, url, null, false);
       this.currentStatus = 'paused';
       this.notifyStateChange();
@@ -340,8 +669,11 @@ export class PlayerService {
         playerStateData.progress.maxPlayTimeStr = formatPlayTime(duration);
       }
 
-      // 记录试听历史，供“我的-试听列表”展示最近听过的歌曲
-      void recordPlayedSong({
+      // 更新 AVSession 元数据
+      this.updateAvMetadata();
+
+      // 记录试听历史
+      recordPlayedSong({
         id: song.id,
         songmid: song.id,
         name: song.title,
@@ -350,6 +682,8 @@ export class PlayerService {
         pic: song.artwork,
         source: song.source || 'kw',
         duration: song.duration,
+      }).catch((err: Error) => {
+        hilog.warn(DOMAIN, TAG, 'recordPlayedSong failed: %{public}s', err.message);
       });
     } catch (err) {
       const error: BusinessError = err as BusinessError;
@@ -406,6 +740,12 @@ export class PlayerService {
       this.notifyStateChange();
       this.notifyPlayStateChange(true);
       this.startProgressTimer();
+
+      // 更新 AVSession 播放状态
+      backgroundRunningManager.updatePlaybackState(true,
+        playerStateData.progress.nowPlayTime * 1000, this.playbackRate).catch((err: Error) => {
+        hilog.warn(DOMAIN, TAG, 'play updatePlaybackState failed: %{public}s', err.message);
+      });
     } catch (err) {
       if (err instanceof Error && err.message === 'AVPLAYER_NOT_READY') {
         hilog.warn(DOMAIN, TAG, 'Play skipped: AVPlayer not prepared (setSource may have failed)');
@@ -439,6 +779,12 @@ export class PlayerService {
       this.notifyStateChange();
       this.notifyPlayStateChange(false);
       this.stopProgressTimer();
+
+      // 更新 AVSession 播放状态
+      backgroundRunningManager.updatePlaybackState(false,
+        playerStateData.progress.nowPlayTime * 1000).catch((err: Error) => {
+        hilog.warn(DOMAIN, TAG, 'pause updatePlaybackState failed: %{public}s', err.message);
+      });
     } catch (err) {
       const error = err as BusinessError;
       hilog.error(DOMAIN, TAG, 'Failed to pause: code=%{public}d, msg=%{public}s', error.code, error.message || 'unknown');
@@ -459,6 +805,11 @@ export class PlayerService {
       this.notifyStateChange();
       this.notifyPlayStateChange(false);
       this.stopProgressTimer();
+
+      // 更新 AVSession 播放状态
+      backgroundRunningManager.updatePlaybackState(false).catch((err: Error) => {
+        hilog.warn(DOMAIN, TAG, 'stop updatePlaybackState failed: %{public}s', err.message);
+      });
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to stop: %{public}s', JSON.stringify(err));
     }
@@ -474,6 +825,11 @@ export class PlayerService {
     try {
       await avSetCurrentTime(position * 1000);
       this.notifyProgress(position, playerStateData.progress.maxPlayTime);
+      // 更新 AVSession 进度
+      backgroundRunningManager.updatePlaybackState(
+        this.currentStatus === 'playing', position * 1000, this.playbackRate).catch((err: Error) => {
+        hilog.warn(DOMAIN, TAG, 'seekTo updatePlaybackState failed: %{public}s', err.message);
+      });
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to seek: %{public}s', JSON.stringify(err));
     }
@@ -509,32 +865,52 @@ export class PlayerService {
 
   // 播放下一曲
   async playNext(): Promise<void> {
-    if (this.currentIndex < this.playList.length - 1) {
-      this.currentIndex++;
-      const song = this.playList[this.currentIndex];
-      await this.setSource(song, song.url);
-      await this.play();
+    if (this.playList.length === 0) {
+      hilog.info(DOMAIN, TAG, 'Playlist is empty, cannot play next');
+      return;
+    }
+
+    if (this.playMode === 'random') {
+      await this.playRandomNext();
     } else {
-      hilog.info(DOMAIN, TAG, 'Already at the last song');
+      await this.playNextInternal();
     }
   }
 
   // 播放上一曲
   async playPrev(): Promise<void> {
-    if (this.currentIndex > 0) {
-      this.currentIndex--;
-      const song = this.playList[this.currentIndex];
-      await this.setSource(song, song.url);
-      await this.play();
-    } else {
-      hilog.info(DOMAIN, TAG, 'Already at the first song');
+    if (this.playList.length === 0) {
+      hilog.info(DOMAIN, TAG, 'Playlist is empty, cannot play prev');
+      return;
     }
+
+    if (this.playMode === 'random') {
+      // 随机模式下，回到随机历史中的上一首
+      if (this.randomHistory.length > 1) {
+        // 移除当前（最后一项），取上一项
+        this.randomHistory.pop();
+        const prevIdx = this.randomHistory[this.randomHistory.length - 1];
+        await this.playSongByIndex(prevIdx);
+      } else {
+        // 没有随机历史，随机选一首
+        await this.playRandomNext();
+      }
+      return;
+    }
+
+    let prevIndex = this.currentIndex - 1;
+    if (prevIndex < 0) {
+      prevIndex = this.playList.length - 1; // 循环到最后一首
+    }
+
+    await this.playSongByIndex(prevIndex);
   }
 
   // 设置播放列表（不触发播放）
   setPlayList(list: SongInfo[], startIndex: number = 0): void {
     this.playList = list;
     this.currentIndex = startIndex;
+    this.randomHistory = startIndex >= 0 ? [startIndex] : [];
     // 注意：这里不调用setSource，因为URL可能为空
     // 播放应该由调用方在获取到URL后显式调用setSource + play
   }
@@ -667,48 +1043,31 @@ export class PlayerService {
     try {
       await avDestroy();
     } catch (err) {
-      hilog.error(DOMAIN, TAG, 'Failed to release player: %{public}s', JSON.stringify(err));
+      hilog.error(DOMAIN, TAG, 'Failed to destroy player: %{public}s', JSON.stringify(err));
     }
+
+    // 销毁时取消后台长时任务并清理 AVSession
+    backgroundRunningManager.destroy().catch((err: Error) => {
+      hilog.warn(DOMAIN, TAG, 'destroy backgroundRunningManager failed: %{public}s', err.message);
+    });
 
     this.isInitialized = false;
     this.currentStatus = 'idle';
-    this.stateListeners = [];
-    this.progressListeners = [];
-    this.musicInfoListeners = [];
-    this.playStateListeners = [];
-    this.progressInfoListeners = [];
     hilog.info(DOMAIN, TAG, 'Player destroyed');
   }
 
   // 更新播放选项
   async updateOptions(): Promise<void> {
-    hilog.info(DOMAIN, TAG, 'updateOptions called');
-    await avUpdateOptions();
+    try {
+      await avUpdateOptions();
+      hilog.info(DOMAIN, TAG, 'Player options updated');
+    } catch (err) {
+      hilog.error(DOMAIN, TAG, 'Failed to update options: %{public}s', JSON.stringify(err));
+    }
   }
 }
 
 // 导出单例
 export const playerService = new PlayerService();
 
-// 默认导出
 export default playerService;
-
-// 播放器状态返回类型接口
-interface PlayerStateReturnType {
-  musicInfo: MusicInfo;
-  isPlay: boolean;
-  progress: ProgressData;
-  volume: number;
-  playRate: number;
-}
-
-// 导出全局状态访问
-export function usePlayerState(): PlayerStateReturnType {
-  return {
-    musicInfo: playerStateData.musicInfo,
-    isPlay: playerStateData.isPlay,
-    progress: playerStateData.progress,
-    volume: playerStateData.volume,
-    playRate: playerStateData.playRate,
-  };
-}

@@ -389,9 +389,12 @@ export struct PlayDetailPage {
 
   private async loadPlaySettings(): Promise<void> {
     try {
+      // 从 PlayerService 读取播放模式（已在 init 时从偏好设置加载）
+      const currentMode = playerService.getPlayMode();
+      this.playMode = currentMode;
+
       const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
       const pref = await preferences.getPreferences(context, 'music_settings');
-      this.playMode = await pref.get('playMode', 'listLoop') as string;
       this.showDesktopLyric = await pref.get('showDesktopLyric', false) as boolean;
       this.timeoutExitEnabled = await pref.get('timeoutExit', false) as boolean;
       this.timeoutExitLabel = this.timeoutExitEnabled ? '已启用' : '定时退出';
@@ -402,6 +405,9 @@ export struct PlayDetailPage {
 
   private async savePlaySettings(): Promise<void> {
     try {
+      // 同步播放模式到 PlayerService
+      playerService.setPlayMode(this.playMode as 'listLoop' | 'singleLoop' | 'random' | 'sequential');
+
       const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
       const pref = await preferences.getPreferences(context, 'music_settings');
       await pref.put('playMode', this.playMode);
@@ -418,6 +424,8 @@ export struct PlayDetailPage {
     const idx = modes.indexOf(this.playMode);
     const nextIdx = idx >= 0 ? (idx + 1) % modes.length : 0;
     this.playMode = modes[nextIdx];
+    // 同步到 PlayerService（由 PlayerService 同步到 AVSession）
+    playerService.setPlayMode(this.playMode as 'listLoop' | 'singleLoop' | 'random' | 'sequential');
     void this.savePlaySettings();
     this.showToast(`播放模式: ${this.getPlayModeText()}`);
   }

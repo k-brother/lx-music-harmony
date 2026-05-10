@@ -10,7 +10,7 @@
     },
     {
       "name": "EntryAbility_label",
-      "value": "label"
+      "value": "LX Music"
     },
     {
       "name": "internet_permission_reason",
@@ -47,6 +47,10 @@
     {
       "name": "network_state_permission_reason",
       "value": "需要访问网络状态权限来检测网络连接状态"
+    },
+    {
+      "name": "background_permission_reason",
+      "value": "需要后台运行权限来保持音乐在后台持续播放"
     }
   ]
 }

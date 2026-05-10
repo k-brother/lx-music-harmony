@@ -13,6 +13,7 @@ import { storageService } from '../../service/StorageService';
 import { initWindowService } from '../../service/WindowService';
 import { runBootstrapAfterServices } from '../bootstrap/AppBootstrap';
 import { setQuickJSContext } from '../../core/napi/napi_quickjs';
+import { backgroundRunningManager } from '../../service/BackgroundRunningManager';
 
 const TAG = 'EntryAbility';
 const DOMAIN = 0x0001;
@@ -57,6 +58,8 @@ export default class EntryAbility extends UIAbility {
     hilog.info(DOMAIN, TAG, 'EntryAbility onCreate');
     // 初始化全局状态
     this.initGlobalState();
+    // 初始化后台任务管理器（传入 context 用于后续长时任务申请）
+    backgroundRunningManager.init(this.context);
     // 初始化应用（异步，传入 want 供深链等后续扩展）
     void this.initApp(want);
   }
@@ -65,6 +68,8 @@ export default class EntryAbility extends UIAbility {
     hilog.info(DOMAIN, TAG, 'EntryAbility onDestroy');
     // 销毁播放器
     playerService.destroy();
+    // 清理后台任务资源
+    void backgroundRunningManager.destroy();
   }
 
   async onWindowStageCreate(windowStage: window.WindowStage): Promise<void> {
@@ -170,6 +175,9 @@ export default class EntryAbility extends UIAbility {
       // 设置存储服务上下文
       storageService.setContext(this.context);
       setQuickJSContext(this.context);
+
+      // 设置 PlayerService 上下文（用于读取偏好设置）
+      playerService.setContext(this.context);
 
       // 初始化所有服务（存储、主题、列表、播放器）
       await initAllServices();

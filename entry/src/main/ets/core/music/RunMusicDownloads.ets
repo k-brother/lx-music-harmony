@@ -3,7 +3,6 @@
 import type { MusicInfo, Quality } from '../../types/MusicTypes';
 import { getMusicUrl as getOnlineMusicUrl } from './MusicFeatureEntry';
 import { getPicUrl as getOnlinePicUrl, getLyricInfo as getOnlineLyricInfo } from './ResolvePlayback';
-import { buildLyricInfo } from './MusicParsingUtils';
 import hilog from '@ohos.hilog';
 import fs from '@ohos.file.fs';
 import { httpRequest } from '../network/http';
@@ -140,35 +139,6 @@ interface StartDownloadParams {
 }
 
 
-
-/**
- * 确保目录存在（使用同步方法）
- */
-function ensureDirectorySync(filePath: string): void {
-  const dirPath = filePath.substring(0, filePath.lastIndexOf('/'));
-  hilog.info(DOMAIN, TAG, 'ensureDirectorySync: 开始检查目录: %{public}s', dirPath);
-  try {
-    if (fs.accessSync(dirPath)) {
-      hilog.info(DOMAIN, TAG, 'ensureDirectorySync: 目录已存在: %{public}s', dirPath);
-      return;
-    }
-  } catch (_ignoreAccessErr) {
-    // 目录不存在，继续尝试创建。
-  }
-  try {
-    // 尝试直接创建目录（递归创建）
-    fs.mkdirSync(dirPath, true);
-    hilog.info(DOMAIN, TAG, 'ensureDirectorySync: 目录创建成功: %{public}s', dirPath);
-  } catch (e) {
-    const errMsg = (e as Error)?.message || JSON.stringify(e);
-    if (errMsg.includes('File exists')) {
-      hilog.info(DOMAIN, TAG, 'ensureDirectorySync: 目录已存在: %{public}s', dirPath);
-      return;
-    }
-    hilog.error(DOMAIN, TAG, 'ensureDirectorySync: 目录创建失败: %{public}s, error: %{public}s', dirPath, errMsg);
-  }
-}
-
 /**
  * 删除已存在的文件（request.downloadFile 不支持覆盖）
  */
@@ -188,25 +158,47 @@ async function saveSandboxFileToPublicDownload(sandboxFilePath: string, fileName
   const picker = new filePicker.DocumentViewPicker(context);
   const saveOptions = new filePicker.DocumentSaveOptions();
   saveOptions.newFileNames = [fileName];
-  const saveUris = await picker.save(saveOptions);
-  if (!saveUris || saveUris.length === 0) {
-    throw new Error('用户取消保存到公共下载目录');
-  }
 
-  const targetUri = saveUris[0];
-  const sourceFile = fs.openSync(sandboxFilePath, fs.OpenMode.READ_ONLY);
-  const targetFile = fs.openSync(targetUri, fs.OpenMode.WRITE_ONLY | fs.OpenMode.CREATE);
   try {
-    fs.copyFileSync(sourceFile.fd, targetFile.fd);
-    fs.fsyncSync(targetFile.fd);
-  } finally {
-    fs.closeSync(sourceFile);
-    fs.closeSync(targetFile);
+    const saveUris = await picker.save(saveOptions);
+    if (!saveUris || saveUris.length === 0) {
+      throw new Error('用户取消保存到公共下载目录');
+    }
+
+    const targetUri = saveUris[0];
+    let sourceFile: fs.File | null = null;
+    let targetFile: fs.File | null = null;
+    try {
+      sourceFile = fs.openSync(sandboxFilePath, fs.OpenMode.READ_ONLY);
+      targetFile = fs.openSync(targetUri, fs.OpenMode.WRITE_ONLY | fs.OpenMode.CREATE);
+      const srcFd = sourceFile.fd;
+      const dstFd = targetFile.fd;
+      fs.copyFileSync(srcFd, dstFd);
+      fs.fsyncSync(dstFd);
+    } catch (fileErr) {
+      throw new Error('文件写入失败');
+    } finally {
+      if (sourceFile !== null) {
+        fs.closeSync(sourceFile);
+      }
+      if (targetFile !== null) {
+        fs.closeSync(targetFile);
+      }
+    }
+
+    try {
+      await removeExistingFile(sandboxFilePath);
+    } catch (_cleanupErr) {
+      // 清理源文件失败，忽略
+    }
+    return targetUri;
+  } catch (err) {
+    let msg = '文件保存失败';
+    if (err instanceof Error) {
+      msg += ': ' + err.message;
+    }
+    throw new Error(msg);
   }
-  try {
-    await removeExistingFile(sandboxFilePath);
-  } catch (_cleanupErr) {}
-  return targetUri;
 }
 
 // 下载历史记录存储键
@@ -226,7 +218,11 @@ async function saveDownloadHistory(): Promise<void> {
     await pref.flush();
     hilog.info(DOMAIN, TAG, '下载历史已保存: %{public}d 条', historyTasks.length);
   } catch (err) {
-    hilog.warn(DOMAIN, TAG, '保存下载历史失败: %{public}s', (err as Error)?.message);
+    let msg = 'unknown';
+    if (err instanceof Error) {
+      msg = err.message;
+    }
+    hilog.warn(DOMAIN, TAG, '保存下载历史失败: %{public}s', msg);
   }
 }
 
@@ -247,7 +243,11 @@ async function loadDownloadHistory(): Promise<void> {
       hilog.info(DOMAIN, TAG, '下载历史已加载: %{public}d 条', historyTasks.length);
     }
   } catch (err) {
-    hilog.warn(DOMAIN, TAG, '加载下载历史失败: %{public}s', (err as Error)?.message);
+    let msg = 'unknown';
+    if (err instanceof Error) {
+      msg = err.message;
+    }
+    hilog.warn(DOMAIN, TAG, '加载下载历史失败: %{public}s', msg);
   }
 }
 

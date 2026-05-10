@@ -217,8 +217,13 @@ function parsePluginInfo(scriptContent: string): PluginInfo | null {
   }
 }
 
+// All known action names supported by the plugin system
+const ALL_KNOWN_ACTIONS: string[] = ['search', 'musicUrl', 'lyric', 'pic', 'songList', 'hotSearch', 'boards', 'boardList'];
+
 function parseSupportedActions(scriptContent: string): Set<string> {
   const actions = new Set<string>();
+
+  // Strategy 1: Match clear-text "actions: [...]" blocks (works for normal scripts)
   const actionBlockRegex = /actions\s*:\s*\[([^\]]*)\]/g;
   let match: RegExpExecArray | null = actionBlockRegex.exec(scriptContent);
   while (match) {
@@ -231,10 +236,31 @@ function parseSupportedActions(scriptContent: string): Set<string> {
     }
     match = actionBlockRegex.exec(scriptContent);
   }
+
+  // Strategy 2: Match string literals that match known action names,
+  //             catching obfuscated code where action names survive as data
+  //             even when variable names are mangled (e.g., a:["search","musicUrl"])
   if (actions.size === 0) {
-    // Keep compatibility with old scripts that only expose musicUrl.
-    actions.add('musicUrl');
+    for (let i = 0; i < ALL_KNOWN_ACTIONS.length; i++) {
+      const action = ALL_KNOWN_ACTIONS[i];
+      // Look for the action name as a string literal anywhere in the script
+      const pattern = new RegExp('["\']' + action + '["\']', 'g');
+      if (pattern.test(scriptContent)) {
+        actions.add(action);
+      }
+    }
   }
+
+  // Strategy 3: Fallback - if still nothing found (truly obfuscated),
+  //             default to all known actions so QuickJS runtime gets to try them all.
+  //             The native bridge will gracefully handle unsupported actions.
+  if (actions.size === 0) {
+    hilog.warn(DOMAIN, TAG, 'No actions detected in script - defaulting to all known actions for obfuscated plugins');
+    for (let i = 0; i < ALL_KNOWN_ACTIONS.length; i++) {
+      actions.add(ALL_KNOWN_ACTIONS[i]);
+    }
+  }
+
   return actions;
 }
 
@@ -577,14 +603,46 @@ export class CustomSourcePlugin implements Plugin {
 
   private initScriptApiFallback(): boolean {
     try {
+      // Strategy 1: Clear-text patterns (API_URL / API_KEY variables)
       const apiUrlMatch = this.scriptContent.match(/API_URL\s*=\s*['"]([^'"]+)['"]/);
       const apiKeyMatch = this.scriptContent.match(/API_KEY\s*=\s*['"]([^'"]+)['"]/);
-      const apiUrl = apiUrlMatch ? apiUrlMatch[1] : '';
-      const apiKey = apiKeyMatch ? apiKeyMatch[1] : '';
+
+      let apiUrl = apiUrlMatch ? apiUrlMatch[1] : '';
+      let apiKey = apiKeyMatch ? apiKeyMatch[1] : '';
+
+      // Strategy 2: Broader patterns for minified/obfuscated code
+      // Look for URL assignments with any variable name
+      if (apiUrl.length === 0) {
+        const urlAssign = this.scriptContent.match(/\w+\s*=\s*['"](https?:\/\/[^'"]+api[^'"]*)['"]/);
+        if (urlAssign) apiUrl = urlAssign[1];
+      }
+      // Look for key assignments with any variable name
+      if (apiKey.length === 0) {
+        const keyAssign = this.scriptContent.match(/\w+\s*=\s*['"]([A-Za-z0-9_-]{16,})['"]/);
+        if (keyAssign) apiKey = keyAssign[1];
+      }
+
+      // Strategy 3: Try to find URL+key pair even in deeply obfuscated code
+      // by scanning ALL string literals and matching URL patterns
+      if (apiUrl.length === 0) {
+        const allUrls = this.scriptContent.match(/['"](https?:\/\/[^'"]+)['"]/g);
+        if (allUrls && allUrls.length > 0) {
+          // Pick the first URL that looks like an API endpoint
+          for (let i = 0; i < allUrls.length; i++) {
+            const u = allUrls[i].replace(/^['"]|['"]$/g, '');
+            if (u.length < 200 && /\/api\/|\/url\/|\.com\/|\.cn\/|\.net\//.test(u)) {
+              apiUrl = u;
+              break;
+            }
+          }
+        }
+      }
+
       if (apiUrl.length === 0 || apiKey.length === 0) {
-        hilog.error(DOMAIN, TAG, 'Script-api fallback init failed: missing API_URL/API_KEY');
+        hilog.warn(DOMAIN, TAG, 'Script-api fallback init: missing API_URL/API_KEY in script');
         return false;
       }
+
       this.fallbackApiUrl = apiUrl;
       this.fallbackApiKey = apiKey;
       hilog.info(DOMAIN, TAG, 'Script-api fallback enabled: %{public}s', this.fallbackApiUrl);

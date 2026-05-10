@@ -7,6 +7,7 @@ import { playerState } from '../../store/PlayerStoreState';
 import { stateEvent } from '../../event/StateEvent';
 import { appEvent } from '../../event/AppEvent';
 import type { MusicInfo, Progress } from '../../types/MusicTypes';
+import { backgroundRunningManager } from '../../service/BackgroundRunningManager';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'AvPlayerPlugin';
@@ -431,6 +432,8 @@ async function setResourceUnlocked(
       await avPlayer.play();
       stateEvent.playStateChanged(true);
       appEvent.play();
+      // 自动播放时启动后台长时任务
+      void backgroundRunningManager.startBackgroundRunning();
     }
     
     hilog.info(DOMAIN, TAG, 'Resource set successfully: %{public}s', musicInfo.name);
@@ -467,6 +470,8 @@ export async function setPlay(): Promise<void> {
     await avPlayer.play();
     appEvent.play();
     appEvent.playerPlaying();
+    // 启动后台长时任务，确保切后台后音乐继续播放
+    void backgroundRunningManager.startBackgroundRunning();
     hilog.info(DOMAIN, TAG, 'Playback started');
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
@@ -486,6 +491,8 @@ export async function setPause(): Promise<void> {
     await avPlayer.pause();
     appEvent.pause();
     appEvent.playerPause();
+    // 暂停播放时取消后台长时任务
+    void backgroundRunningManager.stopBackgroundRunning();
     hilog.info(DOMAIN, TAG, 'Playback paused');
     
   } catch (err) {
@@ -504,6 +511,8 @@ export async function setStop(): Promise<void> {
     
     await avPlayer.stop();
     appEvent.stop();
+    // 停止播放时取消后台长时任务
+    void backgroundRunningManager.stopBackgroundRunning();
     hilog.info(DOMAIN, TAG, 'Playback stopped');
     
   } catch (err) {
@@ -637,6 +646,8 @@ export async function destroy(): Promise<void> {
     
     isPlayerInitialized = false;
     isPrepared = false;
+    // 销毁时取消后台长时任务并清理 AVSession
+    void backgroundRunningManager.destroy();
     hilog.info(DOMAIN, TAG, 'Player destroyed');
     
   } catch (err) {

@@ -24,6 +24,7 @@ import {
 } from '../../service/ListService';
 import { clearPlayHistory as clearPlayHistoryStore } from '../../service/PlayHistoryService';
 import { loadCustomSource, setMaxConcurrentDownloads } from '../../core/music/MusicFeatureEntry';
+import { playerService } from '../../service/PlayerService';
 
 const TAG = 'SETTING';
 const DOMAIN = 0x0001;
@@ -57,11 +58,6 @@ interface SettingOption {
   value: string;
 }
 
-// 设置项选项类型（包含number类型value）
-interface SettingItemOption {
-  label: string;
-  value: string | number;
-}
 
 // 设置区块项类型
 interface SettingSectionItem {
@@ -75,19 +71,6 @@ interface SettingSectionItem {
   onClick?: () => void;
 }
 
-// 设置项类型
-interface SettingItem {
-  id: string;
-  title: string;
-  description?: string;
-  type: string;
-  value?: boolean | string | number;
-  options?: Array<SettingItemOption>;
-}
-
-interface PromptPickResult {
-  index: number;
-}
 
 interface ActionMenuResult {
   index: number;
@@ -262,10 +245,13 @@ export struct SettingView {
     }
   }
 
-  private getDefaultDownloadPath(context: common.UIAbilityContext): string {
+  private getDefaultDownloadPath(_context: common.UIAbilityContext): string {
     // 返回“我的手机/Download”的系统真实路径
     try {
-      const systemDir = Environment.getUserDownloadDir();
+      let systemDir: string = '';
+      if (canIUse("SystemCapability.FileManagement.File.Environment.FolderObtain")) {
+        systemDir = Environment.getUserDownloadDir();
+      }
       if (systemDir && systemDir.trim().length > 0) {
         return systemDir;
       }
@@ -537,6 +523,8 @@ export struct SettingView {
       options: playModeOption,
       onChange: (value: string) => {
         this.playMode = value;
+        // 同步到 PlayerService（由 PlayerService 同步到 AVSession）
+        playerService.setPlayMode(value as 'listLoop' | 'singleLoop' | 'random' | 'sequential');
         this.saveSettings();
       }
     };
@@ -997,6 +985,8 @@ export struct SettingView {
         buttons: [
           { text: '知道了', color: DesignTokens.accent() },
         ],
+      }).catch(() => {
+        // TODO: Implement error handling.
       });
     } catch (_e) {
       hilog.warn(DOMAIN, TAG, 'showPluginLoadErrorDialog fallback: %{public}s', content);
@@ -1297,13 +1287,13 @@ export struct SettingView {
         await fs.write(file.fd, data);
         await fs.fsync(file.fd);
         hilog.info(0x0001, 'SettingView', 'Playlists exported to: %{public}s', filePath);
-        
         // 显示成功提示
         this.showToast('歌单导出成功: ' + fileName);
+      } catch (error) {
+        // TODO: Implement error handling.
       } finally {
         await fs.close(file.fd);
       }
-
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
       hilog.error(0x0001, 'SettingView', 'Playlists export failed: %{public}s', errorMsg);
@@ -1407,28 +1397,24 @@ export struct SettingView {
         const stat = await fs.stat(file.fd);
         const buffer = new ArrayBuffer(stat.size);
         await fs.read(file.fd, buffer);
-        
         const jsonData = utf8Decode(new Uint8Array(buffer));
-        
         // 3. 解析歌单数据
         const playlistsData = JSON.parse(jsonData) as Record<string, Object>;
-        
         // 4. 验证数据格式
         if (!this.validatePlaylistsData(playlistsData)) {
           this.showToast('文件格式无效');
           return;
         }
-        
         // 5. 导入到应用
         const importCount = await this.importPlaylistsData(playlistsData);
-        
+
         hilog.info(0x0001, 'SettingView', 'Playlists import completed: %{public}d playlists imported', importCount);
         this.showToast(`成功导入 ${importCount} 个歌单`);
-        
+      } catch (error) {
+        // TODO: Implement error handling.
       } finally {
         await fs.close(file.fd);
       }
-      
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
       hilog.error(0x0001, 'SettingView', 'Playlists import failed: %{public}s', errorMsg);
@@ -1470,10 +1456,11 @@ export struct SettingView {
           const data = utf8Encode(JSON.stringify(testData, null, 2));
           await fs.write(file.fd, data);
           await fs.fsync(file.fd);
+        } catch (error) {
+          // TODO: Implement error handling.
         } finally {
           await fs.close(file.fd);
         }
-        
         return testFilePath;
       }
     } catch (err) {

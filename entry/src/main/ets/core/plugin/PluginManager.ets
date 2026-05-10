@@ -302,7 +302,7 @@ class PluginManagerImpl {
     return !!(this.pluginLoaded && active);
   }
 
-  /** 解析插件元信息 */
+  /** 解析插件元信息。兼容注释标注、明文对象、以及混淆代码 */
   private parsePluginMeta(script: string): PluginMeta {
     const meta: PluginMeta = {
       id: 'custom_' + Date.now(),
@@ -313,6 +313,8 @@ class PluginManagerImpl {
       homepage: '',
     };
 
+    // Strategy 1: Comment annotations (normal scripts)
+    // e.g., // @name MyPlugin
     const nameMatch = script.match(/\/\/\s*@name\s+(.+)/);
     const descMatch = script.match(/\/\/\s*@description\s+(.+)/);
     const versionMatch = script.match(/\/\/\s*@version\s+(.+)/);
@@ -324,6 +326,42 @@ class PluginManagerImpl {
     if (versionMatch) meta.version = versionMatch[1].trim();
     if (authorMatch) meta.author = authorMatch[1].trim();
     if (homepageMatch) meta.homepage = homepageMatch[1].trim();
+
+    // Strategy 2: Object literal patterns (minified but not fully obfuscated)
+    // e.g., {name:"MyPlugin",version:"2.0.0"}
+    // Match quoted values in object-like context
+    if (meta.name === '自定义源') {
+      // Try name key-value patterns: name:"xxx", name:'xxx', n:"xxx"
+      const nameKv = script.match(/(?:name|pluginName|plugin_name)\s*:\s*['"]([^'"]+)['"]/i);
+      if (nameKv) meta.name = nameKv[1].trim();
+    }
+    if (meta.version === '1.0.0') {
+      const verKv = script.match(/(?:version|ver|v)\s*:\s*['"]([^'"]+)['"]/i);
+      if (verKv) meta.version = verKv[1].trim();
+    }
+    if (meta.author === '未知') {
+      const authorKv = script.match(/(?:author|authorName|author_name)\s*:\s*['"]([^'"]+)['"]/i);
+      if (authorKv) meta.author = authorKv[1].trim();
+    }
+    if (meta.description === '用户自定义音乐源') {
+      const descKv = script.match(/(?:description|desc|info)\s*:\s*['"]([^'"]+)['"]/i);
+      if (descKv) meta.description = descKv[1].trim();
+    }
+    if (meta.homepage === '') {
+      const hpKv = script.match(/(?:homepage|url|site)\s*:\s*['"](https?:\/\/[^'"]+)['"]/i);
+      if (hpKv) meta.homepage = hpKv[1].trim();
+    }
+
+    // Strategy 3: For fully obfuscated code, try to extract any useful identifier
+    // from common patterns like source name at the top of the script
+    if (meta.name === '自定义源') {
+      // Look for any source-like name in the first 500 chars
+      const head = script.substring(0, 500);
+      const srcName = head.match(/(?:source|site|platform)\s*:\s*['"]([^'"]+)['"]/i);
+      if (srcName) {
+        meta.name = srcName[1].trim() + '源';
+      }
+    }
 
     return meta;
   }
