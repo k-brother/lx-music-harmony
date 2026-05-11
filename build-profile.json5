@@ -13,6 +13,19 @@
           "storeFile": "/Users/<user>/.ohos/config/default_harmony_K3AFu9Zve1BSwcNnLOAYmhoR8v2NbTLmUmQh4pmthN8=.p12",
           "storePassword": ""
         }
+      },
+      {
+        "name": "LXMusic",
+        "type": "HarmonyOS",
+        "material": {
+          "storeFile": "/Users/<user>/work/personal/lxmusic-harmony/LX_Music.p12",
+          "storePassword": "000000186622A7C86C74469F8F73163CD8746773CBA16A64E471316EEFE9699F57D52510F41026A0",
+          "keyAlias": "lxmusicKey",
+          "keyPassword": "00000018CB33255E40AF7800F5B087EDE6A5DCE0CDA2434FFEC704D488BD39307A897B4A9B572797",
+          "signAlg": "SHA256withECDSA",
+          "profile": "/Users/<user>/work/personal/lxmusic-harmony/LX MusicRelease.p7b",
+          "certpath": "/Users/<user>/work/personal/lxmusic-harmony/LX_Music.csr"
+        }
       }
     ],
     "products": [
