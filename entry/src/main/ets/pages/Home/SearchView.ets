@@ -156,9 +156,15 @@ export struct SearchView {
         name: song.name,
         singer: song.singer,
         source: song.source as 'kw' | 'kg' | 'tx' | 'wy' | 'mg',
-        songmid: song.id,
+        songmid: song.songmid || song.id,
+        hash: song.hash,
+        strMediaMid: song.strMediaMid,
+        songId: song.songId,
+        albumId: song.albumId,
+        copyrightId: song.copyrightId,
         interval: this.formatDurationToInterval(song.duration),
-        img: song.pic || null,
+        img: song.pic && song.pic.length > 0 ? song.pic : null,
+        pic: song.pic && song.pic.length > 0 ? song.pic : undefined,
         lrc: null,
         albumName: song.album,
         album: song.album,
@@ -185,13 +191,19 @@ export struct SearchView {
 
       const songInfo: SongInfo = {
         id: song.id,
+        songmid: song.songmid || song.id,
         url: url,
         title: song.name,
         artist: song.singer,
         album: song.album ?? '',
-        artwork: song.pic ?? '',
+        artwork: song.pic && song.pic.length > 0 ? song.pic : null,
         duration: song.duration,
         source: song.source,
+        hash: song.hash,
+        strMediaMid: song.strMediaMid,
+        songId: song.songId,
+        albumId: song.albumId,
+        copyrightId: song.copyrightId,
       };
 
       hilog.info(DOMAIN, TAG, 'Setting player source...');

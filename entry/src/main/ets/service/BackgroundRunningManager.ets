@@ -2,6 +2,11 @@
 // HarmonyOS 要求后台音频播放必须同时满足：
 //   1. 接入 AVSession（提供音频后台约束能力）
 //   2. 申请 AUDIO_PLAYBACK 类型长时任务
+//
+// 官方文档关键要求：
+//   - 创建 AVSession 后必须设元数据（AVMetadata）并至少注册一个控制命令，播控中心才能显示
+//   - mediaImage 直接传 string URL 即可，不需要转 PixelMap
+//   - 通知栏播控页随音频流启动时发送
 
 import { backgroundTaskManager } from '@kit.BackgroundTasksKit';
 import { bundleManager, common, wantAgent, WantAgent } from '@kit.AbilityKit';
@@ -18,7 +23,7 @@ export interface AvMediaMetadata {
   artist: string;
   album?: string;
   duration: number; // 毫秒
-  mediaImage?: string; // 封面URL
+  mediaImage?: string; // 封面URL（播控中心要求为 URL string 或 PixelMap，直接传 string 即可）
   lyric?: string; // LRC格式歌词
 }
 
@@ -39,7 +44,6 @@ export class BackgroundRunningManager {
   private isTaskRunning: boolean = false;
   private context: common.UIAbilityContext | null = null;
   private callbacks: AvSessionCallbacks | null = null;
-  // AVSession 当前循环模式
   private currentLoopMode: avSession.LoopMode = avSession.LoopMode.LOOP_MODE_LIST;
   // 缓存最新的 metadata 和播放状态，确保 session 创建后立即同步
   private pendingMetadata: AvMediaMetadata | null = null;
@@ -65,17 +69,36 @@ export class BackgroundRunningManager {
 
   /**
    * 注册播控命令回调（由 PlayerService 调用）
-   * 必须在 startBackgroundRunning 之前调用
+   * 必须在 initSession/startBackgroundRunning 之前调用
    */
   setCallbacks(callbacks: AvSessionCallbacks): void {
     this.callbacks = callbacks;
+    hilog.info(DOMAIN, TAG, 'AVSession callbacks registered');
   }
 
   /**
-   * 创建并激活 AVSession（首次启动后台任务时调用）
+   * 主动初始化 AVSession（当播放服务就绪时调用）
+   * 提前创建会话并激活，确保系统播控中心能感知应用
+   */
+  async initSession(): Promise<void> {
+    if (!this.context) {
+      hilog.warn(DOMAIN, TAG, 'Context not initialized, skip initSession');
+      return;
+    }
+    if (!this.callbacks) {
+      hilog.warn(DOMAIN, TAG, 'Callbacks not set, skip initSession');
+      return;
+    }
+    await this.ensureSession();
+  }
+
+  /**
+   * 创建并激活 AVSession
+   * 官方文档明确要求：元数据必须在 activate() 之前设置，控制命令也必须在 activate() 之前注册
    */
   private async ensureSession(): Promise<void> {
     if (this.session) {
+      hilog.info(DOMAIN, TAG, 'AVSession already exists, skip creation');
       return;
     }
     if (!this.context) {
@@ -83,18 +106,36 @@ export class BackgroundRunningManager {
       return;
     }
     try {
+      hilog.info(DOMAIN, TAG, 'Creating AVSession...');
+      // 1. 创建类型为 'audio' 的会话
       this.session = await avSession.createAVSession(this.context, 'LXMusic', 'audio');
-      // 注册播控命令监听
+      hilog.info(DOMAIN, TAG, 'AVSession created, sessionId=%{public}s', this.session.sessionId);
+
+      // 2. 注册播控命令监听（必须在 activate 之前）
       this.registerControlCommands();
-      // 设置启动Ability（点击播控卡片跳转到应用）
+
+      // 3. 设置启动Ability
       await this.setLaunchAbility();
+
+      // 4. 先设置元数据（官方要求：必须在 activate 之前设置）
+      if (this.pendingMetadata) {
+        hilog.info(DOMAIN, TAG, 'Setting metadata before activate: %{public}s', this.pendingMetadata.title);
+        await this.setAvMetadata(this.pendingMetadata);
+      } else {
+        hilog.warn(DOMAIN, TAG, 'No pending metadata, session will activate without metadata');
+      }
+
+      // 5. 激活会话（元数据和控制命令已就绪）
       await this.session.activate();
-      hilog.info(DOMAIN, TAG, 'AVSession created and activated, sessionId=%{public}s', this.session.sessionId);
-      // 补发缓存的 metadata 和播放状态（解决 session 创建晚于数据推送的时序问题）
-      await this.applyPendingState();
+      hilog.info(DOMAIN, TAG, 'AVSession activated successfully');
+
+      // 6. 设置播放状态（可在激活后设置）
+      if (this.hasPendingPlaybackState) {
+        await this.applyPendingPlaybackState();
+      }
     } catch (err) {
       const msg: string = err instanceof Error ? err.message : JSON.stringify(err);
-      hilog.error(DOMAIN, TAG, 'Failed to create AVSession: %{public}s', msg);
+      hilog.error(DOMAIN, TAG, 'Failed to create/activate AVSession: %{public}s', msg);
       this.session = null;
     }
   }
@@ -116,10 +157,6 @@ export class BackgroundRunningManager {
         } catch (err) {
           hilog.warn(DOMAIN, TAG, 'onPlay callback error: %{public}s', (err as Error)?.message);
         }
-        // 播放时启动后台长时任务（若未启动）
-        this.startBackgroundRunning().catch((err: Error) => {
-          hilog.warn(DOMAIN, TAG, 'startBackgroundRunning failed: %{public}s', err.message);
-        });
       });
     } catch (err) {
       hilog.warn(DOMAIN, TAG, 'register play command error: %{public}s', (err as Error)?.message);
@@ -222,6 +259,8 @@ export class BackgroundRunningManager {
     } catch (err) {
       hilog.warn(DOMAIN, TAG, 'register toggleFavorite command error: %{public}s', (err as Error)?.message);
     }
+
+    hilog.info(DOMAIN, TAG, 'All control commands registered');
   }
 
   /**
@@ -256,54 +295,64 @@ export class BackgroundRunningManager {
   }
 
   /**
-   * 补发缓存的 metadata 和播放状态到新创建的 session
+   * 补发缓存的播放状态到新创建的 session（在激活后调用）
    */
-  private async applyPendingState(): Promise<void> {
-    if (this.pendingMetadata) {
-      await this.setAvMetadata(this.pendingMetadata);
+  private async applyPendingPlaybackState(): Promise<void> {
+    if (!this.session || !this.hasPendingPlaybackState) {
+      return;
     }
-    if (this.hasPendingPlaybackState && this.session) {
-      const isPlaying: boolean = this.pendingIsPlaying;
-      const positionMs: number = this.pendingPositionMs;
-      const speed: number = this.pendingSpeed;
+    try {
       const playbackState: avSession.AVPlaybackState = {
-        state: isPlaying
+        state: this.pendingIsPlaying
           ? avSession.PlaybackState.PLAYBACK_STATE_PLAY
           : avSession.PlaybackState.PLAYBACK_STATE_PAUSE,
-        speed: speed,
+        speed: this.pendingSpeed,
         position: {
-          elapsedTime: positionMs,
+          elapsedTime: this.pendingPositionMs,
           updateTime: new Date().getTime()
         },
         loopMode: this.currentLoopMode,
       };
-      try {
-        await this.session.setAVPlaybackState(playbackState);
-        hilog.info(DOMAIN, TAG, 'Pending playback state applied');
-      } catch (err) {
-        const msg: string = err instanceof Error ? err.message : JSON.stringify(err);
-        hilog.warn(DOMAIN, TAG, 'applyPendingState playback error: %{public}s', msg);
-      }
+      await this.session.setAVPlaybackState(playbackState);
+      hilog.info(DOMAIN, TAG, 'Pending playback state applied: isPlaying=%{public}s', String(this.pendingIsPlaying));
+    } catch (err) {
+      const msg: string = err instanceof Error ? err.message : JSON.stringify(err);
+      hilog.warn(DOMAIN, TAG, 'applyPendingPlaybackState error: %{public}s', msg);
     }
   }
 
   /**
-   * 设置 AVSession 元数据（内部，不做 session 判空） */
+   * 设置 AVSession 元数据
+   * mediaImage 直接使用 string URL，官方文档确认支持
+   */
   private async setAvMetadata(metadata: AvMediaMetadata): Promise<void> {
     if (!this.session) {
+      hilog.warn(DOMAIN, TAG, 'setAvMetadata skipped: session not created');
       return;
     }
-    const avMetadata: avSession.AVMetadata = {
-      assetId: metadata.assetId,
-      title: metadata.title,
-      artist: metadata.artist,
-      album: metadata.album,
-      duration: metadata.duration,
-      mediaImage: metadata.mediaImage,
-      lyric: metadata.lyric,
-    };
-    await this.session.setAVMetadata(avMetadata);
-    hilog.info(DOMAIN, TAG, 'AVMetadata set: title=%{public}s', metadata.title);
+    try {
+      const avMetadata: avSession.AVMetadata = {
+        assetId: metadata.assetId,
+        title: metadata.title,
+        artist: metadata.artist,
+        duration: metadata.duration,
+      };
+      if (metadata.album) {
+        avMetadata.album = metadata.album;
+      }
+      if (metadata.mediaImage) {
+        avMetadata.mediaImage = metadata.mediaImage;
+      }
+      if (metadata.lyric) {
+        avMetadata.lyric = metadata.lyric;
+      }
+      await this.session.setAVMetadata(avMetadata);
+      hilog.info(DOMAIN, TAG, 'AVMetadata set successfully: title=%{public}s, artist=%{public}s, durationMs=%{public}d',
+        metadata.title, metadata.artist, metadata.duration);
+    } catch (err) {
+      const msg: string = err instanceof Error ? err.message : JSON.stringify(err);
+      hilog.error(DOMAIN, TAG, 'Failed to set AVMetadata: %{public}s', msg);
+    }
   }
 
   /**
@@ -331,6 +380,7 @@ export class BackgroundRunningManager {
     this.pendingSpeed = speed;
     this.hasPendingPlaybackState = true;
     if (!this.session) {
+      hilog.info(DOMAIN, TAG, 'PlaybackState cached (session not yet created)');
       return;
     }
     try {
@@ -346,6 +396,7 @@ export class BackgroundRunningManager {
         loopMode: this.currentLoopMode,
       };
       await this.session.setAVPlaybackState(playbackState);
+      hilog.info(DOMAIN, TAG, 'PlaybackState updated: isPlaying=%{public}s', String(isPlaying));
     } catch (err) {
       const msg: string = err instanceof Error ? err.message : JSON.stringify(err);
       hilog.warn(DOMAIN, TAG, 'Failed to update playback state: %{public}s', msg);
@@ -367,13 +418,16 @@ export class BackgroundRunningManager {
       return;
     }
 
-    // 首次启动时创建 AVSession
+    // 确保 AVSession 已创建（兜底：如果 initSession 失败，此处重试）
     await this.ensureSession();
 
     if (this.isTaskRunning) {
       hilog.info(DOMAIN, TAG, 'Background task already running');
       return;
     }
+
+    // 先置标志位，防止并发调用导致重复申请
+    this.isTaskRunning = true;
 
     try {
       const bundleInfo = bundleManager.getBundleInfoForSelfSync(
@@ -398,12 +452,13 @@ export class BackgroundRunningManager {
           backgroundTaskManager.BackgroundMode.AUDIO_PLAYBACK,
           wantAgentObj
         );
-        this.isTaskRunning = true;
         hilog.info(DOMAIN, TAG, 'Background task started successfully');
       } else {
         hilog.warn(DOMAIN, TAG, 'Background task not supported on this device');
       }
     } catch (err) {
+      // 失败时回退标志位，允许后续重试
+      this.isTaskRunning = false;
       const msg: string = err instanceof Error ? err.message : JSON.stringify(err);
       hilog.error(DOMAIN, TAG, 'Failed to start background task: %{public}s', msg);
     }

@@ -501,14 +501,21 @@ export class PlayerService {
   private updateAvMetadata(): void {
     const info = playerStateData.musicInfo;
     const progress = playerStateData.progress;
+    const imgUrl = info.pic || info.img;
+    // assetId 不能为空字符串，否则 setAVMetadata 会失败（HarmonyOS 官方文档要求）
+    const assetId = info.id || info.songmid || `track_${Date.now()}`;
     const metadata: AvMediaMetadata = {
-      assetId: info.id || info.songmid || '',
+      assetId: assetId,
       title: info.name || '未知歌曲',
       artist: info.singer || '未知歌手',
       album: info.albumName || info.album || undefined,
-      duration: progress.maxPlayTime * 1000, // 转为毫秒
-      mediaImage: info.pic || info.img || undefined,
+      duration: Math.max(progress.maxPlayTime, 1) * 1000, // duration必须为正数，兼容0的情况兜底为1秒
     };
+    if (imgUrl) {
+      metadata.mediaImage = imgUrl;
+    }
+    hilog.info(DOMAIN, TAG, 'updateAvMetadata: title=%{public}s, durationMs=%{public}d, hasImg=%{public}s',
+      metadata.title, metadata.duration, String(imgUrl !== null && imgUrl !== undefined));
     backgroundRunningManager.updateMetadata(metadata).catch((err: Error) => {
       hilog.warn(DOMAIN, TAG, 'updateMetadata failed: %{public}s', err.message);
     });
@@ -667,10 +674,16 @@ export class PlayerService {
       if (duration) {
         playerStateData.progress.maxPlayTime = duration;
         playerStateData.progress.maxPlayTimeStr = formatPlayTime(duration);
+      } else if (song.duration > 0) {
+        playerStateData.progress.maxPlayTime = song.duration;
+        playerStateData.progress.maxPlayTimeStr = formatPlayTime(song.duration);
       }
 
       // 更新 AVSession 元数据
       this.updateAvMetadata();
+
+      // 在音频播放前创建并激活 AVSession，确保播控中心能感知
+      await backgroundRunningManager.initSession();
 
       // 记录试听历史
       recordPlayedSong({
@@ -740,6 +753,11 @@ export class PlayerService {
       this.notifyStateChange();
       this.notifyPlayStateChange(true);
       this.startProgressTimer();
+
+      // 启动后台长时任务（AVSession 已在 setSource 中创建）
+      backgroundRunningManager.startBackgroundRunning().catch((err: Error) => {
+        hilog.warn(DOMAIN, TAG, 'startBackgroundRunning failed: %{public}s', err.message);
+      });
 
       // 更新 AVSession 播放状态
       backgroundRunningManager.updatePlaybackState(true,

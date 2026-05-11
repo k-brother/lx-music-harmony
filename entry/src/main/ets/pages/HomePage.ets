@@ -249,18 +249,10 @@ export struct HomePage {
     }
   }
 
-  // 点击热搜项：先出结果，若有则直接播第一条（与「点词即听」预期一致）
+  // 点击热搜项：填入搜索框并搜索，不自动播放（用户自行选择结果播放）
   onHotSearchClick(keyword: string): void {
-    void this.runHotSearchAndMaybePlay(keyword);
-  }
-
-  async runHotSearchAndMaybePlay(keyword: string): Promise<void> {
     this.searchText = keyword;
-    await this.doSearch();
-    // doSearch() 内部已处理 epoch 校验，成功返回时 searchResultsEpoch 与 searchEpoch 同步
-    if (this.searchEpoch === this.searchResultsEpoch && this.searchResults.length > 0) {
-      await this.playSearchResult(this.searchResults[0]);
-    }
+    void this.doSearch();
   }
 
   /** 歌单主页：与排行榜页内搜索条一致的圆角灰底 + 放大镜 + 输入（提交即打开结果浮层） */
@@ -619,7 +611,7 @@ export struct HomePage {
       };
       await playerService.setSource(songInfo, url, durSec);
       await playerService.play();
-      this.closeSearch();
+      // 不关闭搜索浮层，用户可在结果列表中自由切换歌曲
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       hilog.error(0x0001, 'HomePage', 'playSearchResult failed: %{public}s', msg);

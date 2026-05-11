@@ -195,12 +195,15 @@ export function normalizeCoverUrl(url: string, fallback?: string): string {
   if (value.startsWith('/data/oss/')) {
     return `http://d.musicapp.migu.cn${value}`;
   }
-  // 处理 // 前缀（封面优先走 http，规避部分 CDN 证书链不完整）
+  // 处理 // 前缀（默认走 https，HarmonyOS 默认拦截 HTTP 明文流量）
   if (value.startsWith('//')) {
-    return `http:${value}`;
+    return `https:${value}`;
   }
-  // 保持原始协议，避免不必要升级导致加载失败
-  if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('/')) {
+  // http 明文链接在部分 HarmonyOS 设备上可能被拦截，但保留原样避免部分 CDN 无 HTTPS
+  if (value.startsWith('https://') || value.startsWith('/')) {
+    return value;
+  }
+  if (value.startsWith('http://')) {
     return value;
   }
   // 其他非法格式

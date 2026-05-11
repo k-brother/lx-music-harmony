@@ -470,8 +470,7 @@ export async function setPlay(): Promise<void> {
     await avPlayer.play();
     appEvent.play();
     appEvent.playerPlaying();
-    // 启动后台长时任务，确保切后台后音乐继续播放
-    void backgroundRunningManager.startBackgroundRunning();
+    // 后台任务/AVSession 已由 PlayerService.play() 统一管理
     hilog.info(DOMAIN, TAG, 'Playback started');
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
