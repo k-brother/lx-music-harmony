@@ -2,7 +2,7 @@
 // 对应安卓版的评论功能
 
 import hilog from '@ohos.hilog';
-import http from '@ohos.net.http';
+import { http } from '@kit.NetworkKit';
 import { MusicInfo } from '../types/MusicTypes';
 
 const DOMAIN: number = 0x0001;

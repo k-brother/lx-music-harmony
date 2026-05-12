@@ -19,7 +19,7 @@ import { musicItemFromPlainObject } from '../core/list/PlaylistRecordMapper';
 import { utf8Encode, utf8Decode } from '../utils/TextCodec';
 import { httpRequest } from '../core/network/http';
 import { createLxWebSocket, decodeWsPayload } from '../core/network/websocket';
-import webSocket from '@ohos.net.webSocket';
+import { webSocket } from '@kit.NetworkKit';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'SyncService';

@@ -3,7 +3,7 @@
 
 import hilog from '@ohos.hilog';
 import fs from '@ohos.file.fs';
-import http from '@ohos.net.http';
+import { http } from '@kit.NetworkKit';
 import { common } from '@kit.AbilityKit';
 import { utf8Encode } from '../utils/TextCodec';
 

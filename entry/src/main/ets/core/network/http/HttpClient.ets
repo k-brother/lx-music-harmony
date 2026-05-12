@@ -2,7 +2,7 @@
  * 统一 HTTP 客户端 - 直接使用 @ohos.net.http，不依赖 service 层
  * 单一实现：HttpClient 类 + 便捷函数均基于同一底层
  */
-import http from '@ohos.net.http';
+import { http } from '@kit.NetworkKit';
 import hilog from '@ohos.hilog';
 import { flattenHeaders, withQuery, parseHttpBodyJson } from './HttpShared';
 

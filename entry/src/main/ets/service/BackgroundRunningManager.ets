@@ -449,7 +449,7 @@ export class BackgroundRunningManager {
       if (canIUse('SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask')) {
         await backgroundTaskManager.startBackgroundRunning(
           this.context,
-          backgroundTaskManager.BackgroundMode.AUDIO_PLAYBACK,
+          ['audioPlayback'],
           wantAgentObj
         );
         hilog.info(DOMAIN, TAG, 'Background task started successfully');

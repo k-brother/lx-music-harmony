@@ -1,7 +1,7 @@
 /**
- * 全局 WebSocket 工厂与负载解析（业务勿直接 import @ohos.net.webSocket，便于统一升级与埋点）
+ * 全局 WebSocket 工厂与负载解析（通过 @kit.NetworkKit 统一升级与埋点）
  */
-import webSocket from '@ohos.net.webSocket';
+import { webSocket } from '@kit.NetworkKit';
 import hilog from '@ohos.hilog';
 import { utf8Decode } from '../../../utils/TextCodec';
 
