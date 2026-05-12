@@ -690,8 +690,8 @@ export class CommentService {
 
   // HTTP请求
   private async httpRequest(url: string): Promise<JsonObject> {
+    const httpReq: http.HttpRequest = http.createHttp();
     try {
-      const httpRequest: http.HttpRequest = http.createHttp();
       const requestOptions: http.HttpRequestOptions = {
         method: http.RequestMethod.GET,
         header: {
@@ -703,8 +703,8 @@ export class CommentService {
         readTimeout: 10000
       };
 
-      const response = await httpRequest.request(url, requestOptions);
-      
+      const response = await httpReq.request(url, requestOptions);
+
       if (response.responseCode === 200) {
         const resultStr: string = response.result as string;
         const parsedResult: JsonObject = JSON.parse(resultStr) as JsonObject;
@@ -715,6 +715,8 @@ export class CommentService {
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'HTTP request failed: %{public}s', JSON.stringify(err));
       throw new Error(`HTTP request failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      httpReq.destroy();
     }
   }
 

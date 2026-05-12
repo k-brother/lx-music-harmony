@@ -109,6 +109,7 @@ function doRequest<T>(
       opts,
       (err: Error, response: http.HttpResponse) => {
         if (err) {
+          task.destroy();
           reject(err);
           return;
         }
@@ -133,6 +134,8 @@ function doRequest<T>(
         }
 
         const headers = flattenHeaders(response.header as Record<string, string | string[]>);
+
+        task.destroy();
 
         resolve({
           status: response.responseCode,

@@ -69,7 +69,7 @@ export class MediaSaveService {
 
       // 创建文件名
       const fileName = this.sanitizeFileName(`${musicInfo.singer} - ${musicInfo.name}.lrc`);
-      const saveDir = '/storage/emulated/0/Download/LxMusic/Lyrics';
+      const saveDir = `${this.getContext().filesDir}/LxMusic/Lyrics`;
       const filePath = `${saveDir}/${fileName}`;
 
       // 确保目录存在
@@ -127,7 +127,7 @@ export class MediaSaveService {
       // 创建文件名
       const fileExtension = this.getImageExtension(imageUrl);
       const fileName = this.sanitizeFileName(`${musicInfo.singer} - ${musicInfo.name}.${fileExtension}`);
-      const saveDir = '/storage/emulated/0/Download/LxMusic/Covers';
+      const saveDir = `${this.getContext().filesDir}/LxMusic/Covers`;
       const filePath = `${saveDir}/${fileName}`;
 
       // 确保目录存在
@@ -164,8 +164,8 @@ export class MediaSaveService {
 
   // 下载图片
   private async downloadImage(url: string): Promise<ArrayBuffer | null> {
+    const httpReq = http.createHttp();
     try {
-      const httpRequest = http.createHttp();
       const requestOptions: http.HttpRequestOptions = {
         method: http.RequestMethod.GET,
         connectTimeout: 10000,
@@ -175,8 +175,8 @@ export class MediaSaveService {
         }
       };
 
-      const response = await httpRequest.request(url, requestOptions);
-      
+      const response = await httpReq.request(url, requestOptions);
+
       if (response.responseCode === 200) {
         return response.result as ArrayBuffer;
       } else {
@@ -186,6 +186,8 @@ export class MediaSaveService {
     } catch (err) {
       hilog.error(DOMAIN, TAG, '下载图片失败: %{public}s', JSON.stringify(err));
       return null;
+    } finally {
+      httpReq.destroy();
     }
   }
 
@@ -268,7 +270,7 @@ export class MediaSaveService {
   // 获取已保存的歌词列表
   async getSavedLyrics(): Promise<string[]> {
     try {
-      const lyricsDir = '/storage/emulated/0/Download/LxMusic/Lyrics';
+      const lyricsDir = `${this.getContext().filesDir}/LxMusic/Lyrics`;
       
       // 确保目录存在
       await this.ensureDirectoryExists(lyricsDir);
@@ -292,7 +294,7 @@ export class MediaSaveService {
   // 获取已保存的封面列表
   async getSavedCovers(): Promise<string[]> {
     try {
-      const coversDir = '/storage/emulated/0/Download/LxMusic/Covers';
+      const coversDir = `${this.getContext().filesDir}/LxMusic/Covers`;
       
       // 确保目录存在
       await this.ensureDirectoryExists(coversDir);
@@ -326,7 +328,7 @@ export class MediaSaveService {
   // 删除保存的歌词
   async deleteLyricFile(fileName: string): Promise<boolean> {
     try {
-      const filePath = `/storage/emulated/0/Download/LxMusic/Lyrics/${fileName}`;
+      const filePath = `${this.getContext().filesDir}/LxMusic/Lyrics/${fileName}`;
       await fs.unlink(filePath);
       hilog.info(DOMAIN, TAG, '删除歌词文件: %{public}s', fileName);
       return true;
@@ -339,7 +341,7 @@ export class MediaSaveService {
   // 删除保存的封面
   async deleteCoverFile(fileName: string): Promise<boolean> {
     try {
-      const filePath = `/storage/emulated/0/Download/LxMusic/Covers/${fileName}`;
+      const filePath = `${this.getContext().filesDir}/LxMusic/Covers/${fileName}`;
       await fs.unlink(filePath);
       hilog.info(DOMAIN, TAG, '删除封面文件: %{public}s', fileName);
       return true;

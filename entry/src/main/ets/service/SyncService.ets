@@ -128,6 +128,7 @@ export class SyncService {
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;
   private reconnectDelay: number = 3000; // 3 seconds
+  private reconnectTimerId: number | null = null;
 
   private constructor() {}
 
@@ -291,7 +292,7 @@ export class SyncService {
         hilog.info(DOMAIN, TAG, '尝试重连 (%{public}d/%{public}d)', 
           this.reconnectAttempts, this.maxReconnectAttempts);
         
-        setTimeout(() => {
+        this.reconnectTimerId = setTimeout(() => {
           this.connect().catch((reconnectErr: Error) => {
             hilog.error(DOMAIN, TAG, '重连失败: %{public}s', JSON.stringify(reconnectErr));
           });
@@ -386,12 +387,18 @@ export class SyncService {
     this.webSocket.on('close', () => {
       hilog.info(DOMAIN, TAG, 'WebSocket连接关闭');
       this.isWsConnected = false;
-      this.webSocket = null;
+      if (this.webSocket) {
+        this.webSocket.off('open');
+        this.webSocket.off('message');
+        this.webSocket.off('close');
+        this.webSocket.off('error');
+        this.webSocket = null;
+      }
       
       // 尝试重连
       if (this.config.enabled && this.reconnectAttempts < this.maxReconnectAttempts) {
         this.reconnectAttempts++;
-        setTimeout(() => {
+        this.reconnectTimerId = setTimeout(() => {
           this.connect().then(() => {
             hilog.info(DOMAIN, TAG, '重连成功');
           }).catch((reconnectErr: Error) => {
@@ -411,6 +418,10 @@ export class SyncService {
 
   // 断开连接
   async disconnect(): Promise<void> {
+    if (this.reconnectTimerId !== null) {
+      clearTimeout(this.reconnectTimerId);
+      this.reconnectTimerId = null;
+    }
     if (this.webSocket && this.isWsConnected) {
       try {
         const closeOptions: webSocket.WebSocketCloseOptions = {
@@ -421,6 +432,10 @@ export class SyncService {
       } catch (err) {
         hilog.error(DOMAIN, TAG, '断开连接失败: %{public}s', JSON.stringify(err));
       } finally {
+        this.webSocket.off('open');
+        this.webSocket.off('message');
+        this.webSocket.off('close');
+        this.webSocket.off('error');
         this.webSocket = null;
         this.isWsConnected = false;
       }

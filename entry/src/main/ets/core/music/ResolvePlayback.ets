@@ -396,8 +396,8 @@ async function isPlayableMediaUrl(url: string): Promise<boolean> {
     if (headResp.status >= 200 && headResp.status < 400) {
       return true;
     }
-    // 部分源站不支持 HEAD，降级为小范围 GET 探测
-    if (headResp.status !== 405 && headResp.status !== 501) {
+    // 部分源站不支持 HEAD 或拒绝 HEAD（403/405/501），降级为小范围 GET 探测
+    if (headResp.status !== 403 && headResp.status !== 405 && headResp.status !== 501) {
       hilog.warn(DOMAIN, TAG, 'Media URL probe failed with status: %{public}d', headResp.status);
       return false;
     }

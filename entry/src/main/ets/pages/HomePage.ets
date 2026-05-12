@@ -79,6 +79,10 @@ export struct HomePage {
   /** 顶部音乐源切换时递增，确保歌单/排行榜子组件重建并重新请求（@Prop 单独更新在部分机型上可能不触发 aboutToAppear） */
   @State sourceContentEpoch: number = 0;
 
+  // 事件监听器引用（用于 aboutToDisappear 时取消订阅）
+  private onPlayStateChanged: ((data: string) => void) | null = null;
+  private onPlayerMusicInfoChanged: ((data: string) => void) | null = null;
+
   // 搜索请求版本控制，防止竞态
   private searchEpoch: number = 0;
   private searchResultsEpoch: number = 0;
@@ -101,15 +105,17 @@ export struct HomePage {
 
   // 订阅播放器状态
   aboutToAppear() {
-    stateEvent.on('playStateChanged', (isPlayStr: string) => {
+    this.onPlayStateChanged = (isPlayStr: string) => {
       this.isPlay = isPlayStr === 'true';
-    });
-    stateEvent.on('playerMusicInfoChanged', (musicInfoStr: string) => {
+    };
+    this.onPlayerMusicInfoChanged = (musicInfoStr: string) => {
       const musicInfo: MusicInfoType = JSON.parse(musicInfoStr);
       this.musicName = musicInfo.name || '';
       this.singer = musicInfo.singer || '';
       this.pic = musicInfo.pic || '';
-    });
+    };
+    stateEvent.on('playStateChanged', this.onPlayStateChanged);
+    stateEvent.on('playerMusicInfoChanged', this.onPlayerMusicInfoChanged);
 
     this.globalSearchStripActions.onMagnifierClick = (): void => {
       this.openSearch();
@@ -135,7 +141,14 @@ export struct HomePage {
   }
 
   aboutToDisappear() {
-    // 取消订阅
+    if (this.onPlayStateChanged) {
+      stateEvent.off('playStateChanged', this.onPlayStateChanged);
+      this.onPlayStateChanged = null;
+    }
+    if (this.onPlayerMusicInfoChanged) {
+      stateEvent.off('playerMusicInfoChanged', this.onPlayerMusicInfoChanged);
+      this.onPlayerMusicInfoChanged = null;
+    }
   }
 
   // 打开搜索界面

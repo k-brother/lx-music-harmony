@@ -434,9 +434,14 @@ export class PlayerService {
       url = await this.fetchMusicUrl(song);
       if (!url) {
         hilog.error(DOMAIN, TAG, 'playSongByIndex: failed to get URL for %{public}s', song.title);
-        // 尝试下一首
-        if (this.playMode === 'listLoop' && index < this.playList.length - 1) {
-          await this.playNextInternal();
+        if (this.playMode === 'singleLoop') {
+          await this.stop();
+        } else if (this.playMode === 'random') {
+          const nextIdx = Math.floor(Math.random() * this.playList.length);
+          await this.playSongByIndex(nextIdx);
+        } else if (index < this.playList.length - 1) {
+          // sequential / listLoop: try next song
+          await this.playSongByIndex(index + 1);
         } else if (this.playMode === 'listLoop') {
           await this.playSongByIndex(0);
         }
@@ -526,26 +531,28 @@ export class PlayerService {
     this.stopProgressTimer();
     this.progressFailCount = 0;
     this.progressTimer = setInterval(() => {
-      if (this.currentStatus === 'playing') {
-        (async (): Promise<void> => {
-          try {
-            const posSec = await avGetPosition();
-            const durSec = await avGetDuration();
-            this.progressFailCount = 0;
-            this.notifyProgress(posSec, durSec);
-          } catch (e) {
-            this.progressFailCount++;
-            if (this.progressFailCount >= 5) {
-              this.stopProgressTimer();
-              hilog.warn(DOMAIN, TAG, 'Progress timer stopped after 5 consecutive failures: %{public}s', (e as Error)?.message);
-              return;
-            }
-            hilog.warn(DOMAIN, TAG, 'Progress poll failed (%{public}d/5): %{public}s', this.progressFailCount, (e as Error)?.message);
-          }
-        })().catch((_err: Error) => {
-          // already handled inside
-        });
+      if (this.progressTimer === -1 || this.currentStatus !== 'playing') {
+        return;
       }
+      const capturedTimerId = this.progressTimer;
+      (async (): Promise<void> => {
+        try {
+          const posSec = await avGetPosition();
+          const durSec = await avGetDuration();
+          this.progressFailCount = 0;
+          this.notifyProgress(posSec, durSec);
+        } catch (e) {
+          this.progressFailCount++;
+          if (this.progressFailCount >= 5) {
+            this.stopProgressTimer();
+            hilog.warn(DOMAIN, TAG, 'Progress timer stopped after 5 consecutive failures: %{public}s', (e as Error)?.message);
+            return;
+          }
+          hilog.warn(DOMAIN, TAG, 'Progress poll failed (%{public}d/5): %{public}s', this.progressFailCount, (e as Error)?.message);
+        }
+      })().catch((_err: Error) => {
+        // already handled inside
+      });
     }, 1000);
   }
 

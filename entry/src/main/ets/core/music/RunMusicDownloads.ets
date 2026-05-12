@@ -20,6 +20,7 @@ export enum DownloadStatus {
   PENDING = 'pending',
   DOWNLOADING = 'downloading',
   PAUSED = 'paused',
+  CANCELLED = 'cancelled',
   COMPLETED = 'completed',
   FAILED = 'failed',
 }
@@ -212,8 +213,10 @@ async function saveDownloadHistory(): Promise<void> {
     const context = getContext();
     const pref = await preferences.getPreferences(context, 'download_settings');
     const tasks = Array.from(downloadTasks.values());
-    // 只保存已完成和失败的任务（正在下载的任务在重启后会重新开始）
-    const historyTasks = tasks.filter(t => t.status === DownloadStatus.COMPLETED || t.status === DownloadStatus.FAILED);
+    // 只保存已完成和失败的任务（取消和正在下载的任务不保存）
+    const historyTasks = tasks.filter(t =>
+      t.status === DownloadStatus.COMPLETED || t.status === DownloadStatus.FAILED
+    );
     await pref.put(DOWNLOAD_HISTORY_KEY, JSON.stringify(historyTasks));
     await pref.flush();
     hilog.info(DOMAIN, TAG, '下载历史已保存: %{public}d 条', historyTasks.length);
@@ -318,8 +321,8 @@ export async function cancelDownload(taskId: string): Promise<boolean> {
     // 保存原始状态
     const originalStatus = task.status;
 
-    // 标记为已取消（使用PAUSED状态表示已取消）
-    task.status = DownloadStatus.PAUSED;
+    // 标记为已取消
+    task.status = DownloadStatus.CANCELLED;
 
     // 删除部分下载的文件（如果存在且任务正在下载中）
     if (task.filePath && (originalStatus === DownloadStatus.DOWNLOADING || originalStatus === DownloadStatus.PENDING)) {
@@ -729,7 +732,7 @@ export function getLyricSavePath(musicInfo: MusicInfo): string {
     return `${filesDir}/lyrics/${cleanName}.lrc`;
   } catch (e) {
     hilog.warn(DOMAIN, TAG, 'getLyricSavePath failed: %{public}s', (e as Error)?.message);
-    return `/data/local/tmp/LxMusic/lyrics/${musicInfo.name} - ${musicInfo.singer}.lrc`;
+    throw new Error(`getLyricSavePath failed: ${(e as Error)?.message}`);
   }
 }
 
@@ -747,7 +750,7 @@ export function getPicSavePath(musicInfo: MusicInfo): string {
     return `${filesDir}/covers/${cleanName}.jpg`;
   } catch (e) {
     hilog.warn(DOMAIN, TAG, 'getPicSavePath failed: %{public}s', (e as Error)?.message);
-    return `/data/local/tmp/LxMusic/covers/${musicInfo.name} - ${musicInfo.singer}.jpg`;
+    throw new Error(`getPicSavePath failed: ${(e as Error)?.message}`);
   }
 }
 

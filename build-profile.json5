@@ -19,12 +19,12 @@
         "type": "HarmonyOS",
         "material": {
           "storeFile": "/Users/<user>/work/personal/lxmusic-harmony/LX_Music.p12",
-          "storePassword": "000000186622A7C86C74469F8F73163CD8746773CBA16A64E471316EEFE9699F57D52510F41026A0",
-          "keyAlias": "lxmusicKey",
-          "keyPassword": "00000018CB33255E40AF7800F5B087EDE6A5DCE0CDA2434FFEC704D488BD39307A897B4A9B572797",
+          "storePassword": "",
+          "keyAlias": "lx",
+          "keyPassword": "",
           "signAlg": "SHA256withECDSA",
           "profile": "/Users/<user>/work/personal/lxmusic-harmony/LX MusicRelease.p7b",
-          "certpath": "/Users/<user>/work/personal/lxmusic-harmony/LX_Music.csr"
+          "certpath": "/Users/<user>/work/personal/lxmusic-harmony/LX Music.cer"
         }
       }
     ],
@@ -32,6 +32,20 @@
       {
         "name": "default",
         "signingConfig": "default",
+        "targetSdkVersion": "6.1.0(23)",
+        "compatibleSdkVersion": "6.1.0(23)",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          },
+          "nativeCompiler": "BiSheng"
+        }
+      },
+      {
+        "name": "release",
+        "signingConfig": "LXMusic",
         "targetSdkVersion": "6.1.0(23)",
         "compatibleSdkVersion": "6.1.0(23)",
         "runtimeOS": "HarmonyOS",
@@ -61,7 +75,8 @@
         {
           "name": "default",
           "applyToProducts": [
-            "default"
+            "default",
+            "release"
           ]
         }
       ]
