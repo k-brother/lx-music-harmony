@@ -31,7 +31,7 @@
       "arkOptions": {
         "obfuscation": {
           "ruleOptions": {
-            "enable": true,
+            "enable": false,
             "files": [
               "./obfuscation-rules.txt"
             ]
