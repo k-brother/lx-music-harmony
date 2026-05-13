@@ -4,6 +4,9 @@
 import { getBoardsList, getLeaderboardDetail, type ListDetailInfo } from '../../core/leaderboard';
 import type { BoardItem, BoardSource, BoardMusicItem } from '../../store/leaderboard/LeaderboardStoreState';
 import { navigationService, RouteName } from '../../service/NavigationService';
+import { playerService, SongInfo } from '../../service/PlayerService';
+import { getMusicUrl } from '../../core/music/MusicFeatureEntry';
+import type { MusicInfo } from '../../types/MusicTypes';
 import hilog from '@ohos.hilog';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { SearchStrip, SearchStripActions } from '../../components/common/SearchStrip';
@@ -592,9 +595,6 @@ export struct LeaderboardView {
     if (index < 0 || index >= this.cardStates.length) {
       return;
     }
-    if (!this.coverInteractionUnlocked && index > this.startupPreviewLimit) {
-      return;
-    }
     const st = this.cardStates[index];
     if (st.loadState === 'idle') {
       void this.loadPreviewForBoardId(st.board.id);
@@ -638,6 +638,52 @@ export struct LeaderboardView {
     }
   }
 
+  async playPreviewSong(song: BoardMusicItem): Promise<void> {
+    try {
+      const src = song.source as 'kw' | 'kg' | 'tx' | 'wy' | 'mg';
+      const musicInfo: MusicInfo = {
+        id: song.id,
+        name: song.name || '',
+        singer: song.singer || '',
+        source: src,
+        songmid: song.id,
+        interval: null,
+        img: song.pic || null,
+        lrc: null,
+        albumName: song.album || '',
+        album: song.album || '',
+        types: [],
+        _types: new Map(),
+        typeUrl: new Map(),
+        otherSource: null,
+      };
+      const url: string | null = await getMusicUrl({
+        musicInfo,
+        quality: '128k',
+        isRefresh: false,
+        onToggleSource: null,
+        allowToggleSource: true,
+      });
+      if (!url || url.length === 0) {
+        return;
+      }
+      const songInfo: SongInfo = {
+        id: song.id,
+        url,
+        title: song.name || '',
+        artist: song.singer || '',
+        album: song.album || '',
+        artwork: song.pic || null,
+        duration: song.duration || 0,
+        source: song.source,
+      };
+      await playerService.setSource(songInfo, url, song.duration || 0);
+      await playerService.play();
+    } catch (e) {
+      hilog.warn(0x0001, 'LeaderboardView', 'playPreviewSong failed: %{public}s', (e as Error)?.message);
+    }
+  }
+
   navigateToBoardDetail(board: BoardItem): void {
     hilog.info(0x0001, 'LeaderboardView', 'Navigate to board: %{public}s', board.name);
     const canonicalBoardId = `${board.source}__${this.unwrapBangFromRowId(board.id)}`;
@@ -674,9 +720,6 @@ export struct LeaderboardView {
   /** 按索引读封面，供列表项 build 直接订阅 cardStates，避免 @Builder 传入整卡快照不刷新 */
   resolveCardCoverAt(index: number): string {
     if (index < 0 || index >= this.cardStates.length) {
-      return '';
-    }
-    if (!this.allowRemoteCoverRender || !this.coverInteractionUnlocked) {
       return '';
     }
     return this.resolveCardCover(this.cardStates[index]);
@@ -855,10 +898,6 @@ export struct LeaderboardView {
               .scrollBar(BarState.Off)
               .edgeEffect(EdgeEffect.None)
               .onDidScroll(() => {
-                const y = this.leaderboardScroller.currentOffset().yOffset;
-                if (!this.coverInteractionUnlocked && y > 16) {
-                  this.coverInteractionUnlocked = true;
-                }
                 this.syncFilterPinnedByOffset();
               })
             }
@@ -986,6 +1025,11 @@ export struct LeaderboardView {
           }
           .width(72)
           .height(72)
+          .onClick(() => {
+            if (index >= 0 && index < this.cardStates.length) {
+              this.navigateToBoardDetail(this.cardStates[index].board);
+            }
+          })
 
           Column() {
             Text(this.cardStates[index].board.name || '榜单')
@@ -1136,6 +1180,9 @@ export struct LeaderboardView {
                 }
                 .width('100%')
                 .padding({ left: 12, right: 12, top: 12, bottom: 12 })
+                .onClick(() => {
+                  void this.playPreviewSong(song);
+                })
                 if (si < this.cardStates[index].displayList.length - 1) {
                   Divider()
                     .strokeWidth(0.5)

@@ -60,6 +60,7 @@ export struct PlayDetailPage {
   private coverRetryCount: number = 0;
   private lyricRetryCount: number = 0;
   private lyricSongKey: string = '';
+  private swiperController: SwiperController = new SwiperController();
 
   aboutToAppear() {
     this.alive = true;
@@ -164,6 +165,7 @@ export struct PlayDetailPage {
       return;
     }
     this.currentTab = 0;
+    this.swiperController.changeIndex(0, false);
     if (!this.canRenderCover(this.pic)) {
       const currentMusicInfo = playerService.getCurrentMusicInfo();
       void this.ensureCoverReady(currentMusicInfo, false);
@@ -175,6 +177,7 @@ export struct PlayDetailPage {
       return;
     }
     this.currentTab = 1;
+    this.swiperController.changeIndex(1, false);
     const hasLyric = this.lyricTimeline.length > 0 ||
       (this.lyricLines.length > 0 && this.lyricLines[0] !== '暂无歌词');
     if (!hasLyric) {
@@ -624,19 +627,37 @@ export struct PlayDetailPage {
         this.NavigationBar()
         this.TabSwitchBar()
 
-        Stack() {
-          if (this.currentTab === 0) {
-            this.AlbumArt()
-          } else {
-            LyricView({
-              lyricLines: this.lyricLines,
-              secondaryLyricLines: this.secondaryLyricLines,
-              currentLyricIndex: this.currentLyricIndex,
-            })
-          }
+        Swiper(this.swiperController) {
+          this.AlbumArt()
+          LyricView({
+            lyricLines: this.lyricLines,
+            secondaryLyricLines: this.secondaryLyricLines,
+            currentLyricIndex: this.currentLyricIndex,
+          })
         }
+        .index(this.currentTab)
         .width('100%')
         .layoutWeight(1)
+        .duration(300)
+        .curve(Curve.EaseOut)
+        .indicator(false)
+        .loop(false)
+        .onChange((newIndex: number) => {
+          this.currentTab = newIndex;
+          if (newIndex === 0) {
+            if (!this.canRenderCover(this.pic)) {
+              const currentMusicInfo = playerService.getCurrentMusicInfo();
+              void this.ensureCoverReady(currentMusicInfo, false);
+            }
+          } else {
+            const hasLyric = this.lyricTimeline.length > 0 ||
+              (this.lyricLines.length > 0 && this.lyricLines[0] !== '暂无歌词');
+            if (!hasLyric) {
+              const currentMusicInfo = playerService.getCurrentMusicInfo();
+              void this.ensureLyricReady(currentMusicInfo, false);
+            }
+          }
+        })
 
         this.PlayerControls()
       }
@@ -865,7 +886,8 @@ export struct PlayDetailPage {
     }
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
-    .layoutWeight(1)
+    .width('100%')
+    .height('100%')
   }
 
   @Builder

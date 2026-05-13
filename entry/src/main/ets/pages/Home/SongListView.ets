@@ -317,6 +317,20 @@ export struct SongListView {
     this.loadSongList(true);
   }
 
+  private checkAutoLoadMore(scrollY: number): void {
+    if (!this.hasUserScrolledForPagination || !this.hasMore || this.isLoading || this.songLists.length === 0) {
+      return;
+    }
+    const rows = Math.ceil(this.songLists.length / this.gridColumns);
+    const totalHeight = rows * this.estimatedRowHeight;
+    if (scrollY <= 0 && totalHeight < 800) {
+      return;
+    }
+    if (scrollY + 800 >= totalHeight) {
+      this.loadSongList(false);
+    }
+  }
+
   private syncFilterPinnedByOffset(): void {
     const y = this.getSafeScrollOffsetY();
     this.updateCoverWindowByOffset(y);
@@ -467,6 +481,7 @@ export struct SongListView {
             this.hasUserScrolledForPagination = true;
           }
           this.syncFilterPinnedByOffset();
+          this.checkAutoLoadMore(y);
         })
       }
     }
@@ -554,32 +569,43 @@ export struct SongListView {
         })
       }, (item: SongListItemData, index: number) => `${item.id}_${index}`)
 
-      // 加载更多
+      // 底部加载指示器：自动触发加载 + 居中加载动画
       if (this.hasMore) {
         GridItem() {
-          Column() {
-            if (this.isLoading) {
-              LoadingProgress()
-                .width(24)
-                .height(24)
-                .color(DesignTokens.labelTertiary(this.theme))
-            } else {
-              Text('加载更多')
-                .fontSize(13)
-                .fontColor(DesignTokens.labelSecondary(this.theme))
-            }
+          Row() {
+            LoadingProgress()
+              .width(20)
+              .height(20)
+              .color(DesignTokens.accent())
+            Text('加载中…')
+              .fontSize(13)
+              .fontColor(DesignTokens.labelSecondary(this.theme))
+              .margin({ left: 8 })
           }
           .width('100%')
-          .height('100%')
           .justifyContent(FlexAlign.Center)
-          .alignItems(HorizontalAlign.Center)
-          .onClick(() => {
-            if (!this.isLoading) {
-              this.loadSongList(false);
-            }
-          })
+          .alignItems(VerticalAlign.Center)
         }
-        .padding(DesignTokens.spaceGutter())
+        .columnStart(0)
+        .columnEnd(2)
+        .padding({ top: 16, bottom: 24 })
+        .onAppear(() => {
+          if (this.hasUserScrolledForPagination && !this.isLoading && this.hasMore) {
+            this.loadSongList(false);
+          }
+        })
+      }
+
+      // 底部完结提示
+      if (!this.hasMore && this.songLists.length > 0) {
+        GridItem() {
+          Text('— 已加载全部 —')
+            .fontSize(12)
+            .fontColor(DesignTokens.labelTertiary(this.theme))
+        }
+        .columnStart(0)
+        .columnEnd(2)
+        .padding({ top: 16, bottom: 24 })
       }
     }
     .columnsTemplate('1fr 1fr 1fr')
@@ -609,17 +635,9 @@ export struct SongListView {
     return next;
   }
 
-  private canRenderCover(index: number, item: SongListItemData): boolean {
-    if (!this.allowRemoteCoverRender) {
-      return false;
-    }
-    if (!this.coverInteractionUnlocked) {
-      return false;
-    }
-    if (index < this.coverWindowStart || index > this.coverWindowEnd) {
-      return false;
-    }
-    return !!this.toLightweightCoverUrl(item.img || '');
+  private canRenderCover(item: SongListItemData): boolean {
+    const img = (item.img || '').trim();
+    return img.length > 0;
   }
 
   @Builder
@@ -627,7 +645,7 @@ export struct SongListView {
     Column() {
       // 封面
       Stack() {
-        if (this.canRenderCover(index, item)) {
+        if (this.canRenderCover(item)) {
           Image(this.toLightweightCoverUrl(item.img || ''))
             .width('100%')
             .aspectRatio(1)

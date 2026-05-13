@@ -635,17 +635,16 @@ export struct HomePage {
   MainTabItem(index: number, icon: Resource, label: string) {
     Column() {
       Image(icon)
-        .width(DesignTokens.iconLg() + 3)
-        .height(DesignTokens.iconLg() + 3)
+        .width(DesignTokens.iconMd())
+        .height(DesignTokens.iconMd())
         .fillColor(this.currentTab === index ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
       Text(label)
-        .fontSize(DesignTokens.fontCaption())
+        .fontSize(14)
         .fontColor(this.currentTab === index ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
         .fontWeight(this.currentTab === index ? FontWeight.Medium : FontWeight.Normal)
         .margin({ top: 2 })
     }
     .layoutWeight(1)
-    .height(50)
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
     .onClick(() => {
@@ -653,7 +652,7 @@ export struct HomePage {
     })
   }
 
-  // 底部 TabBar：与 iOS UITabBar 类似 — 选中 tint、未选中弱化
+  // 底部 TabBar：紧凑型，保留安全区底色
   @Builder
   BottomTabBar() {
     Column() {
@@ -664,14 +663,13 @@ export struct HomePage {
         this.MainTabItem(3, $r('sys.symbol.person'), '我的')
       }
       .width('100%')
-      .height(58)
-      .padding({ top: 3, bottom: 5 })
+      .height(44)
+      .padding({ top: 4, bottom: 4 })
       .border({ width: { top: 0.33 }, color: DesignTokens.hairlineSeparator(this.theme) })
 
-      // 底部安全区填充，确保系统手势条区域与 TabBar 同底色
       Blank()
         .width('100%')
-        .height(14)
+        .height(6)
     }
     .width('100%')
     .backgroundColor(DesignTokens.tabBarBg(this.theme))
