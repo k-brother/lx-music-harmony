@@ -1,3 +1,4 @@
+import { t } from '../../service/LocalizationService';
 /**
  * 自定义源设置视图
  * 用于设置和管理在线JS源文件地址
@@ -15,11 +16,11 @@ const DOMAIN = 0x0001;
 
 // 默认源列表
 const DEFAULT_SOURCES: SourceItem[] = [
-  { id: 'kw', name: '酷我音乐', builtIn: true },
-  { id: 'kg', name: '酷狗音乐', builtIn: true },
-  { id: 'tx', name: 'QQ音乐', builtIn: true },
-  { id: 'wy', name: '网易云音乐', builtIn: true },
-  { id: 'mg', name: '咪咕音乐', builtIn: true },
+  { id: 'kw', name: t('source_kw'), builtIn: true },
+  { id: 'kg', name: t('source_kg'), builtIn: true },
+  { id: 'tx', name: t('source_tx'), builtIn: true },
+  { id: 'wy', name: t('source_wy'), builtIn: true },
+  { id: 'mg', name: t('source_mg'), builtIn: true },
 ];
 
 interface SourceItem {
@@ -32,6 +33,8 @@ interface SourceItem {
 @Component
 export struct CustomSourceView {
   @StorageProp('theme') theme: string = 'light';
+  @StorageProp('language') language: string = 'zh-CN';
+  @StorageProp('langVersion') langVersion: number = 0;
   @State currentSource: string = 'kw';
   @State customSourceUrl: string = '';
   @State isLoading: boolean = false;
@@ -73,34 +76,34 @@ export struct CustomSourceView {
 
   async loadPlugin() {
     if (!this.customSourceUrl || this.customSourceUrl.length === 0) {
-      this.errorMessage = '请输入JS源文件地址';
+      this.errorMessage = t('plugin_enter_url');
       return;
     }
 
     // 验证URL格式
     if (!this.isValidUrl(this.customSourceUrl)) {
-      this.errorMessage = '无效的URL格式，请输入完整的JS源文件地址';
+      this.errorMessage = t('plugin_invalid_url');
       return;
     }
 
     this.isLoading = true;
-    this.loadStatus = '正在加载插件...';
+    this.loadStatus = t('loading');
     this.errorMessage = '';
 
     try {
       const success = await pluginManager.loadCustomSource(this.customSourceUrl);
       if (success) {
-        this.loadStatus = '插件加载成功';
+        this.loadStatus = t('toast_playlist_created');
         this.pluginInfo = pluginManager.getPluginInfo();
         this.currentSource = 'custom';
         await this.saveSettings();
       } else {
         this.loadStatus = '';
-        this.errorMessage = pluginManager.getError() || '插件加载失败';
+        this.errorMessage = pluginManager.getError() || t('plugin_load_failed');
         this.showPluginErrorDialog(this.errorMessage);
       }
     } catch (error) {
-      this.errorMessage = (error as Error).message || '加载失败';
+      this.errorMessage = (error as Error).message || t('load_failed');
       this.showPluginErrorDialog(this.errorMessage);
     } finally {
       this.isLoading = false;
@@ -108,13 +111,13 @@ export struct CustomSourceView {
   }
 
   private showPluginErrorDialog(message: string): void {
-    const msg = message && message.length > 0 ? message : '未知错误';
+    const msg = message && message.length > 0 ? message : t('unknown_error');
     try {
       this.getUIContext().getPromptAction().showDialog({
-        title: '插件加载失败',
+        title: t('plugin_load_failed'),
         message: msg,
         buttons: [
-          { text: '知道了', color: DesignTokens.accent() },
+          { text: t('got_it'), color: DesignTokens.accent() },
         ],
       });
     } catch (_e) {
@@ -214,7 +217,7 @@ export struct CustomSourceView {
       Row() {
         NavBackButton()
 
-        Text('自定义源')
+        Text(t('custom_sources'))
           .fontSize(DesignTokens.fontTitle())
           .fontWeight(FontWeight.Medium)
           .fontColor(DesignTokens.labelPrimary(this.theme))
@@ -232,14 +235,14 @@ export struct CustomSourceView {
       Scroll() {
         Column() {
           // 内置源
-          this.buildHeader('内置音乐源')
+          this.buildHeader(t('builtin_sources'))
 
           ForEach(DEFAULT_SOURCES, (item: SourceItem) => {
             this.buildSourceItem(item)
           })
 
           // 自定义源
-          this.buildHeader('自定义源')
+          this.buildHeader(t('custom_sources'))
 
           // 自定义源入口
           Row() {
@@ -278,7 +281,7 @@ export struct CustomSourceView {
                 .fontColor('#666666')
                 .padding({ left: 16, top: 12, bottom: 8 })
 
-              TextInput({ placeholder: '例如: https://example.com/api-source.js', text: this.customSourceUrl })
+              TextInput({ placeholder: t('plugin_url_hint'), text: this.customSourceUrl })
                 .width('100%')
                 .height(44)
                 .fontSize(14)
@@ -297,7 +300,7 @@ export struct CustomSourceView {
                 .width('100%')
 
               // 加载按钮
-              Button('加载插件')
+              Button(t('plugin_load_btn'))
                 .width('100%')
                 .height(44)
                 .fontSize(15)

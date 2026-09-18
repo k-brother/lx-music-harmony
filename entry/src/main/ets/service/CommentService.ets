@@ -254,8 +254,7 @@ export class CommentService {
       
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to get TX comments: %{public}s', JSON.stringify(err));
-      // 失败时返回模拟数据
-      return this.getMockComments(musicInfo, page, limit, 'tx');
+      throw new Error(`Failed to get TX comments: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -304,8 +303,7 @@ export class CommentService {
       
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to get TX hot comments: %{public}s', JSON.stringify(err));
-      // 失败时返回模拟数据
-      return this.getMockComments(musicInfo, page, limit, 'tx');
+      throw new Error(`Failed to get TX hot comments: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -371,8 +369,7 @@ export class CommentService {
       
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to get WY comments: %{public}s', JSON.stringify(err));
-      // 失败时返回模拟数据
-      return this.getMockComments(musicInfo, page, limit, 'wy');
+      throw new Error(`Failed to get WY comments: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -419,8 +416,7 @@ export class CommentService {
       
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to get WY hot comments: %{public}s', JSON.stringify(err));
-      // 失败时返回模拟数据
-      return this.getMockComments(musicInfo, page, limit, 'wy');
+      throw new Error(`Failed to get WY hot comments: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -492,8 +488,7 @@ export class CommentService {
       
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to get KG comments: %{public}s', JSON.stringify(err));
-      // 失败时返回模拟数据
-      return this.getMockComments(musicInfo, page, limit, 'kg');
+      throw new Error(`Failed to get KG comments: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -541,8 +536,7 @@ export class CommentService {
       
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to get KG hot comments: %{public}s', JSON.stringify(err));
-      // 失败时返回模拟数据
-      return this.getMockComments(musicInfo, page, limit, 'kg');
+      throw new Error(`Failed to get KG hot comments: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -611,8 +605,7 @@ export class CommentService {
       
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to get MG comments: %{public}s', JSON.stringify(err));
-      // 失败时返回模拟数据
-      return this.getMockComments(musicInfo, page, limit, 'mg');
+      throw new Error(`Failed to get MG comments: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -659,8 +652,7 @@ export class CommentService {
       
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to get MG hot comments: %{public}s', JSON.stringify(err));
-      // 失败时返回模拟数据
-      return this.getMockComments(musicInfo, page, limit, 'mg');
+      throw new Error(`Failed to get MG hot comments: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -784,55 +776,6 @@ export class CommentService {
     }
   }
 
-  // 获取模拟评论（用于未实现的API）
-  private getMockComments(musicInfo: MusicInfo, page: number, limit: number, source: string): CommentResponse {
-    hilog.warn(0x0001, 'CommentService', 'Using mock comments for %{public}s - %{public}s (page: %{public}d)', 
-               source, musicInfo.name, page);
-    
-    const comments: Comment[] = [];
-    const startIndex = (page - 1) * limit;
-    
-    for (let i = 0; i < limit; i++) {
-      const index = startIndex + i;
-      if (index >= 50) break; // 最多50条模拟数据
-      
-      const mockComment: Comment = {
-        id: `${source}_mock_${index}`,
-        content: `这是${musicInfo.name}的第${index + 1}条模拟评论，来自${this.getSourceName(source)}。`,
-        userName: `用户${index + 1}`,
-        userAvatar: '',
-        time: this.formatTime(Date.now() / 1000 - Math.random() * 86400 * 30), // 随机时间
-        likeCount: Math.floor(Math.random() * 1000),
-        replyCount: Math.floor(Math.random() * 100),
-        isLiked: Math.random() > 0.8,
-        isHot: index < 10, // 前10条为热门评论
-        source
-      };
-      comments.push(mockComment);
-    }
-    
-    const total = 50; // 模拟总评论数
-    return {
-      source,
-      comments,
-      total,
-      page,
-      limit,
-      maxPage: Math.ceil(total / limit) || 1
-    };
-  }
-
-  // 获取源名称
-  private getSourceName(source: string): string {
-    switch (source) {
-      case 'kw': return '酷我音乐';
-      case 'tx': return 'QQ音乐';
-      case 'wy': return '网易云音乐';
-      case 'kg': return '酷狗音乐';
-      case 'mg': return '咪咕音乐';
-      default: return '未知源';
-    }
-  }
 }
 
 // 导出单例

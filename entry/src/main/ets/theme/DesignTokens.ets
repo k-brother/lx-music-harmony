@@ -42,6 +42,11 @@ export class DesignTokens {
     return theme === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(60,60,67,0.29)';
   }
 
+  /** 深色模式下的卡片悬停态 */
+  static cardHover(theme: string): string {
+    return theme === 'dark' ? '#25262B' : '#F8F8F8';
+  }
+
   /** 分段控件轨道（UISegmentedControl 式灰底） */
   static segmentedTrack(theme: string): string {
     return theme === 'dark' ? '#2C2C2E' : '#E5E5EA';
@@ -66,6 +71,14 @@ export class DesignTokens {
 
   static accent(): string {
     return '#E63946';
+  }
+
+  static accentSecondary(): string {
+    return '#F1FAEE';
+  }
+
+  static accentTertiary(): string {
+    return '#A8DADC';
   }
 
   static accentSoft(theme: string): string {

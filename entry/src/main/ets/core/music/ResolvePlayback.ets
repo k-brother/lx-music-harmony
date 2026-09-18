@@ -7,6 +7,7 @@ import { buildLyricInfo, getPlayQuality } from './MusicParsingUtils';
 import { pluginManager, PluginSongInfo as PluginSongInfoType } from '../plugin/PluginManager';
 import hilog from '@ohos.hilog';
 import { httpRequest } from '../network/http/HttpClient';
+import { settingsService } from '../../service/SettingsService';
 
 const TAG = 'ONLINE_MUSIC';
 const DOMAIN = 0x0003;
@@ -218,7 +219,13 @@ function musicInfoTrace(info: MusicInfo): string {
   return `name=${info.name || ''},singer=${singerValue},source=${info.source || ''},id=${info.id || ''},songmid=${info.songmid || ''},hash=${info.hash || ''},copyrightId=${info.copyrightId || ''}`;
 }
 
-function isUsableLyric(lyricInfo: LyricInfo | null | undefined): boolean {
+/** 源明确返回"无歌词"时的占位文案（判断用，不做展示） */
+const NO_LYRIC_MARKERS: string[] = ['暂无歌词', '纯音乐', '没有歌词', '无歌词'];
+/** "无歌词"负缓存标记与有效期（24 小时） */
+const NO_LYRIC_CACHE_PREFIX = '#no-lyric#';
+const NO_LYRIC_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+function hasLyricContent(lyricInfo: LyricInfo | null | undefined): boolean {
   if (!lyricInfo) {
     return false;
   }
@@ -226,8 +233,10 @@ function isUsableLyric(lyricInfo: LyricInfo | null | undefined): boolean {
   if (lyric.length === 0) {
     return false;
   }
-  if (lyric.includes('暂无歌词') || lyric.includes('纯音乐')) {
-    return false;
+  for (let i = 0; i < NO_LYRIC_MARKERS.length; i++) {
+    if (lyric.includes(NO_LYRIC_MARKERS[i])) {
+      return false;
+    }
   }
   return true;
 }
@@ -281,8 +290,9 @@ export async function getMusicUrl(params: GetMusicUrlParams): Promise<string | n
     return null;
   }
 
-  // 获取目标音质
-  const targetQuality = quality ?? getPlayQuality(quality ?? '128k', musicInfo);
+  // 获取目标音质：未显式指定时跟随「设置 -> 播放设置 -> 高品质音乐」
+  const preferredQuality: Quality = quality ?? (settingsService.get().highQuality ? 'flac24bit' : '128k');
+  const targetQuality = getPlayQuality(preferredQuality, musicInfo);
   const pluginPreferred = isPluginPreferredForMusicUrl(musicInfo);
 
   // 尝试从缓存获取
@@ -585,7 +595,13 @@ export async function getLyricInfo(params: GetLyricInfoParams): Promise<LyricInf
     return buildLyricInfo(result.lyricInfo);
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    hilog.error(DOMAIN, TAG, 'getLyricInfo failed: %{public}s', errMsg);
+    // "无歌词"是正常结果，返回空歌词让 UI 显示"纯音乐，请欣赏"
+    if (errMsg === 'LyricNotAvailable') {
+      hilog.info(DOMAIN, TAG, 'getLyricInfo: no lyric available, return empty');
+      await cacheNoLyric(musicInfo);
+    } else {
+      hilog.error(DOMAIN, TAG, 'getLyricInfo failed: %{public}s', errMsg);
+    }
     return createEmptyLyricInfo();
   }
 }
@@ -602,7 +618,7 @@ async function handleGetOnlineLyricInfo(params: HandleGetOnlineLyricInfoParams):
     hilog.info(DOMAIN, TAG, 'lyric fetch start: %{public}s', musicInfoTrace(musicInfo));
     const lyricInfo = await getLyricFromSource(musicInfo);
 
-    if (isUsableLyric(lyricInfo)) {
+    if (hasLyricContent(lyricInfo)) {
       hilog.info(DOMAIN, TAG, 'lyric fetch success: %{public}s lyricLen=%{public}d',
         musicInfoTrace(musicInfo), (lyricInfo.lyric || '').length);
       const retObj: LyricResultObj = {
@@ -613,10 +629,16 @@ async function handleGetOnlineLyricInfo(params: HandleGetOnlineLyricInfoParams):
       return retObj;
     }
 
-    throw new Error('Failed to get lyric');
+    // 源没有返回有效歌词（含"暂无歌词/纯音乐"标记）属于正常结果，交给上层展示占位文案
+    hilog.info(DOMAIN, TAG, 'lyric not available from %{public}s, trying fallback sources', musicInfo.source);
+    throw new Error('LyricNotAvailable');
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    hilog.error(DOMAIN, TAG, 'handleGetOnlineLyricInfo error: %{public}s', errMsg);
+    if (errMsg === 'LyricNotAvailable') {
+      hilog.info(DOMAIN, TAG, 'handleGetOnlineLyricInfo: no lyric from primary source');
+    } else {
+      hilog.error(DOMAIN, TAG, 'handleGetOnlineLyricInfo error: %{public}s', errMsg);
+    }
 
     if (!allowToggleSource) {
       throw new Error(errMsg);
@@ -633,7 +655,7 @@ async function handleGetOnlineLyricInfo(params: HandleGetOnlineLyricInfoParams):
         try {
           hilog.info(DOMAIN, TAG, 'lyric fallback source try: %{public}s', musicInfoTrace(mInfo));
           const lyricInfo = await getLyricFromSource(mInfo);
-          if (isUsableLyric(lyricInfo)) {
+          if (hasLyricContent(lyricInfo)) {
             hilog.info(DOMAIN, TAG, 'lyric fallback source success: %{public}s lyricLen=%{public}d',
               musicInfoTrace(mInfo), (lyricInfo.lyric || '').length);
             const retObj: LyricResultObj = {
@@ -649,7 +671,8 @@ async function handleGetOnlineLyricInfo(params: HandleGetOnlineLyricInfoParams):
       }
     }
 
-    throw new Error('All lyric sources failed');
+    hilog.info(DOMAIN, TAG, 'No lyric found on any source for: %{public}s', musicInfoTrace(musicInfo));
+    throw new Error('LyricNotAvailable');
   }
 }
 
@@ -957,8 +980,19 @@ async function clearCachedMusicUrl(musicInfo: MusicInfo, quality: Quality, mode:
 async function getCachedLyricInfo(musicInfo: MusicInfo): Promise<LyricInfo | null> {
   try {
     const key = `lyric_${musicInfo.source}_${musicInfo.songmid}`;
-    const cached = await getStorageService().getString(key, '');
+    const storage = getStorageService();
+    const cached = await storage.getString(key, '');
     if (cached && cached.length > 0) {
+      // "无歌词"负缓存：避免每次播放都重新请求所有源
+      if (cached.startsWith(NO_LYRIC_CACHE_PREFIX)) {
+        const cachedAt = parseInt(cached.substring(NO_LYRIC_CACHE_PREFIX.length), 10);
+        if (!isNaN(cachedAt) && Date.now() - cachedAt < NO_LYRIC_CACHE_TTL_MS) {
+          hilog.info(DOMAIN, TAG, 'Lyric negative cache hit: %{public}s', musicInfoTrace(musicInfo));
+          return createEmptyLyricInfo();
+        }
+        await storage.remove(key);
+        return null;
+      }
       // 简单解析缓存的歌词
       const lyricInfo: LyricInfo = {
         lyric: cached,
@@ -972,6 +1006,18 @@ async function getCachedLyricInfo(musicInfo: MusicInfo): Promise<LyricInfo | nul
   } catch (err) {
     hilog.warn(DOMAIN, TAG, 'getCachedLyricInfo failed: %{public}s', (err as Error).message);
     return null;
+  }
+}
+
+/**
+ * 记录"这首歌确实没有歌词"，带 TTL，避免每次都打满所有源
+ */
+async function cacheNoLyric(musicInfo: MusicInfo): Promise<void> {
+  try {
+    const key = `lyric_${musicInfo.source}_${musicInfo.songmid}`;
+    await getStorageService().setString(key, `${NO_LYRIC_CACHE_PREFIX}${Date.now()}`);
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'cacheNoLyric failed: %{public}s', (err as Error).message);
   }
 }
 

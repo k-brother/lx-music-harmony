@@ -1,3 +1,4 @@
+import { t } from '../../service/LocalizationService';
 // AboutView - 关于页面
 // 对应安卓源码中的 About 页面
 
@@ -12,6 +13,8 @@ const DOMAIN = 0x0001;
 @Component
 export struct AboutView {
   @StorageProp('theme') theme: string = 'light';
+  @StorageProp('language') language: string = 'zh-CN';
+  @StorageProp('langVersion') langVersion: number = 0;
 
   aboutToAppear() {
     hilog.info(DOMAIN, TAG, 'AboutView appearing');
@@ -25,7 +28,7 @@ export struct AboutView {
       // 关于内容
       List() {
         // 应用描述
-        ListItemGroup({ header: this.buildGroupHeader('关于 LX Music') }) {
+        ListItemGroup({ header: this.buildGroupHeader(t('about_lx_title')) }) {
           ListItem() {
             Column() {
               Text('LX Music')
@@ -57,7 +60,7 @@ export struct AboutView {
         }
 
         // 开源信息
-        ListItemGroup({ header: this.buildGroupHeader('开源信息') }) {
+        ListItemGroup({ header: this.buildGroupHeader(t('about_opensource')) }) {
           ListItem() {
             Row() {
               Text('GitHub 仓库')
@@ -95,7 +98,7 @@ export struct AboutView {
         }
 
         // 致谢
-        ListItemGroup({ header: this.buildGroupHeader('致谢') }) {
+        ListItemGroup({ header: this.buildGroupHeader(t('about_thanks')) }) {
           ListItem() {
             Column() {
               Text('感谢所有为 LX Music 做出贡献的开发者。')
@@ -124,7 +127,7 @@ export struct AboutView {
     Row() {
       NavBackButton()
 
-      Text('关于')
+      Text(t('settings_about'))
         .fontSize(DesignTokens.fontTitle())
         .fontColor(DesignTokens.labelPrimary(this.theme))
         .fontWeight(FontWeight.Medium)

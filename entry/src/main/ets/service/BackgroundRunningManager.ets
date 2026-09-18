@@ -447,6 +447,7 @@ export class BackgroundRunningManager {
 
       const wantAgentObj: WantAgent = await wantAgent.getWantAgent(wantAgentInfo);
       if (canIUse('SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask')) {
+        // @SuppressWarnings syscap
         await backgroundTaskManager.startBackgroundRunning(
           this.context,
           ['audioPlayback'],
@@ -472,6 +473,7 @@ export class BackgroundRunningManager {
 
     try {
       if (this.context && canIUse('SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask')) {
+        // @SuppressWarnings syscap
         await backgroundTaskManager.stopBackgroundRunning(this.context);
       }
       this.isTaskRunning = false;

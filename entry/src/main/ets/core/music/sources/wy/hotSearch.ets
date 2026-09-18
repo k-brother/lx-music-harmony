@@ -1,7 +1,6 @@
 /**
  * 网易云音乐 - 热门搜索
  */
-import type { MusicInfo } from '../../../../types/MusicTypes';
 import { httpRequest, parseHttpBodyJson, type HttpRequestConfig } from '../../../../core/network/http';
 
 // 热搜项

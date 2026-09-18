@@ -9,7 +9,7 @@
  */
 
 // 导入音乐源SDK
-import { musicSdk, SearchResult as SDKSearchResult, MusicUrlResult } from './MusicSdkAggregate';
+import { musicSdk, SearchResult as SDKSearchResult } from './MusicSdkAggregate';
 import { getMusicSourceFactory } from './MusicSourceRegistry';
 import {
   getMusicUrl as resolveGetMusicUrl,
@@ -17,8 +17,8 @@ import {
   getPicUrl as resolveGetPicUrl,
   type GetMusicUrlParams as ResolveGetMusicUrlParams,
 } from './ResolvePlayback';
-import type { MusicQualityType, MusicInfo, LyricInfo, Quality } from '../../types/MusicTypes';
-import { pluginManager, Plugin, PluginSongInfo } from '../plugin/PluginManager';
+import type { MusicInfo, LyricInfo } from '../../types/MusicTypes';
+import { pluginManager, PluginSongInfo } from '../plugin/PluginManager';
 import hilog from '@ohos.hilog';
 
 const TAG = 'MUSIC';

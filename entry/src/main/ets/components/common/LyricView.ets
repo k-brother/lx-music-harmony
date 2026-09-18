@@ -5,6 +5,7 @@
 @Component
 export struct LyricView {
   @StorageProp('theme') theme: string = 'light';
+  @StorageProp('showAnimation') showAnimation: boolean = true;
   @Prop lyricLines: string[] = [];
   @Prop secondaryLyricLines: string[] = [];
   @Prop @Watch('onCurrentLyricIndexChanged') currentLyricIndex: number = -1;
@@ -88,7 +89,8 @@ export struct LyricView {
             .padding({ left: 8, right: 8 })
             .justifyContent(FlexAlign.Center)
             .animation({
-              duration: 300,
+              // 「设置 -> 外观 -> 动画效果」关闭时不做滚动动画
+              duration: this.showAnimation ? 300 : 0,
             })
           })
         }

@@ -2,12 +2,13 @@
 // 对应安卓版的评论功能
 
 import hilog from '@ohos.hilog';
-import { navigationService, RouteName } from '../service/NavigationService';
+import { navigationService } from '../service/NavigationService';
 import { MusicInfo, MusicSource } from '../types/MusicTypes';
 import { commentService } from '../service/CommentService';
 import type { NavigationParams } from '../service/NavigationService';
 import { DesignTokens } from '../theme/DesignTokens';
 import { NavBackButton } from '../components/common/NavBackButton';
+import { t } from '../service/LocalizationService';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'CommentPage';
@@ -41,6 +42,9 @@ interface CommentResponse {
 @Component
 export struct CommentPage {
   @StorageProp('theme') theme: string = 'light';
+  @StorageProp('language') language: string = 'zh-CN';
+  @StorageProp('langVersion') langVersion: number = 0;
+  @State renderKey: number = Date.now();
   @State comments: Comment[] = [];
   @State isLoading: boolean = false;
   @State isRefreshing: boolean = false;
@@ -143,71 +147,13 @@ export struct CommentPage {
     } catch (err) {
       const errorMsg: string = JSON.stringify(err);
       hilog.error(DOMAIN, TAG, 'Failed to load comments: %{public}s', errorMsg);
-      
-      // 如果API调用失败，使用模拟数据作为降级方案
-      if (isRefresh && this.comments.length === 0) {
-        await this.loadMockComments(isRefresh);
-      }
-      
+
       if (isRefresh) {
         this.isRefreshing = false;
       } else {
         this.isLoading = false;
       }
     }
-  }
-
-  // 加载模拟评论（降级方案）
-  async loadMockComments(isRefresh: boolean = false): Promise<void> {
-    try {
-      // 模拟加载延迟
-      const delayPromise: Promise<void> = new Promise<void>((resolve: () => void) => setTimeout(resolve, 500));
-      await delayPromise;
-      
-      const newComments = this.generateMockComments(
-        isRefresh ? 1 : this.currentPage,
-        this.commentType
-      );
-      
-      if (isRefresh) {
-        this.comments = newComments;
-      } else {
-        this.comments = [...this.comments, ...newComments];
-      }
-      
-      this.currentPage++;
-      this.hasMore = this.currentPage <= 3;
-      this.totalComments = this.comments.length * 3;
-      
-      hilog.info(DOMAIN, TAG, 'Mock comments loaded: %{public}d', newComments.length);
-    } catch (err) {
-      hilog.error(DOMAIN, TAG, 'Failed to load mock comments: %{public}s', JSON.stringify(err));
-    }
-  }
-
-  // 生成模拟评论数据
-  private generateMockComments(page: number, type: string): Comment[] {
-    const comments: Comment[] = [];
-    const pageSize = 10;
-    
-    for (let i = 0; i < pageSize; i++) {
-      const index = (page - 1) * pageSize + i + 1;
-      const isHot = type === 'hot' && i < 3;
-      
-      comments.push({
-        id: `comment_${page}_${i}`,
-        content: `这是第${index}条评论内容，这是一段测试评论文字，用于展示评论功能。`,
-        userName: `用户${index}`,
-        userAvatar: '',
-        time: `${index}小时前`,
-        likeCount: Math.floor(Math.random() * 1000),
-        replyCount: Math.floor(Math.random() * 100),
-        isLiked: Math.random() > 0.8,
-        isHot
-      });
-    }
-    
-    return comments;
   }
 
   // 切换评论类型
@@ -253,7 +199,7 @@ export struct CommentPage {
     Row() {
       NavBackButton()
 
-      Text('评论')
+      Text(t('comment_title'))
         .fontSize(DesignTokens.fontTitle())
         .fontWeight(FontWeight.Medium)
         .fontColor(DesignTokens.labelPrimary(this.theme))
@@ -273,7 +219,7 @@ export struct CommentPage {
   buildCommentTypeTabs() {
     Row() {
       // 热门评论标签
-      Text('热门评论')
+      Text(t('comment_hot'))
         .fontSize(14)
         .fontColor(this.commentType === 'hot' ? '#E63946' : (this.theme === 'dark' ? '#AAAAAA' : '#666666'))
         .fontWeight(this.commentType === 'hot' ? FontWeight.Medium : FontWeight.Normal)
@@ -281,9 +227,9 @@ export struct CommentPage {
         .onClick(() => {
           this.switchCommentType('hot');
         })
-      
+
       // 最新评论标签
-      Text('最新评论')
+      Text(t('comment_new'))
         .fontSize(14)
         .fontColor(this.commentType === 'new' ? '#E63946' : (this.theme === 'dark' ? '#AAAAAA' : '#666666'))
         .fontWeight(this.commentType === 'new' ? FontWeight.Medium : FontWeight.Normal)
@@ -369,7 +315,7 @@ export struct CommentPage {
                 .fontColor('#999999')
                 .margin({ left: 16, right: 4 })
               
-              Text(comment.replyCount > 0 ? comment.replyCount.toString() : '回复')
+              Text(comment.replyCount > 0 ? comment.replyCount.toString() : t('comment_new'))
                 .fontSize(12)
                 .fontColor('#999999')
             }
@@ -414,12 +360,12 @@ export struct CommentPage {
         .fontColor('#CCCCCC')
         .margin({ bottom: 16 })
       
-      Text('暂无评论')
+      Text(t('comment_no_data'))
         .fontSize(16)
         .fontColor(this.theme === 'dark' ? '#AAAAAA' : '#666666')
         .margin({ bottom: 8 })
       
-      Text('快来发表第一条评论吧')
+      Text(t('comment_no_data'))
         .fontSize(12)
         .fontColor('#999999')
     }
@@ -463,7 +409,7 @@ export struct CommentPage {
             if (this.hasMore) {
               this.buildLoadingState()
             } else if (this.comments.length > 0) {
-              Text('没有更多评论了')
+              Text(t('comment_no_data'))
                 .fontSize(12)
                 .fontColor('#999999')
                 .textAlign(TextAlign.Center)

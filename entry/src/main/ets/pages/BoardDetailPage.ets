@@ -1,17 +1,15 @@
+import { t } from '../service/LocalizationService';
 // 排行榜详情页 - 显示榜单信息和歌曲列表
 // 支持分组展示前几条歌曲作为预览
 
 import hilog from '@ohos.hilog';
 import { PlayerBar } from '../components/player/PlayerBar';
 import { getLeaderboardDetail } from '../core/leaderboard';
-import type { BoardMusicItem, BoardSource } from '../store/leaderboard/LeaderboardStoreState';
 import { playerService, SongInfo } from '../service/PlayerService';
-import { getMusicUrl } from '../core/music/MusicFeatureEntry';
+import { getMusicUrl, download } from '../core/music/MusicFeatureEntry';
 import type { MusicInfo } from '../types/MusicTypes';
 import { navigationService, NavigationParams } from '../service/NavigationService';
 import { DesignTokens } from '../theme/DesignTokens';
-import preferences from '@ohos.data.preferences';
-import { common } from '@kit.AbilityKit';
 import { NavBackButton } from '../components/common/NavBackButton';
 
 interface BoardDetailParams {
@@ -33,24 +31,13 @@ interface BoardSongItem {
   isPlaying: boolean;
 }
 
-interface DownloadTaskEntry {
-  id: string;
-  songId: string;
-  songName: string;
-  singer: string;
-  album: string;
-  source: string;
-  url: string;
-  quality: string;
-  status: string;
-  progress: number;
-  createTime: number;
-}
-
 @Component
 export struct BoardDetailPage {
   @StorageProp('theme') theme: string = 'light';
-  @State boardName: string = '排行榜';
+  @StorageProp('language') language: string = 'zh-CN';
+  @StorageProp('langVersion') langVersion: number = 0;
+  @State renderKey: number = Date.now();
+  @State boardName: string = t('tab_leaderboard');
   @State boardId: string = '';
   @State boardSource: string = 'kw';
   @State songList: BoardSongItem[] = [];
@@ -97,7 +84,7 @@ export struct BoardDetailPage {
       const params = navigationService.getCurrentParams() as NavigationParams;
       if (params && params.boardId) {
         this.boardId = params.boardId as string;
-        this.boardName = (params.boardName as string) || '排行榜';
+        this.boardName = (params.boardName as string) || t('tab_leaderboard');
         this.boardSource = (params.boardSource as string) || 'kw';
         hilog.info(0x0001, 'BoardDetail', 'Loaded params from service - id: %{public}s', this.boardId);
         this.hasLoadedData = true;
@@ -122,7 +109,7 @@ export struct BoardDetailPage {
         const nextId = p.boardId as string;
         const needLoad = !this.hasLoadedData || this.boardId !== nextId;
         this.boardId = nextId;
-        this.boardName = (p.boardName as string) || '排行榜';
+        this.boardName = (p.boardName as string) || t('tab_leaderboard');
         this.boardSource = (p.boardSource as string) || 'kw';
         hilog.info(0x0001, 'BoardDetail', 'Loaded from onReady - id: %{public}s, name: %{public}s', this.boardId, this.boardName);
         this.hasLoadedData = true;
@@ -138,7 +125,7 @@ export struct BoardDetailPage {
       const navParams = navigationService.getCurrentParams() as NavigationParams;
       if (navParams && navParams.boardId) {
         this.boardId = navParams.boardId;
-        this.boardName = navParams.boardName || '排行榜';
+        this.boardName = navParams.boardName || t('tab_leaderboard');
         this.boardSource = navParams.boardSource || 'kw';
         hilog.info(0x0001, 'BoardDetail', 'Loaded from service - id: %{public}s', this.boardId);
         this.loadBoardDetail();
@@ -237,7 +224,6 @@ export struct BoardDetailPage {
       hilog.info(0x0001, 'BoardDetail', 'Getting music URL...');
       const url: string | null = await getMusicUrl({
         musicInfo: musicInfo,
-        quality: '128k',
         isRefresh: false,
         onToggleSource: null,
         allowToggleSource: true,
@@ -261,9 +247,8 @@ export struct BoardDetailPage {
       };
 
       hilog.info(0x0001, 'BoardDetail', 'Setting player source...');
-      await playerService.setSource(songInfo, url, song.duration);
       hilog.info(0x0001, 'BoardDetail', 'Source set, starting playback...');
-      await playerService.play();
+      await playerService.playFromSelection(songInfo, url, song.duration);
       hilog.info(0x0001, 'BoardDetail', 'Playback started successfully');
     } catch (error) {
       hilog.error(0x0001, 'BoardDetail', 'Play song failed: %{public}s', JSON.stringify(error));
@@ -314,41 +299,15 @@ export struct BoardDetailPage {
 
   private async downloadSong(song: BoardSongItem): Promise<void> {
     try {
-      const url: string | null = await getMusicUrl({
+      // 与歌单详情页一致，统一走下载服务（下载页可见、可暂停/恢复）
+      const taskId: string = await download.startDownload({
         musicInfo: this.buildMusicInfoForDownload(song),
-        quality: '128k',
-        isRefresh: false,
-        onToggleSource: null,
-        allowToggleSource: true,
       });
-      if (!url || url.length === 0) {
-        this.showToast(`无法下载: ${song.name}`);
-        return;
-      }
-      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-      const pref = await preferences.getPreferences(context, 'music_downloads');
-      const tasksJson = await pref.get('tasks', '[]') as string;
-      const tasks = JSON.parse(tasksJson) as DownloadTaskEntry[];
-      const task: DownloadTaskEntry = {
-        id: `${song.id}-${Date.now()}`,
-        songId: song.id,
-        songName: song.name,
-        singer: song.singer,
-        album: song.album,
-        source: song.source,
-        url: url,
-        quality: '128k',
-        status: 'pending',
-        progress: 0,
-        createTime: Date.now(),
-      };
-      tasks.push(task);
-      await pref.put('tasks', JSON.stringify(tasks));
-      await pref.flush();
-      this.showToast(`已加入下载: ${song.name}`);
+      hilog.info(0x0001, 'BoardDetail', 'Download started: %{public}s, taskId: %{public}s', song.name, taskId);
+      this.showToast(`${t('download_title')}: ${song.name}`);
     } catch (err) {
       hilog.error(0x0001, 'BoardDetail', 'downloadSong failed: %{public}s', JSON.stringify(err));
-      this.showToast(`下载失败: ${song.name}`);
+      this.showToast(t('media_save_fail'));
     }
   }
 
@@ -382,7 +341,7 @@ export struct BoardDetailPage {
           LoadingProgress()
             .width(32)
             .height(32)
-          Text('加载中...')
+          Text(t('loading'))
             .fontSize(14)
             .fontColor('#999999')
             .margin({ top: 12 })
@@ -394,7 +353,7 @@ export struct BoardDetailPage {
       } else if (this.songList.length === 0) {
         // 空状态
         Column() {
-          Text('暂无歌曲数据')
+          Text(t('no_data'))
             .fontSize(14)
             .fontColor('#999999')
         }
@@ -458,7 +417,7 @@ export struct BoardDetailPage {
                 .width(14)
                 .height(14)
                 .fillColor('#FFFFFF')
-              Text('播放全部')
+              Text(t('play_all'))
                 .fontSize(DesignTokens.fontBody())
                 .fontColor('#FFFFFF')
                 .fontWeight(FontWeight.Medium)
@@ -490,7 +449,7 @@ export struct BoardDetailPage {
               .width(14)
               .height(14)
               .fillColor('#FFFFFF')
-            Text('播放全部')
+            Text(t('play_all'))
               .fontSize(DesignTokens.fontBody())
               .fontColor('#FFFFFF')
               .fontWeight(FontWeight.Medium)

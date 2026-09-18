@@ -177,7 +177,12 @@ async function fetchTxStrMediaMid(songMid: string): Promise<string | null> {
   try {
     const response = await httpPost('https://u.y.qq.com/cgi-bin/musicu.fcg', JSON.stringify(bodyObj), { header: hdr })
       .promise;
-    const raw = response.data as string;
+    // responseType='json' 时 data 已是对象，解析文本要用 rawText
+    const raw = response.rawText;
+    if (!raw || raw.length === 0) {
+      hilog.warn(DOMAIN, TAG, 'fetchTxStrMediaMid empty body');
+      return null;
+    }
     const parsed = JSON.parse(raw) as Record<string, Object>;
     const req = parsed['req'] as Record<string, Object> | undefined;
     if (!req || (req['code'] as number) !== 0) {

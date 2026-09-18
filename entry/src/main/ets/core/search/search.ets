@@ -15,6 +15,7 @@ import {
 } from '../music/MusicFeatureEntry';
 import { getStorageService } from '../interfaces/IStorageService';
 import { pluginManager } from '../plugin/PluginManager';
+import { settingsService } from '../../service/SettingsService';
 import hilog from '@ohos.hilog';
 
 const TAG = 'SEARCH';
@@ -57,7 +58,8 @@ export async function getSearchHistory(): Promise<string[]> {
       hilog.warn(DOMAIN, TAG, 'getSearchHistory parse failed: %{public}s', (err as Error).message);
     }
   }
-  return searchState.searchHistory;
+  const limit = settingsService.get().searchHistoryCount;
+  return searchState.searchHistory.slice(0, limit);
 }
 
 // 添加搜索历史
@@ -74,8 +76,10 @@ export async function addHistoryWord(word: string): Promise<void> {
   if (index > -1) {
     searchState.searchHistory.splice(index, 1);
   }
-  if (searchState.searchHistory.length >= 15) {
-    searchState.searchHistory.splice(14, searchState.searchHistory.length - 14);
+  // 条数上限跟随「设置 -> 搜索设置 -> 搜索历史数量」
+  const limit = settingsService.get().searchHistoryCount;
+  if (searchState.searchHistory.length >= limit) {
+    searchState.searchHistory.splice(limit - 1, searchState.searchHistory.length - (limit - 1));
   }
   searchState.searchHistory.unshift(word);
 

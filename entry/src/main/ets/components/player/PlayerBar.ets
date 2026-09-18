@@ -1,3 +1,4 @@
+import { t } from '../../service/LocalizationService';
 // 迷你播放器栏组件 - 对应 src/components/player/PlayerBar/index.tsx
 // 显示在首页底部的迷你播放控制栏
 
@@ -15,7 +16,10 @@ import { DesignTokens } from '../../theme/DesignTokens';
 @Component
 export struct PlayerBar {
   @StorageProp('theme') theme: string = 'light';
+  @StorageProp('language') language: string = 'zh-CN';
+  @StorageProp('langVersion') langVersion: number = 0;
   @StorageProp('primaryColor') primaryColor: string = '#E63946';
+  @StorageProp('showAnimation') showAnimation: boolean = true;
   @Prop immersiveBottom: boolean = false;
   @State isPlay: boolean = false;
   @State musicName: string = '';
@@ -182,6 +186,7 @@ export struct PlayerBar {
           .onClick(() => {
             this.navigateToPlayDetailSafely();
           })
+          .animation({ duration: this.showAnimation ? 200 : 0, curve: Curve.EaseOut })
       } else {
         Image($r('app.media.ic_player_cover_placeholder'))
           .width(48)
@@ -194,13 +199,13 @@ export struct PlayerBar {
       }
 
       Column() {
-        Text(this.musicName || '未在播放')
+        Text(this.musicName || t('not_playing_text'))
           .fontSize(DesignTokens.fontBody())
           .fontWeight(FontWeight.Medium)
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(this.singer || '选择歌曲开始收听')
+        Text(this.singer || t('select_song_hint'))
           .fontSize(DesignTokens.fontCaption())
           .fontColor(DesignTokens.labelSecondary(this.theme))
           .maxLines(1)
@@ -220,6 +225,7 @@ export struct PlayerBar {
             .height(DesignTokens.iconSm())
             .fillColor(DesignTokens.labelPrimary(this.theme))
         }
+        .scale({ x: 0.95, y: 0.95 })
         .onClick(() => {
           void this.playPrev();
         })
@@ -240,6 +246,7 @@ export struct PlayerBar {
               .margin({ left: 1 })
           }
         }
+        .scale({ x: 0.9, y: 0.9 })
         .onClick(() => {
           void this.togglePlay();
         })
@@ -252,6 +259,7 @@ export struct PlayerBar {
             .height(DesignTokens.iconSm())
             .fillColor(DesignTokens.labelPrimary(this.theme))
         }
+        .scale({ x: 0.95, y: 0.95 })
         .onClick(() => {
           void this.playNext();
         })

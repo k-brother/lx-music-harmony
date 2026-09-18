@@ -1,10 +1,13 @@
 /**
  * 通用加载视图组件
  */
+import { t } from '../../service/LocalizationService';
 
 @Component
 export struct LoadingView {
-  @Prop message: string = '加载中...';
+  @StorageProp('language') language: string = 'zh-CN';
+  @StorageProp('langVersion') langVersion: number = 0;
+  @Prop message: string = '';
   @Prop iconSize: number = 32;
 
   build() {
@@ -14,7 +17,7 @@ export struct LoadingView {
         .height(this.iconSize)
         .color('#E63946')
 
-      Text(this.message)
+      Text(this.message ? this.message : t('loading'))
         .fontSize(14)
         .fontColor('#999999')
         .margin({ top: 12 })

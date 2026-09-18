@@ -1,6 +1,6 @@
 import { httpRequest, parseHttpBodyJson } from '../../../../core/network/http';
 import type { MusicInfo, Quality, QualityDetail } from '../../../../types/MusicTypes';
-import { formatPlayTime, decodeHtmlEntities, formatSinger, formatPlayCount } from '../../../../utils/CommonUtils';
+import { formatPlayTime, decodeHtmlEntities, formatSinger } from '../../../../utils/CommonUtils';
 import hilog from '@ohos.hilog';
 
 // 排行榜项

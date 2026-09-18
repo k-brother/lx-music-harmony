@@ -1,7 +1,7 @@
 // Player Store State - 对应 src/store/player/state.ts
 // 播放器状态管理
 
-import { MusicInfo, PlayMusicInfo, PlayInfo, Progress, MusicItem } from '../types/MusicTypes';
+import { MusicInfo, PlayMusicInfo, PlayInfo, Progress } from '../types/MusicTypes';
 
 // 播放器状态
 export class PlayerState {

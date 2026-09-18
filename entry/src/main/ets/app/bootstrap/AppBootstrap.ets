@@ -5,10 +5,14 @@ import hilog from '@ohos.hilog';
 import { initMusicSDK, loadCustomSource } from '../../core/music/MusicFeatureEntry';
 import { runVersionCheckDeferred } from '../../service/VersionCheckService';
 import { getStorageService } from '../../core/interfaces/IStorageService';
+import { settingsService } from '../../service/SettingsService';
+import { DesktopLyricManager } from '../../components/common/DesktopLyric';
 
 const TAG = 'AppBootstrap';
 const DOMAIN = 0x0001;
 const CUSTOM_SOURCE_RESTORE_DELAY_MS = 3000;
+/** 桌面歌词子窗口需要主窗口 WindowStage 就绪，延迟恢复 */
+const DESKTOP_LYRIC_RESTORE_DELAY_MS = 3000;
 
 function handleLaunchWant(want?: object): void {
   if (!want) {
@@ -26,6 +30,9 @@ function handleLaunchWant(want?: object): void {
 }
 
 export async function runBootstrapAfterServices(want?: object): Promise<void> {
+  // 语言与桌面歌词配置由 SettingsService 统一加载并镜像到 AppStorage，
+  // 这里只补一个子窗口用的初始文本，避免首帧空白。
+  AppStorage.setOrCreate('desktopLyricText', '♪ LX Music');
   await initMusicSDK();
   hilog.info(
     DOMAIN,
@@ -34,8 +41,22 @@ export async function runBootstrapAfterServices(want?: object): Promise<void> {
     CUSTOM_SOURCE_RESTORE_DELAY_MS
   );
   scheduleDeferredCustomSourceRestore();
+  scheduleDesktopLyricRestore();
   handleLaunchWant(want);
   runVersionCheckDeferred();
+}
+
+function scheduleDesktopLyricRestore(): void {
+  setTimeout(() => {
+    try {
+      if (settingsService.get().showDesktopLyric) {
+        hilog.info(DOMAIN, TAG, 'Restoring desktop lyric window');
+        DesktopLyricManager.setEnabled(true);
+      }
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'Desktop lyric restore skipped: %{public}s', JSON.stringify(err));
+    }
+  }, DESKTOP_LYRIC_RESTORE_DELAY_MS);
 }
 
 function scheduleDeferredCustomSourceRestore(): void {

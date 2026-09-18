@@ -2,10 +2,13 @@
  * 通用错误视图组件
  * 注意：重试逻辑由父组件通过条件渲染处理
  */
+import { t } from '../../service/LocalizationService';
 
 @Component
 export struct ErrorView {
-  @Prop message: string = '加载失败';
+  @StorageProp('language') language: string = 'zh-CN';
+  @StorageProp('langVersion') langVersion: number = 0;
+  @Prop message: string = '';
   @Prop showRetry: boolean = true;
 
   build() {
@@ -14,13 +17,13 @@ export struct ErrorView {
         .fontSize(50)
         .fontColor('#CCCCCC')
 
-      Text(this.message)
+      Text(this.message ? this.message : t('load_failed'))
         .fontSize(14)
         .fontColor('#999999')
         .margin({ top: 12 })
 
       if (this.showRetry) {
-        Text('点击重试')
+        Text(t('retry'))
           .fontSize(14)
           .fontColor('#E63946')
           .margin({ top: 16 })

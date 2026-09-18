@@ -64,8 +64,9 @@ export const lyric: LyricInterface = {
    * 下载歌词
    */
   downloadLyric(url: string): Promise<LyricInfo> {
-    return httpRequest(url).promise.then((response) => {
-      const lrc: string = response.data as string;
+    return httpRequest(url, { responseType: 'text' }).promise.then((response) => {
+      // 歌词通常是纯文本；若被解析成对象则回退到原始文本
+      const lrc: string = response.rawText;
       const lyricInfo: LyricInfo = {
         lyric: lrc || '',
         tlyric: null,

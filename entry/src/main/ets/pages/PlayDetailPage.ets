@@ -1,6 +1,5 @@
 import hilog from '@ohos.hilog';
 import { BusinessError } from '@kit.BasicServicesKit';
-import preferences from '@ohos.data.preferences';
 import { common } from '@kit.AbilityKit';
 import { playerService, MusicInfo, ProgressInfo } from '../service/PlayerService';
 import { navigationService } from '../service/NavigationService';
@@ -11,6 +10,11 @@ import { getLyricInfo, getPicPath } from '../core/music/MusicFeatureEntry';
 import { parseLrc, getCurrentLyricIndex, LyricLine } from '../core/music/MusicParsingUtils';
 import { DesignTokens } from '../theme/DesignTokens';
 import { NavBackButton } from '../components/common/NavBackButton';
+import { t } from '../service/LocalizationService';
+import { settingsService, type PlayMode } from '../service/SettingsService';
+import { DesktopLyricManager } from '../components/common/DesktopLyric';
+import { sleepTimerService } from '../service/SleepTimerService';
+import { mediaSaveService, type SaveResult } from '../service/MediaSaveService';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'PlayDetailPage';
@@ -27,6 +31,9 @@ interface ActionMenuResult {
 @Component
 export struct PlayDetailPage {
   @StorageProp('theme') theme: string = 'light';
+  @StorageProp('language') language: string = 'zh-CN';
+  @StorageProp('langVersion') langVersion: number = 0;
+  @State renderKey: number = Date.now();
   @State currentTab: number = 0; // 0: 封面, 1: 歌词
   @State isPlaying: boolean = false;
   @State musicName: string = '';
@@ -36,13 +43,13 @@ export struct PlayDetailPage {
   @State progress: number = 0;
   @State currentTime: string = '00:00';
   @State totalTime: string = '00:00';
-  @State lyricLines: string[] = ['加载歌词中...'];
+  @State lyricLines: string[] = [t('loading_lyric')];
   @State secondaryLyricLines: string[] = [];
   @State currentLyricIndex: number = -1;
   @State playMode: string = 'listLoop';
   @State showDesktopLyric: boolean = false;
   @State timeoutExitEnabled: boolean = false;
-  @State timeoutExitLabel: string = '定时退出';
+  @State timeoutExitLabel: string = t('sleep_timer_setting');
   @State showMoreActionsDialog: boolean = false;
   @State pressedMoreActionIndex: number = -1;
 
@@ -60,6 +67,8 @@ export struct PlayDetailPage {
   private coverRetryCount: number = 0;
   private lyricRetryCount: number = 0;
   private lyricSongKey: string = '';
+  /** 最近一次加载到的原始歌词文本（用于同步给桌面歌词窗口） */
+  private lyricRawText: string = '';
   private swiperController: SwiperController = new SwiperController();
 
   aboutToAppear() {
@@ -99,6 +108,7 @@ export struct PlayDetailPage {
         this.currentLyricIndex = getCurrentLyricIndex(this.lyricTimeline, prog.nowPlayTime);
       }
     });
+    this.renderKey = Date.now();
   }
 
   aboutToDisappear() {
@@ -179,7 +189,7 @@ export struct PlayDetailPage {
     this.currentTab = 1;
     this.swiperController.changeIndex(1, false);
     const hasLyric = this.lyricTimeline.length > 0 ||
-      (this.lyricLines.length > 0 && this.lyricLines[0] !== '暂无歌词');
+      (this.lyricLines.length > 0 && this.lyricLines[0] !== t('player_no_lyric'));
     if (!hasLyric) {
       const currentMusicInfo = playerService.getCurrentMusicInfo();
       void this.ensureLyricReady(currentMusicInfo, false);
@@ -198,7 +208,7 @@ export struct PlayDetailPage {
 
   private applyMusicInfo(info: MusicInfo): void {
     if (!info || !info.name) {
-      this.musicName = '未播放';
+      this.musicName = t('not_playing');
       this.singer = '';
       this.album = '';
       this.pic = '';
@@ -265,16 +275,16 @@ export struct PlayDetailPage {
   private async ensureLyricReady(info: MusicInfo, force: boolean): Promise<void> {
     if (!this.alive || !info || !info.name) {
       if (this.lyricLines.length === 0) {
-        this.lyricLines = ['暂无歌词'];
+        this.lyricLines = [t('player_no_lyric')];
       }
       return;
     }
     const targetKey = this.buildMusicKey(info);
     const hasUsableLyric = this.lyricTimeline.length > 0 ||
-      (this.lyricLines.length > 0 && this.lyricLines[0] !== '加载歌词中...');
+      (this.lyricLines.length > 0 && this.lyricLines[0] !== t('loading_lyric'));
     // 已有可用歌词时，后台刷新不抢占 UI，避免切 tab 期间出现“空白/失败占位”闪烁。
     if ((force || this.lyricTimeline.length === 0) && !hasUsableLyric) {
-      this.lyricLines = ['加载歌词中...'];
+      this.lyricLines = [t('loading_lyric')];
       this.secondaryLyricLines = [];
       this.currentLyricIndex = -1;
     }
@@ -287,11 +297,14 @@ export struct PlayDetailPage {
       if (!this.alive || seq !== this.lyricLoadSeq) {
         return;
       }
+      // 同步歌词给桌面歌词子窗口
+      this.lyricRawText = lyricInfo.lyric || '';
+      DesktopLyricManager.onLyricLoaded(this.lyricRawText);
       const primaryLines = parseLrc(lyricInfo.lyric || '');
       const secondaryLines = parseLrc(lyricInfo.tlyric || '');
       if (primaryLines.length === 0) {
         this.lyricTimeline = [];
-        this.lyricLines = ['纯音乐，请欣赏'];
+        this.lyricLines = [t('pure_music')];
         this.secondaryLyricLines = [];
         this.currentLyricIndex = -1;
         return;
@@ -323,7 +336,7 @@ export struct PlayDetailPage {
       const canKeepCurrentLyric = this.lyricSongKey === targetKey && this.lyricTimeline.length > 0;
       if (!canKeepCurrentLyric) {
         this.lyricTimeline = [];
-        this.lyricLines = ['歌词加载失败'];
+        this.lyricLines = [t('lyric_load_failed')];
         this.secondaryLyricLines = [];
         this.currentLyricIndex = -1;
       }
@@ -377,8 +390,8 @@ export struct PlayDetailPage {
         title,
         message,
         buttons: [
-          { text: '取消', color: DesignTokens.labelSecondary(this.theme) },
-          { text: '确认', color: DesignTokens.accent() },
+          { text: t('cancel'), color: DesignTokens.labelSecondary(this.theme) },
+          { text: t('confirm'), color: DesignTokens.accent() },
         ],
       }, (err: BusinessError, data: ActionMenuResult) => {
         if (err) {
@@ -396,11 +409,12 @@ export struct PlayDetailPage {
       const currentMode = playerService.getPlayMode();
       this.playMode = currentMode;
 
-      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-      const pref = await preferences.getPreferences(context, 'music_settings');
-      this.showDesktopLyric = await pref.get('showDesktopLyric', false) as boolean;
-      this.timeoutExitEnabled = await pref.get('timeoutExit', false) as boolean;
-      this.timeoutExitLabel = this.timeoutExitEnabled ? '已启用' : '定时退出';
+      const settings = settingsService.get();
+      this.showDesktopLyric = settings.showDesktopLyric;
+      this.timeoutExitEnabled = settings.sleepTimerEnabled;
+      this.timeoutExitLabel = this.timeoutExitEnabled ? t('sleep_enabled') : t('sleep_timer_setting');
+      // 应用启动时桌面歌词开关可能是开着的，这里补齐子窗口状态
+      DesktopLyricManager.setEnabled(this.showDesktopLyric);
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'loadPlaySettings failed: %{public}s', JSON.stringify(err));
     }
@@ -411,12 +425,11 @@ export struct PlayDetailPage {
       // 同步播放模式到 PlayerService
       playerService.setPlayMode(this.playMode as 'listLoop' | 'singleLoop' | 'random' | 'sequential');
 
-      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-      const pref = await preferences.getPreferences(context, 'music_settings');
-      await pref.put('playMode', this.playMode);
-      await pref.put('showDesktopLyric', this.showDesktopLyric);
-      await pref.put('timeoutExit', this.timeoutExitEnabled);
-      await pref.flush();
+      await settingsService.update({
+        playMode: this.playMode as PlayMode,
+        showDesktopLyric: this.showDesktopLyric,
+        sleepTimerEnabled: this.timeoutExitEnabled,
+      });
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'savePlaySettings failed: %{public}s', JSON.stringify(err));
     }
@@ -430,26 +443,31 @@ export struct PlayDetailPage {
     // 同步到 PlayerService（由 PlayerService 同步到 AVSession）
     playerService.setPlayMode(this.playMode as 'listLoop' | 'singleLoop' | 'random' | 'sequential');
     void this.savePlaySettings();
-    this.showToast(`播放模式: ${this.getPlayModeText()}`);
+    this.showToast(`${t('settings_play_mode')}: ${this.getPlayModeText()}`);
   }
 
   private toggleDesktopLyric(): void {
     this.showDesktopLyric = !this.showDesktopLyric;
+    // 真正创建/销毁桌面歌词子窗口
+    DesktopLyricManager.setEnabled(this.showDesktopLyric);
+    if (this.showDesktopLyric) {
+      DesktopLyricManager.onLyricLoaded(this.lyricRawText);
+    }
     void this.savePlaySettings();
-    this.showToast(this.showDesktopLyric ? '已开启桌面歌词' : '已关闭桌面歌词');
+    this.showToast(this.showDesktopLyric ? t('toast_desktop_on') : t('toast_desktop_off'));
   }
 
   private async toggleTimeoutExit(): Promise<void> {
     const primary = this.theme === 'dark' ? '#F5F5F7' : '#1D1D1F';
     const tertiary = '#8E8E93';
     this.getUIContext().getPromptAction().showActionMenu({
-      title: '定时退出',
+      title: t('sleep_timer_setting'),
       buttons: [
-        { text: '15分钟后停止播放', color: primary },
-        { text: '30分钟后停止播放', color: primary },
-        { text: '60分钟后停止播放', color: primary },
-        { text: '关闭定时退出', color: primary },
-        { text: '取消', color: tertiary },
+        { text: t('sleep_15min'), color: primary },
+        { text: t('sleep_30min'), color: primary },
+        { text: t('sleep_60min'), color: primary },
+        { text: t('sleep_disable'), color: primary },
+        { text: t('cancel'), color: tertiary },
       ],
     }, (err: BusinessError, data: ActionMenuResult) => {
       if (err) return;
@@ -461,34 +479,29 @@ export struct PlayDetailPage {
       }
       if (ix === 3) {
         this.timeoutExitEnabled = false;
-        this.timeoutExitLabel = '定时退出';
-        void this.savePlaySettings();
-        this.showToast('已关闭定时退出');
+        this.timeoutExitLabel = t('sleep_timer_setting');
+        sleepTimerService.stop();
+        this.showToast(t('toast_sleep_cancel'));
         return;
       }
       const mins = ix === 0 ? 15 : (ix === 1 ? 30 : 60);
       this.timeoutExitEnabled = true;
-      this.timeoutExitLabel = `${mins}分钟后退出`;
-      void this.savePlaySettings();
-      this.timeoutExitTimer = setTimeout(() => {
-        void playerService.pause();
-        this.timeoutExitEnabled = false;
-        this.timeoutExitLabel = '定时退出';
-        this.showToast('已暂停播放（定时退出）');
-      }, mins * 60 * 1000);
-      this.showToast(`将在 ${mins} 分钟后暂停播放`);
+      this.timeoutExitLabel = `${mins} ${t('settings_sleep_minutes')}`;
+      // 统一由 SleepTimerService 计时，保证与设置页状态一致
+      sleepTimerService.start(mins);
+      this.showToast(`${t('toast_sleep_set')} ${mins} ${t('toast_sleep_start')}`);
     });
   }
 
   private async addToPlaylist(): Promise<void> {
     const currentMusicInfo = playerService.getCurrentMusicInfo();
     if (!currentMusicInfo || !currentMusicInfo.name) {
-      this.showToast('当前没有正在播放的歌曲');
+      this.showToast(t('player_no_song'));
       return;
     }
     const options: PlaylistOptionRow[] = [];
-    options.push({ id: LIST_IDS.DEFAULT, name: '默认列表' });
-    options.push({ id: LIST_IDS.LOVE, name: '我喜欢' });
+    options.push({ id: LIST_IDS.DEFAULT, name: t('default_list_label') });
+    options.push({ id: LIST_IDS.LOVE, name: t('love_title') });
     const userLists = getUserList();
     for (let i = 0; i < userLists.length; i++) {
       options.push({ id: userLists[i].id, name: userLists[i].name });
@@ -501,20 +514,20 @@ export struct PlayDetailPage {
     const primary = this.theme === 'dark' ? '#F5F5F7' : '#1D1D1F';
     const tertiary = '#8E8E93';
     const display = options.slice(0, maxCount);
-    const opt0 = maxCount > 0 ? display[0].name : '未命名歌单';
-    const opt1 = maxCount > 1 ? display[1].name : '未命名歌单';
-    const opt2 = maxCount > 2 ? display[2].name : '未命名歌单';
-    const opt3 = maxCount > 3 ? display[3].name : '未命名歌单';
-    const opt4 = maxCount > 4 ? display[4].name : '未命名歌单';
+    const opt0 = maxCount > 0 ? display[0].name : t('unnamed_list');
+    const opt1 = maxCount > 1 ? display[1].name : t('unnamed_list');
+    const opt2 = maxCount > 2 ? display[2].name : t('unnamed_list');
+    const opt3 = maxCount > 3 ? display[3].name : t('unnamed_list');
+    const opt4 = maxCount > 4 ? display[4].name : t('unnamed_list');
     this.getUIContext().getPromptAction().showActionMenu({
-      title: '添加到歌单',
+      title: t('player_add_to_list'),
       buttons: [
         { text: opt0, color: primary },
         { text: opt1, color: primary },
         { text: opt2, color: primary },
         { text: opt3, color: primary },
         { text: opt4, color: primary },
-        { text: '取消', color: tertiary },
+        { text: t('cancel'), color: tertiary },
       ],
     }, async (err: BusinessError, data: ActionMenuResult) => {
       if (err) return;
@@ -554,14 +567,14 @@ export struct PlayDetailPage {
 
   private async executeMoreAction(index: number): Promise<void> {
     const labels = [
-      '添加到歌单',
-      '查看评论',
-      this.currentTab === 0 ? '切换到歌词' : '切换到封面',
-      this.showDesktopLyric ? '关闭桌面歌词' : '开启桌面歌词',
-      '设置定时退出',
+      t('player_add_to_list'),
+      t('player_comment'),
+      this.currentTab === 0 ? t('switch_to_lyric') : t('switch_to_cover'),
+      this.showDesktopLyric ? t('close_desktop_lyric') : t('open_desktop_lyric'),
+      t('set_sleep_timer'),
     ];
-    const actionLabel = labels[index] ?? '执行此操作';
-    const confirmed = await this.showConfirmDialog('确认操作', `是否确认${actionLabel}？`);
+    const actionLabel = labels[index] ?? t('execute_action');
+    const confirmed = await this.showConfirmDialog(t('confirm_action'), `${t('confirm_action_msg')}「${actionLabel}」？`);
     if (!confirmed) {
       return;
     }
@@ -590,6 +603,55 @@ export struct PlayDetailPage {
     }
     if (ix === 4) {
       void this.toggleTimeoutExit();
+      return;
+    }
+    if (ix === 5) {
+      void this.saveLyricToFile();
+      return;
+    }
+    if (ix === 6) {
+      void this.saveCoverToFile();
+    }
+  }
+
+  /** 保存当前歌词到本地文件 */
+  private async saveLyricToFile(): Promise<void> {
+    const info = playerService.getCurrentMusicInfo();
+    if (!info || !info.name) {
+      this.showToast(t('player_no_song'));
+      return;
+    }
+    if (!this.lyricRawText) {
+      this.showToast(t('media_lyric_empty'));
+      return;
+    }
+    try {
+      const result: SaveResult = await mediaSaveService.saveLyricToFile(info, this.lyricRawText);
+      this.showToast(result.success ? t('media_save_success') : (result.error || t('media_save_fail')));
+    } catch (err) {
+      hilog.error(DOMAIN, TAG, 'saveLyricToFile failed: %{public}s', JSON.stringify(err));
+      this.showToast(t('media_save_fail'));
+    }
+  }
+
+  /** 保存当前封面到本地文件 */
+  private async saveCoverToFile(): Promise<void> {
+    const info = playerService.getCurrentMusicInfo();
+    if (!info || !info.name) {
+      this.showToast(t('player_no_song'));
+      return;
+    }
+    const imageUrl = info.pic || info.img || '';
+    if (!imageUrl) {
+      this.showToast(t('media_url_empty'));
+      return;
+    }
+    try {
+      const result: SaveResult = await mediaSaveService.saveCoverToFile(info, imageUrl);
+      this.showToast(result.success ? t('media_save_success') : (result.error || t('media_save_fail')));
+    } catch (err) {
+      hilog.error(DOMAIN, TAG, 'saveCoverToFile failed: %{public}s', JSON.stringify(err));
+      this.showToast(t('media_save_fail'));
     }
   }
 
@@ -613,11 +675,11 @@ export struct PlayDetailPage {
 
   private getPlayModeText(): string {
     switch (this.playMode) {
-      case 'listLoop': return '列表循环';
-      case 'singleLoop': return '单曲循环';
-      case 'random': return '随机播放';
-      case 'sequential': return '顺序播放';
-      default: return '列表循环';
+      case 'listLoop': return t('mode_list_loop');
+      case 'singleLoop': return t('mode_single_loop');
+      case 'random': return t('mode_random');
+      case 'sequential': return t('mode_sequential');
+      default: return t('mode_list_loop');
     }
   }
 
@@ -651,7 +713,7 @@ export struct PlayDetailPage {
             }
           } else {
             const hasLyric = this.lyricTimeline.length > 0 ||
-              (this.lyricLines.length > 0 && this.lyricLines[0] !== '暂无歌词');
+              (this.lyricLines.length > 0 && this.lyricLines[0] !== t('player_no_lyric'));
             if (!hasLyric) {
               const currentMusicInfo = playerService.getCurrentMusicInfo();
               void this.ensureLyricReady(currentMusicInfo, false);
@@ -701,11 +763,13 @@ export struct PlayDetailPage {
         .alignItems(VerticalAlign.Center)
         .margin({ bottom: 4 })
 
-        this.buildMoreActionRow(0, 5, $r('app.media.ic_pd_playlist'), '添加到歌单', () => this.onMoreActionSelected(0))
-        this.buildMoreActionRow(1, 5, $r('app.media.ic_pd_comment'), '查看评论', () => this.onMoreActionSelected(1))
-        this.buildMoreActionRow(2, 5, $r('app.media.ic_pd_lyric'), this.currentTab === 0 ? '切换到歌词' : '切换到封面', () => this.onMoreActionSelected(2))
-        this.buildMoreActionRow(3, 5, $r('app.media.ic_pd_lyric'), this.showDesktopLyric ? '关闭桌面歌词' : '开启桌面歌词', () => this.onMoreActionSelected(3))
-        this.buildMoreActionRow(4, 5, $r('app.media.ic_pd_timer'), '定时退出', () => this.onMoreActionSelected(4))
+        this.buildMoreActionRow(0, 5, $r('app.media.ic_pd_playlist'), t('player_add_to_list'), () => this.onMoreActionSelected(0))
+        this.buildMoreActionRow(1, 5, $r('app.media.ic_pd_comment'), t('player_comment'), () => this.onMoreActionSelected(1))
+        this.buildMoreActionRow(2, 5, $r('app.media.ic_pd_lyric'), this.currentTab === 0 ? t('switch_to_lyric') : t('switch_to_cover'), () => this.onMoreActionSelected(2))
+        this.buildMoreActionRow(3, 5, $r('app.media.ic_pd_lyric'), this.showDesktopLyric ? t('close_desktop_lyric') : t('open_desktop_lyric'), () => this.onMoreActionSelected(3))
+        this.buildMoreActionRow(4, 5, $r('app.media.ic_pd_timer'), t('sleep_timer_setting'), () => this.onMoreActionSelected(4))
+        this.buildMoreActionRow(5, 5, $r('app.media.ic_pd_lyric'), t('media_save_lyric'), () => this.onMoreActionSelected(5))
+        this.buildMoreActionRow(6, 5, $r('app.media.ic_pd_comment'), t('media_save_cover'), () => this.onMoreActionSelected(6))
       }
       .width('84%')
       .padding({ left: 18, right: 18, top: 16, bottom: 14 })
@@ -781,7 +845,7 @@ export struct PlayDetailPage {
       NavBackButton()
 
       Column() {
-        Text(this.musicName || '未播放')
+        Text(this.musicName || t('not_playing'))
           .fontSize(DesignTokens.fontTitle())
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .fontWeight(FontWeight.Medium)
@@ -965,9 +1029,9 @@ export struct PlayDetailPage {
       .alignItems(VerticalAlign.Center)
 
       Row() {
-        this.buildMenuButton($r('app.media.ic_pd_playlist'), '添加到歌单', () => void this.addToPlaylist())
+        this.buildMenuButton($r('app.media.ic_pd_playlist'), t('player_add_to_list'), () => void this.addToPlaylist())
         this.buildMenuButton($r('app.media.ic_pd_loop'), this.getPlayModeText(), () => this.togglePlayMode())
-        this.buildMenuButton($r('app.media.ic_pd_comment'), '评论', () => this.viewComments())
+        this.buildMenuButton($r('app.media.ic_pd_comment'), t('player_comment'), () => this.viewComments())
       }
       .width('100%')
       .height(78)

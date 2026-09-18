@@ -5,6 +5,7 @@
 import hilog from '@ohos.hilog';
 import StorageService from './StorageService';
 import { emitListUpdated } from './EventBus';
+import { settingsService } from './SettingsService';
 import type { IMusicItem } from '../core/interfaces/IMusicItem';
 
 // Re-export IMusicItem as MusicItem for consumers
@@ -244,7 +245,12 @@ export async function addMusicToList(listId: string, music: MusicItem): Promise<
     return;
   }
 
-  list.push(music);
+  // 添加位置由「设置 -> 列表设置 -> 添加歌曲位置」决定
+  if (settingsService.get().addMusicLocation === 'bottom') {
+    list.push(music);
+  } else {
+    list.unshift(music);
+  }
   await saveList(listId);
   notifyListeners(listId);
 }

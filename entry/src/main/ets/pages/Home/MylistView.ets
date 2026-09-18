@@ -1,5 +1,6 @@
 // 我的 — 资料库式布局：入口卡片 + 自建歌单列表 + 新建歌单（弹层闭环）
 
+import { t } from '../../service/LocalizationService';
 import { navigationService, RouteName } from '../../service/NavigationService';
 import { playerService, SongInfo } from '../../service/PlayerService';
 import { getMusicUrl } from '../../core/music/MusicFeatureEntry';
@@ -45,6 +46,8 @@ interface PromptActionResult {
 @Component
 export struct MylistView {
   @StorageProp('theme') theme: string = 'light';
+  @StorageProp('language') language: string = 'zh-CN';
+  @StorageProp('langVersion') langVersion: number = 0;
   @State loveList: UserListRow | null = null;
   @State userLists: UserListRow[] = [];
   @State isLoading: boolean = false;
@@ -73,7 +76,7 @@ export struct MylistView {
       const loveMusic: MusicItem[] = getLoveList();
       this.loveList = {
         id: LIST_IDS.LOVE,
-        name: '我喜欢的',
+        name: t('my_love'),
         pic: '',
         count: loveMusic.length,
         musicList: this.convertToSongRows(loveMusic),
@@ -150,11 +153,11 @@ export struct MylistView {
     try {
       const confirmed = await new Promise<boolean>((resolve) => {
         this.getUIContext().getPromptAction().showDialog({
-          title: '清空试听列表',
-          message: '确认清空最近听过的歌曲记录？',
+          title: t('confirm_clear_history'),
+          message: t('confirm_clear_history_msg'),
           buttons: [
-            { text: '取消', color: DesignTokens.labelSecondary(this.theme) },
-            { text: '确定', color: DesignTokens.accent() },
+            { text: t('cancel'), color: DesignTokens.labelSecondary(this.theme) },
+            { text: t('confirm'), color: DesignTokens.accent() },
           ],
         }, (_err: object, data: PromptActionResult) => {
           resolve(data.index === 1);
@@ -205,14 +208,14 @@ export struct MylistView {
           })
 
         Column() {
-          Text('新建歌单')
+          Text(t('my_create_list'))
             .fontSize(18)
             .fontWeight(FontWeight.Medium)
             .fontColor(DesignTokens.labelPrimary(this.theme))
             .width('100%')
             .margin({ bottom: 16 })
 
-          TextInput({ placeholder: '输入歌单名称', text: this.newListName })
+          TextInput({ placeholder: t('input_playlist_name'), text: this.newListName })
             .height(44)
             .width('100%')
             .backgroundColor(DesignTokens.mutedFill(this.theme))
@@ -226,7 +229,7 @@ export struct MylistView {
             })
 
           Row() {
-            Button('取消')
+            Button(t('cancel'))
               .type(ButtonType.Capsule)
               .fontColor(DesignTokens.labelSecondary(this.theme))
               .backgroundColor(DesignTokens.mutedFill(this.theme))
@@ -235,7 +238,7 @@ export struct MylistView {
                 this.showCreateSheet = false;
                 this.newListName = '';
               })
-            Button('创建')
+            Button(t('create_list_btn'))
               .type(ButtonType.Capsule)
               .fontColor(Color.White)
               .backgroundColor(DesignTokens.accent())
@@ -268,8 +271,8 @@ export struct MylistView {
   LibraryHero() {
     Row({ space: 10 }) {
       this.LibraryQuickCard(
-        '我喜欢的',
-        `${this.loveList?.count ?? 0} 首`,
+        t('my_love'),
+        `${this.loveList?.count ?? 0} ${t('songlist_total')}`,
         $r('sys.symbol.heart_fill'),
         DesignTokens.accent(),
         () => {
@@ -277,8 +280,8 @@ export struct MylistView {
         }
       )
       this.LibraryQuickCard(
-        '试听列表',
-        `${this.playHistory.length} 首`,
+        t('my_history'),
+        `${this.playHistory.length} ${t('songlist_total')}`,
         $r('sys.symbol.music_note_list'),
         DesignTokens.labelSecondary(this.theme),
         () => {
@@ -329,7 +332,7 @@ export struct MylistView {
     Column() {
       Row() {
         Column() {
-          Text('我喜欢的')
+          Text(t('my_love'))
             .fontSize(20)
             .fontWeight(FontWeight.Bold)
             .fontColor(DesignTokens.labelPrimary(this.theme))
@@ -359,7 +362,7 @@ export struct MylistView {
 
       if (!this.loveList || this.loveList.musicList.length === 0) {
         Column() {
-          Text('暂无收藏歌曲')
+          Text(t('no_data'))
             .fontSize(14)
             .fontColor(DesignTokens.labelSecondary(this.theme))
           Text('播放时点击心形按钮收藏')
@@ -389,11 +392,11 @@ export struct MylistView {
     Column() {
       Row() {
         Column() {
-          Text('试听列表')
+          Text(t('my_history'))
             .fontSize(20)
             .fontWeight(FontWeight.Bold)
             .fontColor(DesignTokens.labelPrimary(this.theme))
-          Text('最近听过的歌曲')
+          Text(t('my_history'))
             .fontSize(12)
             .fontColor(DesignTokens.labelTertiary(this.theme))
             .margin({ top: 4 })
@@ -426,7 +429,7 @@ export struct MylistView {
 
       if (this.playHistory.length === 0) {
         Column() {
-          Text('暂无试听记录')
+          Text(t('no_data'))
             .fontSize(14)
             .fontColor(DesignTokens.labelSecondary(this.theme))
           Text('播放过的歌曲会出现在这里')
@@ -510,7 +513,7 @@ export struct MylistView {
   SectionHeader() {
     Row() {
       Column() {
-        Text('歌单库')
+        Text(t('songlist_title'))
           .fontSize(20)
           .fontWeight(FontWeight.Bold)
           .fontColor(DesignTokens.labelPrimary(this.theme))
@@ -537,7 +540,7 @@ export struct MylistView {
               .width(14)
               .height(14)
               .fillColor(Color.White)
-            Text('新建')
+            Text(t('my_create_list'))
               .fontSize(13)
               .fontWeight(FontWeight.Medium)
               .fontColor(Color.White)
@@ -589,7 +592,7 @@ export struct MylistView {
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(`${list.count} 首歌曲`)
+        Text(`${list.count} ${t('songlist_total')}`)
           .fontSize(13)
           .fontColor(DesignTokens.labelTertiary(this.theme))
           .margin({ top: 6 })
@@ -635,7 +638,7 @@ export struct MylistView {
               .width(36)
               .height(36)
               .color(DesignTokens.accent())
-            Text('正在读取资料库…')
+            Text(t('loading'))
               .fontSize(14)
               .fontColor(DesignTokens.labelSecondary(this.theme))
               .margin({ top: 14 })
@@ -660,7 +663,7 @@ export struct MylistView {
                     .height(56)
                     .fillColor(DesignTokens.labelTertiary(this.theme))
                     .margin({ bottom: 12 })
-                  Text('还没有自建歌单')
+                  Text(t('no_data'))
                     .fontSize(16)
                     .fontWeight(FontWeight.Medium)
                     .fontColor(DesignTokens.labelSecondary(this.theme))
@@ -729,7 +732,6 @@ export struct MylistView {
       };
       const url: string | null = await getMusicUrl({
         musicInfo,
-        quality: '128k',
         isRefresh: false,
         allowToggleSource: true,
       });
@@ -748,8 +750,7 @@ export struct MylistView {
         source: song.source,
       };
       playerService.setPlayList([songInfo], 0);
-      await playerService.setSource(songInfo, url, song.duration);
-      await playerService.play();
+      await playerService.playFromSelection(songInfo, url, song.duration);
     } catch (error) {
       hilog.error(0x0001, 'MylistView', 'Play history song failed: %{public}s', JSON.stringify(error));
       this.toast('播放失败');
@@ -797,7 +798,6 @@ export struct MylistView {
       };
       const url: string | null = await getMusicUrl({
         musicInfo: musicInfo,
-        quality: '128k',
         isRefresh: false,
         allowToggleSource: true,
       });
@@ -807,8 +807,7 @@ export struct MylistView {
       }
       songInfos[0].url = url;
       playerService.setPlayList(songInfos, 0);
-      await playerService.setSource(songInfos[0], url, firstSong.duration);
-      await playerService.play();
+      await playerService.playFromSelection(songInfos[0], url, firstSong.duration);
     } catch (error) {
       hilog.error(0x0001, 'MylistView', 'Play list failed: %{public}s', JSON.stringify(error));
       this.toast('播放失败');

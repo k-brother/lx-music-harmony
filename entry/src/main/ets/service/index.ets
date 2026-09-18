@@ -3,14 +3,17 @@
  * 统一导出所有核心服务
  */
 
-// 导入各个服务
-import { default as storageService, initStorage, StorageServiceInterface } from './StorageService';
-import { default as themeService, initTheme, ThemeServiceInterface } from './ThemeService';
-import { default as listService, initListService, LIST_IDS, getDefaultList, getLoveList, getUserList, getUserListMusic, addMusicToList, removeMusicFromList, createUserList, deleteUserList, setPlayList, getPlayList, setPlayIndex, getCurrentMusic, playNext, playPrev, isInLoveList, toggleLoveList, onListChange, MusicItem, ListInfo, ListServiceInterface } from './ListService';
-import { default as eventBus, EventTypes, on, once, off, emit, clear, emitPlayStateChanged, emitPlayProgressChanged, emitPlayMusicChanged, emitSearchStarted, emitSearchCompleted, emitListUpdated, emitThemeChanged, emitError, emitToast, EventBusInterface } from './EventBus';
-import { playerService, PlayStatus, SongInfo, MusicInfo, ProgressInfo, PlayerService } from './PlayerService';
-import { navigationService, RouteName, NavigationService } from './NavigationService';
+// 仅导入 initAllServices / initImageCache 内部真正使用的成员；
+// 对外导出统一由下面的 export 语句声明，避免"导入一堆再导出"的重复。
+import { initStorage } from './StorageService';
+import { initTheme } from './ThemeService';
+import { initListService } from './ListService';
+import { playerService } from './PlayerService';
 import { initDownloadService } from '../core/music/MusicFeatureEntry';
+import { imageCacheService } from '../utils/ImageCache';
+import { initSettings } from './SettingsService';
+import { sleepTimerService } from './SleepTimerService';
+import type { common } from '@kit.AbilityKit';
 
 // HTTP服务（统一从 core/network/http 导出）
 export { httpRequest, httpGet, httpPost } from '../core/network/http';
@@ -23,6 +26,18 @@ export { navigationService, RouteName, NavigationService } from './NavigationSer
 
 // 存储服务
 export { default as StorageService, initStorage, getString, getNumber, getBoolean, setString, setNumber, setBoolean, remove, clear, has, StorageKeys } from './StorageService';
+
+// 设置服务（全应用唯一设置入口）
+export { settingsService, initSettings } from './SettingsService';
+export type {
+  AppSettings,
+  SettingsPatch,
+  PlayMode,
+  ThemeMode,
+  StartupPage,
+  AddMusicLocation,
+  DesktopLyricPosition,
+} from './SettingsService';
 
 // 主题服务
 export { default as ThemeService, initTheme, getCurrentThemeId, getActiveTheme, getAllThemes, applyThemeById, isDarkMode, getBackgroundImage, getAppBackground, getContentBackground, onThemeChange } from './ThemeService';
@@ -40,6 +55,9 @@ export async function initAllServices(): Promise<void> {
   // 初始化存储
   await initStorage();
 
+  // 初始化设置（依赖存储，主题/播放器等都从这里读配置）
+  await initSettings();
+
   // 初始化主题
   await initTheme();
 
@@ -51,4 +69,14 @@ export async function initAllServices(): Promise<void> {
 
   // 初始化播放器
   await playerService.init();
+
+  // 恢复定时退出（睡眠定时）
+  sleepTimerService.restoreFromSettings();
+}
+
+/**
+ * 初始化图片缓存服务
+ */
+export async function initImageCache(context: common.UIAbilityContext): Promise<void> {
+  await imageCacheService.init(context);
 }

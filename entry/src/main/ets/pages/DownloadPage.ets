@@ -6,6 +6,8 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { DownloadTask, DownloadStatus, download, setDownloadContext } from '../core/music/MusicFeatureEntry';
 import { common } from '@kit.AbilityKit';
 import { DesignTokens } from '../theme/DesignTokens';
+import { t } from '../service/LocalizationService';
+import { playerService, SongInfo } from '../service/PlayerService';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'DownloadPage';
@@ -17,6 +19,9 @@ interface PromptPickResult {
 @Component
 export struct DownloadPage {
   @StorageProp('theme') theme: string = 'light';
+  @StorageProp('language') language: string = 'zh-CN';
+  @StorageProp('langVersion') langVersion: number = 0;
+  @State renderKey: number = Date.now();
   @State downloadTasks: DownloadTask[] = [];
   @State selectedTasks: Set<string> = new Set();
   @State isSelectMode: boolean = false;
@@ -109,6 +114,7 @@ export struct DownloadPage {
     this.refreshInterval = setInterval(() => {
       this.refreshDownloadTasks();
     }, 1000);
+    this.renderKey = Date.now();
   }
 
   // 设置下载上下文
@@ -198,12 +204,12 @@ export struct DownloadPage {
 
   getStatusText(status: DownloadStatus): string {
     switch (status) {
-      case DownloadStatus.PENDING: return '等待中';
-      case DownloadStatus.DOWNLOADING: return '下载中';
-      case DownloadStatus.PAUSED: return '已暂停';
-      case DownloadStatus.COMPLETED: return '已完成';
-      case DownloadStatus.FAILED: return '失败';
-      default: return '未知';
+      case DownloadStatus.PENDING: return t('download_pending');
+      case DownloadStatus.DOWNLOADING: return t('download_active');
+      case DownloadStatus.PAUSED: return t('download_active');
+      case DownloadStatus.COMPLETED: return t('download_completed');
+      case DownloadStatus.FAILED: return t('download_failed');
+      default: return t('no_data');
     }
   }
 
@@ -229,7 +235,7 @@ export struct DownloadPage {
               .fontSize(22)
               .fontWeight(FontWeight.Bold)
               .fontColor(DesignTokens.labelPrimary(this.theme))
-            Text('取消')
+            Text(t('cancel'))
               .fontSize(24)
               .fontWeight(FontWeight.Bold)
               .fontColor(DesignTokens.labelPrimary(this.theme))
@@ -239,7 +245,7 @@ export struct DownloadPage {
             this.toggleSelectMode();
           })
         } else {
-          Text('下载')
+          Text(t('download_title'))
             .fontSize(24)
             .fontWeight(FontWeight.Bold)
             .fontColor(DesignTokens.labelPrimary(this.theme))
@@ -253,7 +259,7 @@ export struct DownloadPage {
             .width(14)
             .height(14)
             .fillColor(DesignTokens.accent())
-          Text(this.isSelectMode ? (this.isAllScopeSelected() ? '取消全选' : '全选') : '多选')
+          Text(this.isSelectMode ? (this.isAllScopeSelected() ? t('cancel') : t('play_all')) : t('download_all'))
             .fontSize(14)
             .fontWeight(FontWeight.Medium)
             .fontColor(DesignTokens.accent())
@@ -290,10 +296,10 @@ export struct DownloadPage {
   @Builder
   buildSegmentStrip() {
     Row({ space: 8 }) {
-      this.FilterTabButton(0, `全部 (${this.downloadTasks.length})`)
-      this.FilterTabButton(1, `进行中 (${this.countActiveTasks()})`)
-      this.FilterTabButton(2, `已完成 (${this.countCompletedTasks()})`)
-      this.FilterTabButton(3, `失败 (${this.countFailedTasks()})`)
+      this.FilterTabButton(0, `${t('download_all')} (${this.downloadTasks.length})`)
+      this.FilterTabButton(1, `${t('download_active')} (${this.countActiveTasks()})`)
+      this.FilterTabButton(2, `${t('download_completed')} (${this.countCompletedTasks()})`)
+      this.FilterTabButton(3, `${t('download_failed')} (${this.countFailedTasks()})`)
     }
     .width('100%')
     .padding({ left: 12, right: 12, top: 6, bottom: 6 })
@@ -332,7 +338,7 @@ export struct DownloadPage {
             this.selectAllTasks();
           })
 
-        Text('全选')
+        Text(t('play_all'))
           .fontSize(15)
           .fontColor(DesignTokens.accent())
           .margin({ left: 8 })
@@ -342,7 +348,7 @@ export struct DownloadPage {
           })
 
         if (this.selectedTasks.size === 0) {
-          Text('轻触列表项进行选择')
+          Text(t('no_data'))
             .fontSize(12)
             .fontColor(DesignTokens.labelTertiary(this.theme))
             .margin({ left: 12 })
@@ -363,7 +369,9 @@ export struct DownloadPage {
             })
         }
 
-        if (this.selectedTasks.size > 0 && this.hasSelectedTasksWithStatus(DownloadStatus.PAUSED)) {
+        if (this.selectedTasks.size > 0 &&
+          (this.hasSelectedTasksWithStatus(DownloadStatus.PAUSED) ||
+            this.hasSelectedTasksWithStatus(DownloadStatus.PENDING))) {
           Image($r('sys.symbol.play'))
             .width(22)
             .height(22)
@@ -419,7 +427,7 @@ export struct DownloadPage {
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-          Text(`${task.musicInfo.singer} · ${task.musicInfo.album || '未知专辑'}`)
+          Text(`${task.musicInfo.singer} · ${task.musicInfo.album || t('unknown_album')}`)
             .fontSize(13)
             .fontColor(DesignTokens.labelTertiary(this.theme))
             .margin({ top: 4 })
@@ -475,6 +483,17 @@ export struct DownloadPage {
                 .onClick(() => {
                   download.pauseDownload(task.id);
                 })
+            } else if (task.status === DownloadStatus.PENDING) {
+              // 等待中（如关闭了"自动开始下载"）：手动开始
+              Image($r('sys.symbol.play'))
+                .width(22)
+                .height(22)
+                .fillColor(DesignTokens.accent())
+                .onClick(() => {
+                  void download.resumeDownload(task.id).then((): void => {
+                    this.refreshDownloadTasks();
+                  });
+                })
             } else if (task.status === DownloadStatus.PAUSED) {
               Image($r('sys.symbol.play'))
                 .width(22)
@@ -490,6 +509,24 @@ export struct DownloadPage {
                 .fillColor(DesignTokens.accent())
                 .onClick(() => {
                   void this.retryDownload(task.id);
+                })
+            }
+
+            if (task.status === DownloadStatus.COMPLETED) {
+              Image($r('sys.symbol.play'))
+                .width(22)
+                .height(22)
+                .fillColor(DesignTokens.accent())
+                .onClick(() => {
+                  void this.playDownloadedSong(task);
+                })
+              Image($r('sys.symbol.xmark'))
+                .width(22)
+                .height(22)
+                .fillColor('#F44336')
+                .margin({ top: 14 })
+                .onClick(() => {
+                  download.cancelDownload(task.id);
                 })
             }
 
@@ -536,7 +573,7 @@ export struct DownloadPage {
         .fillColor('#CCCCCC')
         .margin({ bottom: 16 })
 
-      Text('暂无下载任务')
+      Text(t('download_title'))
         .fontSize(16)
         .fontColor(this.theme === 'dark' ? '#AAAAAA' : '#666666')
         .margin({ bottom: 8 })
@@ -563,7 +600,7 @@ export struct DownloadPage {
         .margin({ bottom: 14 })
 
       if (this.filterTabIndex === 1) {
-        Text('没有进行中的任务')
+        Text(t('download_active'))
           .fontSize(16)
           .fontColor(this.theme === 'dark' ? '#AAAAAA' : '#666666')
         Text('等待、下载中与暂停的任务会出现在「进行中」')
@@ -573,7 +610,7 @@ export struct DownloadPage {
           .textAlign(TextAlign.Center)
           .padding({ left: 28, right: 28 })
       } else if (this.filterTabIndex === 2) {
-        Text('还没有已完成的下载')
+        Text(t('download_completed'))
           .fontSize(16)
           .fontColor(this.theme === 'dark' ? '#AAAAAA' : '#666666')
         Text('完成后可在「已完成」中查看或清理')
@@ -583,7 +620,7 @@ export struct DownloadPage {
           .textAlign(TextAlign.Center)
           .padding({ left: 28, right: 28 })
       } else if (this.filterTabIndex === 3) {
-        Text('没有失败记录')
+        Text(t('download_failed'))
           .fontSize(16)
           .fontColor(this.theme === 'dark' ? '#AAAAAA' : '#666666')
         Text('失败任务可在此重试或删除')
@@ -615,7 +652,7 @@ export struct DownloadPage {
 
           if (this.hasAnyCompleted() && (this.filterTabIndex === 0 || this.filterTabIndex === 2)) {
             Row() {
-              Text('清理所有已完成')
+              Text(t('download_completed'))
                 .fontSize(14)
                 .fontColor(DesignTokens.accent())
                 .layoutWeight(1)
@@ -665,6 +702,46 @@ export struct DownloadPage {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
+  // 播放已下载的歌曲
+  private async playDownloadedSong(task: DownloadTask): Promise<void> {
+    try {
+      const filePath = task.filePath;
+      if (!filePath) {
+        this.showToast('文件路径不存在');
+        return;
+      }
+      const songInfo: SongInfo = {
+        id: task.musicInfo.id || task.id,
+        songmid: task.musicInfo.songmid || task.musicInfo.id || '',
+        url: filePath,
+        title: task.musicInfo.name || t('unknown_song'),
+        artist: task.musicInfo.singer || t('unknown_artist'),
+        album: task.musicInfo.album || task.musicInfo.albumName || '',
+        artwork: task.musicInfo.img || task.musicInfo.pic || null,
+        duration: task.musicInfo.interval ? this.parseIntervalToSeconds(task.musicInfo.interval) : 0,
+        source: task.musicInfo.source || 'local',
+      };
+      await playerService.setSource(songInfo, filePath, songInfo.duration);
+      await playerService.play();
+      hilog.info(DOMAIN, TAG, 'Playing downloaded song: %{public}s', task.musicInfo.name);
+    } catch (err) {
+      hilog.error(DOMAIN, TAG, 'Failed to play downloaded song: %{public}s', JSON.stringify(err));
+      this.showToast('播放失败，文件可能已损坏');
+    }
+  }
+
+  private parseIntervalToSeconds(interval: string): number {
+    const parts = interval.split(':');
+    if (parts.length === 2) {
+      const m = parseInt(parts[0]);
+      const s = parseInt(parts[1]);
+      if (!isNaN(m) && !isNaN(s)) {
+        return m * 60 + s;
+      }
+    }
+    return 0;
+  }
+
   // 重新下载失败的任务
   private async retryDownload(taskId: string): Promise<void> {
     try {
@@ -679,7 +756,7 @@ export struct DownloadPage {
       
       // 显示确认对话框
       const confirmed = await this.showConfirmDialog(
-        '重新下载',
+        t('retry_download'),
         `确定要重新下载 "${task.musicInfo.name}" 吗？`
       );
       
@@ -715,8 +792,8 @@ export struct DownloadPage {
         title: title,
         message: message,
         buttons: [
-          { text: '取消', color: DesignTokens.labelSecondary(this.theme) },
-          { text: '确定', color: DesignTokens.accent() },
+          { text: t('cancel'), color: DesignTokens.labelSecondary(this.theme) },
+          { text: t('confirm'), color: DesignTokens.accent() },
         ],
       }, (err: BusinessError, data: PromptPickResult) => {
         if (err) {

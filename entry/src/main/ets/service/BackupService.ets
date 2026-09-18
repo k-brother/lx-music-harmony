@@ -8,6 +8,17 @@ import { common } from '@kit.AbilityKit';
 import preferences from '@ohos.data.preferences';
 import cryptoFramework from '@ohos.security.cryptoFramework';
 import { utf8Encode, utf8Decode } from '../utils/TextCodec';
+import {
+  getUserList,
+  getDefaultList,
+  getLoveList,
+  getUserListMusic,
+  createUserList,
+  addMusicToList,
+  LIST_IDS,
+} from './ListService';
+import { musicItemFromPlainObject } from '../core/list/PlaylistRecordMapper';
+import { settingsService, type SettingsPatch } from './SettingsService';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'BackupService';
@@ -80,7 +91,7 @@ export class BackupService {
   private config: BackupConfig = {
     autoBackup: false,
     backupInterval: 7,
-    backupLocation: '/storage/emulated/0/Download/LxMusic/Backups',
+    backupLocation: '',
     encryptBackup: false
   };
   
@@ -120,7 +131,7 @@ export class BackupService {
       
       this.config.autoBackup = await pref.get('autoBackup', false) as boolean;
       this.config.backupInterval = await pref.get('backupInterval', 7) as number;
-      this.config.backupLocation = await pref.get('backupLocation', '/storage/emulated/0/Download/LxMusic/Backups') as string;
+      this.config.backupLocation = await pref.get('backupLocation', context.filesDir) as string;
       this.config.encryptBackup = await pref.get('encryptBackup', false) as boolean;
       this.config.backupPassword = await pref.get('backupPassword', '') as string;
       
@@ -220,13 +231,13 @@ export class BackupService {
       const fileName = `lxmusic-backup-${dataType}-${timestamp}.json${this.config.encryptBackup ? '.enc' : ''}`;
       const filePath = `${this.config.backupLocation}/${fileName}`;
       
-      // 6. 保存文件
-      const file = await fs.open(filePath, fs.OpenMode.CREATE | fs.OpenMode.READ_WRITE);
+      // 6. 保存文件（使用同步接口）
+      const file = fs.openSync(filePath, fs.OpenMode.CREATE | fs.OpenMode.WRITE_ONLY);
       try {
-        await fs.write(file.fd, finalData);
-        await fs.fsync(file.fd);
+        fs.writeSync(file.fd, finalData);
+        fs.fsyncSync(file.fd);
       } finally {
-        await fs.close(file.fd);
+        fs.closeSync(file.fd);
       }
       
       hilog.info(DOMAIN, TAG, 'Backup created successfully: %{public}s', fileName);
@@ -252,49 +263,44 @@ export class BackupService {
 
   // 恢复备份
   async restoreBackup(backupFile: BackupFileInfo): Promise<boolean> {
-    let file: fs.File | null = null;
     try {
       // 1. 读取文件
-      file = await fs.open(backupFile.filePath, fs.OpenMode.READ_ONLY);
-      const stat = await fs.stat(file.fd);
-      const buffer = new ArrayBuffer(stat.size);
-      await fs.read(file.fd, buffer);
-      
-      let jsonData = utf8Decode(new Uint8Array(buffer));
-    
-      // 2. 解密数据（如果需要）
-      if (backupFile.fileName.endsWith('.enc')) {
-        if (!this.config.backupPassword) {
-          throw new Error('Backup password required for encrypted backup');
+      const file = fs.openSync(backupFile.filePath, fs.OpenMode.READ_ONLY);
+      try {
+        const stat = fs.statSync(file.fd);
+        const buffer = new ArrayBuffer(stat.size);
+        fs.readSync(file.fd, buffer);
+
+        let jsonData = utf8Decode(new Uint8Array(buffer));
+
+        // 2. 解密数据（如果需要）
+        if (backupFile.fileName.endsWith('.enc')) {
+          if (!this.config.backupPassword) {
+            throw new Error('Backup password required for encrypted backup');
+          }
+          jsonData = await this.decryptData(jsonData, this.config.backupPassword);
         }
-        jsonData = await this.decryptData(jsonData, this.config.backupPassword);
+
+        // 3. 解析JSON数据
+        const backupData: BackupDataContent = JSON.parse(jsonData) as BackupDataContent;
+
+        // 4. 验证数据格式
+        if (!this.validateBackupData(backupData, backupFile.dataType)) {
+          throw new Error('Invalid backup data format');
+        }
+
+        // 5. 恢复数据
+        await this.restoreBackupData(backupData, backupFile.dataType);
+
+        hilog.info(DOMAIN, TAG, 'Backup restored successfully: %{public}s', backupFile.fileName);
+        return true;
+      } finally {
+        fs.closeSync(file.fd);
       }
-      
-      // 3. 解析JSON数据
-      const backupData: BackupDataContent = JSON.parse(jsonData) as BackupDataContent;
-      
-      // 4. 验证数据格式
-      if (!this.validateBackupData(backupData, backupFile.dataType)) {
-        throw new Error('Invalid backup data format');
-      }
-      
-      // 5. 恢复数据
-      await this.restoreBackupData(backupData, backupFile.dataType);
-      
-      hilog.info(DOMAIN, TAG, 'Backup restored successfully: %{public}s', backupFile.fileName);
-      return true;
-      
+
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to restore backup: %{public}s', JSON.stringify(err));
       return false;
-    } finally {
-      if (file) {
-        try {
-          await fs.close(file.fd);
-        } catch (ce) {
-          hilog.warn(DOMAIN, TAG, 'close backup file failed: %{public}s', JSON.stringify(ce));
-        }
-      }
     }
   }
 
@@ -473,17 +479,43 @@ export class BackupService {
   private async collectPlaylistData(): Promise<BackupPlaylistSnapshot[]> {
     try {
       hilog.info(DOMAIN, TAG, 'Collecting playlist data');
-      
-      const playlists: BackupPlaylistSnapshot[] = [
-        {
-          id: 'default',
-          name: '默认列表',
-          musicList: [],
-          createTime: Date.now(),
-          updateTime: Date.now()
-        }
-      ];
-      
+
+      const playlists: BackupPlaylistSnapshot[] = [];
+
+      // 默认列表
+      const defaultMusic = getDefaultList();
+      playlists.push({
+        id: LIST_IDS.DEFAULT,
+        name: '默认列表',
+        musicList: defaultMusic.map((item: Object): Object => item as Object),
+        createTime: Date.now(),
+        updateTime: Date.now()
+      });
+
+      // 我喜欢列表
+      const loveMusic = getLoveList();
+      playlists.push({
+        id: LIST_IDS.LOVE,
+        name: '我喜欢',
+        musicList: loveMusic.map((item: Object): Object => item as Object),
+        createTime: Date.now(),
+        updateTime: Date.now()
+      });
+
+      // 用户自定义列表
+      const userLists = getUserList();
+      for (let i = 0; i < userLists.length; i++) {
+        const list = userLists[i];
+        const songs = getUserListMusic(list.id);
+        playlists.push({
+          id: list.id,
+          name: list.name,
+          musicList: songs.map((item: Object): Object => item as Object),
+          createTime: list.createTime || Date.now(),
+          updateTime: list.updateTime || Date.now()
+        });
+      }
+
       hilog.info(DOMAIN, TAG, 'Collected %{public}d playlists', playlists.length);
       return playlists;
     } catch (err) {
@@ -496,24 +528,15 @@ export class BackupService {
   private async collectSettingsData(): Promise<Record<string, Object>> {
     try {
       hilog.info(DOMAIN, TAG, 'Collecting settings data');
-      
-      const context = this.getContext();
-      const pref = await preferences.getPreferences(context, 'music_settings');
-      
-      // 获取所有设置键
-      const allKeys = await pref.getAll();
+
+      // 设置项统一由 SettingsService 提供（同一份 Preferences 存储）
       const settings: Record<string, Object> = {};
-      const prefObj = allKeys as Record<string, Object>;
-      const keyNames: string[] = Object.keys(prefObj);
-      for (let i = 0; i < keyNames.length; i++) {
-        const key = keyNames[i];
-        settings[key] = prefObj[key];
-      }
-      
+      settings['app_settings'] = JSON.stringify(settingsService.get());
+
       // 添加应用信息
       settings['appVersion'] = '1.0.0';
       settings['backupTime'] = new Date().toISOString();
-      
+
       hilog.info(DOMAIN, TAG, 'Collected %{public}d settings', Object.keys(settings).length);
       return settings;
     } catch (err) {
@@ -524,25 +547,9 @@ export class BackupService {
 
   // 收集下载数据
   private async collectDownloadData(): Promise<BackupDownloadSnapshot[]> {
-    try {
-      hilog.info(DOMAIN, TAG, 'Collecting download data');
-      
-      const downloads: BackupDownloadSnapshot[] = [
-        {
-          id: 'sample_download',
-          fileName: 'sample.mp3',
-          filePath: '/storage/emulated/0/Download/LxMusic/sample.mp3',
-          status: 'completed',
-          createTime: Date.now()
-        }
-      ];
-      
-      hilog.info(DOMAIN, TAG, 'Collected %{public}d downloads', downloads.length);
-      return downloads;
-    } catch (err) {
-      hilog.error(DOMAIN, TAG, 'Failed to collect download data: %{public}s', JSON.stringify(err));
-      return [];
-    }
+    hilog.info(DOMAIN, TAG, 'Collecting download data - no persistent download state to backup');
+    // 下载任务状态未持久化，返回空数组
+    return [];
   }
 
   // 生成备份文件名
@@ -562,7 +569,9 @@ export class BackupService {
         await fs.mkdir(this.config.backupLocation);
         hilog.info(DOMAIN, TAG, 'Created backup directory: %{public}s', this.config.backupLocation);
       } catch (me) {
-        hilog.error(DOMAIN, TAG, 'mkdir backup directory failed: %{public}s', JSON.stringify(me));
+        const msg = (me as Error)?.message || JSON.stringify(me);
+        hilog.error(DOMAIN, TAG, 'mkdir backup directory failed: %{public}s', msg);
+        throw new Error(`Cannot create backup directory: ${msg}`);
       }
     }
   }
@@ -691,13 +700,31 @@ export class BackupService {
   private async restorePlaylistData(playlists: BackupPlaylistSnapshot[]): Promise<void> {
     try {
       hilog.info(DOMAIN, TAG, 'Restoring playlist data, count: %{public}d', playlists.length);
-      
-      // 这里应该将歌单数据恢复到ListService
-      // 由于ListService可能没有导入恢复方法，我们只记录日志
+
       for (const playlist of playlists) {
-        hilog.info(DOMAIN, TAG, 'Restoring playlist: %{public}s', playlist.name || '未知歌单');
+        const listName = playlist.name || '未知歌单';
+        const songs = playlist.musicList || [];
+        hilog.info(DOMAIN, TAG, 'Restoring playlist: %{public}s (%{public}d songs)', listName, songs.length);
+
+        if (playlist.id === LIST_IDS.DEFAULT) {
+          // 恢复到默认列表
+          for (let i = 0; i < songs.length; i++) {
+            await addMusicToList(LIST_IDS.DEFAULT, musicItemFromPlainObject(songs[i]));
+          }
+        } else if (playlist.id === LIST_IDS.LOVE) {
+          // 恢复到我喜欢的列表
+          for (let i = 0; i < songs.length; i++) {
+            await addMusicToList(LIST_IDS.LOVE, musicItemFromPlainObject(songs[i]));
+          }
+        } else {
+          // 用户自定义歌单
+          const newList = await createUserList(listName);
+          for (let i = 0; i < songs.length; i++) {
+            await addMusicToList(newList.id, musicItemFromPlainObject(songs[i]));
+          }
+        }
       }
-      
+
       hilog.info(DOMAIN, TAG, 'Playlist data restored successfully');
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to restore playlist data: %{public}s', JSON.stringify(err));
@@ -710,23 +737,14 @@ export class BackupService {
   private async restoreSettingsData(settings: Record<string, Object>): Promise<void> {
     try {
       hilog.info(DOMAIN, TAG, 'Restoring settings data');
-      
-      const context = this.getContext();
-      const pref = await preferences.getPreferences(context, 'music_settings');
-      
-      // 恢复设置数据（排除应用信息字段）
-      const appInfoFields = ['appVersion', 'backupTime'];
-      const keys: string[] = Object.keys(settings);
-      for (let i = 0; i < keys.length; i++) {
-        const key = keys[i];
-        const value: Object = settings[key];
-        if (!appInfoFields.includes(key)) {
-          await pref.put(key, value);
-          hilog.debug(DOMAIN, TAG, 'Restored setting: %{public}s', key);
-        }
+
+      const payload = settings['app_settings'];
+      if (typeof payload !== 'string' || payload.length === 0) {
+        hilog.warn(DOMAIN, TAG, 'Backup contains no app_settings payload, nothing to restore');
+        return;
       }
-      
-      await pref.flush();
+      const patch: SettingsPatch = JSON.parse(payload) as SettingsPatch;
+      await settingsService.update(patch);
       hilog.info(DOMAIN, TAG, 'Settings data restored successfully');
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to restore settings data: %{public}s', JSON.stringify(err));

@@ -2,9 +2,11 @@
  * 统一 HTTP 客户端 - 直接使用 @ohos.net.http，不依赖 service 层
  * 单一实现：HttpClient 类 + 便捷函数均基于同一底层
  */
-import { http } from '@kit.NetworkKit';
+import { http, connection } from '@kit.NetworkKit';
+import type { BusinessError } from '@kit.BasicServicesKit';
 import hilog from '@ohos.hilog';
 import { flattenHeaders, withQuery, parseHttpBodyJson } from './HttpShared';
+import { utf8Decode } from '../../../utils/TextCodec';
 
 const TAG = 'HttpClient';
 const DOMAIN = 0x0001;
@@ -32,6 +34,12 @@ export interface HttpResponse<T> {
   statusText: string;
   data: T;
   result: T;
+  /**
+   * 响应体原始文本。
+   * data/result 在 responseType='json' 时已经是解析后的对象，
+   * 需要自己解析文本的调用方（第三方源接口等）请统一用这个字段。
+   */
+  rawText: string;
   headers: Record<string, string>;
   config: HttpRequestConfig;
   url: string;
@@ -43,6 +51,41 @@ export interface HttpTask<T = Object> {
 }
 
 // ============ 内部核心实现 ============
+
+/**
+ * 把 @ohos.net.http 的响应体统一转成文本。
+ * 字符串原样返回；ArrayBuffer 按 UTF-8 解码；已解析的对象重新序列化。
+ */
+function toResponseText(
+  raw: string | Object | ArrayBuffer | undefined | null, responseType: string
+): string {
+  if (raw === undefined || raw === null) {
+    return '';
+  }
+  if (typeof raw === 'string') {
+    return raw;
+  }
+  if (raw instanceof ArrayBuffer) {
+    // 二进制响应（图片/音频）不做文本解码，避免无谓的内存拷贝
+    if (responseType === 'arraybuffer' || responseType === 'binary' || responseType === 'blob') {
+      return '';
+    }
+    try {
+      return utf8Decode(new Uint8Array(raw));
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'toResponseText decode failed: %{public}s',
+        err instanceof Error ? err.message : JSON.stringify(err));
+      return '';
+    }
+  }
+  try {
+    return JSON.stringify(raw);
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'toResponseText stringify failed: %{public}s',
+      err instanceof Error ? err.message : JSON.stringify(err));
+    return '';
+  }
+}
 
 /**
  * 执行 HTTP 请求的核心函数
@@ -133,6 +176,7 @@ function doRequest<T>(
           data = raw as T;
         }
 
+        const rawText = toResponseText(raw, responseType);
         const headers = flattenHeaders(response.header as Record<string, string | string[]>);
 
         task.destroy();
@@ -142,6 +186,7 @@ function doRequest<T>(
           statusText: response.responseCode.toString(),
           data,
           result: data,
+          rawText,
           headers,
           config,
           url: finalUrl,
@@ -285,5 +330,21 @@ export function httpPost(url: string, data?: string, config?: HttpRequestConfig)
 // ============ 网络检查 ============
 
 export async function checkNetworkConnection(): Promise<boolean> {
-  return true;
+  try {
+    const netHandle: connection.NetHandle = await connection.getDefaultNet();
+    // getDefaultNet returns a valid NetHandle if there is an active network
+    return netHandle !== null && netHandle !== undefined;
+  } catch (err) {
+    const code: number = (err as BusinessError)?.code ?? 0;
+    // 201 = 缺少 ohos.permission.GET_NETWORK_INFO，801 = 设备不支持该能力。
+    // 这两种情况下探测本身不可用，不能据此判定"无网络"——
+    // 真实请求能否成功由 HTTP 层决定，这里必须放行。
+    if (code === 201 || code === 801) {
+      hilog.warn(0x0001, TAG,
+        'Network probe unavailable (code=%{public}d), assume online and let the request decide', code);
+      return true;
+    }
+    hilog.warn(0x0001, TAG, 'checkNetworkConnection failed: %{public}s', JSON.stringify(err));
+    return false;
+  }
 }

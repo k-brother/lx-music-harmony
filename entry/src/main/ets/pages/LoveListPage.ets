@@ -1,10 +1,11 @@
 // 我喜欢的歌曲列表页面
 import hilog from '@ohos.hilog';
-import { navigationService, RouteName } from '../service/NavigationService';
+import { navigationService } from '../service/NavigationService';
 import { DesignTokens } from '../theme/DesignTokens';
 import { NavBackButton } from '../components/common/NavBackButton';
 import { getLoveList, toggleLoveList, type MusicItem } from '../service/ListService';
 import { playerService, SongInfo } from '../service/PlayerService';
+import { t } from '../service/LocalizationService';
 
 interface SongRow {
   id: string;
@@ -19,6 +20,9 @@ interface SongRow {
 @Component
 export struct LoveListPage {
   @StorageProp('theme') theme: string = 'light';
+  @StorageProp('language') language: string = 'zh-CN';
+  @StorageProp('langVersion') langVersion: number = 0;
+  @State renderKey: number = Date.now();
   @State songs: SongRow[] = [];
   @State isLoading: boolean = true;
 
@@ -78,7 +82,8 @@ export struct LoveListPage {
         });
       }
       playerService.setPlayList(songInfos, index);
-      await playerService.play();
+      // 由播放器按索引取播放地址（受"自动播放"设置控制）
+      await playerService.playSelectedFromPlayList(index);
     } catch (e) {
       this.showToast('播放失败');
     }
@@ -154,7 +159,7 @@ export struct LoveListPage {
           NavBackButton()
             .onClick(() => { navigationService.back(); })
 
-          Text('我喜欢的')
+          Text(t('love_title'))
             .fontSize(18)
             .fontWeight(FontWeight.Bold)
             .fontColor(DesignTokens.labelPrimary(this.theme))
@@ -181,10 +186,10 @@ export struct LoveListPage {
           .justifyContent(FlexAlign.Center)
         } else if (this.songs.length === 0) {
           Column() {
-            Text('暂无收藏歌曲')
+          Text(t('love_empty'))
               .fontSize(16)
               .fontColor(DesignTokens.labelSecondary(this.theme))
-            Text('播放时点击心形按钮收藏')
+            Text(t('no_data'))
               .fontSize(13)
               .fontColor(DesignTokens.labelTertiary(this.theme))
               .margin({ top: 8 })

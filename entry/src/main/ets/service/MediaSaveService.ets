@@ -6,20 +6,13 @@ import fs from '@ohos.file.fs';
 import { http } from '@kit.NetworkKit';
 import { common } from '@kit.AbilityKit';
 import { utf8Encode } from '../utils/TextCodec';
+import type { MusicInfo } from '../types/MusicTypes';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'MediaSaveService';
 
-// 音乐信息接口
-export interface MusicInfo {
-  id: string;
-  name: string;
-  singer: string;
-  album: string;
-  source: string;
-  pic?: string;
-  lyric?: string;
-}
+// 供 UI 层复用的音乐信息类型
+export type { MusicInfo } from '../types/MusicTypes';
 
 // 保存结果
 export interface SaveResult {
@@ -191,13 +184,17 @@ export class MediaSaveService {
     }
   }
 
-  // 确保目录存在
+  // 确保目录存在（递归创建，HarmonyOS fs.mkdir 无 recursive 参数）
   private async ensureDirectoryExists(dirPath: string): Promise<void> {
     try {
       await fs.access(dirPath);
     } catch (err) {
-      // 目录不存在，创建它
-      await fs.mkdir(dirPath, true);
+      // 目录不存在，先确保父目录存在再创建
+      const parentPath = dirPath.substring(0, dirPath.lastIndexOf('/'));
+      if (parentPath) {
+        await this.ensureDirectoryExists(parentPath);
+      }
+      await fs.mkdir(dirPath);
     }
   }
 

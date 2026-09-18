@@ -5,7 +5,6 @@ import { leaderboardState, BoardItem, BoardMusicItem, BoardSource } from '../sto
 import {
   musicSdk,
   type LeaderboardResult,
-  type LeaderboardSdkInterface,
   type LeaderboardItem,
   type LeaderboardListResult,
 } from './music/MusicFeatureEntry';

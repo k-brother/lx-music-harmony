@@ -2,7 +2,6 @@
 // 热搜功能
 
 import hilog from '@ohos.hilog';
-import { musicSdk } from './music/MusicFeatureEntry';
 import { getHotSearch as getHotSearchFromSearch, HotSearchItem } from './search/search';
 
 const TAG = 'HotSearch';

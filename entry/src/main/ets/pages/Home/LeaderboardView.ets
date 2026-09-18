@@ -1,3 +1,4 @@
+import { t } from '../../service/LocalizationService';
 // 排行榜视图：纵向分组卡片 + 榜单内预览曲目 + 展开/收起与进入完整榜单
 // 信息架构：一屏浏览多个榜；弱打扰预览 3 条；展开看更多；右侧箭头进二级页
 
@@ -36,6 +37,8 @@ interface LeaderboardFilterOption {
 @Component
 export struct LeaderboardView {
   @StorageProp('theme') theme: string = 'light';
+  @StorageProp('language') language: string = 'zh-CN';
+  @StorageProp('langVersion') langVersion: number = 0;
   @Prop sourceId: string = 'kw';
   @Prop @Watch("onReCreateKeyChange") reCreateKey: number = 0;
   @State boardList: BoardItem[] = [];
@@ -45,9 +48,9 @@ export struct LeaderboardView {
   @State searchOverlayVisible: boolean = false;
   @State filteredBoardList: BoardItem[] = [];
   @State cardStates: LeaderboardCardState[] = [];
-  @State categoryFilterOptions: LeaderboardFilterOption[] = [{ id: 'all', name: '全部' }];
+  @State categoryFilterOptions: LeaderboardFilterOption[] = [{ id: 'all', name: t('filter_all') }];
   @State selectedCategoryFilterId: string = 'all';
-  @State boardFilterOptions: LeaderboardFilterOption[] = [{ id: 'all', name: '全部榜单' }];
+  @State boardFilterOptions: LeaderboardFilterOption[] = [{ id: 'all', name: t('filter_all_board') }];
   @State selectedBoardFilterId: string = 'all';
   @State isFilterPinned: boolean = false;
   // 请求版本控制，防止竞态
@@ -216,9 +219,9 @@ export struct LeaderboardView {
       this.boardList = [];
       this.filteredBoardList = [];
       this.cardStates = [];
-      this.categoryFilterOptions = [{ id: 'all', name: '全部' }];
+      this.categoryFilterOptions = [{ id: 'all', name: t('filter_all') }];
       this.selectedCategoryFilterId = 'all';
-      this.boardFilterOptions = [{ id: 'all', name: '全部榜单' }];
+      this.boardFilterOptions = [{ id: 'all', name: t('filter_all_board') }];
       this.selectedBoardFilterId = 'all';
     } finally {
       if (currentEpoch === this.requestEpoch) {
@@ -229,21 +232,21 @@ export struct LeaderboardView {
 
   private getCategoryLabelById(id: string): string {
     if (id === 'official') {
-      return '官方';
+      return t('category_official');
     }
     if (id === 'cn') {
-      return '华语';
+      return t('category_chinese');
     }
     if (id === 'west') {
-      return '欧美';
+      return t('category_western');
     }
     if (id === 'jpkr') {
-      return '日韩';
+      return t('category_jk');
     }
     if (id === 'feature') {
-      return '特色';
+      return t('category_feature');
     }
-    return '全部';
+    return t('category_all');
   }
 
   private detectBoardCategoryId(boardName: string): string {
@@ -275,7 +278,7 @@ export struct LeaderboardView {
       const b = this.boardList[i];
       exists.add(this.detectBoardCategoryId(b.name || ''));
     }
-    const options: LeaderboardFilterOption[] = [{ id: 'all', name: '全部' }];
+    const options: LeaderboardFilterOption[] = [{ id: 'all', name: t('filter_all') }];
     for (let j = 0; j < order.length; j++) {
       const id = order[j];
       if (exists.has(id)) {
@@ -290,7 +293,7 @@ export struct LeaderboardView {
   }
 
   private rebuildBoardFilterOptions(): void {
-    const options: LeaderboardFilterOption[] = [{ id: 'all', name: '全部榜单' }];
+    const options: LeaderboardFilterOption[] = [{ id: 'all', name: t('filter_all_board') }];
     const maxCount = 40;
     for (let i = 0; i < this.boardList.length && options.length < maxCount; i++) {
       const b = this.boardList[i];
@@ -298,7 +301,7 @@ export struct LeaderboardView {
       if (this.selectedCategoryFilterId !== 'all' && cid !== this.selectedCategoryFilterId) {
         continue;
       }
-      options.push({ id: b.id, name: b.name || '榜单' });
+      options.push({ id: b.id, name: b.name || t('board_item') });
     }
     this.boardFilterOptions = options;
     const keep = options.some((o: LeaderboardFilterOption) => o.id === this.selectedBoardFilterId);
@@ -659,7 +662,6 @@ export struct LeaderboardView {
       };
       const url: string | null = await getMusicUrl({
         musicInfo,
-        quality: '128k',
         isRefresh: false,
         onToggleSource: null,
         allowToggleSource: true,
@@ -677,8 +679,7 @@ export struct LeaderboardView {
         duration: song.duration || 0,
         source: song.source,
       };
-      await playerService.setSource(songInfo, url, song.duration || 0);
-      await playerService.play();
+      await playerService.playFromSelection(songInfo, url, song.duration || 0);
     } catch (e) {
       hilog.warn(0x0001, 'LeaderboardView', 'playPreviewSong failed: %{public}s', (e as Error)?.message);
     }
@@ -696,10 +697,10 @@ export struct LeaderboardView {
 
   formatPlayCount(count: number): string {
     if (count >= 100000000) {
-      return (count / 100000000).toFixed(1) + '亿';
+      return (count / 100000000).toFixed(1) + ' ' + t('billion_unit');
     }
     if (count >= 10000) {
-      return (count / 10000).toFixed(1) + '万';
+      return (count / 10000).toFixed(1) + ' ' + t('ten_thousand_unit');
     }
     return count.toString();
   }
@@ -798,7 +799,7 @@ export struct LeaderboardView {
             LoadingProgress()
               .width(32)
               .height(32)
-            Text('加载榜单…')
+            Text(t('loading'))
               .fontSize(14)
               .fontColor(this.secondaryText())
               .margin({ top: 12 })
@@ -811,7 +812,7 @@ export struct LeaderboardView {
             Column() {
               SearchStrip({
                 text: $searchText,
-                placeholder: '搜索榜单名称',
+                placeholder: t('search_board_hint'),
                 marginH: DesignTokens.spaceGutter(),
                 marginV: DesignTokens.spaceUnit(),
                 tapToOpenOnly: true,
@@ -820,7 +821,7 @@ export struct LeaderboardView {
               this.LeaderboardFilterBar()
               if (this.cardStates.length === 0) {
                 Column() {
-                  Text(this.boardList.length === 0 ? '暂无排行榜数据' : '无匹配榜单，换个关键词试试')
+                  Text(this.boardList.length === 0 ? t('no_data') : t('search_no_result'))
                     .fontSize(15)
                     .fontColor(this.secondaryText())
                 }
@@ -857,7 +858,7 @@ export struct LeaderboardView {
                   if (!this.isFilterPinned) {
                     SearchStrip({
                       text: $searchText,
-                      placeholder: '搜索榜单名称',
+                      placeholder: t('search_board_hint'),
                       marginH: DesignTokens.spaceGutter(),
                       marginV: DesignTokens.spaceUnit(),
                       tapToOpenOnly: true,
@@ -924,13 +925,13 @@ export struct LeaderboardView {
       Row() {
         SearchStrip({
           text: $overlaySearchText,
-          placeholder: '搜索榜单名称',
+          placeholder: t('search_board_hint'),
           marginH: 0,
           marginV: 0,
           actions: this.leaderboardOverlaySearchActions,
         })
         .layoutWeight(1)
-        Text('取消')
+        Text(t('cancel'))
           .fontSize(16)
           .fontWeight(FontWeight.Medium)
           .fontColor(DesignTokens.accent())
@@ -945,7 +946,7 @@ export struct LeaderboardView {
 
       if (this.filteredBoardList.length === 0) {
         Column() {
-          Text(this.boardList.length === 0 ? '暂无排行榜数据' : '未找到相关榜单')
+          Text(this.boardList.length === 0 ? t('no_data') : t('no_data'))
             .fontSize(15)
             .fontColor(this.secondaryText())
         }
@@ -957,7 +958,7 @@ export struct LeaderboardView {
           ForEach(this.filteredBoardList, (board: BoardItem) => {
             ListItem() {
               Row() {
-                Text(board.name || '榜单')
+                Text(board.name || t('board_item'))
                   .layoutWeight(1)
                   .fontSize(16)
                   .fontColor(this.primaryText())
@@ -1032,7 +1033,7 @@ export struct LeaderboardView {
           })
 
           Column() {
-            Text(this.cardStates[index].board.name || '榜单')
+            Text(this.cardStates[index].board.name || t('board_item'))
               .fontSize(17)
               .fontWeight(FontWeight.Medium)
               .fontColor(this.primaryText())
@@ -1117,11 +1118,11 @@ export struct LeaderboardView {
           .padding({ left: 14, right: 14, bottom: 12 })
         } else if (this.cardStates[index].loadState === 'err') {
           Row() {
-            Text('预览加载失败')
+            Text(t('load_failed'))
               .fontSize(13)
               .fontColor(this.tertiaryText())
               .layoutWeight(1)
-            Text('重试')
+            Text(t('retry'))
               .fontSize(13)
               .fontWeight(FontWeight.Medium)
               .fontColor(DesignTokens.accent())
@@ -1147,7 +1148,7 @@ export struct LeaderboardView {
           .padding({ left: 14, right: 14, bottom: 12 })
           .alignItems(VerticalAlign.Center)
         } else if (this.cardStates[index].displayList.length === 0) {
-          Text('该榜单暂无可展示曲目')
+          Text(t('no_data'))
             .fontSize(13)
             .fontColor(this.tertiaryText())
             .padding({ left: 14, right: 14, bottom: 12 })
@@ -1198,7 +1199,7 @@ export struct LeaderboardView {
         }
 
         Row() {
-          Text(this.cardStates[index].expanded ? '收起预览' : '展开试听')
+          Text(this.cardStates[index].expanded ? t('collapse_preview') : t('expand_preview'))
             .fontSize(12)
             .fontColor(this.secondaryText())
             .onClick(() => {

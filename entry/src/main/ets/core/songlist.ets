@@ -8,7 +8,6 @@ import {
   type SongListTagsResult,
   type SongListResult,
   type SongListDetailResult,
-  type SongListDetailInfo as SdkDetailInfo,
 } from './music/MusicFeatureEntry';
 import { pluginManager } from './plugin/PluginManager';
 

@@ -7,12 +7,13 @@ import { getSongListDetail, getMusicUrl, setDownloadContext, download, type Song
 import { NavigationParams } from '../service/NavigationService';
 import { playerService, SongInfo } from '../service/PlayerService';
 import { navigationService } from '../service/NavigationService';
-import preferences from '@ohos.data.preferences';
 import { common } from '@kit.AbilityKit';
+import storageService, { StorageKeys } from '../service/StorageService';
 import { addMusicToList, getUserList, getUserListMusic, LIST_IDS, MusicItem, ListInfo } from '../service/ListService';
 import type { MusicInfo, MusicSource } from '../types/MusicTypes';
 import { DesignTokens } from '../theme/DesignTokens';
 import { NavBackButton } from '../components/common/NavBackButton';
+import { t } from '../service/LocalizationService';
 
 interface MenuActionItem {
   label: string;
@@ -33,8 +34,11 @@ interface SonglistCollectionEntry {
 @Component
 export struct SonglistDetailPage {
   @StorageProp('theme') theme: string = 'light';
-  @State listName: string = '歌单';
-  @State creator: string = '未知';
+  @StorageProp('language') language: string = 'zh-CN';
+  @StorageProp('langVersion') langVersion: number = 0;
+  @State renderKey: number = Date.now();
+  @State listName: string = t('songlist_title');
+  @State creator: string = t('unknown');
   @State description: string = '';
   @State playCount: string = '0';
   @State songList: SongItem[] = [];
@@ -47,7 +51,7 @@ export struct SonglistDetailPage {
   @State listInfo: SonglistInfo = {
     source: '',
     id: '',
-    name: '加载中...',
+    name: t('loading'),
     creator: '',
     pic: '',
     desc: '',
@@ -157,7 +161,7 @@ export struct SonglistDetailPage {
               .textOverflow({ overflow: TextOverflow.Ellipsis })
 
             Row() {
-              Text(`创建者: ${this.listInfo.creator || '未知'}`)
+              Text(t('songlist_creator') + ': ' + (this.listInfo.creator || t('unknown')))
                 .fontSize(DesignTokens.fontCaption())
                 .fontColor(DesignTokens.labelSecondary(this.theme))
                 .maxLines(1)
@@ -403,8 +407,8 @@ export struct SonglistDetailPage {
       this.listInfo = {
         source: source,
         id: id,
-        name: result.info.name || '未知歌单',
-        creator: result.info.author || '未知',
+        name: result.info.name || t('unknown_playlist'),
+        creator: result.info.author || t('unknown'),
         pic: result.info.img || '',
         desc: result.info.desc || '',
         playCount: this.parsePlayCount(result.info.play_count),
@@ -458,7 +462,7 @@ export struct SonglistDetailPage {
         source: 'local',
         id: listInfo.id,
         name: listInfo.name,
-        creator: '本地歌单',
+        creator: t('local_playlist'),
         pic: listInfo.pic || (localSongs[0]?.pic ?? ''),
         desc: listInfo.desc || '',
         playCount: 0,
@@ -517,9 +521,9 @@ export struct SonglistDetailPage {
 
   formatPlayCountDisplay(count: number): string {
     if (count >= 100000000) {
-      return (count / 100000000).toFixed(1) + '亿';
+      return (count / 100000000).toFixed(1) + ' ' + t('billion_unit');
     } else if (count >= 10000) {
-      return (count / 10000).toFixed(1) + '万';
+      return (count / 10000).toFixed(1) + ' ' + t('ten_thousand_unit');
     }
     return count.toString();
   }
@@ -584,7 +588,6 @@ export struct SonglistDetailPage {
       hilog.info(0x0001, 'SonglistDetail', 'Getting music URL for song: %{public}s', song.name);
       const url: string | null = await getMusicUrl({
         musicInfo: musicInfo,
-        quality: '128k',
         isRefresh: false,
         onToggleSource: null,
         allowToggleSource: true,
@@ -592,6 +595,12 @@ export struct SonglistDetailPage {
 
       if (!url || url.length === 0) {
         hilog.error(0x0001, 'SonglistDetail', 'Failed to get music URL for song: %{public}s', song.name);
+        // 失败时回滚播放态提示，避免列表看起来"在播但没声音"
+        for (let i = 0; i < this.songList.length; i++) {
+          this.songList[i].isPlaying = false;
+        }
+        this.songList = this.songList;
+        this.showToast(t('toast_play_url_failed'));
         return;
       }
 
@@ -603,8 +612,7 @@ export struct SonglistDetailPage {
       hilog.info(0x0001, 'SonglistDetail', 'PlayList set with %{public}d songs, starting from index %{public}d', songInfos.length, index);
 
       hilog.info(0x0001, 'SonglistDetail', 'Got music URL, setting source and playing...');
-      await playerService.setSource(songInfos[index], url, song.duration);
-      await playerService.play();
+      await playerService.playFromSelection(songInfos[index], url, song.duration);
       hilog.info(0x0001, 'SonglistDetail', 'Song playback started successfully');
     } catch (error) {
       hilog.error(0x0001, 'SonglistDetail', 'Play song failed: %{public}s', JSON.stringify(error));
@@ -657,7 +665,6 @@ export struct SonglistDetailPage {
     } as MusicInfo;
     const url: string | null = await getMusicUrl({
       musicInfo: musicInfo,
-      quality: '128k',
       isRefresh: false,
       onToggleSource: null,
       allowToggleSource: true,
@@ -665,6 +672,7 @@ export struct SonglistDetailPage {
 
     if (!url || url.length === 0) {
       hilog.error(0x0001, 'SonglistDetail', 'Failed to get music URL for first song: %{public}s', firstSong.name);
+      this.showToast(t('toast_play_url_failed'));
       return;
     }
 
@@ -675,8 +683,7 @@ export struct SonglistDetailPage {
     playerService.setPlayList(songInfos, 0);
 
     hilog.info(0x0001, 'SonglistDetail', 'Got music URL, setting source and playing...');
-    await playerService.setSource(songInfos[0], url, firstSong.duration);
-    await playerService.play();
+    await playerService.playFromSelection(songInfos[0], url, firstSong.duration);
   }
 
   // 格式化秒数为时间字符串
@@ -712,20 +719,33 @@ export struct SonglistDetailPage {
     }
   }
 
+  /** 读取收藏的歌单列表（统一走 StorageService 的同一份存储） */
+  private async loadCollections(): Promise<SonglistCollectionEntry[]> {
+    const json = await storageService.getString(StorageKeys.COLLECTION_SONGLISTS, '[]');
+    if (!json || json.length === 0) {
+      return [];
+    }
+    try {
+      return JSON.parse(json) as SonglistCollectionEntry[];
+    } catch (err) {
+      hilog.warn(0x0001, 'SonglistDetail', 'Parse collections failed: %{public}s', JSON.stringify(err));
+      return [];
+    }
+  }
+
+  private async saveCollections(collections: SonglistCollectionEntry[]): Promise<void> {
+    await storageService.setString(StorageKeys.COLLECTION_SONGLISTS, JSON.stringify(collections));
+  }
+
+  private isSameSonglist(item: SonglistCollectionEntry): boolean {
+    return item.id === this.listInfo.id && item.source === this.listInfo.source;
+  }
+
   // 检查歌单是否已收藏
   private async isSonglistCollected(): Promise<boolean> {
     try {
-      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-      const pref = await preferences.getPreferences(context, 'music_collections');
-      
-      // 获取收藏列表
-      const collectionsJson = await pref.get('songlists', '[]') as string;
-      const collections = JSON.parse(collectionsJson) as Array<Record<string, Object>>;
-      
-      // 检查当前歌单是否在收藏列表中
-      return collections.some((item: Record<string, Object>) => 
-        item.id === this.listInfo.id && item.source === this.listInfo.source
-      );
+      const collections = await this.loadCollections();
+      return collections.some((item: SonglistCollectionEntry) => this.isSameSonglist(item));
     } catch (err) {
       hilog.error(0x0001, 'SonglistDetail', 'Failed to check collection status: %{public}s', JSON.stringify(err));
       return false;
@@ -735,68 +755,38 @@ export struct SonglistDetailPage {
   // 添加到收藏
   private async addToCollections(): Promise<void> {
     try {
-      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-      const pref = await preferences.getPreferences(context, 'music_collections');
-      
-      // 获取现有收藏列表
-      const collectionsJson = await pref.get('songlists', '[]') as string;
-      const collections: SonglistCollectionEntry[] = JSON.parse(collectionsJson) as SonglistCollectionEntry[];
-      
-      const exists = collections.some((item: SonglistCollectionEntry) =>
-        item.id === this.listInfo.id && item.source === this.listInfo.source
-      );
-      
-      if (!exists) {
-        // 添加新收藏
-        const newCollection: SonglistCollectionEntry = {
-          id: this.listInfo.id,
-          source: this.listInfo.source,
-          name: this.listInfo.name,
-          creator: this.listInfo.creator,
-          pic: this.listInfo.pic,
-          desc: this.listInfo.desc,
-          playCount: this.listInfo.playCount,
-          collectTime: Date.now()
-        };
-        
-        collections.push(newCollection);
-        
-        // 保存收藏列表
-        await pref.put('songlists', JSON.stringify(collections));
-        await pref.flush();
-        
-        hilog.info(0x0001, 'SonglistDetail', 'Added to collections: %{public}s', this.listInfo.name);
+      const collections = await this.loadCollections();
+      if (collections.some((item: SonglistCollectionEntry) => this.isSameSonglist(item))) {
+        return;
       }
+      collections.push({
+        id: this.listInfo.id,
+        source: this.listInfo.source,
+        name: this.listInfo.name,
+        creator: this.listInfo.creator,
+        pic: this.listInfo.pic,
+        desc: this.listInfo.desc,
+        playCount: this.listInfo.playCount,
+        collectTime: Date.now()
+      });
+      await this.saveCollections(collections);
+      hilog.info(0x0001, 'SonglistDetail', 'Added to collections: %{public}s', this.listInfo.name);
     } catch (err) {
       hilog.error(0x0001, 'SonglistDetail', 'Failed to add to collections: %{public}s', JSON.stringify(err));
-      const msg = err instanceof Error ? err.message : JSON.stringify(err);
-      throw new Error(msg);
+      throw new Error(err instanceof Error ? err.message : JSON.stringify(err));
     }
   }
 
   // 从收藏中移除
   private async removeFromCollections(): Promise<void> {
     try {
-      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-      const pref = await preferences.getPreferences(context, 'music_collections');
-      
-      // 获取现有收藏列表
-      const collectionsJson = await pref.get('songlists', '[]') as string;
-      let collections: SonglistCollectionEntry[] = JSON.parse(collectionsJson) as SonglistCollectionEntry[];
-      
-      collections = collections.filter((item: SonglistCollectionEntry) =>
-        !(item.id === this.listInfo.id && item.source === this.listInfo.source)
-      );
-      
-      // 保存更新后的收藏列表
-      await pref.put('songlists', JSON.stringify(collections));
-      await pref.flush();
-      
+      const collections = await this.loadCollections();
+      const remaining = collections.filter((item: SonglistCollectionEntry) => !this.isSameSonglist(item));
+      await this.saveCollections(remaining);
       hilog.info(0x0001, 'SonglistDetail', 'Removed from collections: %{public}s', this.listInfo.name);
     } catch (err) {
       hilog.error(0x0001, 'SonglistDetail', 'Failed to remove from collections: %{public}s', JSON.stringify(err));
-      const msg = err instanceof Error ? err.message : JSON.stringify(err);
-      throw new Error(msg);
+      throw new Error(err instanceof Error ? err.message : JSON.stringify(err));
     }
   }
 
@@ -821,7 +811,7 @@ export struct SonglistDetailPage {
       
       // 确认下载
       const confirmed = await this.showConfirmDialog(
-        '下载确认',
+        t('download_confirm_title'),
         `确定要下载歌单 "${this.listInfo.name}" 中的 ${this.songList.length} 首歌曲吗？`
       );
       
@@ -902,7 +892,6 @@ export struct SonglistDetailPage {
       // 使用真实的下载服务
       const taskId = await download.startDownload({
         musicInfo: musicInfo,
-        quality: '128k',
       });
       hilog.info(0x0001, 'SonglistDetail', 'Download started: %{public}s, taskId: %{public}s', song.name, taskId);
     } catch (err) {
@@ -940,11 +929,11 @@ export struct SonglistDetailPage {
     // 暂时使用日志输出并执行默认操作
     
     const actions: MenuActionItem[] = [
-      { label: '添加到歌单', action: (): void => { this.addToPlaylist(song); } },
-      { label: '下载', action: (): void => { this.downloadSongFromMenu(song); } },
-      { label: '分享', action: (): void => { this.shareSong(song); } },
-      { label: '查看歌手', action: (): void => { this.viewArtist(song); } },
-      { label: '查看专辑', action: (): void => { this.viewAlbum(song); } }
+      { label: t('player_add_to_list'), action: (): void => { this.addToPlaylist(song); } },
+      { label: t('player_download'), action: (): void => { this.downloadSongFromMenu(song); } },
+      { label: t('player_share'), action: (): void => { this.shareSong(song); } },
+      { label: t('player_view_artist'), action: (): void => { this.viewArtist(song); } },
+      { label: t('player_view_album'), action: (): void => { this.viewAlbum(song); } }
     ];
     
     hilog.info(0x0001, 'SonglistDetail', 'Action menu for %{public}s:', song.name);
@@ -1040,7 +1029,7 @@ export struct SonglistDetailPage {
           LoadingProgress()
             .width(32)
             .height(32)
-          Text('加载中...')
+          Text(t('loading'))
             .fontSize(14)
             .fontColor('#999999')
             .margin({ top: 12 })
@@ -1139,5 +1128,3 @@ interface DownloadTask {
   progress: number;
   createTime: number;
 }
-
-

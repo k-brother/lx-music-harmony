@@ -21,6 +21,7 @@ interface EventTypesInterface {
   LIST_MUSIC_REMOVED: string;
   SETTING_CHANGED: string;
   THEME_CHANGED: string;
+  LANGUAGE_CHANGED: string;
   ERROR_OCCURRED: string;
   TOAST_SHOW: string;
 }
@@ -46,6 +47,7 @@ export const EventTypes: EventTypesInterface = {
   // 设置事件
   SETTING_CHANGED: 'setting:changed',
   THEME_CHANGED: 'theme:changed',
+  LANGUAGE_CHANGED: 'setting:languageChanged',
 
   // 全局事件
   ERROR_OCCURRED: 'app:error',
@@ -88,6 +90,10 @@ interface ListUpdatedData {
 
 interface ThemeChangedData {
   isDark: boolean;
+}
+
+interface SettingChangedData {
+  key: string;
 }
 
 interface ErrorOccurredData {
@@ -274,6 +280,14 @@ export function emitThemeChanged(isDark: boolean): void {
 }
 
 /**
+ * 设置变化（key 为变更的设置项，'all' 表示整体初始化完成）
+ */
+export function emitSettingChanged(key: string): void {
+  const data: SettingChangedData = { key: key };
+  emit(EventTypes.SETTING_CHANGED, data);
+}
+
+/**
  * 显示错误
  */
 export function emitError(message: string): void {
@@ -304,6 +318,7 @@ export interface EventBusInterface {
   emitSearchCompleted: (results: Object[]) => void;
   emitListUpdated: (listId: string) => void;
   emitThemeChanged: (isDark: boolean) => void;
+  emitSettingChanged: (key: string) => void;
   emitError: (message: string) => void;
   emitToast: (message: string) => void;
 }
@@ -323,6 +338,7 @@ const eventBus: EventBusInterface = {
   emitSearchCompleted,
   emitListUpdated,
   emitThemeChanged,
+  emitSettingChanged,
   emitError,
   emitToast,
 };

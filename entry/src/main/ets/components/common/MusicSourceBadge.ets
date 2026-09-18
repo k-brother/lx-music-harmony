@@ -1,3 +1,4 @@
+import { t } from '../../service/LocalizationService';
 /**
  * 音乐源标签组件
  */
@@ -8,11 +9,11 @@ export struct MusicSourceBadge {
   @Prop fontSize: number = 11;
 
   private getSourceName(sourceId: string): string {
-    if (sourceId === 'kw') return '酷我';
+    if (sourceId === 'kw') return t('source_kw_short');
     if (sourceId === 'tx') return 'QQ';
-    if (sourceId === 'wy') return '网易';
-    if (sourceId === 'kg') return '酷狗';
-    if (sourceId === 'mg') return '咪咕';
+    if (sourceId === 'wy') return t('source_wy_short');
+    if (sourceId === 'kg') return t('source_kg_short');
+    if (sourceId === 'mg') return t('source_mg_short');
     return sourceId;
   }
 

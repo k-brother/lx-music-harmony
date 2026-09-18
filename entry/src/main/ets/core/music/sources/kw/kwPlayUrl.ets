@@ -64,6 +64,15 @@ export async function getKwMusicUrl(songInfo: MusicInfo, quality: string = '320k
 
   const apiAttempts: ApiAttempt[] = [
     {
+      // 老牌免登录接口，直接返回一个音频直链；rid 必须带 MUSIC_ 前缀
+      name: 'anti_server',
+      url: `http://antiserver.kuwo.cn/anti.s?type=convert_url&format=mp3&response=url&rid=MUSIC_${songmid}&br=${br}`,
+      headers: {
+        'Referer': 'https://www.kuwo.cn/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      }
+    },
+    {
       name: 'official_api_v1',
       url: `https://www.kuwo.cn/api/v1/www/music/playUrl?mid=${songmid}&type=convert_url&br=${br}`,
       headers: baseHeaders
@@ -72,14 +81,6 @@ export async function getKwMusicUrl(songInfo: MusicInfo, quality: string = '320k
       name: 'official_api_v2',
       url: `https://www.kuwo.cn/api/v1/www/music/playUrl?mid=${songmid}&type=convert_url2&br=${br}`,
       headers: baseHeaders
-    },
-    {
-      name: 'anti_server',
-      url: `https://antiserver.kuwo.cn/anti.s?type=convert_url&format=mp3&response=url&rid=${songmid}`,
-      headers: {
-        'Referer': 'https://www.kuwo.cn/',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      }
     },
     {
       name: 'wap_api',
@@ -100,15 +101,19 @@ export async function getKwMusicUrl(songInfo: MusicInfo, quality: string = '320k
     hilog.info(DOMAIN, TAG, '尝试酷我音乐API: %{public}s', attempt.name);
 
     try {
-      const task = httpGet(attempt.url, { header: attempt.headers });
+      // 响应可能是 JSON，也可能是一行纯文本直链：统一按文本取回，自己解析，
+      // 避免 HTTP 层再做一次必然失败的 JSON.parse（会打出误导性的告警）
+      const task = httpGet(attempt.url, { header: attempt.headers, responseType: 'text' });
       const response = await task.promise;
 
-      let responseText = '';
-      const raw = response.data;
-      if (typeof raw === 'string') {
-        responseText = raw;
-      } else if (raw !== undefined && raw !== null) {
-        responseText = String(raw);
+      // 统一用 rawText：responseType='json' 时 data 已经是解析后的对象
+      const responseText = response.rawText;
+
+      // 部分接口（anti_server）直接返回一个音频直链，先按纯文本处理避免误报解析异常
+      if (responseText.length > 0 && responseText.trim().charAt(0) === 'h') {
+        hilog.info(DOMAIN, TAG, '酷我音乐API %{public}s 成功获取URL (直接URL)', attempt.name);
+        const result: MusicUrlResult = { url: responseText.trim(), type: quality };
+        return result;
       }
 
       try {
@@ -150,6 +155,13 @@ export async function getKwMusicUrl(songInfo: MusicInfo, quality: string = '320k
       }
 
       hilog.warn(DOMAIN, TAG, '酷我音乐API %{public}s 解析失败', attempt.name);
+      if (responseText.length === 0) {
+        hilog.warn(DOMAIN, TAG, '酷我音乐API %{public}s 返回空响应: status=%{public}d',
+          attempt.name, response.status);
+      } else {
+        hilog.warn(DOMAIN, TAG, '酷我音乐API %{public}s 响应片段: %{public}s',
+          attempt.name, responseText.substring(0, Math.min(160, responseText.length)));
+      }
     } catch (error) {
       const err = error as Error;
       hilog.error(DOMAIN, TAG, '酷我音乐API %{public}s 请求失败: %{public}s', attempt.name, err.message);
@@ -158,12 +170,18 @@ export async function getKwMusicUrl(songInfo: MusicInfo, quality: string = '320k
 
   hilog.warn(DOMAIN, TAG, '所有酷我音乐API尝试失败，使用备用方案');
 
-  const parseUrlResponse = (respData: Object): string => {
-    const txt = typeof respData === 'string' ? respData : String(respData ?? '');
+  // 用原始文本解析：接口既可能返回 JSON，也可能直接返回一个 URL
+  const parseUrlResponse = (txt: string): string => {
+    if (!txt || txt.length === 0) {
+      return '';
+    }
     try {
       const parsed = JSON.parse(txt) as KwMusicUrlResponse;
       if (parsed.code === 200 && parsed.data && parsed.data.url) {
         return parsed.data.url;
+      }
+      if (parsed.data && typeof parsed.data === 'string' && (parsed.data as string).charAt(0) === 'h') {
+        return parsed.data as string;
       }
     } catch (_e) {
       if (txt.length > 0 && txt.charAt(0) === 'h') {
@@ -181,7 +199,7 @@ export async function getKwMusicUrl(songInfo: MusicInfo, quality: string = '320k
     };
     const task = httpGet(httpUrl, { header: httpHeaders });
     const response = await task.promise;
-    const fallbackUrl = parseUrlResponse(response.data);
+    const fallbackUrl = parseUrlResponse(response.rawText);
     if (fallbackUrl.length > 0) {
       hilog.info(DOMAIN, TAG, 'HTTP备用方案成功获取URL');
       const result: MusicUrlResult = { url: fallbackUrl, type: quality };
@@ -195,7 +213,7 @@ export async function getKwMusicUrl(songInfo: MusicInfo, quality: string = '320k
     const winWebUrl = `https://win-web.kuwo.cn/new/url?format=mp3&rid=${songmid}&type=convert_url&br=${br}`;
     const task = httpGet(winWebUrl, { header: baseHeaders });
     const response = await task.promise;
-    const fallbackUrl = parseUrlResponse(response.data);
+    const fallbackUrl = parseUrlResponse(response.rawText);
     if (fallbackUrl.length > 0) {
       hilog.info(DOMAIN, TAG, 'win-web备用方案成功获取URL');
       const result: MusicUrlResult = { url: fallbackUrl, type: quality };
@@ -209,7 +227,7 @@ export async function getKwMusicUrl(songInfo: MusicInfo, quality: string = '320k
     const lowLevelUrl = `http://www.kuwo.cn/api/v1/www/music/playUrl?mid=${songmid}&type=music&br=${br}`;
     const task = httpGet(lowLevelUrl, { header: baseHeaders });
     const response = await task.promise;
-    const fallbackUrl = parseUrlResponse(response.data);
+    const fallbackUrl = parseUrlResponse(response.rawText);
     if (fallbackUrl.length > 0) {
       hilog.info(DOMAIN, TAG, '低级API备用方案成功获取URL');
       const result: MusicUrlResult = { url: fallbackUrl, type: quality };

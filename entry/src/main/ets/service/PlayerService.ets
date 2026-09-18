@@ -2,8 +2,8 @@
 
 import hilog from '@ohos.hilog';
 import type { BusinessError } from '@kit.BasicServicesKit';
-import preferences from '@ohos.data.preferences';
 import { common } from '@kit.AbilityKit';
+import { toggleLoveList, type MusicItem } from './ListService';
 import { avSession } from '@kit.AVSessionKit';
 import {
   initial as avInitial,
@@ -22,19 +22,26 @@ import {
   setOnTrackCompleted,
 } from '../core/playback/AvPlayerPlugin';
 import { playerState } from '../store/PlayerStoreState';
-import type { MusicInfo, MusicSource } from '../types/MusicTypes';
+import type { MusicInfo, MusicSource, Quality } from '../types/MusicTypes';
 import { formatPlayTime } from '../utils/CommonUtils';
 import { recordPlayedSong } from './PlayHistoryService';
 import { backgroundRunningManager, type AvMediaMetadata, type AvSessionCallbacks } from './BackgroundRunningManager';
 import { getMusicUrl } from '../core/music/MusicFeatureEntry';
+import { settingsService, type PlayMode as SettingsPlayMode } from './SettingsService';
+import { on, EventTypes } from './EventBus';
 
 export type { MusicInfo } from '../types/MusicTypes';
+
+// 高品质/默认音质（高品质会按音乐实际支持的音质向下取，见 getPlayQuality）
+const HIGH_QUALITY: Quality = 'flac24bit';
+const DEFAULT_QUALITY: Quality = '128k';
 
 const TAG = 'PlayerService';
 const DOMAIN = 0x0002;
 
-// 播放模式
-export type PlayMode = 'listLoop' | 'singleLoop' | 'random' | 'sequential';
+// 播放模式（唯一定义在 SettingsService）
+export type { PlayMode } from './SettingsService';
+type PlayMode = SettingsPlayMode;
 
 // 播放状态
 export type PlayStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'stopped' | 'buffering' | 'error';
@@ -168,9 +175,13 @@ export class PlayerService {
   private progressTimer: number = -1;
   private progressFailCount: number = 0;
   private playMode: PlayMode = 'listLoop';
+  /** 首选音质（受"高品质音乐"设置影响） */
+  private preferredQuality: Quality = HIGH_QUALITY;
+  /** 播放完成的歌曲是否从播放队列移除 */
+  private autoCleanPlayedList: boolean = false;
+  private settingsListenerRegistered: boolean = false;
   // 随机播放历史（已播歌曲索引，避免短期内重复）
   private randomHistory: number[] = [];
-  private context: common.UIAbilityContext | null = null;
 
   // 事件监听器数组
   private stateListeners: StateChangeListener[] = [];
@@ -179,15 +190,43 @@ export class PlayerService {
   private playStateListeners: PlayStateListener[] = [];
   private progressInfoListeners: ProgressInfoListener[] = [];
 
-  /** 设置上下文（用于读取偏好设置） */
-  setContext(context: common.UIAbilityContext): void {
-    this.context = context;
+  /**
+   * 设置上下文。
+   * 播放器自身不再直接访问 Preferences（统一走 SettingsService），
+   * 这里保留入口是为了与启动流程的解耦：调用方仍需告知"应用已就绪"。
+   */
+  setContext(_context: common.UIAbilityContext): void {
     // 注册 AVSession 播控回调
     backgroundRunningManager.setCallbacks(this.createAvSessionCallbacks());
-    // 从偏好设置读取播放模式
-    this.loadPlayModeFromSettings().catch((err: Error) => {
-      hilog.warn(DOMAIN, TAG, 'loadPlayModeFromSettings failed: %{public}s', err.message);
-    });
+    // 设置变化时实时生效（音量/音质/播放模式/自动清理）
+    if (!this.settingsListenerRegistered) {
+      this.settingsListenerRegistered = true;
+      on(EventTypes.SETTING_CHANGED, (): void => {
+        this.syncFromSettings();
+      });
+    }
+    this.syncFromSettings();
+  }
+
+  /** 把设置快照同步到播放器内部状态（不写回设置，避免循环） */
+  private syncFromSettings(): void {
+    const settings = settingsService.get();
+    if (LOOP_MODE_ORDER.includes(settings.playMode)) {
+      this.playMode = settings.playMode;
+    }
+    this.preferredQuality = settings.highQuality ? HIGH_QUALITY : DEFAULT_QUALITY;
+    this.autoCleanPlayedList = settings.autoCleanPlayedList;
+    backgroundRunningManager.setLoopMode(playModeToAvLoopMode(this.playMode));
+
+    // 音量跟随设置（0-100 -> 0-1），设置被恢复/同步后也能立即生效
+    const targetVolume = settings.volume / 100;
+    if (Math.abs(targetVolume - this.volume) > 0.001) {
+      this.setVolume(targetVolume).catch((err: Error) => {
+        hilog.warn(DOMAIN, TAG, 'Failed to apply volume from settings: %{public}s', err.message);
+      });
+    }
+    hilog.info(DOMAIN, TAG, 'Player settings applied: mode=%{public}s, quality=%{public}s, autoClean=%{public}s',
+      this.playMode, this.preferredQuality, this.autoCleanPlayedList.toString());
   }
 
   /** 创建 AVSession 播控回调 */
@@ -226,40 +265,36 @@ export class PlayerService {
         }
       },
       onToggleFavorite: (_assetId: string): void => {
-        // 收藏功能暂不实现
-        hilog.info(DOMAIN, TAG, 'Toggle favorite not implemented');
+        const currentSong = this.getCurrentSong();
+        if (!currentSong) {
+          hilog.warn(DOMAIN, TAG, 'Toggle favorite: no current song');
+          return;
+        }
+        const musicItem: MusicItem = {
+          id: currentSong.id,
+          name: currentSong.title,
+          singer: currentSong.artist,
+          album: currentSong.album,
+          albumId: currentSong.albumId || null,
+          duration: currentSong.duration,
+          source: currentSong.source || 'kw',
+          pic: currentSong.artwork || '',
+          lrc: null,
+        };
+        toggleLoveList(musicItem).then((isLoved: boolean) => {
+          hilog.info(DOMAIN, TAG, 'Toggle favorite: %{public}s is now %{public}s',
+            currentSong.title, isLoved ? 'loved' : 'unloved');
+        }).catch((err: Error) => {
+          hilog.error(DOMAIN, TAG, 'Toggle favorite failed: %{public}s', err.message);
+        });
       },
     };
   }
 
-  /** 从偏好设置加载播放模式 */
-  private async loadPlayModeFromSettings(): Promise<void> {
-    if (!this.context) {
-      return;
-    }
-    try {
-      const pref = await preferences.getPreferences(this.context, 'music_settings');
-      const savedMode = await pref.get('playMode', 'listLoop') as string;
-      if (LOOP_MODE_ORDER.includes(savedMode as PlayMode)) {
-        this.playMode = savedMode as PlayMode;
-        hilog.info(DOMAIN, TAG, 'PlayMode loaded from settings: %{public}s', savedMode);
-      }
-      // 同步到 AVSession
-      backgroundRunningManager.setLoopMode(playModeToAvLoopMode(this.playMode));
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'Failed to load playMode: %{public}s', JSON.stringify(err));
-    }
-  }
-
-  /** 保存播放模式到偏好设置 */
+  /** 保存播放模式 */
   private async savePlayModeToSettings(): Promise<void> {
-    if (!this.context) {
-      return;
-    }
     try {
-      const pref = await preferences.getPreferences(this.context, 'music_settings');
-      await pref.put('playMode', this.playMode);
-      await pref.flush();
+      await settingsService.update({ playMode: this.playMode });
     } catch (err) {
       hilog.warn(DOMAIN, TAG, 'Failed to save playMode: %{public}s', JSON.stringify(err));
     }
@@ -341,6 +376,7 @@ export class PlayerService {
   /** 歌曲播放完成回调 */
   private async onAvTrackCompleted(): Promise<void> {
     this.stopProgressTimer();
+    const finishedSong = this.currentSong;
     this.currentStatus = 'stopped';
     playerStateData.isPlay = false;
     this.notifyStateChange();
@@ -350,6 +386,11 @@ export class PlayerService {
     backgroundRunningManager.updatePlaybackState(false).catch((err: Error) => {
       hilog.warn(DOMAIN, TAG, 'updatePlaybackState failed: %{public}s', err.message);
     });
+
+    // 自动清理已播放列表：单曲循环不清理，其余模式在切歌前把播完的歌移出队列
+    if (this.autoCleanPlayedList && this.playMode !== 'singleLoop' && finishedSong) {
+      this.removeSongFromQueue(finishedSong);
+    }
 
     switch (this.playMode) {
       case 'singleLoop':
@@ -380,6 +421,31 @@ export class PlayerService {
         await this.playNextInternal();
         break;
     }
+  }
+
+  /**
+   * 把播放完成的歌曲从播放队列中移除（"自动清理已播放列表"设置）。
+   * 只影响内存中的播放队列，不会删除用户歌单里的歌曲。
+   */
+  private removeSongFromQueue(song: SongInfo): void {
+    const index = this.playList.indexOf(song);
+    if (index < 0) {
+      return;
+    }
+    this.playList.splice(index, 1);
+    if (index < this.currentIndex) {
+      this.currentIndex--;
+    } else if (index === this.currentIndex) {
+      // 让"下一首"正好落在后移补位的歌曲上（playNextInternal 会用 currentIndex + 1）
+      this.currentIndex = index - 1;
+    }
+    if (this.currentIndex > this.playList.length - 1) {
+      this.currentIndex = this.playList.length - 1;
+    }
+    // 队列索引变化后，随机播放历史需要重新映射，直接清空避免越界
+    this.randomHistory = [];
+    hilog.info(DOMAIN, TAG, 'Auto cleaned played song from queue: %{public}s (left=%{public}d)',
+      song.title, this.playList.length);
   }
 
   /** 随机播放下一首 */
@@ -418,8 +484,11 @@ export class PlayerService {
     await this.playSongByIndex(randomIdx);
   }
 
-  /** 播放指定索引的歌曲（会获取URL） */
-  private async playSongByIndex(index: number): Promise<void> {
+  /**
+   * 播放指定索引的歌曲（会获取URL）
+   * @param respectAutoPlay 为用户手动选歌场景，此时受"自动播放"设置控制
+   */
+  private async playSongByIndex(index: number, respectAutoPlay: boolean = false): Promise<void> {
     if (index < 0 || index >= this.playList.length) {
       hilog.warn(DOMAIN, TAG, 'playSongByIndex: invalid index %{public}d, listLen=%{public}d', index, this.playList.length);
       return;
@@ -452,7 +521,19 @@ export class PlayerService {
     }
 
     await this.setSource(song, url);
+    if (respectAutoPlay && !settingsService.get().autoPlay) {
+      hilog.info(DOMAIN, TAG, 'AutoPlay disabled: loaded "%{public}s" without playing', song.title);
+      return;
+    }
     await this.play();
+  }
+
+  /**
+   * 播放当前播放列表中的某一首（用户手动选歌入口，会自动获取播放地址）。
+   * 受「设置 -> 播放设置 -> 自动播放」控制。
+   */
+  async playSelectedFromPlayList(index: number): Promise<void> {
+    await this.playSongByIndex(index, true);
   }
 
   /** 内部下一曲实现（处理列表循环） */
@@ -488,7 +569,7 @@ export class PlayerService {
         img: song.artwork,
         lrc: null,
       };
-      const url = await getMusicUrl({ musicInfo });
+      const url = await getMusicUrl({ musicInfo, quality: this.preferredQuality });
       if (url) {
         hilog.info(DOMAIN, TAG, 'Fetched URL for %{public}s: %{public}s', song.title, url.substring(0, 80));
         return url;
@@ -713,6 +794,19 @@ export class PlayerService {
       const msg: string = error.message || 'Unknown error';
       throw new Error(`AVPlayer setSource failed: ${msg}`);
     }
+  }
+
+  /**
+   * 用户"选中歌曲"后的统一入口。
+   * 受「设置 -> 播放设置 -> 自动播放」控制：关闭时只切换当前歌曲并保持暂停。
+   */
+  async playFromSelection(song: SongInfo, url: string, duration: number | null = null): Promise<void> {
+    await this.setSource(song, url, duration);
+    if (settingsService.get().autoPlay) {
+      await this.play();
+      return;
+    }
+    hilog.info(DOMAIN, TAG, 'AutoPlay disabled: loaded "%{public}s" without playing', song.title);
   }
 
   // 通知音乐信息变化

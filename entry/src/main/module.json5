@@ -62,6 +62,16 @@
         }
       },
       {
+        "name": "ohos.permission.GET_NETWORK_INFO",
+        "reason": "$string:network_info_permission_reason",
+        "usedScene": {
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "always"
+        }
+      },
+      {
         "name": "ohos.permission.KEEP_BACKGROUND_RUNNING",
         "reason": "$string:background_permission_reason",
         "usedScene": {

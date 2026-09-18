@@ -1,13 +1,16 @@
+import { t } from '../../service/LocalizationService';
 /**
  * 确认对话框组件
  */
 
 @Component
 export struct ConfirmDialog {
+  @StorageProp('language') language: string = 'zh-CN';
+  @StorageProp('langVersion') langVersion: number = 0;
   @Prop title: string = '';
   @Prop message: string = '';
-  @Prop confirmText: string = '确认';
-  @Prop cancelText: string = '取消';
+  @Prop confirmText: string = '';
+  @Prop cancelText: string = '';
   @Prop show: boolean = false;
 
   private onConfirm: () => void = () => {};
@@ -55,7 +58,7 @@ export struct ConfirmDialog {
           Row() {
             // 取消按钮
             Column() {
-              Text(this.cancelText)
+              Text(this.cancelText || t('cancel'))
                 .fontSize(16)
                 .fontColor('#666666')
                 .width('100%')
@@ -77,7 +80,7 @@ export struct ConfirmDialog {
 
             // 确认按钮
             Column() {
-              Text(this.confirmText)
+              Text(this.confirmText || t('confirm'))
                 .fontSize(16)
                 .fontColor('#E63946')
                 .fontWeight(FontWeight.Medium)

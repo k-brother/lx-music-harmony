@@ -15,29 +15,11 @@
   "buildOptionSet": [
     {
       "name": "default",
-      "arkOptions": {
-        "obfuscation": {
-          "ruleOptions": {
-            "enable": false,
-            "files": [
-              "./obfuscation-rules.txt"
-            ]
-          }
-        }
-      }
+      "arkOptions": {}
     },
     {
       "name": "release",
-      "arkOptions": {
-        "obfuscation": {
-          "ruleOptions": {
-            "enable": false,
-            "files": [
-              "./obfuscation-rules.txt"
-            ]
-          }
-        }
-      }
+      "arkOptions": {}
     }
   ],
   "targets": [

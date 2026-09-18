@@ -6,6 +6,7 @@ import { getPlayHistory, clearPlayHistory, PlayHistoryItem } from '../service/Pl
 import type { MusicInfo as AppMusicInfo, MusicSource } from '../types/MusicTypes';
 import { formatPlayTime } from '../utils/CommonUtils';
 import { DesignTokens } from '../theme/DesignTokens';
+import { t } from '../service/LocalizationService';
 
 interface PromptActionResult {
   index: number;
@@ -14,6 +15,9 @@ interface PromptActionResult {
 @Component
 export struct HistoryListPage {
   @StorageProp('theme') theme: string = 'light';
+  @StorageProp('language') language: string = 'zh-CN';
+  @StorageProp('langVersion') langVersion: number = 0;
+  @State renderKey: number = Date.now();
   @State isLoading: boolean = false;
   @State playHistory: PlayHistoryItem[] = [];
 
@@ -45,11 +49,11 @@ export struct HistoryListPage {
     try {
       const confirmed = await new Promise<boolean>((resolve) => {
         this.getUIContext().getPromptAction().showDialog({
-          title: '清空试听列表',
-          message: '确认清空最近听过的歌曲记录？',
+          title: t('history_clear'),
+          message: t('history_clear'),
           buttons: [
-            { text: '取消', color: DesignTokens.labelSecondary(this.theme) },
-            { text: '确定', color: DesignTokens.accent() },
+            { text: t('cancel'), color: DesignTokens.labelSecondary(this.theme) },
+            { text: t('confirm'), color: DesignTokens.accent() },
           ],
         }, (_err: object, data: PromptActionResult) => {
           resolve(data.index === 1);
@@ -90,7 +94,6 @@ export struct HistoryListPage {
       };
       const url: string | null = await getMusicUrl({
         musicInfo,
-        quality: '128k',
         isRefresh: false,
         allowToggleSource: true,
       });
@@ -109,8 +112,7 @@ export struct HistoryListPage {
         source: song.source,
       };
       playerService.setPlayList([songInfo], 0);
-      await playerService.setSource(songInfo, url, song.duration);
-      await playerService.play();
+      await playerService.playFromSelection(songInfo, url, song.duration);
     } catch (error) {
       hilog.error(0x0001, 'HistoryListPage', 'play history song failed: %{public}s', JSON.stringify(error));
       this.toast('播放失败');
@@ -132,7 +134,7 @@ export struct HistoryListPage {
         navigationService.back();
       })
 
-      Text('试听列表')
+      Text(t('history_title'))
         .fontSize(24)
         .fontWeight(FontWeight.Bold)
         .fontColor(DesignTokens.labelPrimary(this.theme))
@@ -140,7 +142,7 @@ export struct HistoryListPage {
         .layoutWeight(1)
 
       if (this.playHistory.length > 0) {
-        Text('清空')
+        Text(t('history_clear'))
           .fontSize(14)
           .fontWeight(FontWeight.Medium)
           .fontColor(DesignTokens.accent())
@@ -213,7 +215,7 @@ export struct HistoryListPage {
             .width(36)
             .height(36)
             .color(DesignTokens.accent())
-          Text('正在读取试听列表…')
+          Text(t('loading'))
             .fontSize(14)
             .fontColor(DesignTokens.labelSecondary(this.theme))
             .margin({ top: 12 })
@@ -224,11 +226,11 @@ export struct HistoryListPage {
         .alignItems(HorizontalAlign.Center)
       } else if (this.playHistory.length === 0) {
         Column() {
-          Text('暂无试听记录')
+          Text(t('history_title'))
             .fontSize(16)
             .fontWeight(FontWeight.Medium)
             .fontColor(DesignTokens.labelSecondary(this.theme))
-          Text('播放过的歌曲会出现在这里')
+          Text(t('no_data'))
             .fontSize(13)
             .fontColor(DesignTokens.labelTertiary(this.theme))
             .margin({ top: 8 })

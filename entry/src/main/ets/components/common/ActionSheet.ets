@@ -1,3 +1,4 @@
+import { t } from '../../service/LocalizationService';
 /**
  * 操作表组件 - 从底部弹出的操作列表
  */
@@ -7,7 +8,7 @@ export struct ActionSheet {
   @Prop title: string = '';
   @Prop actions: string[] = [];
   @Prop show: boolean = false;
-  @Prop cancelText: string = '取消';
+  @Prop cancelText: string = t('cancel');
 
   private onActionClick: (index: number) => void = () => {};
   private onCancel: () => void = () => {};

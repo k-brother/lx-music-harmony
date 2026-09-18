@@ -1,3 +1,4 @@
+import { t } from '../../service/LocalizationService';
 // SongList 视图 - 歌单列表视图
 // 优化：字体放大、标签筛选、下拉刷新
 
@@ -41,6 +42,8 @@ export struct SongListView {
   @Prop sourceId: string = 'kw';
   @Prop @Watch("onReCreateKeyChange") reCreateKey: number = 0;
   @StorageProp('theme') theme: string = 'light';
+  @StorageProp('language') language: string = 'zh-CN';
+  @StorageProp('langVersion') langVersion: number = 0;
   /** 与 HomePage 全局搜索联动（置于垂直 Scroll 内首位，随列表上滑滚出） */
   @Link searchText: string;
   @Prop searchStripActions: SearchStripActions = new SearchStripActions();
@@ -108,9 +111,9 @@ export struct SongListView {
     this.allowRemoteCoverRender = true;
     this.coverInteractionUnlocked = true;
     // 初始化排序选项
-    const defaultOption: SortOption = { name: '默认', tid: 'default' };
-    const hotOption: SortOption = { name: '最热', tid: 'hot' };
-    const newOption: SortOption = { name: '最新', tid: 'new' };
+    const defaultOption: SortOption = { name: t('sort_default'), tid: 'default' };
+    const hotOption: SortOption = { name: t('sort_hot'), tid: 'hot' };
+    const newOption: SortOption = { name: t('sort_new'), tid: 'new' };
     this.sortOptions = [defaultOption, hotOption, newOption];
     this.scrollToTopSoon();
     this.loadTags();
@@ -173,7 +176,7 @@ export struct SongListView {
       const result = await sdk.songList.getTags();
       if (result && result.tags) {
         const tags: TagOption[] = [];
-        tags.push({ name: '全部', tid: '' });
+        tags.push({ name: t('filter_all'), tid: '' });
         for (let i = 0; i < result.tags.length; i++) {
           const t = result.tags[i];
           tags.push({ name: t.name || '', tid: t.id || '' });
@@ -402,7 +405,7 @@ export struct SongListView {
       if (this.songLists.length < this.minPinItems) {
         SearchStrip({
           text: $searchText,
-          placeholder: '搜索歌曲、歌手、专辑',
+          placeholder: t('search_placeholder'),
           marginH: DesignTokens.spaceGutter(),
           marginV: DesignTokens.spaceUnit(),
           tapToOpenOnly: true,
@@ -415,7 +418,7 @@ export struct SongListView {
               .width(32)
               .height(32)
               .color(DesignTokens.accent())
-            Text('加载中…')
+            Text(t('loading'))
               .fontSize(15)
               .fontColor(DesignTokens.labelSecondary(this.theme))
               .margin({ top: 12 })
@@ -425,7 +428,7 @@ export struct SongListView {
           .justifyContent(FlexAlign.Center)
         } else if (this.songLists.length === 0) {
           Column() {
-            Text('暂无歌单')
+            Text(t('no_data'))
               .fontSize(15)
               .fontColor(DesignTokens.labelSecondary(this.theme))
           }
@@ -444,7 +447,7 @@ export struct SongListView {
             if (!this.isFilterPinned) {
               SearchStrip({
                 text: $searchText,
-                placeholder: '搜索歌曲、歌手、专辑',
+                placeholder: t('search_placeholder'),
                 marginH: DesignTokens.spaceGutter(),
                 marginV: DesignTokens.spaceUnit(),
                 tapToOpenOnly: true,
@@ -577,7 +580,7 @@ export struct SongListView {
               .width(20)
               .height(20)
               .color(DesignTokens.accent())
-            Text('加载中…')
+            Text(t('loading'))
               .fontSize(13)
               .fontColor(DesignTokens.labelSecondary(this.theme))
               .margin({ left: 8 })
@@ -718,8 +721,8 @@ export struct SongListView {
   private formatPlayCount(count: string): string {
     const num = parseFloat(count);
     if (isNaN(num)) return '0';
-    if (num >= 100000000) return (num / 100000000).toFixed(1) + '亿';
-    if (num >= 10000) return (num / 10000).toFixed(1) + '万';
+    if (num >= 100000000) return (num / 100000000).toFixed(1) + ' ' + t('billion_unit');
+    if (num >= 10000) return (num / 10000).toFixed(1) + ' ' + t('ten_thousand_unit');
     return num.toString();
   }
 }

@@ -2,7 +2,6 @@
 // 对应安卓版的同步功能
 
 import hilog from '@ohos.hilog';
-import preferences from '@ohos.data.preferences';
 import { common } from '@kit.AbilityKit';
 import cryptoFramework from '@ohos.security.cryptoFramework';
 import util from '@ohos.util';
@@ -20,6 +19,7 @@ import { utf8Encode, utf8Decode } from '../utils/TextCodec';
 import { httpRequest } from '../core/network/http';
 import { createLxWebSocket, decodeWsPayload } from '../core/network/websocket';
 import { webSocket } from '@kit.NetworkKit';
+import { settingsService, type SettingsPatch } from './SettingsService';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'SyncService';
@@ -158,17 +158,16 @@ export class SyncService {
   // 加载配置
   async loadConfig(): Promise<void> {
     try {
-      const context = this.getUIContext() as common.UIAbilityContext;
-      const pref = await preferences.getPreferences(context, 'sync_config');
-      
-      this.config.enabled = await pref.get('enabled', false) as boolean;
-      this.config.serverUrl = await pref.get('serverUrl', '') as string;
-      this.config.syncKey = await pref.get('syncKey', '') as string;
-      this.config.mode = await pref.get('mode', SyncMode.CLIENT) as SyncMode;
-      this.config.autoSync = await pref.get('autoSync', true) as boolean;
-      this.config.syncInterval = await pref.get('syncInterval', 30) as number;
-      
-      hilog.info(DOMAIN, TAG, 'Sync config loaded');
+      const settings = settingsService.get();
+      this.config.enabled = settings.syncEnabled;
+      this.config.serverUrl = settings.syncServer;
+      this.config.syncKey = settings.syncKey;
+      this.config.mode = settings.syncMode === 'server' ? SyncMode.SERVER : SyncMode.CLIENT;
+      this.config.autoSync = settings.syncAutoSync;
+      this.config.syncInterval = settings.syncInterval;
+
+      hilog.info(DOMAIN, TAG, 'Sync config loaded (enabled=%{public}s, server=%{public}s)',
+        this.config.enabled.toString(), this.config.serverUrl);
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to load sync config: %{public}s', JSON.stringify(err));
     }
@@ -177,17 +176,14 @@ export class SyncService {
   // 保存配置
   async saveConfig(): Promise<void> {
     try {
-      const context = this.getUIContext() as common.UIAbilityContext;
-      const pref = await preferences.getPreferences(context, 'sync_config');
-      
-      await pref.put('enabled', this.config.enabled);
-      await pref.put('serverUrl', this.config.serverUrl);
-      await pref.put('syncKey', this.config.syncKey);
-      await pref.put('mode', this.config.mode);
-      await pref.put('autoSync', this.config.autoSync);
-      await pref.put('syncInterval', this.config.syncInterval);
-      
-      await pref.flush();
+      await settingsService.update({
+        syncEnabled: this.config.enabled,
+        syncServer: this.config.serverUrl,
+        syncKey: this.config.syncKey,
+        syncMode: this.config.mode === SyncMode.SERVER ? 'server' : 'client',
+        syncAutoSync: this.config.autoSync,
+        syncInterval: this.config.syncInterval,
+      });
       hilog.info(DOMAIN, TAG, 'Sync config saved');
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to save sync config: %{public}s', JSON.stringify(err));
@@ -313,10 +309,13 @@ export class SyncService {
         readTimeout: 10000,
       });
       const response = await task.promise;
-      if (response.code === 200) {
-        const resultStr: string = typeof response.data === 'string' ? response.data : '';
-        const data: ApiResponse = JSON.parse(resultStr) as ApiResponse;
-        return data.success;
+      // Check if we received a valid response
+      if (response && response.result) {
+        const resultStr: string = typeof response.result === 'string' ? response.result : '';
+        if (resultStr.length > 0) {
+          const data: ApiResponse = JSON.parse(resultStr) as ApiResponse;
+          return data.success;
+        }
       }
       return false;
     } catch (err) {
@@ -570,21 +569,12 @@ export class SyncService {
   private async getLocalSettings(): Promise<Record<string, SyncJsonValue>> {
     try {
       hilog.info(DOMAIN, TAG, '获取本地设置');
-      
+
       const result: Record<string, SyncJsonValue> = {};
-      
-      // 获取应用设置
-      const context = this.getUIContext();
-      const pref = await preferences.getPreferences(context, 'music_settings');
-      
-      const allKeys = await pref.getAll();
-      const prefObj = allKeys as Record<string, SyncJsonValue>;
-      const keyNames: string[] = Object.keys(prefObj);
-      for (let i = 0; i < keyNames.length; i++) {
-        const key = keyNames[i];
-        result[key] = prefObj[key];
-      }
-      
+
+      // 应用设置：整体序列化为一个字段，避免逐键同步时键名漂移
+      result['app_settings'] = JSON.stringify(settingsService.get());
+
       // 添加同步相关设置
       result['sync_enabled'] = this.config.enabled;
       result['sync_server'] = this.config.serverUrl;
@@ -592,10 +582,10 @@ export class SyncService {
       result['sync_auto'] = this.config.autoSync;
       result['sync_interval'] = this.config.syncInterval;
       result['last_sync_time'] = this.currentStatus.lastSyncTime;
-      
+
       hilog.info(DOMAIN, TAG, '获取到 %{public}d 个本地设置', Object.keys(result).length);
       return result;
-      
+
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
       hilog.error(DOMAIN, TAG, '获取本地设置失败: %{public}s', errorMsg);
@@ -983,41 +973,42 @@ export class SyncService {
   private async mergeSettings(remoteSettings: Record<string, SyncJsonValue>): Promise<void> {
     try {
       hilog.info(DOMAIN, TAG, '合并设置数据');
-      
-      // 获取本地设置
-      const context = this.getUIContext();
-      const pref = await preferences.getPreferences(context, 'music_settings');
-      
-      // 需要排除的同步相关设置键
-      const excludeKeys = ['sync_enabled', 'sync_server', 'sync_mode', 'sync_auto', 'sync_interval', 'last_sync_time'];
-      
-      // 合并设置
-      let mergedCount = 0;
-      const settingKeys: string[] = Object.keys(remoteSettings);
-      for (let i = 0; i < settingKeys.length; i++) {
-        const key = settingKeys[i];
-        const value: SyncJsonValue = remoteSettings[key];
-        if (excludeKeys.includes(key) || value === undefined || value === null) {
-          continue;
-        }
-        
-        try {
-          await pref.put(key, value);
-          mergedCount++;
-          hilog.debug(DOMAIN, TAG, '合并设置: %{public}s = %{public}s', key, JSON.stringify(value));
-        } catch (putErr) {
-          hilog.warn(DOMAIN, TAG, '保存设置失败 %{public}s: %{public}s', key, JSON.stringify(putErr));
-        }
+
+      const payload = remoteSettings['app_settings'];
+      if (typeof payload !== 'string' || payload.length === 0) {
+        hilog.warn(DOMAIN, TAG, '远端未提供 app_settings，跳过后端设置合并');
+        return;
       }
-      
-      // 保存所有更改
-      if (mergedCount > 0) {
-        await pref.flush();
-        hilog.info(DOMAIN, TAG, '设置数据合并完成，更新了 %{public}d 个设置', mergedCount);
-      } else {
-        hilog.info(DOMAIN, TAG, '没有需要合并的设置数据');
-      }
-      
+
+      const remote = JSON.parse(payload) as SettingsPatch;
+      // ArkTS 不支持 delete，这里显式只挑"用户偏好"字段，
+      // 同步开关/服务器/密钥等本机连接配置不参与覆盖。
+      const patch: SettingsPatch = {
+        language: remote.language,
+        startupPage: remote.startupPage,
+        showExitDialog: remote.showExitDialog,
+        themeMode: remote.themeMode,
+        themeId: remote.themeId,
+        autoPlay: remote.autoPlay,
+        highQuality: remote.highQuality,
+        playMode: remote.playMode,
+        volume: remote.volume,
+        sleepTimerEnabled: remote.sleepTimerEnabled,
+        sleepTimerMinutes: remote.sleepTimerMinutes,
+        showDesktopLyric: remote.showDesktopLyric,
+        desktopLyricPosition: remote.desktopLyricPosition,
+        desktopLyricColor: remote.desktopLyricColor,
+        searchSource: remote.searchSource,
+        showHotSearch: remote.showHotSearch,
+        searchHistoryCount: remote.searchHistoryCount,
+        addMusicLocation: remote.addMusicLocation,
+        autoCleanPlayedList: remote.autoCleanPlayedList,
+        fontSize: remote.fontSize,
+        showAnimation: remote.showAnimation,
+      };
+
+      await settingsService.update(patch);
+      hilog.info(DOMAIN, TAG, '设置数据合并完成');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
       hilog.error(DOMAIN, TAG, '合并设置数据失败: %{public}s', errorMsg);

@@ -8,12 +8,15 @@ import window from '@ohos.window';
 import { stateEvent } from '../../event/StateEvent';
 import { appEvent } from '../../event/AppEvent';
 import { playerService } from '../../service/PlayerService';
-import { initAllServices } from '../../service/index';
+import { initAllServices, initImageCache } from '../../service/index';
 import { storageService } from '../../service/StorageService';
+import { settingsService } from '../../service/SettingsService';
 import { initWindowService } from '../../service/WindowService';
 import { runBootstrapAfterServices } from '../bootstrap/AppBootstrap';
+import { initLocalization } from '../../service/LocalizationService';
 import { setQuickJSContext } from '../../core/napi/napi_quickjs';
 import { backgroundRunningManager } from '../../service/BackgroundRunningManager';
+import { mediaSaveService } from '../../service/MediaSaveService';
 
 const TAG = 'EntryAbility';
 const DOMAIN = 0x0001;
@@ -74,6 +77,9 @@ export default class EntryAbility extends UIAbility {
 
   async onWindowStageCreate(windowStage: window.WindowStage): Promise<void> {
     hilog.info(DOMAIN, TAG, 'EntryAbility onWindowStageCreate');
+
+    // 保存 windowStage 供子窗口使用
+    AppStorage.setOrCreate('windowStage', windowStage);
 
     // 先加载内容，再设置窗口属性
     try {
@@ -174,13 +180,23 @@ export default class EntryAbility extends UIAbility {
     try {
       // 设置存储服务上下文
       storageService.setContext(this.context);
+      settingsService.setContext(this.context);
       setQuickJSContext(this.context);
 
       // 设置 PlayerService 上下文（用于读取偏好设置）
       playerService.setContext(this.context);
 
+      // 设置媒体保存服务上下文（保存歌词/封面到文件）
+      mediaSaveService.setContext(this.context);
+
       // 初始化所有服务（存储、主题、列表、播放器）
       await initAllServices();
+
+      // 语言依赖已加载的设置快照，必须放在 initAllServices 之后
+      initLocalization();
+
+      // 初始化图片缓存
+      await initImageCache(this.context);
 
       await runBootstrapAfterServices(want);
 
@@ -191,7 +207,7 @@ export default class EntryAbility extends UIAbility {
           await playerService.updateOptions();
 
           // 设置音量
-          await playerService.setVolume(1.0);
+          await playerService.setVolume(settingsService.get().volume / 100);
 
           // 设置播放速率
           await playerService.setPlaybackRate(1.0);

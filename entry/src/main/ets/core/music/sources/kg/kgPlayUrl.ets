@@ -16,13 +16,19 @@ const KG_WEB_KEY = 'NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt';
 /** 与常见 H5 请求一致的设备 mid（32 位 hex） */
 const KG_DEFAULT_MID = '233207ed64cadbb7a8fcc40b4fff185a';
 
-/** httpRequest 响应上可能挂在 data / result 的字段（ArkTS 禁止内联对象作类型） */
+/** httpRequest 响应上可能挂在 data / result / rawText 的字段（ArkTS 禁止内联对象作类型） */
 interface KgHttpResponseLike {
   data?: Object;
   result?: Object;
+  rawText?: string;
 }
 
 function responseText(r: KgHttpResponseLike): string {
+  // 优先用 rawText：responseType='json' 时 data/result 已经是解析后的对象
+  const raw = r.rawText;
+  if (typeof raw === 'string' && raw.length > 0) {
+    return raw;
+  }
   const d = r.data;
   if (typeof d === 'string') {
     return d;
@@ -30,6 +36,15 @@ function responseText(r: KgHttpResponseLike): string {
   const res = r.result;
   if (typeof res === 'string') {
     return res;
+  }
+  // 兜底：对象形态时重新序列化，避免"看起来是空 body"的误判
+  if (d !== undefined && d !== null) {
+    try {
+      return JSON.stringify(d);
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'responseText stringify failed: %{public}s',
+        err instanceof Error ? err.message : JSON.stringify(err));
+    }
   }
   return '';
 }
@@ -66,7 +81,8 @@ async function fetchPlayUrlByParamString(paramStr: string): Promise<string | nul
     ['Referer', 'https://www.kugou.com/'],
   ]);
   try {
-    const response = await httpRequest(url, { header: headers }).promise;
+    // 自行解析文本，避免 HTTP 层对纯文本响应做无意义的 JSON.parse 告警
+    const response = await httpRequest(url, { header: headers, responseType: 'text' }).promise;
     const text = responseText(response as KgHttpResponseLike);
     const play = extractPlayUrl(text);
     if (!play) {

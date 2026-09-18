@@ -19,6 +19,10 @@ import { formatPlayTime } from '../utils/CommonUtils';
 import { playerService, SongInfo } from '../service/PlayerService';
 import { DesignTokens } from '../theme/DesignTokens';
 import { SearchStripActions } from '../components/common/SearchStrip';
+import { t } from '../service/LocalizationService';
+import { settingsService } from '../service/SettingsService';
+import { addHistoryWord, clearHistoryList, getSearchHistory } from '../core/search/search';
+import { on, EventTypes } from '../service/EventBus';
 
 // 音乐信息类型
 export interface MusicInfoType {
@@ -28,6 +32,12 @@ export interface MusicInfoType {
 }
 
 // 音乐源选项
+interface BottomTabItem {
+  idx: number;
+  icon: Resource;
+  label: string;
+}
+
 interface SourceOption {
   id: string;
   name: string;
@@ -60,6 +70,8 @@ enum SearchViewState {
 @Component
 export struct HomePage {
   @StorageProp('theme') theme: string = 'light';
+  @StorageProp('language') language: string = 'zh-CN';
+  @StorageProp('langVersion') langVersion: number = 0;
   @State currentTab: number = 0;
   @State isPlay: boolean = false;
   @State musicName: string = '';
@@ -72,8 +84,10 @@ export struct HomePage {
   @State searchResults: SearchResultItem[] = [];
   @State hotSearchList: HotSearchItem[] = [];
   @State isSearching: boolean = false;
+  @State searchHistory: string[] = [];
+  @State showHotSearchSetting: boolean = true;
 
-  // 当前音乐源
+  // 当前音乐源（默认值来自「设置 -> 搜索设置 -> 默认搜索源」）
   @State currentSource: string = 'kw';
 
   /** 顶部音乐源切换时递增，确保歌单/排行榜子组件重建并重新请求（@Prop 单独更新在部分机型上可能不触发 aboutToAppear） */
@@ -82,6 +96,8 @@ export struct HomePage {
   // 事件监听器引用（用于 aboutToDisappear 时取消订阅）
   private onPlayStateChanged: ((data: string) => void) | null = null;
   private onPlayerMusicInfoChanged: ((data: string) => void) | null = null;
+  private desktopLyricUnsub: (() => void) | null = null;
+  private settingsUnsub: (() => void) | null = null;
 
   // 搜索请求版本控制，防止竞态
   private searchEpoch: number = 0;
@@ -94,14 +110,16 @@ export struct HomePage {
   /** 歌单顶栏下搜索条：与 SearchStrip 共享回调 */
   private globalSearchStripActions: SearchStripActions = new SearchStripActions();
 
-  // 音乐源选项
-  private sourceOptions: SourceOption[] = [
-    { id: 'kw', name: '酷我' },
-    { id: 'tx', name: 'QQ' },
-    { id: 'wy', name: '网易' },
-    { id: 'kg', name: '酷狗' },
-    { id: 'mg', name: '咪咕' },
-  ];
+  // 音乐源选项（getter 保证每次调用重新执行 t()）
+  private getSourceOptions(): SourceOption[] {
+    return [
+      { id: 'kw', name: t('source_kw_short') },
+      { id: 'tx', name: t('source_tx') },
+      { id: 'wy', name: t('source_wy_short') },
+      { id: 'kg', name: t('source_kg_short') },
+      { id: 'mg', name: t('source_mg_short') },
+    ];
+  }
 
   // 订阅播放器状态
   aboutToAppear() {
@@ -127,6 +145,33 @@ export struct HomePage {
 
     // 设置下载上下文
     this.setDownloadContext();
+
+    // 应用搜索相关设置（默认搜索源/热搜开关）
+    this.applySearchSettings();
+    void this.loadSearchHistory();
+    // 设置是异步加载的，加载完成后同步一次（避免首帧读到默认值）
+    this.settingsUnsub = on(EventTypes.SETTING_CHANGED, (): void => {
+      this.applySearchSettings();
+    });
+  }
+
+  /** 读取搜索设置：默认搜索源与热搜开关 */
+  private applySearchSettings(): void {
+    const settings = settingsService.get();
+    const savedSource = settings.searchSource;
+    if (savedSource === 'kw' || savedSource === 'kg' || savedSource === 'tx'
+      || savedSource === 'wy' || savedSource === 'mg') {
+      this.currentSource = savedSource;
+    }
+    this.showHotSearchSetting = settings.showHotSearch;
+  }
+
+  private async loadSearchHistory(): Promise<void> {
+    try {
+      this.searchHistory = await getSearchHistory();
+    } catch (err) {
+      hilog.warn(0x0001, 'HomePage', 'loadSearchHistory failed: %{public}s', JSON.stringify(err));
+    }
   }
 
   // 设置下载上下文
@@ -149,12 +194,26 @@ export struct HomePage {
       stateEvent.off('playerMusicInfoChanged', this.onPlayerMusicInfoChanged);
       this.onPlayerMusicInfoChanged = null;
     }
+    if (this.desktopLyricUnsub) {
+      this.desktopLyricUnsub();
+      this.desktopLyricUnsub = null;
+    }
+    if (this.settingsUnsub) {
+      this.settingsUnsub();
+      this.settingsUnsub = null;
+    }
   }
 
   // 打开搜索界面
   openSearch(): void {
     this.searchViewState = SearchViewState.INPUT;
-    this.loadHotSearch();
+    this.applySearchSettings();
+    void this.loadSearchHistory();
+    if (this.showHotSearchSetting) {
+      this.loadHotSearch();
+    } else {
+      this.hotSearchList = [];
+    }
   }
 
   // 关闭搜索界面
@@ -199,6 +258,17 @@ export struct HomePage {
   async doSearch(): Promise<void> {
     const query = this.searchText.trim();
     if (!query) return;
+    // 记录搜索历史（条数上限由设置决定）
+    addHistoryWord(query).then((): void => {
+      this.searchHistory = this.searchHistory.filter((word: string) => word !== query);
+      this.searchHistory.unshift(query);
+      const limit = settingsService.get().searchHistoryCount;
+      if (this.searchHistory.length > limit) {
+        this.searchHistory = this.searchHistory.slice(0, limit);
+      }
+    }).catch((err: Error) => {
+      hilog.warn(0x0001, 'HomePage', 'addHistoryWord failed: %{public}s', err.message);
+    });
     const currentEpoch = ++this.searchEpoch;
     const previousResults = this.searchResults.slice();
     this.isSearching = true;
@@ -268,6 +338,20 @@ export struct HomePage {
     void this.doSearch();
   }
 
+  /** 点击搜索历史 */
+  onHistoryClick(keyword: string): void {
+    this.searchText = keyword;
+    void this.doSearch();
+  }
+
+  /** 清除搜索历史 */
+  clearSearchHistory(): void {
+    this.searchHistory = [];
+    clearHistoryList().catch((err: Error) => {
+      hilog.warn(0x0001, 'HomePage', 'clearHistoryList failed: %{public}s', err.message);
+    });
+  }
+
   /** 歌单主页：与排行榜页内搜索条一致的圆角灰底 + 放大镜 + 输入（提交即打开结果浮层） */
   async submitGlobalSearchFromStrip(): Promise<void> {
     const q = this.searchText.trim();
@@ -286,7 +370,7 @@ export struct HomePage {
       Row() {
         if (this.currentTab === 0 || this.currentTab === 1) {
           Row() {
-            ForEach(this.sourceOptions, (source: SourceOption) => {
+            ForEach(this.getSourceOptions(), (source: SourceOption) => {
               Text(source.name)
                 .layoutWeight(1)
                 .textAlign(TextAlign.Center)
@@ -315,12 +399,12 @@ export struct HomePage {
           .alignItems(VerticalAlign.Center)
         } else if (this.currentTab === 2) {
           Column() {
-            Text('下载')
+            Text(t('download_title'))
               .fontSize(28)
               .fontWeight(FontWeight.Bold)
               .fontColor(DesignTokens.labelPrimary(this.theme))
               .letterSpacing(-0.5)
-            Text('传输与缓存')
+            Text(t('download_title'))
               .fontSize(13)
               .fontColor(DesignTokens.labelSecondary(this.theme))
               .margin({ top: 2 })
@@ -331,14 +415,14 @@ export struct HomePage {
           .justifyContent(FlexAlign.Center)
         } else {
           Row() {
-            Text('我的')
+            Text(t('tab_my'))
               .fontSize(24)
               .fontWeight(FontWeight.Bold)
               .fontColor(DesignTokens.labelPrimary(this.theme))
             .layoutWeight(1)
               .padding({ left: DesignTokens.spaceGutter() })
 
-            Text('设置')
+            Text(t('settings_title'))
               .fontSize(16)
               .fontWeight(FontWeight.Medium)
               .fontColor(DesignTokens.accent())
@@ -375,7 +459,7 @@ export struct HomePage {
               .height(17)
               .fillColor(DesignTokens.labelSecondary(this.theme))
               .margin({ left: 10, right: 6 })
-            TextInput({ placeholder: '搜索歌曲、歌手、专辑', text: this.searchText })
+            TextInput({ placeholder: t('search_placeholder'), text: this.searchText })
               .layoutWeight(1)
               .height(DesignTokens.heightSearchField())
               .backgroundColor('rgba(0,0,0,0)')
@@ -397,7 +481,7 @@ export struct HomePage {
           .border({ width: 0.5, color: DesignTokens.searchFieldBorder(this.theme) })
           .alignItems(VerticalAlign.Center)
 
-          Text('取消')
+          Text(t('cancel'))
             .fontSize(16)
             .fontWeight(FontWeight.Medium)
             .fontColor(DesignTokens.accent())
@@ -428,9 +512,50 @@ export struct HomePage {
   @Builder
   SearchInputContent() {
     Column() {
+      // 搜索历史（条数由「设置 -> 搜索设置 -> 搜索历史数量」决定）
+      if (this.searchHistory.length > 0) {
+        Row() {
+          Text(t('search_history'))
+            .fontSize(13)
+            .fontColor(DesignTokens.labelSecondary(this.theme))
+            .fontWeight(FontWeight.Medium)
+            .layoutWeight(1)
+
+          Text(t('search_clear_history'))
+            .fontSize(13)
+            .fontColor(DesignTokens.accent())
+            .padding({ left: 8, right: 8, top: 4, bottom: 4 })
+            .onClick(() => {
+              this.clearSearchHistory();
+            })
+        }
+        .width('100%')
+        .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter() - 8, top: 8, bottom: 6 })
+
+        Flex({ wrap: FlexWrap.Wrap }) {
+          ForEach(this.searchHistory, (word: string) => {
+            Text(word)
+              .fontSize(14)
+              .fontColor(DesignTokens.labelPrimary(this.theme))
+              .backgroundColor(DesignTokens.mutedFill(this.theme))
+              .borderRadius(14)
+              .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+              .margin({ right: 8, bottom: 8 })
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .onClick(() => {
+                this.onHistoryClick(word);
+              })
+          }, (word: string) => word)
+        }
+        .width('100%')
+        .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter() })
+      }
+
+      if (this.showHotSearchSetting) {
       // 热搜标题（小号大写感：次级标签样式）
       Row() {
-        Text('热门搜索')
+        Text(t('search_hot'))
           .fontSize(13)
           .fontColor(DesignTokens.labelSecondary(this.theme))
           .fontWeight(FontWeight.Medium)
@@ -476,6 +601,16 @@ export struct HomePage {
       .width('100%')
       .layoutWeight(1)
       .backgroundColor(DesignTokens.pageBg(this.theme))
+      } else if (this.searchHistory.length === 0) {
+        Column() {
+          Text(t('search_no_hot'))
+            .fontSize(15)
+            .fontColor(DesignTokens.labelSecondary(this.theme))
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.Center)
+      }
     }
     .width('100%')
     .layoutWeight(1)
@@ -491,7 +626,7 @@ export struct HomePage {
             .width(32)
             .height(32)
             .color(DesignTokens.accent())
-          Text('搜索中…')
+          Text(t('loading'))
             .fontSize(15)
             .fontColor(DesignTokens.labelSecondary(this.theme))
             .margin({ top: 12 })
@@ -501,7 +636,7 @@ export struct HomePage {
         .justifyContent(FlexAlign.Center)
       } else if (this.searchResults.length === 0) {
         Column() {
-          Text('未找到相关结果')
+          Text(t('no_data'))
             .fontSize(15)
             .fontColor(DesignTokens.labelSecondary(this.theme))
         }
@@ -560,11 +695,11 @@ export struct HomePage {
   }
 
   getSourceName(sourceId: string): string {
-    if (sourceId === 'kw') return '酷我';
-    if (sourceId === 'tx') return 'QQ';
-    if (sourceId === 'wy') return '网易';
-    if (sourceId === 'kg') return '酷狗';
-    if (sourceId === 'mg') return '咪咕';
+    if (sourceId === 'kw') return t('source_kw_short');
+    if (sourceId === 'tx') return t('source_tx');
+    if (sourceId === 'wy') return t('source_wy_short');
+    if (sourceId === 'kg') return t('source_kg_short');
+    if (sourceId === 'mg') return t('source_mg_short');
     return sourceId;
   }
 
@@ -596,7 +731,6 @@ export struct HomePage {
       };
       const url: string | null = await getMusicUrl({
         musicInfo,
-        quality: '128k',
         isRefresh: false,
         onToggleSource: null,
         allowToggleSource: true,
@@ -622,8 +756,8 @@ export struct HomePage {
         albumId: item.albumId,
         copyrightId: item.copyrightId,
       };
-      await playerService.setSource(songInfo, url, durSec);
-      await playerService.play();
+      // 选中歌曲（受「自动播放」设置控制）
+      await playerService.playFromSelection(songInfo, url, durSec);
       // 不关闭搜索浮层，用户可在结果列表中自由切换歌曲
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -652,15 +786,22 @@ export struct HomePage {
     })
   }
 
-  // 底部 TabBar：紧凑型，保留安全区底色
+  // 底部 TabBar：用 getter 确保每次渲染重新执行 t()
+  private getBottomTabs(): BottomTabItem[] {
+    const item0: BottomTabItem = { idx: 0, icon: $r('sys.symbol.music_note_list'), label: t('songlist_title') };
+    const item1: BottomTabItem = { idx: 1, icon: $r('sys.symbol.list_number'), label: t('tab_leaderboard') };
+    const item2: BottomTabItem = { idx: 2, icon: $r('sys.symbol.arrow_down_circle'), label: t('download_title') };
+    const item3: BottomTabItem = { idx: 3, icon: $r('sys.symbol.person'), label: t('tab_my') };
+    return [item0, item1, item2, item3];
+  }
+
   @Builder
   BottomTabBar() {
     Column() {
       Row() {
-        this.MainTabItem(0, $r('sys.symbol.music_note_list'), '歌单')
-        this.MainTabItem(1, $r('sys.symbol.list_number'), '排行榜')
-        this.MainTabItem(2, $r('sys.symbol.arrow_down_circle'), '下载')
-        this.MainTabItem(3, $r('sys.symbol.person'), '我的')
+        ForEach(this.getBottomTabs(), (tab: BottomTabItem) => {
+          this.MainTabItem(tab.idx, tab.icon, tab.label)
+        }, (tab: BottomTabItem) => tab.idx.toString())
       }
       .width('100%')
       .height(44)
@@ -698,6 +839,7 @@ export struct HomePage {
 
   build() {
     Stack() {
+      // 强制重渲染锚点
       // 主界面
       Column() {
         // 下载页使用自身头部，避免与 Home 顶栏重复

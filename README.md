@@ -96,7 +96,34 @@ interface IMusicSource {
 
 ### State Management
 
-HarmonyOS uses `@State` and `@Consume` decorators with event-based communication via `EventBus`.
+HarmonyOS uses `@State` / `@StorageProp` decorators with event-based communication via `EventBus`.
+
+### 设置与持久化（重要约定）
+
+**所有设置项只有一个入口**：`entry/src/main/ets/service/SettingsService.ets`
+
+- 设置项统一持久化在 `StorageService` 使用的 Preferences 实例（`lx_music_preferences`）中，
+  键名统一为 `setting.*`（见 `StorageService.StorageKeys`）。
+- 首次启动会自动迁移历史版本写在 `music_settings` / `download_settings` / `sync_config`
+  里的旧值，用户设置不会丢。
+- 写入路径统一为 `settingsService.update(patch)`，内部会：更新内存快照 → 镜像到
+  `AppStorage`（驱动 `@StorageProp` 刷新）→ 广播 `EventTypes.SETTING_CHANGED`
+  （驱动服务层刷新，如播放器音质/播放模式、下载目录、列表插入位置等）。
+- 读设置用同步的 `settingsService.get()`，不要在各页面里
+  `preferences.getPreferences(context, 'music_settings')`。
+
+新增设置项的步骤：在 `AppSettings` / `SettingsPatch` 中加字段 → 在 `createDefaultSettings`、
+`loadFromStorage`、`update`、`copyOf` 中补齐 → 在 `StorageKeys` 中加键 → 由使用方读取。
+
+### 定时退出（睡眠定时）
+
+设置页与播放详情页共用 `service/SleepTimerService.ets`，不要再各自 `setTimeout`。
+
+### 已移除的功能
+
+- **均衡器（Equalizer）**：HarmonyOS 6.0.2（API 23）没有公开的音频均衡器接口，
+  原先的实现只是创建了一个与其无关的 `AudioRenderer`（既不生效又占用音频流），
+  已删除组件、服务与设置入口。
 
 ### Services
 

@@ -1,3 +1,4 @@
+import { t } from '../service/LocalizationService';
 // 自建歌单管理页面
 import hilog from '@ohos.hilog';
 import { navigationService, RouteName } from '../service/NavigationService';
@@ -27,6 +28,9 @@ interface UserListRow {
 @Component
 export struct UserListsPage {
   @StorageProp('theme') theme: string = 'light';
+  @StorageProp('language') language: string = 'zh-CN';
+  @StorageProp('langVersion') langVersion: number = 0;
+  @State renderKey: number = Date.now();
   @State userLists: UserListRow[] = [];
   @State isLoading: boolean = true;
   @State showCreateSheet: boolean = false;
@@ -106,11 +110,11 @@ export struct UserListsPage {
     try {
       const confirmed = await new Promise<boolean>((resolve) => {
         this.getUIContext().getPromptAction().showDialog({
-          title: '删除歌单',
+          title: t('confirm_delete_title'),
           message: `确认删除「${list.name}」？`,
           buttons: [
-            { text: '取消', color: DesignTokens.labelSecondary(this.theme) },
-            { text: '删除', color: '#FF3B30' },
+            { text: t('cancel'), color: DesignTokens.labelSecondary(this.theme) },
+            { text: t('delete'), color: '#FF3B30' },
           ],
         }, (_err: object, data: PromptActionResult) => {
           resolve(data.index === 1);
@@ -175,7 +179,7 @@ export struct UserListsPage {
           this.editName = list.name;
         })
 
-      Text('删除')
+      Text(t('delete'))
         .fontSize(13)
         .fontColor('#FF3B30')
         .padding({ left: 10, right: 10, top: 6, bottom: 6 })
@@ -218,7 +222,7 @@ export struct UserListsPage {
             .width('100%')
             .margin({ bottom: 16 })
 
-          TextInput({ placeholder: '输入歌单名称', text: this.newListName })
+          TextInput({ placeholder: t('input_playlist_name'), text: this.newListName })
             .height(44)
             .width('100%')
             .backgroundColor(DesignTokens.mutedFill(this.theme))
@@ -232,7 +236,7 @@ export struct UserListsPage {
             })
 
           Row() {
-            Button('取消')
+            Button(t('cancel'))
               .type(ButtonType.Capsule)
               .fontColor(DesignTokens.labelSecondary(this.theme))
               .backgroundColor(DesignTokens.mutedFill(this.theme))
@@ -241,7 +245,7 @@ export struct UserListsPage {
                 this.showCreateSheet = false;
                 this.newListName = '';
               })
-            Button('创建')
+            Button(t('create_list_btn'))
               .type(ButtonType.Capsule)
               .fontColor(Color.White)
               .backgroundColor(DesignTokens.accent())
@@ -287,7 +291,7 @@ export struct UserListsPage {
             .width('100%')
             .margin({ bottom: 16 })
 
-          TextInput({ placeholder: '输入歌单名称', text: this.editName })
+          TextInput({ placeholder: t('input_playlist_name'), text: this.editName })
             .height(44)
             .width('100%')
             .backgroundColor(DesignTokens.mutedFill(this.theme))
@@ -301,7 +305,7 @@ export struct UserListsPage {
             })
 
           Row() {
-            Button('取消')
+            Button(t('cancel'))
               .type(ButtonType.Capsule)
               .fontColor(DesignTokens.labelSecondary(this.theme))
               .backgroundColor(DesignTokens.mutedFill(this.theme))
@@ -310,7 +314,7 @@ export struct UserListsPage {
                 this.editingList = null;
                 this.editName = '';
               })
-            Button('保存')
+            Button(t('save'))
               .type(ButtonType.Capsule)
               .fontColor(Color.White)
               .backgroundColor(DesignTokens.accent())
@@ -385,7 +389,7 @@ export struct UserListsPage {
           .justifyContent(FlexAlign.Center)
         } else if (this.userLists.length === 0) {
           Column() {
-            Text('暂无自建歌单')
+            Text(t('no_data'))
               .fontSize(16)
               .fontColor(DesignTokens.labelSecondary(this.theme))
             Text('点击右上角新建按钮创建')

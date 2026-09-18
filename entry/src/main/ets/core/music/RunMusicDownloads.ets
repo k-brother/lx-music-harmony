@@ -10,6 +10,7 @@ import { common } from '@kit.AbilityKit';
 import { request } from '@kit.BasicServicesKit';
 import preferences from '@ohos.data.preferences';
 import filePicker from '@ohos.file.picker';
+import { settingsService } from '../../service/SettingsService';
 
 const TAG = 'DOWNLOAD';
 const DOMAIN = 0x0003;
@@ -57,6 +58,9 @@ let globalContext: common.UIAbilityContext | null = null;
 // 下载队列（等待中的任务）
 const pendingQueue: string[] = [];
 
+// 正在进行的系统下载任务句柄（用于暂停/恢复）
+const activeRequestTasks: Map<string, request.DownloadTask> = new Map();
+
 // 最大并发下载数（默认1）
 let maxConcurrentDownloads: number = 1;
 
@@ -71,8 +75,19 @@ function getDownloadingCount(): number {
   return count;
 }
 
-// 处理下载队列
-async function processQueue(): Promise<void> {
+/** "自动开始下载"设置：关闭时新任务只入队等待，由用户手动开始 */
+function isAutoStartDownloadEnabled(): boolean {
+  return settingsService.get().autoStartDownload;
+}
+
+/**
+ * 处理下载队列
+ * @param force 用户手动触发时忽略"自动开始下载"设置
+ */
+async function processQueue(force: boolean = false): Promise<void> {
+  if (!force && !isAutoStartDownloadEnabled()) {
+    return;
+  }
   while (getDownloadingCount() < maxConcurrentDownloads && pendingQueue.length > 0) {
     const taskId = pendingQueue.shift();
     if (taskId) {
@@ -88,6 +103,11 @@ async function processQueue(): Promise<void> {
       }
     }
   }
+}
+
+/** 手动开始所有等待中的下载（下载页"全部继续"） */
+export function startPendingDownloads(): void {
+  void processQueue(true);
 }
 
 export function setDownloadContext(context: common.UIAbilityContext): void {
@@ -154,7 +174,46 @@ async function removeExistingFile(filePath: string): Promise<void> {
   }
 }
 
+/**
+ * 把沙箱文件拷贝到目标 URI（documents:// 或 file://）
+ */
+function copyFileToUri(sandboxFilePath: string, targetUri: string): void {
+  let sourceFile: fs.File | null = null;
+  let targetFile: fs.File | null = null;
+  try {
+    sourceFile = fs.openSync(sandboxFilePath, fs.OpenMode.READ_ONLY);
+    targetFile = fs.openSync(targetUri, fs.OpenMode.WRITE_ONLY | fs.OpenMode.CREATE);
+    fs.copyFileSync(sourceFile.fd, targetFile.fd);
+    fs.fsyncSync(targetFile.fd);
+  } finally {
+    if (sourceFile !== null) {
+      fs.closeSync(sourceFile);
+    }
+    if (targetFile !== null) {
+      fs.closeSync(targetFile);
+    }
+  }
+}
+
+/**
+ * 转存到公共下载目录。
+ * 优先写入「下载设置 -> 保存位置」配置的目录，失败时回退到系统保存面板。
+ */
 async function saveSandboxFileToPublicDownload(sandboxFilePath: string, fileName: string): Promise<string> {
+  const configuredDir = settingsService.get().downloadPath;
+  if (configuredDir && configuredDir.length > 0) {
+    const targetUri = `${configuredDir}/${fileName}`;
+    try {
+      copyFileToUri(sandboxFilePath, targetUri);
+      await removeExistingFile(sandboxFilePath);
+      hilog.info(DOMAIN, TAG, '已保存到配置的下载目录: %{public}s', targetUri);
+      return targetUri;
+    } catch (dirErr) {
+      const msg = dirErr instanceof Error ? dirErr.message : JSON.stringify(dirErr);
+      hilog.warn(DOMAIN, TAG, '写入配置目录失败，回退系统保存面板: %{public}s', msg);
+    }
+  }
+
   const context = getContext();
   const picker = new filePicker.DocumentViewPicker(context);
   const saveOptions = new filePicker.DocumentSaveOptions();
@@ -167,24 +226,10 @@ async function saveSandboxFileToPublicDownload(sandboxFilePath: string, fileName
     }
 
     const targetUri = saveUris[0];
-    let sourceFile: fs.File | null = null;
-    let targetFile: fs.File | null = null;
     try {
-      sourceFile = fs.openSync(sandboxFilePath, fs.OpenMode.READ_ONLY);
-      targetFile = fs.openSync(targetUri, fs.OpenMode.WRITE_ONLY | fs.OpenMode.CREATE);
-      const srcFd = sourceFile.fd;
-      const dstFd = targetFile.fd;
-      fs.copyFileSync(srcFd, dstFd);
-      fs.fsyncSync(dstFd);
+      copyFileToUri(sandboxFilePath, targetUri);
     } catch (fileErr) {
       throw new Error('文件写入失败');
-    } finally {
-      if (sourceFile !== null) {
-        fs.closeSync(sourceFile);
-      }
-      if (targetFile !== null) {
-        fs.closeSync(targetFile);
-      }
     }
 
     try {
@@ -272,8 +317,17 @@ export async function pauseDownload(taskId: string): Promise<boolean> {
   }
 
   try {
-    // HarmonyOS downloadFile API 不支持暂停功能
-    // 只能通过取消下载来实现类似暂停效果
+    const requestTask = activeRequestTasks.get(taskId);
+    if (requestTask) {
+      // request.downloadFile 支持真正的暂停/恢复
+      await requestTask.pause();
+    } else {
+      // 还在队列里等待的任务直接移出队列
+      const queueIndex = pendingQueue.indexOf(taskId);
+      if (queueIndex > -1) {
+        pendingQueue.splice(queueIndex, 1);
+      }
+    }
     task.status = DownloadStatus.PAUSED;
     hilog.info(DOMAIN, TAG, '下载暂停: %{public}s', task.musicInfo.name);
     return true;
@@ -289,16 +343,32 @@ export async function pauseDownload(taskId: string): Promise<boolean> {
  */
 export async function resumeDownload(taskId: string): Promise<boolean> {
   const task = downloadTasks.get(taskId);
-  if (!task || task.status !== DownloadStatus.PAUSED) {
-    hilog.warn(DOMAIN, TAG, '恢复失败: 任务不存在或状态不是暂停 - %{public}s', taskId);
+  if (!task) {
+    hilog.warn(DOMAIN, TAG, '恢复失败: 任务不存在 - %{public}s', taskId);
     return false;
   }
 
   try {
-    // HarmonyOS downloadFile API 不支持恢复功能
-    // 需要重新创建下载任务
-    task.status = DownloadStatus.DOWNLOADING;
-    hilog.info(DOMAIN, TAG, '下载恢复: %{public}s', task.musicInfo.name);
+    const requestTask = activeRequestTasks.get(taskId);
+    if (requestTask) {
+      await requestTask.resume();
+      task.status = DownloadStatus.DOWNLOADING;
+      hilog.info(DOMAIN, TAG, '下载恢复: %{public}s', task.musicInfo.name);
+      return true;
+    }
+
+    // 没有系统任务句柄（失败/等待中的任务）：重新入队下载
+    if (task.status === DownloadStatus.COMPLETED) {
+      hilog.warn(DOMAIN, TAG, '任务已完成，无需恢复: %{public}s', taskId);
+      return false;
+    }
+    task.status = DownloadStatus.PENDING;
+    task.error = undefined;
+    if (pendingQueue.indexOf(taskId) < 0) {
+      pendingQueue.push(taskId);
+    }
+    await processQueue(true);
+    hilog.info(DOMAIN, TAG, '下载重新入队: %{public}s', task.musicInfo.name);
     return true;
   } catch (error) {
     const errMsg: string = error instanceof Error ? error.message : 'Unknown error';
@@ -320,6 +390,22 @@ export async function cancelDownload(taskId: string): Promise<boolean> {
   try {
     // 保存原始状态
     const originalStatus = task.status;
+
+    // 取消系统下载任务（同时删除已写入的部分文件）
+    const requestTask = activeRequestTasks.get(taskId);
+    if (requestTask) {
+      try {
+        await requestTask.remove();
+      } catch (removeErr) {
+        hilog.warn(DOMAIN, TAG, '取消系统下载任务失败: %{public}s',
+          removeErr instanceof Error ? removeErr.message : JSON.stringify(removeErr));
+      }
+      activeRequestTasks.delete(taskId);
+    }
+    const queueIndex = pendingQueue.indexOf(taskId);
+    if (queueIndex > -1) {
+      pendingQueue.splice(queueIndex, 1);
+    }
 
     // 标记为已取消
     task.status = DownloadStatus.CANCELLED;
@@ -386,6 +472,7 @@ async function downloadWithRequestApi(
       url: musicUrl,
       filePath: targetPath,
     }).then((downloadTask) => {
+      activeRequestTasks.set(task.id, downloadTask);
       downloadTask.on('progress', (size: number, total: number) => {
         task.downloadedSize = size;
         task.totalSize = total;
@@ -398,6 +485,7 @@ async function downloadWithRequestApi(
       });
 
       downloadTask.on('complete', () => {
+        activeRequestTasks.delete(task.id);
         task.progress = 90;
         task.filePath = targetPath;
         hilog.info(DOMAIN, TAG, '沙箱下载完成: %{public}s', targetPath);
@@ -408,10 +496,12 @@ async function downloadWithRequestApi(
       });
 
       downloadTask.on('fail', (err: number) => {
+        activeRequestTasks.delete(task.id);
         hilog.error(DOMAIN, TAG, '下载失败: %{public}d', err);
         reject(new Error(`Download failed: ${err}`));
       });
     }).catch((err: Error) => {
+      activeRequestTasks.delete(task.id);
       hilog.error(DOMAIN, TAG, 'request.downloadFile 失败: %{public}s', err.message);
       reject(err);
     });
@@ -464,7 +554,8 @@ async function startActualDownload(task: DownloadTask, onProgress?: DownloadProg
         onProgress(task);
       }
       const publicUri = await saveSandboxFileToPublicDownload(sandboxPath, cleanFileName);
-      const publicPath = `${DEFAULT_DOWNLOAD_DIR}/${cleanFileName}`;
+      const publicDir = settingsService.get().downloadPath || DEFAULT_DOWNLOAD_DIR;
+      const publicPath = `${publicDir}/${cleanFileName}`;
       hilog.info(DOMAIN, TAG, '转存到公共目录成功: uri=%{public}s path=%{public}s', publicUri, publicPath);
 
       task.status = DownloadStatus.COMPLETED;
@@ -520,7 +611,8 @@ async function startActualDownload(task: DownloadTask, onProgress?: DownloadProg
  */
 export async function startDownload(params: StartDownloadParams): Promise<string> {
   const musicInfo: MusicInfo = params.musicInfo;
-  const quality: Quality = params.quality ?? '128k';
+  // 未显式指定音质时，跟随"高品质音乐"设置
+  const quality: Quality = params.quality ?? (settingsService.get().highQuality ? 'flac24bit' : '128k');
   const taskId: string = generateTaskId(musicInfo);
   const originalOnProgress: DownloadProgressCallback | undefined = params.onProgress;
 
@@ -539,12 +631,12 @@ export async function startDownload(params: StartDownloadParams): Promise<string
 
   downloadTasks.set(taskId, task);
 
-  // 检查并发限制
+  // 检查并发限制（或用户关闭了"自动开始下载"）
   const currentDownloading = getDownloadingCount();
-  if (currentDownloading >= maxConcurrentDownloads) {
+  if (currentDownloading >= maxConcurrentDownloads || !isAutoStartDownloadEnabled()) {
     // 加入等待队列
     pendingQueue.push(taskId);
-    hilog.info(DOMAIN, TAG, '下载队列已满，加入等待队列: %{public}s, 队列长度: %{public}d',
+    hilog.info(DOMAIN, TAG, '下载任务进入等待队列: %{public}s, 队列长度: %{public}d',
       musicInfo.name, pendingQueue.length);
     if (originalOnProgress) {
       originalOnProgress(task);
@@ -715,7 +807,8 @@ export function getDefaultDownloadPath(musicInfo: MusicInfo): string {
   // 根据音质选择文件扩展名
   const extension = '.mp3'; // 默认MP3，实际应根据quality选择
 
-  return `${DEFAULT_DOWNLOAD_DIR}/${cleanFileName}${extension}`;
+  const dir = settingsService.get().downloadPath || DEFAULT_DOWNLOAD_DIR;
+  return `${dir}/${cleanFileName}${extension}`;
 }
 
 /**
@@ -836,6 +929,7 @@ interface DownloadModule {
   getLyricSavePath: (musicInfo: MusicInfo) => string;
   getPicSavePath: (musicInfo: MusicInfo) => string;
   setMaxConcurrentDownloads: (max: number) => void;
+  startPendingDownloads: () => void;
 }
 
 // 导出命名对象供高级用法
@@ -858,4 +952,5 @@ export const download: DownloadModule = {
   getLyricSavePath,
   getPicSavePath,
   setMaxConcurrentDownloads,
+  startPendingDownloads,
 };
