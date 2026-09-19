@@ -39,12 +39,12 @@ export struct AboutView {
 
               Text('一个简洁的音乐播放器')
                 .fontSize(14)
-                .fontColor('#666666')
+                .fontColor(DesignTokens.labelSecondary(this.theme))
                 .margin({ bottom: 4 })
 
               Text('版本 1.0.0')
                 .fontSize(12)
-                .fontColor('#999999')
+                .fontColor(DesignTokens.labelSecondary(this.theme))
                 .margin({ bottom: 16 })
 
               Text('LX Music 是一个开源的音乐播放器，支持多音乐源搜索、在线播放、歌词同步等功能。本项目为 HarmonyOS 移植版本，致力于为用户提供流畅的音乐体验。')
@@ -69,7 +69,7 @@ export struct AboutView {
               Image($r('sys.symbol.chevron_right'))
                 .width(16)
                 .height(16)
-                .fillColor('#999999')
+                .fillColor(DesignTokens.labelSecondary(this.theme))
             }
             .width('100%')
             .padding({ left: 16, right: 16, top: 12, bottom: 12 })
@@ -85,11 +85,11 @@ export struct AboutView {
               Blank()
               Text('MIT')
                 .fontSize(14)
-                .fontColor('#999999')
+                .fontColor(DesignTokens.labelSecondary(this.theme))
               Image($r('sys.symbol.chevron_right'))
                 .width(16)
                 .height(16)
-                .fillColor('#999999')
+                .fillColor(DesignTokens.labelSecondary(this.theme))
                 .margin({ left: 8 })
             }
             .width('100%')
@@ -118,7 +118,7 @@ export struct AboutView {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.theme === 'dark' ? '#121212' : '#F5F5F5')
+    .backgroundColor(DesignTokens.pageBg(this.theme))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
   }
 
@@ -157,10 +157,10 @@ export struct AboutView {
     Column() {
       Text(text)
         .fontSize(13)
-        .fontColor('#999999')
+        .fontColor(DesignTokens.labelSecondary(this.theme))
         .padding({ left: 16, top: 12, bottom: 8 })
     }
     .width('100%')
-    .backgroundColor(this.theme === 'dark' ? '#121212' : '#F5F5F5')
+    .backgroundColor(DesignTokens.pageBg(this.theme))
   }
 }

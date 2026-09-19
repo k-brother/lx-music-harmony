@@ -2,7 +2,13 @@
  * QQ音乐 - 歌单（对齐 src/utils/musicSdk/tx/songList.js）
  */
 import type { MusicInfo, MusicQualityType, Quality, QualityDetail } from '../../../../types/MusicTypes';
-import { httpRequest, parseHttpBodyJson, type HttpRequestConfig } from '../../../../core/network/http';
+import {
+  httpRequest,
+  httpGet,
+  httpResponseBody,
+  parseHttpBodyJson,
+  type HttpRequestConfig,
+} from '../../../../core/network/http';
 import { formatPlayTime, decodeName, formatPlayCount, sizeFormate } from '../../../../utils/CommonUtils';
 import { formatSingerName, type SingerInfo } from './utils/crypto';
 import type {
@@ -18,6 +24,32 @@ import hilog from '@ohos.hilog';
 
 interface TxSongListModule extends SongListSdkInterface {
   getDetailPageUrl(listId: string): string;
+}
+
+// 歌单搜索（soso/fcgi-bin/client_music_search_songlist）
+interface TxSearchCreator {
+  name?: string;
+  nick?: string;
+}
+
+interface TxSearchPlaylistItem {
+  dissid?: string;
+  dissname?: string;
+  imgurl?: string;
+  listennum?: number;
+  introduction?: string;
+  song_count?: number;
+  creator?: TxSearchCreator;
+}
+
+interface TxSearchPlaylistData {
+  display_num?: number;
+  list?: TxSearchPlaylistItem[];
+}
+
+interface TxPlaylistSearchBody {
+  code?: number;
+  data?: TxSearchPlaylistData;
 }
 
 const SUCCESS_CODE = 0;
@@ -520,6 +552,58 @@ class TxSongListImpl implements TxSongListModule {
 
   getDetailPageUrl(listId: string): string {
     return `https://y.qq.com/n/ryqq/playlist/${listId}`;
+  }
+
+  /**
+   * 歌单搜索：c.y.qq.com 的 songlist 搜索接口（必须带 y.qq.com Referer）。
+   * 返回 null 表示该源当前不可用，由上层跳过。
+   */
+  async searchList(keyword: string, page: number, limit: number): Promise<SongListResult | null> {
+    const kw = (keyword ?? '').trim();
+    if (kw.length === 0) {
+      return null;
+    }
+    const safeLimit = Math.min(Math.max(limit, 1), 50);
+    const pageNo = Math.max(page - 1, 0);
+    const url = `https://c.y.qq.com/soso/fcgi-bin/client_music_search_songlist`
+      + `?query=${encodeURIComponent(kw)}&page_no=${pageNo}&num_per_page=${safeLimit}`
+      + `&format=json&remoteplace=txt.yqq.playlist`;
+    try {
+      const res = await httpGet(url, { header: buildTxBrowserHeaderMap(), responseType: 'text' }).promise;
+      const body = parseHttpBodyJson<TxPlaylistSearchBody>(httpResponseBody(res));
+      if (!body || body.code !== SUCCESS_CODE || !body.data || !body.data.list) {
+        hilog.warn(0x0001, 'TXSongList', 'searchList empty response: code=%{public}d', body?.code ?? -1);
+        return null;
+      }
+      const list: SongListInfo[] = [];
+      const raw = body.data.list;
+      for (let i = 0; i < raw.length; i++) {
+        const item = raw[i];
+        list.push({
+          id: item.dissid ?? '',
+          name: item.dissname ?? '',
+          author: item.creator ? (item.creator.name ?? item.creator.nick ?? '') : '',
+          img: item.imgurl ?? '',
+          play_count: formatPlayCount(item.listennum ?? 0),
+          desc: item.introduction ?? '',
+          total: item.song_count ?? 0,
+          source: 'tx',
+        });
+      }
+      const result: SongListResult = {
+        list: list,
+        total: body.data.display_num ?? list.length,
+        page: page,
+        limit: safeLimit,
+        source: 'tx',
+      };
+      hilog.info(0x0001, 'TXSongList', 'searchList ok: keyword=%{public}s, count=%{public}d', kw, list.length);
+      return result;
+    } catch (err) {
+      hilog.warn(0x0001, 'TXSongList', 'searchList failed: %{public}s',
+        err instanceof Error ? err.message : JSON.stringify(err));
+      return null;
+    }
   }
 }
 

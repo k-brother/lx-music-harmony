@@ -6,7 +6,7 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { DownloadTask, DownloadStatus, download, setDownloadContext } from '../core/music/MusicFeatureEntry';
 import { common } from '@kit.AbilityKit';
 import { DesignTokens } from '../theme/DesignTokens';
-import { t } from '../service/LocalizationService';
+import { t , tf } from '../service/LocalizationService';
 import { playerService, SongInfo } from '../service/PlayerService';
 
 const DOMAIN: number = 0x0001;
@@ -570,17 +570,17 @@ export struct DownloadPage {
       Image($r('sys.symbol.arrow_down_circle'))
         .width(64)
         .height(64)
-        .fillColor('#CCCCCC')
+        .fillColor(DesignTokens.disabled(this.theme))
         .margin({ bottom: 16 })
 
       Text(t('download_title'))
         .fontSize(16)
-        .fontColor(this.theme === 'dark' ? '#AAAAAA' : '#666666')
+        .fontColor(DesignTokens.labelSecondary(this.theme))
         .margin({ bottom: 8 })
 
       Text('在歌单、排行榜或搜索结果中发起下载后，将显示在此处')
         .fontSize(13)
-        .fontColor('#999999')
+        .fontColor(DesignTokens.labelSecondary(this.theme))
         .textAlign(TextAlign.Center)
         .padding({ left: 32, right: 32 })
     }
@@ -596,36 +596,36 @@ export struct DownloadPage {
       Image($r('sys.symbol.arrow_down_circle'))
         .width(56)
         .height(56)
-        .fillColor('#CCCCCC')
+        .fillColor(DesignTokens.disabled(this.theme))
         .margin({ bottom: 14 })
 
       if (this.filterTabIndex === 1) {
         Text(t('download_active'))
           .fontSize(16)
-          .fontColor(this.theme === 'dark' ? '#AAAAAA' : '#666666')
-        Text('等待、下载中与暂停的任务会出现在「进行中」')
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+        Text(t('download_empty_active'))
           .fontSize(13)
-          .fontColor('#999999')
+          .fontColor(DesignTokens.labelSecondary(this.theme))
           .margin({ top: 8 })
           .textAlign(TextAlign.Center)
           .padding({ left: 28, right: 28 })
       } else if (this.filterTabIndex === 2) {
         Text(t('download_completed'))
           .fontSize(16)
-          .fontColor(this.theme === 'dark' ? '#AAAAAA' : '#666666')
-        Text('完成后可在「已完成」中查看或清理')
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+        Text(t('download_empty_completed'))
           .fontSize(13)
-          .fontColor('#999999')
+          .fontColor(DesignTokens.labelSecondary(this.theme))
           .margin({ top: 8 })
           .textAlign(TextAlign.Center)
           .padding({ left: 28, right: 28 })
       } else if (this.filterTabIndex === 3) {
         Text(t('download_failed'))
           .fontSize(16)
-          .fontColor(this.theme === 'dark' ? '#AAAAAA' : '#666666')
-        Text('失败任务可在此重试或删除')
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+        Text(t('download_empty_failed'))
           .fontSize(13)
-          .fontColor('#999999')
+          .fontColor(DesignTokens.labelSecondary(this.theme))
           .margin({ top: 8 })
           .textAlign(TextAlign.Center)
           .padding({ left: 28, right: 28 })
@@ -707,7 +707,7 @@ export struct DownloadPage {
     try {
       const filePath = task.filePath;
       if (!filePath) {
-        this.showToast('文件路径不存在');
+        this.showToast(t('file_not_found'));
         return;
       }
       const songInfo: SongInfo = {
@@ -726,7 +726,7 @@ export struct DownloadPage {
       hilog.info(DOMAIN, TAG, 'Playing downloaded song: %{public}s', task.musicInfo.name);
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to play downloaded song: %{public}s', JSON.stringify(err));
-      this.showToast('播放失败，文件可能已损坏');
+      this.showToast(t('file_corrupted'));
     }
   }
 
@@ -750,14 +750,14 @@ export struct DownloadPage {
       // 查找任务
       const task = this.downloadTasks.find((t: DownloadTask) => t.id === taskId);
       if (!task) {
-        this.showToast('任务不存在');
+        this.showToast(t('task_not_found'));
         return;
       }
       
       // 显示确认对话框
       const confirmed = await this.showConfirmDialog(
         t('retry_download'),
-        `确定要重新下载 "${task.musicInfo.name}" 吗？`
+        tf('confirm_redownload', [task.musicInfo.name])
       );
       
       if (!confirmed) {
@@ -772,10 +772,10 @@ export struct DownloadPage {
       const newTaskId = await this.recreateDownloadTask(task);
       
       if (newTaskId) {
-        this.showToast('已开始重新下载');
+        this.showToast(t('toast_redownload_started'));
         hilog.info(DOMAIN, TAG, 'Retry download started with new task: %{public}s', newTaskId);
       } else {
-        this.showToast('重新下载失败');
+        this.showToast(t('toast_redownload_failed'));
         hilog.error(DOMAIN, TAG, 'Failed to recreate download task: %{public}s', taskId);
       }
       

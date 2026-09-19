@@ -1,23 +1,28 @@
 /**
  * 骨架屏组件 - 用于内容加载占位
+ *
+ * 说明：属性名不能叫 width/height/borderRadius —— 会与自定义组件的同名内置属性冲突
+ * （ArkTS 会报 "Property 'width' ... not assignable to the same property in base type"），
+ * 因此统一使用 boxWidth / boxHeight / boxRadius。
  */
+import { DesignTokens } from '../../theme/DesignTokens';
 
 @Component
 export struct SkeletonView {
   @StorageProp('theme') theme: string = 'light';
-  @Prop width: string | number = '100%';
-  @Prop height: number = 16;
-  @Prop borderRadius: number = 4;
+  @Prop boxWidth: string | number = '100%';
+  @Prop boxHeight: number = 16;
+  @Prop boxRadius: number = 4;
 
   build() {
     Column() {
       Text('')
         .width('100%')
-        .height(this.height)
-        .backgroundColor(this.theme === 'dark' ? '#2C2C2C' : '#E8E8E8')
-        .borderRadius(this.borderRadius)
+        .height(this.boxHeight)
+        .backgroundColor(DesignTokens.mutedFill(this.theme))
+        .borderRadius(this.boxRadius)
     }
-    .width(this.width)
+    .width(this.boxWidth)
     .clip(true)
   }
 }
@@ -31,13 +36,11 @@ export struct SkeletonListItem {
 
   build() {
     Row() {
-      // 封面占位
-      SkeletonView({ width: 52, height: 52, borderRadius: 8 })
+      SkeletonView({ boxWidth: 52, boxHeight: 52, boxRadius: 8 })
 
-      // 文字占位
       Column() {
-        SkeletonView({ width: '60%', height: 14, borderRadius: 4 })
-        SkeletonView({ width: '40%', height: 12, borderRadius: 4 })
+        SkeletonView({ boxWidth: '60%', boxHeight: 14, boxRadius: 4 })
+        SkeletonView({ boxWidth: '40%', boxHeight: 12, boxRadius: 4 })
           .margin({ top: 8 })
       }
       .layoutWeight(1)
@@ -45,7 +48,7 @@ export struct SkeletonListItem {
     }
     .width('100%')
     .padding({ left: 12, right: 12, top: 12, bottom: 12 })
-    .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
+    .backgroundColor(DesignTokens.card(this.theme))
   }
 }
 
@@ -58,14 +61,12 @@ export struct SkeletonGridItem {
 
   build() {
     Column() {
-      // 封面占位
-      SkeletonView({ width: '100%', height: 120, borderRadius: 10 })
+      SkeletonView({ boxWidth: '100%', boxHeight: 120, boxRadius: 10 })
         .aspectRatio(1)
 
-      // 文字占位
       Column() {
-        SkeletonView({ width: '80%', height: 13, borderRadius: 4 })
-        SkeletonView({ width: '50%', height: 11, borderRadius: 4 })
+        SkeletonView({ boxWidth: '80%', boxHeight: 13, boxRadius: 4 })
+        SkeletonView({ boxWidth: '50%', boxHeight: 11, boxRadius: 4 })
           .margin({ top: 6 })
       }
       .width('100%')
@@ -73,7 +74,7 @@ export struct SkeletonGridItem {
     }
     .width('100%')
     .padding(8)
-    .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
+    .backgroundColor(DesignTokens.card(this.theme))
     .borderRadius(12)
   }
 }

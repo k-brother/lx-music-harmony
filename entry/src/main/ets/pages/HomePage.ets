@@ -2,6 +2,7 @@
 // 顶部音乐源 Tab；全局搜歌仅在「歌单」Tab 内容区上方（与排行榜页内搜索条样式一致）
 
 import hilog from '@ohos.hilog';
+import { EmptyView } from '../components/common/EmptyView';
 import { searchMusic, getHotSearch, HotSearchItem, Source } from '../core/search/search';
 
 // 导入播放器栏组件
@@ -21,7 +22,14 @@ import { DesignTokens } from '../theme/DesignTokens';
 import { SearchStripActions } from '../components/common/SearchStrip';
 import { t } from '../service/LocalizationService';
 import { settingsService } from '../service/SettingsService';
-import { addHistoryWord, clearHistoryList, getSearchHistory } from '../core/search/search';
+import {
+  addHistoryWord,
+  clearHistoryList,
+  getSearchHistory,
+  searchSonglist,
+  type SonglistSearchResult,
+} from '../core/search/search';
+import { type NavigationParams } from '../service/NavigationService';
 import { on, EventTypes } from '../service/EventBus';
 
 // 音乐信息类型
@@ -84,6 +92,9 @@ export struct HomePage {
   @State searchResults: SearchResultItem[] = [];
   @State hotSearchList: HotSearchItem[] = [];
   @State isSearching: boolean = false;
+  /** 搜索类型：单曲 / 歌单 */
+  @State searchType: string = 'music';
+  @State songlistResults: SonglistSearchResult[] = [];
   @State searchHistory: string[] = [];
   @State showHotSearchSetting: boolean = true;
 
@@ -258,6 +269,11 @@ export struct HomePage {
   async doSearch(): Promise<void> {
     const query = this.searchText.trim();
     if (!query) return;
+    // 歌单搜索走独立分支（单曲搜索结果与歌单结果结构不同）
+    if (this.searchType === 'songlist') {
+      await this.doSearchSonglist(query);
+      return;
+    }
     // 记录搜索历史（条数上限由设置决定）
     addHistoryWord(query).then((): void => {
       this.searchHistory = this.searchHistory.filter((word: string) => word !== query);
@@ -330,6 +346,47 @@ export struct HomePage {
         this.isSearching = false;
       }
     }
+  }
+
+  /** 歌单搜索 */
+  private async doSearchSonglist(query: string): Promise<void> {
+    addHistoryWord(query).catch((err: Error) => {
+      hilog.warn(0x0001, 'HomePage', 'addHistoryWord failed: %{public}s', err.message);
+    });
+    this.isSearching = true;
+    try {
+      const results = await searchSonglist(query, 1, this.currentSource as Source);
+      this.songlistResults = results;
+      this.searchViewState = SearchViewState.RESULT;
+      hilog.info(0x0001, 'HomePage', 'doSearchSonglist query=%{public}s count=%{public}d',
+        query, results.length);
+    } catch (err) {
+      hilog.error(0x0001, 'HomePage', 'doSearchSonglist failed: %{public}s', JSON.stringify(err));
+      this.songlistResults = [];
+    } finally {
+      this.isSearching = false;
+    }
+  }
+
+  /** 切换搜索类型（单曲/歌单）后重新搜索 */
+  private switchSearchType(type: string): void {
+    if (this.searchType === type) {
+      return;
+    }
+    this.searchType = type;
+    if (this.searchText.trim().length > 0) {
+      void this.doSearch();
+    }
+  }
+
+  /** 打开歌单详情 */
+  private openSonglist(item: SonglistSearchResult): void {
+    const params: NavigationParams = {
+      songListId: item.id,
+      songListName: item.name,
+      songListSource: item.source,
+    };
+    navigationService.navigateTo(RouteName.SONGLIST_DETAIL, params);
   }
 
   // 点击热搜项：填入搜索框并搜索，不自动播放（用户自行选择结果播放）
@@ -616,10 +673,108 @@ export struct HomePage {
     .layoutWeight(1)
   }
 
+  /** 搜索类型胶囊 */
+  @Builder
+  SearchTypeChip(type: string, label: string) {
+    Text(label)
+      .fontSize(14)
+      .fontWeight(this.searchType === type ? FontWeight.Medium : FontWeight.Normal)
+      .fontColor(this.searchType === type ? '#FFFFFF' : DesignTokens.labelSecondary(this.theme))
+      .backgroundColor(this.searchType === type ? DesignTokens.accent() : DesignTokens.mutedFill(this.theme))
+      .borderRadius(15)
+      .padding({ left: 16, right: 16, top: 6, bottom: 6 })
+      .margin({ right: 8 })
+      .onClick(() => {
+        this.switchSearchType(type);
+      })
+  }
+
+  /** 歌单搜索结果列表 */
+  @Builder
+  SonglistResultList() {
+    if (this.songlistResults.length === 0) {
+      EmptyView({ icon: '🔍', message: t('search_no_result') })
+        .width('100%')
+        .layoutWeight(1)
+    } else {
+      List() {
+        ForEach(this.songlistResults, (item: SonglistSearchResult) => {
+          ListItem() {
+            Row() {
+              Image(item.pic)
+                .width(56)
+                .height(56)
+                .borderRadius(8)
+                .objectFit(ImageFit.Cover)
+                .backgroundColor(DesignTokens.mutedFill(this.theme))
+
+              Column() {
+                Text(item.name)
+                  .fontSize(15)
+                  .fontColor(DesignTokens.labelPrimary(this.theme))
+                  .maxLines(1)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  .width('100%')
+                  .textAlign(TextAlign.Start)
+                Text(`${item.author}${item.playCount > 0 ? ' · ' + this.formatPlayCount(item.playCount) : ''}`)
+                  .fontSize(12)
+                  .fontColor(DesignTokens.labelTertiary(this.theme))
+                  .maxLines(1)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  .width('100%')
+                  .textAlign(TextAlign.Start)
+                  .margin({ top: 4 })
+              }
+              .layoutWeight(1)
+              .alignItems(HorizontalAlign.Start)
+              .margin({ left: 12 })
+
+              Image($r('sys.symbol.chevron_right'))
+                .width(14)
+                .height(14)
+                .fillColor(DesignTokens.labelTertiary(this.theme))
+            }
+            .width('100%')
+            .padding({
+              left: DesignTokens.spaceGutter(),
+              right: DesignTokens.spaceGutter(),
+              top: 10,
+              bottom: 10,
+            })
+            .onClick(() => {
+              this.openSonglist(item);
+            })
+          }
+        }, (item: SonglistSearchResult) => `${item.source}_${item.id}`)
+      }
+      .width('100%')
+      .layoutWeight(1)
+    }
+  }
+
+  /** 播放次数格式化（列表用） */
+  private formatPlayCount(count: number): string {
+    if (count >= 100000000) {
+      return `${(count / 100000000).toFixed(1)}${t('billion_unit')}`;
+    }
+    if (count >= 10000) {
+      return `${(count / 10000).toFixed(1)}${t('ten_thousand_unit')}`;
+    }
+    return count.toString();
+  }
+
   // 搜索结果界面
   @Builder
   SearchResultContent() {
     Column() {
+      // 单曲 / 歌单 切换（吸顶，切换后自动重搜）
+      Row() {
+        this.SearchTypeChip('music', t('search_type_music'))
+        this.SearchTypeChip('songlist', t('search_type_songlist'))
+      }
+      .width('100%')
+      .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter(), top: 4, bottom: 8 })
+
       if (this.isSearching) {
         Column() {
           LoadingProgress()
@@ -634,15 +789,12 @@ export struct HomePage {
         .width('100%')
         .layoutWeight(1)
         .justifyContent(FlexAlign.Center)
+      } else if (this.searchType === 'songlist') {
+        this.SonglistResultList()
       } else if (this.searchResults.length === 0) {
-        Column() {
-          Text(t('no_data'))
-            .fontSize(15)
-            .fontColor(DesignTokens.labelSecondary(this.theme))
-        }
-        .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
+        EmptyView({ icon: '🔍', message: t('search_no_result') })
+          .width('100%')
+          .layoutWeight(1)
       } else {
         List() {
           ForEach(this.searchResults, (item: SearchResultItem) => {

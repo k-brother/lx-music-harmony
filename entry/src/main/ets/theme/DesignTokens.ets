@@ -85,6 +85,21 @@ export class DesignTokens {
     return theme === 'dark' ? 'rgba(230,57,70,0.22)' : 'rgba(230,57,70,0.10)';
   }
 
+  /** 危险/删除动作（iOS systemRed） */
+  static danger(): string {
+    return '#FF3B30';
+  }
+
+  /** 强调色底上的文字色 */
+  static onAccent(): string {
+    return '#FFFFFF';
+  }
+
+  /** 禁用态填充/文字 */
+  static disabled(theme: string): string {
+    return theme === 'dark' ? '#3A3A3C' : '#C7C7CC';
+  }
+
   static radiusCard(): number {
     return 14;
   }

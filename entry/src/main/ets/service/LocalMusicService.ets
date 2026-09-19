@@ -1,0 +1,232 @@
+/**
+ * 本地音乐服务
+ *
+ * 职责：
+ * - 把用户选择的音频文件复制进应用沙箱（避免后续权限失效、文件被移动）
+ * - 用系统 AVMetadataExtractor 读取标题/歌手/专辑/时长（见 ResolvePlayback.scanLocalMusic）
+ * - 维护本地曲库列表并持久化，供页面展示与播放
+ *
+ * 播放走 PlayerService：`file://` 路径由播放器直接打开，不依赖网络。
+ */
+import hilog from '@ohos.hilog';
+import fs from '@ohos.file.fs';
+import filePicker from '@ohos.file.picker';
+import type { common } from '@kit.AbilityKit';
+import storageService, { StorageKeys } from './StorageService';
+import { scanLocalMusic, getLocalPicUrl, type LocalMusicInfo } from '../core/music/ResolvePlayback';
+import type { SongInfo } from './PlayerService';
+import type { MusicInfo } from '../types/MusicTypes';
+
+const TAG = 'LocalMusicService';
+const DOMAIN = 0x0005;
+const LOCAL_DIR_NAME = 'localMusic';
+
+class LocalMusicServiceImpl {
+  private context: common.UIAbilityContext | null = null;
+  private library: LocalMusicInfo[] = [];
+  private initialized: boolean = false;
+
+  setContext(context: common.UIAbilityContext): void {
+    this.context = context;
+  }
+
+  async init(): Promise<void> {
+    if (this.initialized) {
+      return;
+    }
+    this.initialized = true;
+    try {
+      const raw = await storageService.getString(StorageKeys.LOCAL_MUSIC_LIST, '');
+      this.library = raw.length > 0 ? JSON.parse(raw) as LocalMusicInfo[] : [];
+      hilog.info(DOMAIN, TAG, 'Local library loaded: %{public}d tracks', this.library.length);
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'load local library failed: %{public}s', JSON.stringify(err));
+      this.library = [];
+    }
+  }
+
+  getLibrary(): LocalMusicInfo[] {
+    return this.library;
+  }
+
+  /** 应用沙箱内的本地音乐目录 */
+  getLocalDir(): string {
+    if (!this.context) {
+      return '';
+    }
+    return `${this.context.filesDir}/${LOCAL_DIR_NAME}`;
+  }
+
+  /**
+   * 通过系统文件选择器导入音频文件（多选）。
+   * @returns 新增曲目数
+   */
+  async importFromPicker(): Promise<number> {
+    if (!this.context) {
+      hilog.warn(DOMAIN, TAG, 'importFromPicker: context not set');
+      return 0;
+    }
+    try {
+      const picker = new filePicker.AudioViewPicker(this.context);
+      const options = new filePicker.AudioSelectOptions();
+      options.maxSelectNumber = 100;
+      const uris: string[] = await picker.select(options);
+      if (!uris || uris.length === 0) {
+        return 0;
+      }
+      return await this.importUris(uris);
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'importFromPicker failed: %{public}s',
+        err instanceof Error ? err.message : JSON.stringify(err));
+      return 0;
+    }
+  }
+
+  /** 把选中的 URI 复制进沙箱并登记到曲库 */
+  async importUris(uris: string[]): Promise<number> {
+    const dir = this.getLocalDir();
+    if (dir.length === 0) {
+      return 0;
+    }
+    try {
+      fs.mkdirSync(dir, true);
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'mkdir local dir failed: %{public}s', JSON.stringify(err));
+    }
+
+    let added = 0;
+    // 先全部复制进沙箱，再统一扫描一次（避免每导入一首就重扫整个目录）
+    for (let i = 0; i < uris.length; i++) {
+      const uri = uris[i];
+      const fileName = this.buildSafeFileName(uri);
+      const destPath = `${dir}/${fileName}`;
+      try {
+        if (!fs.accessSync(destPath)) {
+          fs.copyFileSync(uri, destPath);
+        }
+      } catch (err) {
+        hilog.warn(DOMAIN, TAG, 'import %{public}s failed: %{public}s',
+          uri, err instanceof Error ? err.message : JSON.stringify(err));
+      }
+    }
+    const before = this.library.length;
+    this.library = await scanLocalMusic(dir);
+    added = Math.max(0, this.library.length - before);
+    await this.persist();
+    hilog.info(DOMAIN, TAG, 'Imported %{public}d tracks, library size=%{public}d', added, this.library.length);
+    return added;
+  }
+
+  /** 重新扫描沙箱目录（文件被删除/新增后刷新曲库） */
+  async rescan(): Promise<number> {
+    const dir = this.getLocalDir();
+    if (dir.length === 0) {
+      return 0;
+    }
+    this.library = await scanLocalMusic(dir);
+    await this.persist();
+    return this.library.length;
+  }
+
+  async remove(trackId: string): Promise<void> {
+    const index = this.indexOf(trackId);
+    if (index < 0) {
+      return;
+    }
+    const track = this.library[index];
+    this.library.splice(index, 1);
+    await this.persist();
+    // 删除沙箱内的文件与封面缓存（失败不影响列表）
+    try {
+      if (fs.accessSync(track.filePath)) {
+        fs.unlinkSync(track.filePath);
+      }
+      const coverPath = `${track.filePath}.cover.jpg`;
+      if (fs.accessSync(coverPath)) {
+        fs.unlinkSync(coverPath);
+      }
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'remove local file failed: %{public}s', JSON.stringify(err));
+    }
+  }
+
+  /** 曲目 -> 播放器 SongInfo（file:// 直接播） */
+  toSongInfo(track: LocalMusicInfo): SongInfo {
+    return {
+      id: track.id,
+      url: `file://${track.filePath}`,
+      title: track.name,
+      artist: track.singer,
+      album: track.album,
+      artwork: track.picUrl ?? null,
+      duration: Math.floor(track.duration / 1000),
+      source: 'local',
+    };
+  }
+
+  /** 曲目 -> MusicInfo（歌词/封面/播控元数据用） */
+  toMusicInfo(track: LocalMusicInfo): MusicInfo {
+    return {
+      id: track.id,
+      songmid: track.id,
+      name: track.name,
+      singer: track.singer,
+      album: track.album,
+      albumName: track.album,
+      source: 'local',
+      interval: track.interval,
+      img: track.picUrl ?? null,
+      lrc: null,
+    };
+  }
+
+  /** 读取内嵌封面路径（首次会解码并生成缓存文件） */
+  async loadCover(track: LocalMusicInfo): Promise<string> {
+    if (track.picUrl && track.picUrl.length > 0) {
+      return track.picUrl;
+    }
+    try {
+      const pic = await getLocalPicUrl({
+        musicInfo: track,
+        isRefresh: false,
+        allowToggleSource: false,
+      });
+      if (pic && pic.length > 0) {
+        track.picUrl = pic;
+        return pic;
+      }
+    } catch (err) {
+      hilog.info(DOMAIN, TAG, 'loadCover failed: %{public}s',
+        err instanceof Error ? err.message : '');
+    }
+    return '';
+  }
+
+  private indexOf(trackId: string): number {
+    for (let i = 0; i < this.library.length; i++) {
+      if (this.library[i].id === trackId || this.library[i].filePath === trackId) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /** 从 URI 推导一个安全且唯一的文件名 */
+  private buildSafeFileName(uri: string): string {
+    const raw = uri.substring(uri.lastIndexOf('/') + 1);
+    const decoded = decodeURIComponent(raw.length > 0 ? raw : `local_${Date.now()}`);
+    const cleaned = decoded.replace(/[\\/:*?"<>|]/g, '_');
+    return cleaned.length > 0 ? cleaned : `local_${Date.now()}.mp3`;
+  }
+
+  private async persist(): Promise<void> {
+    try {
+      await storageService.setString(StorageKeys.LOCAL_MUSIC_LIST, JSON.stringify(this.library));
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'persist local library failed: %{public}s', JSON.stringify(err));
+    }
+  }
+}
+
+export const localMusicService = new LocalMusicServiceImpl();
+export default localMusicService;

@@ -1,4 +1,5 @@
 import { t } from '../../service/LocalizationService';
+import { EmptyView } from '../../components/common/EmptyView';
 // SongList 视图 - 歌单列表视图
 // 优化：字体放大、标签筛选、下拉刷新
 
@@ -12,6 +13,7 @@ import {
 import { RouteName, navigateTo, NavigationParams } from '../../service/NavigationService';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { SearchStrip, SearchStripActions } from '../../components/common/SearchStrip';
+import { SkeletonGridItem } from '../../components/common/SkeletonView';
 
 // 排序选项接口
 interface SortOption {
@@ -42,6 +44,19 @@ export struct SongListView {
   @Prop sourceId: string = 'kw';
   @Prop @Watch("onReCreateKeyChange") reCreateKey: number = 0;
   @StorageProp('theme') theme: string = 'light';
+
+  /** 按压反馈：卡片轻微缩放 */
+  @Styles
+  pressScale() {
+    .scale({ x: 0.97, y: 0.97 })
+  }
+
+  /** 按压反馈：列表行/图标变淡 */
+  @Styles
+  pressDim() {
+    .opacity(0.65)
+  }
+
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
   /** 与 HomePage 全局搜索联动（置于垂直 Scroll 内首位，随列表上滑滚出） */
@@ -413,28 +428,11 @@ export struct SongListView {
         })
         this.FilterBar()
         if (this.isLoading && this.songLists.length === 0) {
-          Column() {
-            LoadingProgress()
-              .width(32)
-              .height(32)
-              .color(DesignTokens.accent())
-            Text(t('loading'))
-              .fontSize(15)
-              .fontColor(DesignTokens.labelSecondary(this.theme))
-              .margin({ top: 12 })
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .justifyContent(FlexAlign.Center)
+          this.SkeletonGrid()
         } else if (this.songLists.length === 0) {
-          Column() {
-            Text(t('no_data'))
-              .fontSize(15)
-              .fontColor(DesignTokens.labelSecondary(this.theme))
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .justifyContent(FlexAlign.Center)
+          EmptyView({ icon: '🎧', message: t('no_data') })
+            .width('100%')
+            .layoutWeight(1)
         } else {
           this.SongListGrid()
         }
@@ -555,6 +553,24 @@ export struct SongListView {
   }
 
   @Builder
+  SkeletonGrid() {
+    Grid() {
+      ForEach([0, 1, 2, 3, 4, 5], (index: number) => {
+        GridItem() {
+          SkeletonGridItem()
+        }
+      }, (index: number) => `skeleton_${index}`)
+    }
+    .columnsTemplate('1fr 1fr')
+    .columnsGap(12)
+    .rowsGap(16)
+    .width('100%')
+    .layoutWeight(1)
+    .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter(), top: 12 })
+    .scrollBar(BarState.Off)
+  }
+
+  @Builder
   SongListGrid() {
     Grid() {
       ForEach(this.songLists, (item: SongListItemData, index: number) => {
@@ -613,7 +629,7 @@ export struct SongListView {
     }
     .columnsTemplate('1fr 1fr 1fr')
     .cachedCount(4)
-    .rowsGap(12)
+    .rowsGap(16)
     .columnsGap(12)
     .padding(DesignTokens.spaceGutter())
     .width('100%')
@@ -684,6 +700,8 @@ export struct SongListView {
       }
       .width('100%')
       .aspectRatio(1)
+      // 封面投影：无卡片底色时提供层次（主流音乐 App 的歌单网格做法）
+      .shadow({ radius: 10, color: 'rgba(0,0,0,0.10)', offsetX: 0, offsetY: 3 })
 
       // 信息
       Column() {
@@ -706,13 +724,10 @@ export struct SongListView {
       }
       .alignItems(HorizontalAlign.Start)
       .width('100%')
-      .padding({ top: 10 })
+          .padding({ top: 8 })
     }
     .width('100%')
-    .padding(6)
-    .backgroundColor(DesignTokens.card(this.theme))
-    .borderRadius(DesignTokens.radiusCard())
-    .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
+    .stateStyles({ pressed: this.pressScale })
     .onClick(() => {
       this.openSonglistDetail(item);
     })

@@ -1,6 +1,6 @@
 // 我的 — 资料库式布局：入口卡片 + 自建歌单列表 + 新建歌单（弹层闭环）
 
-import { t } from '../../service/LocalizationService';
+import { t, tf } from '../../service/LocalizationService';
 import { navigationService, RouteName } from '../../service/NavigationService';
 import { playerService, SongInfo } from '../../service/PlayerService';
 import { getMusicUrl } from '../../core/music/MusicFeatureEntry';
@@ -46,6 +46,19 @@ interface PromptActionResult {
 @Component
 export struct MylistView {
   @StorageProp('theme') theme: string = 'light';
+
+  /** 按压反馈：卡片轻微缩放 */
+  @Styles
+  pressScale() {
+    .scale({ x: 0.97, y: 0.97 })
+  }
+
+  /** 按压反馈：列表行/图标变淡 */
+  @Styles
+  pressDim() {
+    .opacity(0.65)
+  }
+
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
   @State loveList: UserListRow | null = null;
@@ -168,17 +181,17 @@ export struct MylistView {
       }
       await clearPlayHistory();
       this.playHistory = [];
-      this.toast('已清空试听列表');
+      this.toast(t('toast_history_cleared'));
     } catch (e) {
       hilog.warn(0x0001, 'MylistView', 'clear history failed: %{public}s', JSON.stringify(e));
-      this.toast('清空失败');
+      this.toast(t('toast_clear_failed'));
     }
   }
 
   private async submitNewList(): Promise<void> {
     const name = this.newListName.trim();
     if (!name) {
-      this.toast('请输入歌单名称');
+      this.toast(t('input_playlist_name'));
       return;
     }
     try {
@@ -186,11 +199,11 @@ export struct MylistView {
       this.newListName = '';
       this.showCreateSheet = false;
       await this.loadMyLists();
-      this.toast(`已创建「${name}」`);
+      this.toast(tf('toast_created_quoted', [name]));
     } catch (e) {
       const msg = e instanceof Error ? e.message : JSON.stringify(e);
       hilog.error(0x0001, 'MylistView', 'createUserList: %{public}s', msg);
-      this.toast('创建失败，请重试');
+      this.toast(t('toast_create_list_fail'));
     }
   }
 
@@ -290,7 +303,42 @@ export struct MylistView {
       )
     }
     .width('100%')
-    .padding({ left: 16, right: 16, top: 12, bottom: 8 })
+    .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter(), top: 12, bottom: 8 })
+
+    // 本地音乐：导入并播放设备里的音频文件
+    Row() {
+      Row({ space: 10 }) {
+        Image($r('sys.symbol.folder'))
+          .width(20)
+          .height(20)
+          .fillColor(DesignTokens.labelSecondary(this.theme))
+        Column() {
+          Text(t('local_music'))
+            .fontSize(15)
+            .fontColor(DesignTokens.labelPrimary(this.theme))
+          Text(t('local_music_desc'))
+            .fontSize(12)
+            .fontColor(DesignTokens.labelTertiary(this.theme))
+            .margin({ top: 2 })
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+        Image($r('sys.symbol.chevron_right'))
+          .width(14)
+          .height(14)
+          .fillColor(DesignTokens.labelTertiary(this.theme))
+      }
+      .width('100%')
+      .padding({ left: 14, right: 14, top: 13, bottom: 13 })
+      .backgroundColor(DesignTokens.card(this.theme))
+      .borderRadius(DesignTokens.radiusCard())
+      .shadow({ radius: 10, color: 'rgba(0,0,0,0.06)', offsetX: 0, offsetY: 3 })
+      .onClick(() => {
+        navigationService.navigateTo(RouteName.LOCAL_MUSIC);
+      })
+    }
+    .width('100%')
+    .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter(), bottom: 8 })
   }
 
   @Builder
@@ -323,7 +371,8 @@ export struct MylistView {
     .justifyContent(FlexAlign.Center)
     .backgroundColor(DesignTokens.card(this.theme))
     .borderRadius(DesignTokens.radiusCard())
-    .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
+    .shadow({ radius: 10, color: 'rgba(0,0,0,0.06)', offsetX: 0, offsetY: 3 })
+    .stateStyles({ pressed: this.pressDim })
     .onClick(onClick)
   }
 
@@ -736,7 +785,7 @@ export struct MylistView {
         allowToggleSource: true,
       });
       if (!url) {
-        this.toast('无法获取播放链接');
+        this.toast(t('toast_no_play_url'));
         return;
       }
       const songInfo: SongInfo = {
@@ -753,7 +802,7 @@ export struct MylistView {
       await playerService.playFromSelection(songInfo, url, song.duration);
     } catch (error) {
       hilog.error(0x0001, 'MylistView', 'Play history song failed: %{public}s', JSON.stringify(error));
-      this.toast('播放失败');
+      this.toast(t('toast_play_failed'));
     }
   }
 
@@ -802,7 +851,7 @@ export struct MylistView {
         allowToggleSource: true,
       });
       if (!url) {
-        this.toast('无法获取播放链接');
+        this.toast(t('toast_no_play_url'));
         return;
       }
       songInfos[0].url = url;
@@ -810,7 +859,7 @@ export struct MylistView {
       await playerService.playFromSelection(songInfos[0], url, firstSong.duration);
     } catch (error) {
       hilog.error(0x0001, 'MylistView', 'Play list failed: %{public}s', JSON.stringify(error));
-      this.toast('播放失败');
+      this.toast(t('toast_play_failed'));
     }
   }
 

@@ -86,6 +86,27 @@ interface WyCatalogueResponse {
   categories?: Record<string, string>;
 }
 
+// 歌单搜索（web 搜索接口 type=1000）
+interface WySearchPlaylistItem {
+  id: number;
+  name?: string;
+  coverImgUrl?: string;
+  trackCount?: number;
+  playCount?: number;
+  description?: string;
+  creator?: WyUserNick;
+}
+
+interface WySearchPlaylistResult {
+  playlists?: WySearchPlaylistItem[];
+  playlistCount?: number;
+}
+
+interface WyPlaylistSearchBody {
+  code?: number;
+  result?: WySearchPlaylistResult;
+}
+
 interface WySubTag {
   category: string;
   name: string;
@@ -683,6 +704,61 @@ class WySongListImpl implements WySongListModule {
 
   getDetailPageUrl(rawId: string): string {
     return `https://music.163.com/#/playlist?id=${rawId.replace(/###.*/, '')}`;
+  }
+
+  /**
+   * 歌单搜索：使用公开的 web 搜索接口（type=1000 表示歌单）。
+   * 返回 null 表示该源当前不可用，由上层跳过。
+   */
+  async searchList(keyword: string, page: number, limit: number): Promise<SongListResult | null> {
+    const kw = (keyword ?? '').trim();
+    if (kw.length === 0) {
+      return null;
+    }
+    const safeLimit = Math.min(Math.max(limit, 1), 50);
+    const offset = Math.max(page - 1, 0) * safeLimit;
+    const url = `https://music.163.com/api/search/get/web?s=${encodeURIComponent(kw)}&type=1000&limit=${safeLimit}&offset=${offset}`;
+    try {
+      const req: HttpRequestConfig = {
+        method: 'GET',
+        header: WY_HEADERS,
+        responseType: 'text',
+      };
+      const res = await httpRequest(url, req).promise;
+      const body = parseHttpBodyJson<WyPlaylistSearchBody>(httpResponseBody(res));
+      if (!body || !body.result || !body.result.playlists) {
+        hilog.warn(DOMAIN, TAG, 'searchList empty response');
+        return null;
+      }
+      const list: SongListInfo[] = [];
+      const raw = body.result.playlists;
+      for (let i = 0; i < raw.length; i++) {
+        const item = raw[i];
+        list.push({
+          id: `${item.id}`,
+          name: item.name ?? '',
+          author: item.creator ? (item.creator.nickname ?? '') : '',
+          img: item.coverImgUrl ?? '',
+          play_count: formatPlayCount(item.playCount ?? 0),
+          desc: item.description ?? '',
+          total: item.trackCount ?? 0,
+          source: 'wy',
+        });
+      }
+      const result: SongListResult = {
+        list: list,
+        total: body.result.playlistCount ?? list.length,
+        page: page,
+        limit: safeLimit,
+        source: 'wy',
+      };
+      hilog.info(DOMAIN, TAG, 'searchList ok: keyword=%{public}s, count=%{public}d', kw, list.length);
+      return result;
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'searchList failed: %{public}s',
+        err instanceof Error ? err.message : JSON.stringify(err));
+      return null;
+    }
   }
 }
 

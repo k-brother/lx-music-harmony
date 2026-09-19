@@ -1,4 +1,4 @@
-import { t } from '../service/LocalizationService';
+import { t , tf } from '../service/LocalizationService';
 // 排行榜详情页 - 显示榜单信息和歌曲列表
 // 支持分组展示前几条歌曲作为预览
 
@@ -326,7 +326,7 @@ export struct BoardDetailPage {
 
         Blank()
 
-        Text(`共 ${this.totalCount} 首`)
+        Text(tf('count_songs', [this.totalCount.toString()]))
           .fontSize(DesignTokens.fontCaption())
           .fontColor(DesignTokens.labelSecondary(this.theme))
       }
@@ -343,7 +343,7 @@ export struct BoardDetailPage {
             .height(32)
           Text(t('loading'))
             .fontSize(14)
-            .fontColor('#999999')
+            .fontColor(DesignTokens.labelSecondary(this.theme))
             .margin({ top: 12 })
         }
         .width('100%')
@@ -355,7 +355,7 @@ export struct BoardDetailPage {
         Column() {
           Text(t('no_data'))
             .fontSize(14)
-            .fontColor('#999999')
+            .fontColor(DesignTokens.labelSecondary(this.theme))
         }
         .width('100%')
         .layoutWeight(1)
@@ -400,7 +400,7 @@ export struct BoardDetailPage {
 
               Text(this.boardSource.toUpperCase())
                 .fontSize(10)
-                .fontColor('#FFFFFF')
+                .fontColor(DesignTokens.onAccent())
                 .padding({ left: 8, right: 8, top: 3, bottom: 3 })
                 .backgroundColor(DesignTokens.accent())
                 .borderRadius(9)
@@ -416,10 +416,10 @@ export struct BoardDetailPage {
               Image($r('app.media.ic_pd_play'))
                 .width(14)
                 .height(14)
-                .fillColor('#FFFFFF')
+                .fillColor(DesignTokens.onAccent())
               Text(t('play_all'))
                 .fontSize(DesignTokens.fontBody())
-                .fontColor('#FFFFFF')
+                .fontColor(DesignTokens.onAccent())
                 .fontWeight(FontWeight.Medium)
             }
             .height(38)
@@ -431,7 +431,7 @@ export struct BoardDetailPage {
               void this.playAll();
             })
 
-            Text(`共 ${this.totalCount} 首`)
+            Text(tf('count_songs', [this.totalCount.toString()]))
               .fontSize(DesignTokens.fontCaption())
               .fontColor(DesignTokens.labelSecondary(this.theme))
           }
@@ -448,10 +448,10 @@ export struct BoardDetailPage {
             Image($r('app.media.ic_pd_play'))
               .width(14)
               .height(14)
-              .fillColor('#FFFFFF')
+              .fillColor(DesignTokens.onAccent())
             Text(t('play_all'))
               .fontSize(DesignTokens.fontBody())
-              .fontColor('#FFFFFF')
+              .fontColor(DesignTokens.onAccent())
               .fontWeight(FontWeight.Medium)
           }
           .height(38)
@@ -465,7 +465,7 @@ export struct BoardDetailPage {
 
           Text(this.boardSource.toUpperCase())
             .fontSize(10)
-            .fontColor('#FFFFFF')
+            .fontColor(DesignTokens.onAccent())
             .padding({ left: 8, right: 8, top: 3, bottom: 3 })
             .backgroundColor(DesignTokens.accent())
             .borderRadius(9)

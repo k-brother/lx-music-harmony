@@ -22,11 +22,12 @@ import {
   setOnTrackCompleted,
 } from '../core/playback/AvPlayerPlugin';
 import { playerState } from '../store/PlayerStoreState';
-import type { MusicInfo, MusicSource, Quality } from '../types/MusicTypes';
+import type { MusicInfo, MusicSource, Quality, LyricInfo } from '../types/MusicTypes';
 import { formatPlayTime } from '../utils/CommonUtils';
 import { recordPlayedSong } from './PlayHistoryService';
 import { backgroundRunningManager, type AvMediaMetadata, type AvSessionCallbacks } from './BackgroundRunningManager';
-import { getMusicUrl } from '../core/music/MusicFeatureEntry';
+import { getMusicUrl, getLyricInfo } from '../core/music/MusicFeatureEntry';
+import { parseLrc, getCurrentLyricIndex, type LyricLine } from '../core/music/MusicParsingUtils';
 import { settingsService, type PlayMode as SettingsPlayMode } from './SettingsService';
 import { on, EventTypes } from './EventBus';
 
@@ -79,7 +80,22 @@ export interface ProgressInfo {
   maxPlayTimeStr: string;
 }
 
+/**
+ * 当前歌词状态（供系统播控、桌面歌词、播放页共用一份数据源）
+ */
+export interface LyricLineState {
+  /** 是否有可用歌词 */
+  hasLyric: boolean;
+  /** 当前行下标，-1 表示还没到第一句 */
+  index: number;
+  /** 当前句文本 */
+  current: string;
+  /** 下一句文本 */
+  next: string;
+}
+
 type ProgressInfoListener = (progress: ProgressInfo) => void;
+type LyricLineListener = (state: LyricLineState) => void;
 
 // 播放器状态存储
 interface ProgressData {
@@ -190,6 +206,14 @@ export class PlayerService {
   private playStateListeners: PlayStateListener[] = [];
   private progressInfoListeners: ProgressInfoListener[] = [];
 
+  // ===== 歌词状态（唯一数据源）=====
+  private lyricLines: LyricLine[] = [];
+  private lyricRawText: string = '';
+  private lyricIndex: number = -1;
+  /** 已发起歌词加载的歌曲 key，避免同一首歌重复请求 */
+  private lyricLoadKey: string = '';
+  private lyricListeners: LyricLineListener[] = [];
+
   /**
    * 设置上下文。
    * 播放器自身不再直接访问 Preferences（统一走 SettingsService），
@@ -223,6 +247,15 @@ export class PlayerService {
     if (Math.abs(targetVolume - this.volume) > 0.001) {
       this.setVolume(targetVolume).catch((err: Error) => {
         hilog.warn(DOMAIN, TAG, 'Failed to apply volume from settings: %{public}s', err.message);
+      });
+    }
+    // 倍速跟随设置（setPlaybackRate 会写回设置，这里用内部赋值避免回环）
+    if (Math.abs(settings.playRate - this.playbackRate) > 0.001) {
+      this.playbackRate = settings.playRate;
+      playerStateData.playRate = settings.playRate;
+      playerState.playRate = settings.playRate;
+      avSetPlaybackSpeed(settings.playRate).catch((err: Error) => {
+        hilog.warn(DOMAIN, TAG, 'Failed to apply playRate from settings: %{public}s', err.message);
       });
     }
     hilog.info(DOMAIN, TAG, 'Player settings applied: mode=%{public}s, quality=%{public}s, autoClean=%{public}s',
@@ -694,6 +727,9 @@ export class PlayerService {
       maxPlayTimeStr: formatPlayTime(duration)
     };
 
+    // 歌词当前行跟随播放位置推进（内部做了"行未变化不通知"的判断）
+    this.updateLyricIndexFromPosition(position);
+
     for (let i = 0; i < this.progressInfoListeners.length; i++) {
       try {
         this.progressInfoListeners[i](progressInfo);
@@ -753,6 +789,8 @@ export class PlayerService {
     };
     playerStateData.musicInfo = musicInfo;
     this.notifyMusicInfoChange();
+    // 切歌后异步加载歌词：既喂给系统（锁屏/控制中心/灵动岛），也供桌面歌词使用
+    this.loadLyricForSong(musicInfo);
 
     try {
       await avSetResource(musicInfo, url, null, false);
@@ -970,16 +1008,21 @@ export class PlayerService {
 
   // 设置播放速率
   async setPlaybackRate(rate: number): Promise<void> {
-    this.playbackRate = rate;
-    playerStateData.playRate = rate;
-    playerState.playRate = rate;
+    const safeRate = Math.min(Math.max(rate, 0.5), 2.0);
+    this.playbackRate = safeRate;
+    playerStateData.playRate = safeRate;
+    playerState.playRate = safeRate;
 
     try {
-      await avSetPlaybackSpeed(rate);
+      await avSetPlaybackSpeed(safeRate);
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to set playback rate: %{public}s', JSON.stringify(err));
     }
-    hilog.info(DOMAIN, TAG, 'Playback rate set to: %{public}s', rate.toString());
+    // 倍速也是用户偏好：持久化，下次进 App 仍生效
+    settingsService.update({ playRate: safeRate }).catch((err: Error) => {
+      hilog.warn(DOMAIN, TAG, 'persist playRate failed: %{public}s', err.message);
+    });
+    hilog.info(DOMAIN, TAG, 'Playback rate set to: %{public}s', safeRate.toString());
   }
 
   // 播放下一曲
@@ -1151,6 +1194,132 @@ export class PlayerService {
         this.progressInfoListeners.splice(index, 1);
       }
     };
+  }
+
+  // ==================== 歌词 ====================
+
+  /**
+   * 订阅"当前歌词行"变化。
+   * 系统播控、桌面歌词、播放页都从这里取，避免各自解析 LRC、各自跑时间轴。
+   */
+  onLyricLineChange(listener: LyricLineListener): () => void {
+    this.lyricListeners.push(listener);
+    // 订阅时立刻回推一次当前状态，避免新订阅者显示空白
+    try {
+      listener(this.getLyricState());
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'lyric listener init failed: %{public}s', JSON.stringify(err));
+    }
+    return () => {
+      const index = this.lyricListeners.indexOf(listener);
+      if (index > -1) {
+        this.lyricListeners.splice(index, 1);
+      }
+    };
+  }
+
+  getLyricState(): LyricLineState {
+    const hasLyric = this.lyricLines.length > 0;
+    const current = this.lyricIndex >= 0 && this.lyricIndex < this.lyricLines.length
+      ? this.lyricLines[this.lyricIndex].text : '';
+    const nextIndex = this.lyricIndex + 1;
+    const next = nextIndex >= 0 && nextIndex < this.lyricLines.length
+      ? this.lyricLines[nextIndex].text : '';
+    return {
+      hasLyric: hasLyric,
+      index: this.lyricIndex,
+      current: current,
+      next: next,
+    };
+  }
+
+  getLyricText(): string {
+    return this.lyricRawText;
+  }
+
+  /** 外部（播放页）已经拿到歌词时直接喂进来，避免重复请求 */
+  setLyricData(lyricText: string): void {
+    const text = lyricText ?? '';
+    this.lyricRawText = text;
+    this.lyricLines = text.length > 0 ? parseLrc(text) : [];
+    this.lyricIndex = -1;
+    this.updateLyricIndexFromPosition(playerStateData.progress.nowPlayTime);
+    this.pushLyricToSession();
+  }
+
+  private clearLyricData(): void {
+    this.lyricRawText = '';
+    this.lyricLines = [];
+    this.lyricIndex = -1;
+    this.notifyLyricChange();
+  }
+
+  /** 切歌后自动拉取歌词（走歌词缓存，重复播放不会重复请求） */
+  private loadLyricForSong(musicInfo: MusicInfo): void {
+    const key = `${musicInfo.source ?? ''}_${musicInfo.songmid ?? musicInfo.id ?? ''}`;
+    if (key === this.lyricLoadKey) {
+      return;
+    }
+    this.lyricLoadKey = key;
+    this.clearLyricData();
+    if (!musicInfo.songmid && !musicInfo.id) {
+      return;
+    }
+    getLyricInfo({ musicInfo }).then((info: LyricInfo) => {
+      // 期间可能已切歌，丢弃过期结果
+      const currentKey = `${playerStateData.musicInfo.source ?? ''}_${playerStateData.musicInfo.songmid ?? playerStateData.musicInfo.id ?? ''}`;
+      if (currentKey !== key) {
+        return;
+      }
+      if (info.lyric && info.lyric.length > 0) {
+        this.setLyricData(info.lyric);
+      }
+    }).catch((err: Error) => {
+      hilog.warn(DOMAIN, TAG, 'loadLyricForSong failed: %{public}s', err.message);
+    });
+  }
+
+  /** 根据播放位置刷新当前行；行变化时通知订阅者并同步给系统播控 */
+  private updateLyricIndexFromPosition(positionSec: number): void {
+    if (this.lyricLines.length === 0) {
+      return;
+    }
+    // 应用歌词偏移（正值让歌词更早出现）
+    const index = getCurrentLyricIndex(this.lyricLines, positionSec + settingsService.get().lyricOffset);
+    if (index === this.lyricIndex) {
+      return;
+    }
+    this.lyricIndex = index;
+    this.notifyLyricChange();
+    this.pushLyricToSession();
+  }
+
+  private notifyLyricChange(): void {
+    const state = this.getLyricState();
+    for (let i = 0; i < this.lyricListeners.length; i++) {
+      try {
+        this.lyricListeners[i](state);
+      } catch (err) {
+        hilog.warn(DOMAIN, TAG, 'lyric listener failed: %{public}s', JSON.stringify(err));
+      }
+    }
+  }
+
+  /** 歌词偏移等设置变化后，立即按当前位置重算当前句 */
+  refreshLyricIndex(): void {
+    this.lyricIndex = -2;
+    this.updateLyricIndexFromPosition(playerStateData.progress.nowPlayTime);
+  }
+
+  /** 把整段歌词与当前句推给 AVSession（锁屏/控制中心/灵动岛歌词） */
+  private pushLyricToSession(): void {
+    if (this.lyricLines.length === 0) {
+      return;
+    }
+    const state = this.getLyricState();
+    backgroundRunningManager.updateLyric(this.lyricRawText, state.current).catch((err: Error) => {
+      hilog.warn(DOMAIN, TAG, 'updateLyric failed: %{public}s', err.message);
+    });
   }
 
   // 销毁播放器

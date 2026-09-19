@@ -20,6 +20,18 @@ export struct PlayerBar {
   @StorageProp('langVersion') langVersion: number = 0;
   @StorageProp('primaryColor') primaryColor: string = '#E63946';
   @StorageProp('showAnimation') showAnimation: boolean = true;
+
+  /** 统一的按压缩放反馈（卡片/按钮通用） */
+  @Styles
+  pressScale() {
+    .scale({ x: 0.96, y: 0.96 })
+  }
+
+  /** 统一的按压变淡反馈（列表行/图标按钮通用） */
+  @Styles
+  pressDim() {
+    .opacity(0.6)
+  }
   @Prop immersiveBottom: boolean = false;
   @State isPlay: boolean = false;
   @State musicName: string = '';
@@ -167,7 +179,6 @@ export struct PlayerBar {
     } catch (e) {
       this.navLocked = false;
       hilog.error(0x0001, 'PlayerBar', 'coverClick id=%{public}d navigate exception: %{public}s', clickId, JSON.stringify(e));
-      console.error('PlayerBar: Navigation failed:', JSON.stringify(e));
     }
   }
 
@@ -226,6 +237,8 @@ export struct PlayerBar {
             .fillColor(DesignTokens.labelPrimary(this.theme))
         }
         .scale({ x: 0.95, y: 0.95 })
+        .responseRegion({ x: -7, y: -7, width: 44, height: 44 })
+        .stateStyles({ pressed: this.pressDim })
         .onClick(() => {
           void this.playPrev();
         })
@@ -247,6 +260,8 @@ export struct PlayerBar {
           }
         }
         .scale({ x: 0.9, y: 0.9 })
+        .responseRegion({ x: -4, y: -4, width: 44, height: 44 })
+        .stateStyles({ pressed: this.pressDim })
         .onClick(() => {
           void this.togglePlay();
         })
@@ -260,6 +275,8 @@ export struct PlayerBar {
             .fillColor(DesignTokens.labelPrimary(this.theme))
         }
         .scale({ x: 0.95, y: 0.95 })
+        .responseRegion({ x: -7, y: -7, width: 44, height: 44 })
+        .stateStyles({ pressed: this.pressDim })
         .onClick(() => {
           void this.playNext();
         })
@@ -286,10 +303,33 @@ export struct PlayerBar {
     .alignItems(VerticalAlign.Center)
   }
 
+  /**
+   * 底部细进度线（主流音乐 App 迷你播放条的做法）：
+   * 有歌曲且有进度时显示，给"在播"一个不抢眼的视觉反馈。
+   */
+  @Builder
+  private ProgressLine() {
+    if (this.progress > 0 && this.progress < 1) {
+      Row() {
+        Row()
+          .width(`${Math.max(2, Math.round(this.progress * 100))}%`)
+          .height(2)
+          .backgroundColor(DesignTokens.accent())
+          .borderRadius(1)
+      }
+      .width('100%')
+      .height(2)
+      .backgroundColor(DesignTokens.mutedFill(this.theme))
+      .borderRadius(1)
+      .margin({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter() })
+    }
+  }
+
   build() {
     if (this.immersiveBottom) {
       Column() {
         this.BarCore()
+        this.ProgressLine()
         Blank()
           .width('100%')
           .height(10)
@@ -298,7 +338,11 @@ export struct PlayerBar {
       .backgroundColor(DesignTokens.tabBarBg(this.theme))
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
     } else {
-      this.BarCore()
+      Column() {
+        this.BarCore()
+        this.ProgressLine()
+      }
+      .width('100%')
     }
   }
 }

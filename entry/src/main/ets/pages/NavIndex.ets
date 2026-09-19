@@ -15,6 +15,7 @@ import { CommentPage } from './CommentPage';
 import { HistoryListPage } from './HistoryListPage';
 import { UserListsPage } from './UserListsPage';
 import { LoveListPage } from './LoveListPage';
+import { LocalMusicPage } from './LocalMusicPage';
 import { settingsService } from '../service/SettingsService';
 import { on, EventTypes } from '../service/EventBus';
 import { playerService } from '../service/PlayerService';
@@ -169,6 +170,15 @@ export struct NavIndex {
       .onReady((context: NavDestinationContext) => {
         const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
         hilog.info(0x0001, 'NavIndex', 'UserListsPage onReady with params: %{public}s', JSON.stringify(params));
+      })
+    } else if (name === 'localmusic') {
+      NavDestination() {
+        LocalMusicPage()
+      }
+      .hideTitleBar(true)
+      .onReady((context: NavDestinationContext) => {
+        const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
+        hilog.info(0x0001, 'NavIndex', 'LocalMusicPage onReady with params: %{public}s', JSON.stringify(params));
       })
     } else if (name === 'lovelist') {
       NavDestination() {

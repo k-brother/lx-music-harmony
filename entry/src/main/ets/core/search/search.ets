@@ -7,6 +7,7 @@ import { musicSearchAction } from '../../store/search/music/MusicStoreAction';
 import { songlistSearchState } from '../../store/search/songlist/SonglistStoreState';
 import {
   searchMusic as searchMusicApi,
+  searchSongLists,
   musicSdk,
   type SearchResultItem,
   type HotSearchResult as SdkHotSearchResult,
@@ -131,7 +132,7 @@ export interface MusicSearchResult {
 }
 
 // 歌单搜索结果项
-interface SonglistSearchResult {
+export interface SonglistSearchResult {
   id: string;
   name: string;
   desc: string;
@@ -175,7 +176,6 @@ function getDefaultHotSearch(source: string): HotSearchItem[] {
 function convertToMusicSearchResult(items: MusicInfoItem[]): MusicSearchResult[] {
   const results: MusicSearchResult[] = [];
   for (const item of items) {
-    console.log('convertToMusicSearchResult: item.pic =', item.pic, 'item.name =', item.name);
     const result: MusicSearchResult = {
       id: item.id,
       songmid: item.songmid,
@@ -199,19 +199,14 @@ function convertToMusicSearchResult(items: MusicInfoItem[]): MusicSearchResult[]
 // 音乐搜索
 export async function searchMusic(text: string, page: number, sourceId: Source): Promise<MusicSearchResult[]> {
   if (!text) {
-    console.log('Search: empty text, returning []');
     return [];
   }
-
-  console.log(`Search: text="${text}", page=${page}, sourceId="${sourceId}"`);
-  console.log(`Search: listInfos keys: ${JSON.stringify(Array.from(musicSearchState.listInfos.keys()))}`);
 
   const listInfo = musicSearchState.listInfos.get(sourceId);
   if (!listInfo) {
-    console.error(`Search: listInfo not found for sourceId "${sourceId}"`);
+    hilog.warn(DOMAIN, TAG, 'searchMusic: no listInfo for source=%{public}s', sourceId);
     return [];
   }
-  console.log(`Search: listInfo found, limit=${listInfo.limit}`);
 
   const key = `${page}__${text}`;
 
@@ -277,7 +272,6 @@ export async function searchMusic(text: string, page: number, sourceId: Source):
       const convertedResults: MusicInfoItem[] = [];
       for (const item of result) {
         // item 为 SearchResultItem（MusicFeatureEntry）
-        console.log('searchMusic convert: item.pic =', item.pic, 'item.name =', item.name);
         const musicInfoItem: MusicInfoItem = {
           id: item.id,
           songmid: item.songmid,
@@ -306,20 +300,56 @@ export async function searchMusic(text: string, page: number, sourceId: Source):
       }, page, text);
       return convertToMusicSearchResult(convertedResults);
     } catch (error) {
-      console.error('搜索失败:', error);
+      const msg: string = error instanceof Error ? error.message : JSON.stringify(error);
+      hilog.error(DOMAIN, TAG, 'searchMusic failed: %{public}s', msg);
       return [];
     }
   }
 }
 
-// 歌单搜索（当前SDK不支持歌单搜索，仅返回空数组）
+/**
+ * 歌单搜索。
+ * 数据来自各音乐源的 songList.searchList（当前网易云 / QQ音乐可用），
+ * 未实现该能力的源会被自动跳过。
+ */
 export async function searchSonglist(text: string, page: number, sourceId: Source): Promise<SonglistSearchResult[]> {
-  if (!text) return [];
+  const keyword = (text ?? '').trim();
+  if (keyword.length === 0) {
+    return [];
+  }
 
   songlistSearchState.isSearching = true;
-
+  songlistSearchState.source = sourceId;
+  songlistSearchState.page = page;
   try {
-    // 各音乐源的SDK未提供歌单搜索API，暂不支持此功能
+    let results = await searchSongLists(keyword, page, 20, sourceId);
+    // 当前源不支持歌单搜索（如酷我/酷狗/咪咕）时，自动回退为全源聚合
+    if (results.length === 0 && sourceId !== 'all') {
+      results = await searchSongLists(keyword, page, 20, 'all');
+    }
+    const list: SonglistSearchResult[] = [];
+    for (let i = 0; i < results.length; i++) {
+      const sourceResult = results[i];
+      for (let j = 0; j < sourceResult.list.length; j++) {
+        const item = sourceResult.list[j];
+        list.push({
+          id: item.id,
+          name: item.name,
+          desc: item.desc,
+          pic: item.img,
+          source: item.source,
+          playCount: parseInt(item.play_count) || 0,
+          author: item.author,
+        });
+      }
+    }
+    songlistSearchState.list = list;
+    songlistSearchState.hasMore = list.length > 0;
+    hilog.info(DOMAIN, TAG, 'searchSonglist: keyword=%{public}s, count=%{public}d', keyword, list.length);
+    return list;
+  } catch (error) {
+    const msg: string = error instanceof Error ? error.message : JSON.stringify(error);
+    hilog.error(DOMAIN, TAG, 'searchSonglist failed: %{public}s', msg);
     return [];
   } finally {
     songlistSearchState.isSearching = false;

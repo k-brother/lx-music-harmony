@@ -20,6 +20,7 @@ import { httpRequest } from '../core/network/http';
 import { createLxWebSocket, decodeWsPayload } from '../core/network/websocket';
 import { webSocket } from '@kit.NetworkKit';
 import { settingsService, type SettingsPatch } from './SettingsService';
+import { t } from './LocalizationService';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'SyncService';
@@ -117,7 +118,7 @@ export class SyncService {
   
   private currentStatus: SyncStatusInfo = {
     status: SyncStatus.DISCONNECTED,
-    message: '未连接',
+    message: t('sync_msg_disconnected'),
     lastSyncTime: 0
   };
   
@@ -253,7 +254,7 @@ export class SyncService {
   // 连接服务器
   async connect(): Promise<boolean> {
     if (!this.config.enabled || !this.config.serverUrl) {
-      this.updateStatus(SyncStatus.ERROR, '同步未启用或服务器地址未设置');
+      this.updateStatus(SyncStatus.ERROR, t('sync_msg_not_enabled'));
       return false;
     }
 
@@ -262,25 +263,25 @@ export class SyncService {
       await this.disconnect();
     }
 
-    this.updateStatus(SyncStatus.CONNECTING, '正在连接服务器...');
+    this.updateStatus(SyncStatus.CONNECTING, t('sync_msg_connecting'));
     
     try {
       // 首先检查服务器状态
       const serverAvailable = await this.checkServerStatus();
       if (!serverAvailable) {
-        this.updateStatus(SyncStatus.ERROR, '服务器不可用');
+        this.updateStatus(SyncStatus.ERROR, t('sync_msg_server_unavailable'));
         return false;
       }
 
       // 建立WebSocket连接
       await this.connectWebSocket();
       
-      this.updateStatus(SyncStatus.CONNECTED, '已连接到同步服务器');
+      this.updateStatus(SyncStatus.CONNECTED, t('sync_msg_connected'));
       this.reconnectAttempts = 0; // 重置重连尝试次数
       return true;
     } catch (err) {
       const errorMsg: string = JSON.stringify(err);
-      this.updateStatus(SyncStatus.ERROR, '连接失败', errorMsg);
+      this.updateStatus(SyncStatus.ERROR, t('sync_msg_connect_failed'), errorMsg);
       
       // 尝试重连
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
@@ -425,7 +426,7 @@ export class SyncService {
       try {
         const closeOptions: webSocket.WebSocketCloseOptions = {
           code: 1000,
-          reason: '正常关闭'
+          reason: t('sync_msg_normal_close')
         };
         await this.webSocket.close(closeOptions);
       } catch (err) {
@@ -450,7 +451,7 @@ export class SyncService {
       }
     }
 
-    this.updateStatus(SyncStatus.SYNCING, '正在同步数据...');
+    this.updateStatus(SyncStatus.SYNCING, t('sync_msg_syncing'));
     
     try {
       // 1. 准备本地数据
@@ -477,11 +478,11 @@ export class SyncService {
       // 4. 等待同步完成（通过WebSocket消息处理）
       // 同步结果会在handleSyncMessage中处理
       
-      this.updateStatus(SyncStatus.CONNECTED, '同步请求已发送');
+      this.updateStatus(SyncStatus.CONNECTED, t('sync_msg_request_sent'));
       return true;
     } catch (err) {
       const errorMsg: string = JSON.stringify(err);
-      this.updateStatus(SyncStatus.ERROR, '同步失败', errorMsg);
+      this.updateStatus(SyncStatus.ERROR, t('sync_msg_failed'), errorMsg);
       return false;
     }
   }
@@ -842,7 +843,7 @@ export class SyncService {
       
       // 更新最后同步时间
       this.currentStatus.lastSyncTime = Date.now();
-      this.updateStatus(SyncStatus.CONNECTED, '数据同步完成');
+      this.updateStatus(SyncStatus.CONNECTED, t('sync_msg_data_done'));
       
     } catch (err) {
       const errMsg: string = err instanceof Error ? err.message : 'Unknown error';
@@ -871,10 +872,10 @@ export class SyncService {
     const dataObj: Record<string, Object> = data as Record<string, Object>;
     if (dataObj['success']) {
       this.currentStatus.lastSyncTime = Date.now();
-      this.updateStatus(SyncStatus.CONNECTED, '同步完成');
+      this.updateStatus(SyncStatus.CONNECTED, t('sync_msg_done'));
     } else {
       const errorMsg: string = dataObj['error'] as string || '未知错误';
-      this.updateStatus(SyncStatus.ERROR, '同步失败', errorMsg);
+      this.updateStatus(SyncStatus.ERROR, t('sync_msg_failed'), errorMsg);
     }
   }
 
@@ -883,7 +884,7 @@ export class SyncService {
     const dataObj: Record<string, Object> = data as Record<string, Object>;
     const errorMsg: string = dataObj['error'] as string || '未知错误';
     hilog.error(DOMAIN, TAG, '同步错误: %{public}s', errorMsg);
-    this.updateStatus(SyncStatus.ERROR, '同步过程中发生错误', errorMsg);
+    this.updateStatus(SyncStatus.ERROR, t('sync_msg_error'), errorMsg);
   }
 
   // 合并数据到本地

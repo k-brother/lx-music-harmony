@@ -58,6 +58,10 @@ export interface SongListSdkInterface {
   getTags: () => Promise<SongListTagsResult>;
   getList: (sortId: string, tagId: string, page: number) => Promise<SongListResult>;
   getListDetail: (listId: string, page: number) => Promise<SongListDetailResult>;
+  /**
+   * 按关键字搜索歌单（可选能力：源未实现时返回 null，由上层跳过该源）
+   */
+  searchList?: (keyword: string, page: number, limit: number) => Promise<SongListResult | null>;
 }
 
 export interface HotSearchSdkInterface {

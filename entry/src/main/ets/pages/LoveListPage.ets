@@ -3,9 +3,10 @@ import hilog from '@ohos.hilog';
 import { navigationService } from '../service/NavigationService';
 import { DesignTokens } from '../theme/DesignTokens';
 import { NavBackButton } from '../components/common/NavBackButton';
+import { EmptyView } from '../components/common/EmptyView';
 import { getLoveList, toggleLoveList, type MusicItem } from '../service/ListService';
 import { playerService, SongInfo } from '../service/PlayerService';
-import { t } from '../service/LocalizationService';
+import { t , tf } from '../service/LocalizationService';
 
 interface SongRow {
   id: string;
@@ -63,7 +64,7 @@ export struct LoveListPage {
 
   private async playSong(index: number) {
     if (this.songs.length === 0) {
-      this.showToast('列表为空');
+      this.showToast(t('list_empty'));
       return;
     }
     try {
@@ -85,7 +86,7 @@ export struct LoveListPage {
       // 由播放器按索引取播放地址（受"自动播放"设置控制）
       await playerService.playSelectedFromPlayList(index);
     } catch (e) {
-      this.showToast('播放失败');
+      this.showToast(t('toast_play_failed'));
     }
   }
 
@@ -104,9 +105,9 @@ export struct LoveListPage {
       };
       await toggleLoveList(musicItem);
       this.songs = this.songs.filter(s => s.id !== song.id);
-      this.showToast('已取消喜欢');
+      this.showToast(t('toast_unloved'));
     } catch (e) {
-      this.showToast('操作失败');
+      this.showToast(t('toast_operation_failed'));
     }
   }
 
@@ -166,7 +167,7 @@ export struct LoveListPage {
             .layoutWeight(1)
             .textAlign(TextAlign.Center)
 
-          Text(`${this.songs.length} 首`)
+          Text(tf('count_songs_short', [this.songs.length.toString()]))
             .fontSize(13)
             .fontColor(DesignTokens.labelTertiary(this.theme))
             .padding({ right: 16 })
@@ -186,13 +187,11 @@ export struct LoveListPage {
           .justifyContent(FlexAlign.Center)
         } else if (this.songs.length === 0) {
           Column() {
-          Text(t('love_empty'))
-              .fontSize(16)
-              .fontColor(DesignTokens.labelSecondary(this.theme))
+            EmptyView({ icon: '❤️', message: t('love_empty') })
             Text(t('no_data'))
               .fontSize(13)
               .fontColor(DesignTokens.labelTertiary(this.theme))
-              .margin({ top: 8 })
+              .margin({ top: 6 })
           }
           .width('100%')
           .layoutWeight(1)

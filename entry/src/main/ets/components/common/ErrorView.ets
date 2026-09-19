@@ -1,33 +1,31 @@
 /**
- * 通用错误视图组件
- * 注意：重试逻辑由父组件通过条件渲染处理
+ * 通用错误/失败状态视图
+ *
+ * 纯展示组件（ArkTS V1 的 @Prop 不支持函数类型，回调由页面自己渲染按钮实现）。
  */
 import { t } from '../../service/LocalizationService';
+import { DesignTokens } from '../../theme/DesignTokens';
 
 @Component
 export struct ErrorView {
+  @StorageProp('theme') theme: string = 'light';
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
   @Prop message: string = '';
-  @Prop showRetry: boolean = true;
+  @Prop icon: string = '⚠️';
 
   build() {
     Column() {
-      Text('⚠️')
-        .fontSize(50)
-        .fontColor('#CCCCCC')
+      Text(this.icon)
+        .fontSize(48)
+        .opacity(0.55)
 
-      Text(this.message ? this.message : t('load_failed'))
+      Text(this.message.length > 0 ? this.message : t('load_failed'))
         .fontSize(14)
-        .fontColor('#999999')
+        .fontColor(DesignTokens.labelSecondary(this.theme))
         .margin({ top: 12 })
+        .textAlign(TextAlign.Center)
 
-      if (this.showRetry) {
-        Text(t('retry'))
-          .fontSize(14)
-          .fontColor('#E63946')
-          .margin({ top: 16 })
-      }
     }
     .width('100%')
     .justifyContent(FlexAlign.Center)

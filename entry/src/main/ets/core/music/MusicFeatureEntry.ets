@@ -388,6 +388,7 @@ export {
   getSongListTags,
   getSongList,
   getSongListDetail,
+  searchSongLists,
   getLeaderboard,
   getLeaderboardList,
   getHotSearch,

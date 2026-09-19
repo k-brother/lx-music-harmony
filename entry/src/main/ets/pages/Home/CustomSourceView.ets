@@ -162,10 +162,10 @@ export struct CustomSourceView {
       Text(title)
         .fontSize(13)
         .fontWeight(FontWeight.Medium)
-        .fontColor(this.theme === 'dark' ? '#8E8E93' : '#8E8E93')
+        .fontColor(DesignTokens.labelTertiary(this.theme))
         .padding({ left: 16, top: 20, bottom: 8 })
         .width('100%')
-        .backgroundColor(this.theme === 'dark' ? '#121212' : '#F5F5F5')
+        .backgroundColor(DesignTokens.pageBg(this.theme))
     }
   }
 
@@ -176,16 +176,16 @@ export struct CustomSourceView {
         Column() {
           Text(item.name)
             .fontSize(15)
-            .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
+            .fontColor(DesignTokens.labelPrimary(this.theme))
           if (item.builtIn) {
             Text('内置源')
               .fontSize(11)
-              .fontColor('#999999')
+              .fontColor(DesignTokens.labelSecondary(this.theme))
               .margin({ top: 2 })
           } else {
             Text(item.url || '')
               .fontSize(11)
-              .fontColor('#999999')
+              .fontColor(DesignTokens.labelSecondary(this.theme))
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
               .margin({ top: 2 })
@@ -198,13 +198,13 @@ export struct CustomSourceView {
           Image($r('sys.symbol.checkmark_circle_fill'))
             .width(22)
             .height(22)
-            .fillColor('#007DFF')
+            .fillColor(DesignTokens.accent())
         }
       }
       .width('100%')
       .height(56)
       .padding({ left: 16, right: 16 })
-      .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
+      .backgroundColor(DesignTokens.card(this.theme))
       .onClick(() => {
         this.selectSource(item.id);
       })
@@ -249,10 +249,10 @@ export struct CustomSourceView {
             Column() {
               Text('在线JS源文件')
                 .fontSize(15)
-                .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
+                .fontColor(DesignTokens.labelPrimary(this.theme))
               Text('输入在线JS源文件地址')
                 .fontSize(11)
-                .fontColor('#999999')
+                .fontColor(DesignTokens.labelSecondary(this.theme))
                 .margin({ top: 2 })
             }
             .alignItems(HorizontalAlign.Start)
@@ -262,13 +262,13 @@ export struct CustomSourceView {
               Image($r('sys.symbol.checkmark_circle_fill'))
                 .width(22)
                 .height(22)
-                .fillColor('#007DFF')
+                .fillColor(DesignTokens.accent())
             }
           }
           .width('100%')
           .height(56)
           .padding({ left: 16, right: 16 })
-          .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
+          .backgroundColor(DesignTokens.card(this.theme))
           .onClick(() => {
             this.selectSource('custom');
           })
@@ -278,14 +278,14 @@ export struct CustomSourceView {
             Column() {
               Text('JS源文件地址')
                 .fontSize(13)
-                .fontColor('#666666')
+                .fontColor(DesignTokens.labelSecondary(this.theme))
                 .padding({ left: 16, top: 12, bottom: 8 })
 
               TextInput({ placeholder: t('plugin_url_hint'), text: this.customSourceUrl })
                 .width('100%')
                 .height(44)
                 .fontSize(14)
-                .backgroundColor(this.theme === 'dark' ? '#2C2C2C' : '#F5F5F5')
+                .backgroundColor(DesignTokens.mutedFill(this.theme))
                 .borderRadius(8)
                 .padding({ left: 12, right: 12 })
                 .onChange((value: string) => {
@@ -295,7 +295,7 @@ export struct CustomSourceView {
               // 示例地址提示
               Text('提示: 安卓版 LX Music 的在线JS源可以在设置 -> 自定义源 中查看')
                 .fontSize(11)
-                .fontColor('#999999')
+                .fontColor(DesignTokens.labelSecondary(this.theme))
                 .padding({ left: 16, top: 8, right: 16 })
                 .width('100%')
 
@@ -304,7 +304,7 @@ export struct CustomSourceView {
                 .width('100%')
                 .height(44)
                 .fontSize(15)
-                .backgroundColor(this.isLoading ? '#CCCCCC' : '#007DFF')
+                .backgroundColor(this.isLoading ? DesignTokens.disabled(this.theme) : DesignTokens.accent())
                 .fontColor('#FFFFFF')
                 .borderRadius(8)
                 .margin({ top: 16, left: 16, right: 16 })
@@ -317,7 +317,7 @@ export struct CustomSourceView {
               if (this.loadStatus) {
                 Text(this.loadStatus)
                   .fontSize(13)
-                  .fontColor('#007DFF')
+                  .fontColor(DesignTokens.accent())
                   .padding({ left: 16, top: 8 })
                   .width('100%')
               }
@@ -325,7 +325,7 @@ export struct CustomSourceView {
               if (this.errorMessage) {
                 Text(this.errorMessage)
                   .fontSize(13)
-                  .fontColor('#FF3B30')
+                  .fontColor(DesignTokens.danger())
                   .padding({ left: 16, top: 8 })
                   .width('100%')
               }
@@ -335,17 +335,17 @@ export struct CustomSourceView {
                 Column() {
                   Text('已加载插件信息')
                     .fontSize(13)
-                    .fontColor('#666666')
+                    .fontColor(DesignTokens.labelSecondary(this.theme))
                     .padding({ left: 16, top: 16, bottom: 8 })
 
                   Row() {
                     Text('名称:')
                       .fontSize(13)
-                      .fontColor('#999999')
+                      .fontColor(DesignTokens.labelSecondary(this.theme))
                       .width(60)
                     Text(this.pluginInfo.name)
                       .fontSize(13)
-                      .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
+                      .fontColor(DesignTokens.labelPrimary(this.theme))
                   }
                   .width('100%')
                   .padding({ left: 16, right: 16 })
@@ -353,11 +353,11 @@ export struct CustomSourceView {
                   Row() {
                     Text('版本:')
                       .fontSize(13)
-                      .fontColor('#999999')
+                      .fontColor(DesignTokens.labelSecondary(this.theme))
                       .width(60)
                     Text(this.pluginInfo.version)
                       .fontSize(13)
-                      .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
+                      .fontColor(DesignTokens.labelPrimary(this.theme))
                   }
                   .width('100%')
                   .padding({ left: 16, right: 16, top: 4 })
@@ -365,39 +365,36 @@ export struct CustomSourceView {
                   Row() {
                     Text('作者:')
                       .fontSize(13)
-                      .fontColor('#999999')
+                      .fontColor(DesignTokens.labelSecondary(this.theme))
                       .width(60)
                     Text(this.pluginInfo.author)
                       .fontSize(13)
-                      .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
+                      .fontColor(DesignTokens.labelPrimary(this.theme))
                   }
                   .width('100%')
                   .padding({ left: 16, right: 16, top: 4 })
                   .margin({ bottom: 16 })
                 }
                 .width('100%')
-                .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
+                .backgroundColor(DesignTokens.card(this.theme))
                 .borderRadius(8)
                 .margin({ left: 16, right: 16, top: 16 })
               }
             }
             .width('100%')
-            .backgroundColor(this.theme === 'dark' ? '#121212' : '#F5F5F5')
+            .backgroundColor(DesignTokens.pageBg(this.theme))
           }
 
           // 使用说明
           Column() {
-            Text('使用说明')
+            Text(t('custom_source_help_title'))
               .fontSize(13)
-              .fontColor('#666666')
+              .fontColor(DesignTokens.labelSecondary(this.theme))
               .padding({ left: 16, top: 20, bottom: 8 })
 
-            Text('1. 在设置 -> 自定义源 中，可以输入在线JS源文件地址\n' +
-                 '2. JS源文件需要与 LX Music 插件格式兼容\n' +
-                 '3. 加载自定义源后，可以获取更好的音乐播放体验\n' +
-                 '4. 如需使用内置源，选择对应的音乐源即可')
+            Text(t('custom_source_help_body'))
               .fontSize(12)
-              .fontColor('#999999')
+              .fontColor(DesignTokens.labelSecondary(this.theme))
               .padding({ left: 16, right: 16, bottom: 20 })
               .lineHeight(20)
           }
@@ -410,7 +407,7 @@ export struct CustomSourceView {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.theme === 'dark' ? '#121212' : '#F5F5F5')
+    .backgroundColor(DesignTokens.pageBg(this.theme))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
   }
 }

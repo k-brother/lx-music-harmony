@@ -19,6 +19,13 @@ import {
 } from './ListService';
 import { musicItemFromPlainObject } from '../core/list/PlaylistRecordMapper';
 import { settingsService, type SettingsPatch } from './SettingsService';
+import {
+  exportDownloadTasksForBackup,
+  restoreDownloadTasksFromBackup,
+  DownloadStatus,
+  type DownloadTask,
+} from '../core/music/RunMusicDownloads';
+import type { MusicInfo, Quality } from '../types/MusicTypes';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'BackupService';
@@ -74,6 +81,10 @@ interface BackupDownloadSnapshot {
   filePath: string;
   status: string;
   createTime: number;
+  /** 歌曲信息（恢复后仍可播放/展示） */
+  musicInfo?: Object;
+  quality?: string;
+  progress?: number;
 }
 
 // 备份数据
@@ -547,9 +558,28 @@ export class BackupService {
 
   // 收集下载数据
   private async collectDownloadData(): Promise<BackupDownloadSnapshot[]> {
-    hilog.info(DOMAIN, TAG, 'Collecting download data - no persistent download state to backup');
-    // 下载任务状态未持久化，返回空数组
-    return [];
+    try {
+      const tasks: DownloadTask[] = exportDownloadTasksForBackup();
+      const snapshots: BackupDownloadSnapshot[] = [];
+      for (let i = 0; i < tasks.length; i++) {
+        const task = tasks[i];
+        snapshots.push({
+          id: task.id,
+          fileName: task.musicInfo ? `${task.musicInfo.name} - ${task.musicInfo.singer}` : '',
+          filePath: task.filePath ?? '',
+          status: task.status,
+          createTime: Date.now(),
+          musicInfo: task.musicInfo as Object,
+          quality: task.quality,
+          progress: task.progress,
+        });
+      }
+      hilog.info(DOMAIN, TAG, 'Collected %{public}d download tasks', snapshots.length);
+      return snapshots;
+    } catch (err) {
+      hilog.error(DOMAIN, TAG, 'collectDownloadData failed: %{public}s', JSON.stringify(err));
+      return [];
+    }
   }
 
   // 生成备份文件名
@@ -757,14 +787,26 @@ export class BackupService {
   private async restoreDownloadData(downloads: BackupDownloadSnapshot[]): Promise<void> {
     try {
       hilog.info(DOMAIN, TAG, 'Restoring download data, count: %{public}d', downloads.length);
-      
-      // 这里应该将下载数据恢复到下载服务
-      // 由于下载服务可能没有导入恢复方法，我们只记录日志
-      for (const download of downloads) {
-        hilog.info(DOMAIN, TAG, 'Restoring download: %{public}s', download.fileName || '未知文件');
+      const tasks: DownloadTask[] = [];
+      for (let i = 0; i < downloads.length; i++) {
+        const snapshot = downloads[i];
+        if (!snapshot.musicInfo) {
+          continue;
+        }
+        tasks.push({
+          id: snapshot.id,
+          musicInfo: snapshot.musicInfo as MusicInfo,
+          quality: (snapshot.quality ?? '128k') as Quality,
+          status: snapshot.status === DownloadStatus.COMPLETED
+            ? DownloadStatus.COMPLETED : DownloadStatus.FAILED,
+          progress: snapshot.progress ?? 100,
+          downloadedSize: 0,
+          totalSize: 0,
+          filePath: snapshot.filePath,
+        });
       }
-      
-      hilog.info(DOMAIN, TAG, 'Download data restored successfully');
+      const restored = await restoreDownloadTasksFromBackup(tasks);
+      hilog.info(DOMAIN, TAG, 'Download data restored: %{public}d tasks', restored);
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to restore download data: %{public}s', JSON.stringify(err));
       const msg = err instanceof Error ? err.message : JSON.stringify(err);

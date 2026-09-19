@@ -13,7 +13,10 @@ import { addMusicToList, getUserList, getUserListMusic, LIST_IDS, MusicItem, Lis
 import type { MusicInfo, MusicSource } from '../types/MusicTypes';
 import { DesignTokens } from '../theme/DesignTokens';
 import { NavBackButton } from '../components/common/NavBackButton';
-import { t } from '../service/LocalizationService';
+import pasteboard from '@ohos.pasteboard';
+import { SkeletonListItem } from '../components/common/SkeletonView';
+import { ErrorView } from '../components/common/ErrorView';
+import { t, tf, sourceLabel } from '../service/LocalizationService';
 
 interface MenuActionItem {
   label: string;
@@ -34,6 +37,13 @@ interface SonglistCollectionEntry {
 @Component
 export struct SonglistDetailPage {
   @StorageProp('theme') theme: string = 'light';
+
+  /** 按压反馈：列表行/按钮变淡 */
+  @Styles
+  pressDim() {
+    .opacity(0.65)
+  }
+
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
   @State renderKey: number = Date.now();
@@ -60,7 +70,18 @@ export struct SonglistDetailPage {
 
   // 防止重复加载标志
   private detailLoaded: boolean = false;
+  /** 最近一次加载的歌单参数，用于失败重试 */
+  private lastSourceId: string = '';
+  private lastListId: string = '';
   private songListScroller: Scroller = new Scroller();
+
+  /** 失败重试：用上次的参数重新拉取 */
+  private reloadDetail(): void {
+    if (this.lastSourceId.length === 0 || this.lastListId.length === 0) {
+      return;
+    }
+    void this.loadSonglistDetail(this.lastSourceId, this.lastListId);
+  }
 
   private getSongListOffsetY(): number {
     try {
@@ -141,7 +162,7 @@ export struct SonglistDetailPage {
 
               Text(this.getSourceLabel())
                 .fontSize(10)
-                .fontColor('#FFFFFF')
+                .fontColor(DesignTokens.onAccent())
                 .padding({ left: 8, right: 8, top: 3, bottom: 3 })
                 .backgroundColor(DesignTokens.accent())
                 .borderRadius(9)
@@ -171,11 +192,11 @@ export struct SonglistDetailPage {
             .alignItems(VerticalAlign.Center)
 
             Row() {
-              Text(`播放: ${this.formatPlayCountDisplay(this.listInfo.playCount)}`)
+              Text(tf('count_play', [this.formatPlayCountDisplay(this.listInfo.playCount)]))
                 .fontSize(DesignTokens.fontCaption())
                 .fontColor(DesignTokens.labelSecondary(this.theme))
                 .maxLines(1)
-              Text(`共 ${this.songList.length} 首`)
+              Text(tf('count_songs', [this.songList.length.toString()]))
                 .fontSize(DesignTokens.fontCaption())
                 .fontColor(DesignTokens.labelSecondary(this.theme))
                 .margin({ left: 8 })
@@ -192,10 +213,10 @@ export struct SonglistDetailPage {
               Image($r('app.media.ic_pd_play'))
                 .width(14)
                 .height(14)
-                .fillColor('#FFFFFF')
+                .fillColor(DesignTokens.onAccent())
               Text('播放全部')
                 .fontSize(DesignTokens.fontCaption())
-                .fontColor('#FFFFFF')
+                .fontColor(DesignTokens.onAccent())
                 .fontWeight(FontWeight.Medium)
             }
             .height(34)
@@ -232,10 +253,10 @@ export struct SonglistDetailPage {
               Image($r('app.media.ic_pd_play'))
                 .width(14)
                 .height(14)
-                .fillColor('#FFFFFF')
+                .fillColor(DesignTokens.onAccent())
               Text('播放全部')
                 .fontSize(DesignTokens.fontCaption())
-                .fontColor('#FFFFFF')
+                .fontColor(DesignTokens.onAccent())
                 .fontWeight(FontWeight.Medium)
             }
             .height(34)
@@ -263,13 +284,13 @@ export struct SonglistDetailPage {
 
             Text(this.getSourceLabel())
               .fontSize(10)
-              .fontColor('#FFFFFF')
+              .fontColor(DesignTokens.onAccent())
               .padding({ left: 8, right: 8, top: 3, bottom: 3 })
               .backgroundColor(DesignTokens.accent())
               .borderRadius(9)
           }
 
-          Text(`共 ${this.songList.length} 首`)
+          Text(tf('count_songs', [this.songList.length.toString()]))
             .fontSize(DesignTokens.fontCaption())
             .fontColor(DesignTokens.labelSecondary(this.theme))
         }
@@ -339,6 +360,7 @@ export struct SonglistDetailPage {
           .borderRadius(12)
           .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
         }
+        .stateStyles({ pressed: this.pressDim })
         .onClick(() => {
           void this.playSong(index);
         })
@@ -379,6 +401,8 @@ export struct SonglistDetailPage {
     hilog.info(0x0001, 'SonglistDetail', 'Loading detail for source: %{public}s, id: %{public}s', source, id);
     this.isLoading = true;
     this.hasError = false;
+    this.lastSourceId = source;
+    this.lastListId = id;
 
     if (source === 'local') {
       this.loadLocalSonglistDetail(id);
@@ -705,11 +729,11 @@ export struct SonglistDetailPage {
       if (isCollected) {
         // 取消收藏
         await this.removeFromCollections();
-        this.showToast('已取消收藏: ' + this.listInfo.name);
+        this.showToast(tf('toast_uncollected', [this.listInfo.name]));
       } else {
         // 添加收藏
         await this.addToCollections();
-        this.showToast('已收藏: ' + this.listInfo.name);
+        this.showToast(tf('toast_collected', [this.listInfo.name]));
       }
       
     } catch (err) {
@@ -805,18 +829,18 @@ export struct SonglistDetailPage {
       hilog.info(0x0001, 'SonglistDetail', 'Download songlist: %{public}s', this.listInfo.name);
       
       if (this.songList.length === 0) {
-        this.showToast('歌单为空，无法下载');
+        this.showToast(t('toast_songlist_empty'));
         return;
       }
       
       // 确认下载
       const confirmed = await this.showConfirmDialog(
         t('download_confirm_title'),
-        `确定要下载歌单 "${this.listInfo.name}" 中的 ${this.songList.length} 首歌曲吗？`
+        tf('confirm_download_songlist', [this.listInfo.name, this.songList.length.toString()])
       );
       
       if (!confirmed) {
-        this.showToast('已取消下载');
+        this.showToast(t('toast_cancel_download'));
         return;
       }
       
@@ -831,7 +855,7 @@ export struct SonglistDetailPage {
           successCount++;
           
           // 更新进度
-          this.showToast(`下载中... (${i + 1}/${this.songList.length})`);
+          this.showToast(tf('toast_downloading_progress', [(i + 1).toString(), this.songList.length.toString()]));
         } catch (err) {
           hilog.error(0x0001, 'SonglistDetail', 'Failed to download song %{public}s: %{public}s', 
             song.name, JSON.stringify(err));
@@ -841,9 +865,9 @@ export struct SonglistDetailPage {
       
       // 显示结果
       if (successCount > 0) {
-        this.showToast(`下载完成: ${successCount} 首成功, ${failCount} 首失败`);
+        this.showToast(tf('toast_download_summary', [successCount.toString(), failCount.toString()]));
       } else {
-        this.showToast('下载失败，请检查网络连接');
+        this.showToast(t('toast_download_failed_network'));
       }
       
     } catch (err) {
@@ -931,7 +955,7 @@ export struct SonglistDetailPage {
     const actions: MenuActionItem[] = [
       { label: t('player_add_to_list'), action: (): void => { this.addToPlaylist(song); } },
       { label: t('player_download'), action: (): void => { this.downloadSongFromMenu(song); } },
-      { label: t('player_share'), action: (): void => { this.shareSong(song); } },
+      { label: t('player_share'), action: (): void => { void this.shareSong(song); } },
       { label: t('player_view_artist'), action: (): void => { this.viewArtist(song); } },
       { label: t('player_view_album'), action: (): void => { this.viewAlbum(song); } }
     ];
@@ -962,7 +986,7 @@ export struct SonglistDetailPage {
       
       await addMusicToList(LIST_IDS.DEFAULT, musicItem);
       
-      this.showToast(`已添加到默认列表: ${song.name}`);
+      this.showToast(tf('toast_added_to_default', [song.name]));
       hilog.info(0x0001, 'SonglistDetail', 'Added to playlist: %{public}s', song.name);
       
     } catch (err) {
@@ -977,7 +1001,7 @@ export struct SonglistDetailPage {
     try {
       // 调用之前实现的downloadSong方法
       await this.downloadSong(song);
-      this.showToast(`开始下载: ${song.name}`);
+      this.showToast(tf('toast_download_start_song', [song.name]));
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
       this.showToast('下载失败: ' + errorMsg);
@@ -985,24 +1009,31 @@ export struct SonglistDetailPage {
   }
 
   // 分享歌曲
-  private shareSong(song: SongItem): void {
-    // 在实际应用中，这里应该调用系统分享功能
-    hilog.info(0x0001, 'SonglistDetail', 'Sharing song: %{public}s', song.name);
-    this.showToast(`分享: ${song.name} - ${song.singer}`);
+  private async shareSong(song: SongItem): Promise<void> {
+    // 与播放页封面长按的"分享"保持一致：写入系统剪贴板（本 SDK 无系统分享面板）
+    const text = `[${sourceLabel(song.source)}] ${song.name} - ${song.singer}${song.album ? ' · ' + song.album : ''}`;
+    try {
+      const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, text);
+      await pasteboard.getSystemPasteboard().setData(data);
+      this.showToast(t('toast_share_copy'));
+    } catch (err) {
+      hilog.warn(0x0001, 'SonglistDetail', 'shareSong failed: %{public}s', JSON.stringify(err));
+      this.showToast(t('toast_operation_failed'));
+    }
   }
 
   // 查看歌手
   private viewArtist(song: SongItem): void {
     // 在实际应用中，这里应该跳转到歌手页面
     hilog.info(0x0001, 'SonglistDetail', 'Viewing artist: %{public}s', song.singer);
-    this.showToast(`查看歌手: ${song.singer}`);
+    this.showToast(tf('toast_view_artist', [song.singer]));
   }
 
   // 查看专辑
   private viewAlbum(song: SongItem): void {
     // 在实际应用中，这里应该跳转到专辑页面
     hilog.info(0x0001, 'SonglistDetail', 'Viewing album: %{public}s', song.album);
-    this.showToast(`查看专辑: ${song.album}`);
+    this.showToast(tf('toast_view_album', [song.album]));
   }
 
   build() {
@@ -1024,30 +1055,28 @@ export struct SonglistDetailPage {
       .backgroundColor(DesignTokens.chromeBar(this.theme))
 
       if (this.isLoading) {
-        // 加载中
+        // 加载中：用骨架列表代替转圈，避免整屏白等
         Column() {
-          LoadingProgress()
-            .width(32)
-            .height(32)
-          Text(t('loading'))
-            .fontSize(14)
-            .fontColor('#999999')
-            .margin({ top: 12 })
+          ForEach([0, 1, 2, 3, 4, 5], (index: number) => {
+            SkeletonListItem()
+          }, (index: number) => `songlist_skeleton_${index}`)
         }
         .width('100%')
         .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
       } else if (this.hasError) {
-        // 加载失败
+        // 失败态：统一错误视图 + 可点的重试按钮
         Column() {
-          Text('加载失败')
-            .fontSize(16)
-            .fontColor('#999999')
-          Text('请返回重试')
+          ErrorView({ message: t('load_failed_hint') })
+          Text(t('retry'))
             .fontSize(14)
-            .fontColor('#CCCCCC')
-            .margin({ top: 8 })
+            .fontColor(DesignTokens.accent())
+            .border({ width: 1, color: DesignTokens.accent() })
+            .borderRadius(16)
+            .padding({ left: 18, right: 18, top: 6, bottom: 6 })
+            .margin({ top: 16 })
+            .onClick(() => {
+              this.reloadDetail();
+            })
         }
         .width('100%')
         .layoutWeight(1)
@@ -1058,7 +1087,7 @@ export struct SonglistDetailPage {
         Column() {
           Text('暂无歌曲')
             .fontSize(14)
-            .fontColor('#999999')
+            .fontColor(DesignTokens.labelSecondary(this.theme))
         }
         .width('100%')
         .layoutWeight(1)

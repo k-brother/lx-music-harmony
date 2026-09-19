@@ -265,12 +265,20 @@ interface StorageKeysInterface {
   PLAY_AUTO_PLAY: string;
   PLAY_HIGH_QUALITY: string;
   PLAY_MODE: string;
+  PLAY_RATE: string;
+  LYRIC_OFFSET: string;
   PLAY_VOLUME: string;
   PLAY_SLEEP_ENABLED: string;
   PLAY_SLEEP_MINUTES: string;
   PLAY_DESKTOP_LYRIC: string;
   PLAY_DESKTOP_LYRIC_POSITION: string;
   PLAY_DESKTOP_LYRIC_COLOR: string;
+  PLAY_DESKTOP_LYRIC_BG_ALPHA: string;
+  PLAY_DESKTOP_LYRIC_FONT_SIZE: string;
+  PLAY_DESKTOP_LYRIC_SHOW_NEXT: string;
+  PLAY_DESKTOP_LYRIC_LOCKED: string;
+  PLAY_DESKTOP_LYRIC_X: string;
+  PLAY_DESKTOP_LYRIC_Y: string;
 
   // 搜索设置
   SEARCH_SOURCE: string;
@@ -304,6 +312,8 @@ interface StorageKeysInterface {
   LIST_USER: string;
   /** 收藏的在线歌单 */
   COLLECTION_SONGLISTS: string;
+  /** 本地音乐曲库 */
+  LOCAL_MUSIC_LIST: string;
 }
 
 // 存储键名常量
@@ -320,12 +330,20 @@ export const StorageKeys: StorageKeysInterface = {
   PLAY_AUTO_PLAY: 'setting.play.autoPlay',
   PLAY_HIGH_QUALITY: 'setting.play.highQuality',
   PLAY_MODE: 'setting.play.playMode',
+  PLAY_RATE: 'setting.play.playRate',
+  LYRIC_OFFSET: 'setting.play.lyricOffset',
   PLAY_VOLUME: 'setting.play.volume',
   PLAY_SLEEP_ENABLED: 'setting.play.sleepTimerEnabled',
   PLAY_SLEEP_MINUTES: 'setting.play.sleepTimerMinutes',
   PLAY_DESKTOP_LYRIC: 'setting.play.desktopLyric',
   PLAY_DESKTOP_LYRIC_POSITION: 'setting.play.desktopLyricPosition',
   PLAY_DESKTOP_LYRIC_COLOR: 'setting.play.desktopLyricColor',
+  PLAY_DESKTOP_LYRIC_BG_ALPHA: 'setting.play.desktopLyricBgAlpha',
+  PLAY_DESKTOP_LYRIC_FONT_SIZE: 'setting.play.desktopLyricFontSize',
+  PLAY_DESKTOP_LYRIC_SHOW_NEXT: 'setting.play.desktopLyricShowNext',
+  PLAY_DESKTOP_LYRIC_LOCKED: 'setting.play.desktopLyricLocked',
+  PLAY_DESKTOP_LYRIC_X: 'setting.play.desktopLyricX',
+  PLAY_DESKTOP_LYRIC_Y: 'setting.play.desktopLyricY',
 
   // 搜索设置
   SEARCH_SOURCE: 'setting.search.source',
@@ -360,6 +378,9 @@ export const StorageKeys: StorageKeysInterface = {
 
   // 收藏
   COLLECTION_SONGLISTS: 'collection.songlists',
+
+  // 本地音乐
+  LOCAL_MUSIC_LIST: 'local.music.list',
 };
 
 // 存储服务接口

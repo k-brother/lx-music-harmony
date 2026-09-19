@@ -1,4 +1,5 @@
 import hilog from '@ohos.hilog';
+import { EmptyView } from '../components/common/EmptyView';
 import { navigationService } from '../service/NavigationService';
 import { playerService, SongInfo } from '../service/PlayerService';
 import { getMusicUrl } from '../core/music/MusicFeatureEntry';
@@ -64,10 +65,10 @@ export struct HistoryListPage {
       }
       await clearPlayHistory();
       this.playHistory = [];
-      this.toast('已清空试听列表');
+      this.toast(t('toast_history_cleared'));
     } catch (e) {
       hilog.warn(0x0001, 'HistoryListPage', 'clear history failed: %{public}s', JSON.stringify(e));
-      this.toast('清空失败');
+      this.toast(t('toast_clear_failed'));
     }
   }
 
@@ -98,7 +99,7 @@ export struct HistoryListPage {
         allowToggleSource: true,
       });
       if (!url) {
-        this.toast('无法获取播放链接');
+        this.toast(t('toast_no_play_url'));
         return;
       }
       const songInfo: SongInfo = {
@@ -115,7 +116,7 @@ export struct HistoryListPage {
       await playerService.playFromSelection(songInfo, url, song.duration);
     } catch (error) {
       hilog.error(0x0001, 'HistoryListPage', 'play history song failed: %{public}s', JSON.stringify(error));
-      this.toast('播放失败');
+      this.toast(t('toast_play_failed'));
     }
   }
 
@@ -225,20 +226,9 @@ export struct HistoryListPage {
         .justifyContent(FlexAlign.Center)
         .alignItems(HorizontalAlign.Center)
       } else if (this.playHistory.length === 0) {
-        Column() {
-          Text(t('history_title'))
-            .fontSize(16)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(DesignTokens.labelSecondary(this.theme))
-          Text(t('no_data'))
-            .fontSize(13)
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-            .margin({ top: 8 })
-        }
-        .layoutWeight(1)
-        .width('100%')
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
+        EmptyView({ icon: '🕘', message: t('history_title') })
+          .layoutWeight(1)
+          .width('100%')
       } else {
         List({ space: 10 }) {
           ForEach(this.playHistory, (song: PlayHistoryItem, index: number) => {

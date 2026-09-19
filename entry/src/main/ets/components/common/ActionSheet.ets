@@ -1,10 +1,12 @@
 import { t } from '../../service/LocalizationService';
+import { DesignTokens } from '../../theme/DesignTokens';
 /**
  * 操作表组件 - 从底部弹出的操作列表
  */
 
 @Component
 export struct ActionSheet {
+  @StorageProp('theme') theme: string = 'light';
   @Prop title: string = '';
   @Prop actions: string[] = [];
   @Prop show: boolean = false;
@@ -36,7 +38,7 @@ export struct ActionSheet {
           if (this.title) {
             Text(this.title)
               .fontSize(14)
-              .fontColor('#666666')
+              .fontColor(DesignTokens.labelSecondary(this.theme))
               .padding({ top: 16, bottom: 12, left: 20, right: 20 })
           }
 
@@ -46,7 +48,7 @@ export struct ActionSheet {
               Column() {
                 Text(action)
                   .fontSize(16)
-                  .fontColor('#333333')
+                  .fontColor(DesignTokens.labelPrimary(this.theme))
                   .width('100%')
                   .textAlign(TextAlign.Center)
                   .padding({ top: 14, bottom: 14 })
@@ -57,7 +59,7 @@ export struct ActionSheet {
               })
             })
           }
-          .backgroundColor('#FFFFFF')
+          .backgroundColor(DesignTokens.card(this.theme))
           .borderRadius(12)
 
           // 取消按钮

@@ -7,6 +7,7 @@ import { http } from '@kit.NetworkKit';
 import { common } from '@kit.AbilityKit';
 import { utf8Encode } from '../utils/TextCodec';
 import type { MusicInfo } from '../types/MusicTypes';
+import { t } from './LocalizationService';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'MediaSaveService';
@@ -56,7 +57,7 @@ export class MediaSaveService {
       if (!lyricContent || lyricContent.trim().length === 0) {
         return {
           success: false,
-          message: '歌词内容为空'
+          message: t('media_lyric_empty')
         };
       }
 
@@ -82,7 +83,7 @@ export class MediaSaveService {
       
       return {
         success: true,
-        message: '歌词保存成功',
+        message: t('media_save_success'),
         filePath
       };
 
@@ -92,7 +93,7 @@ export class MediaSaveService {
       
       return {
         success: false,
-        message: '保存歌词失败',
+        message: t('media_save_fail'),
         error: errorMsg
       };
     }
@@ -104,7 +105,7 @@ export class MediaSaveService {
       if (!imageUrl || imageUrl.trim().length === 0) {
         return {
           success: false,
-          message: '图片URL为空'
+          message: t('media_url_empty')
         };
       }
 
@@ -113,7 +114,7 @@ export class MediaSaveService {
       if (!imageData) {
         return {
           success: false,
-          message: '下载图片失败'
+          message: t('media_save_fail')
         };
       }
 
@@ -139,7 +140,7 @@ export class MediaSaveService {
       
       return {
         success: true,
-        message: '封面保存成功',
+        message: t('media_save_success'),
         filePath
       };
 
@@ -149,7 +150,7 @@ export class MediaSaveService {
       
       return {
         success: false,
-        message: '保存封面失败',
+        message: t('media_save_fail'),
         error: errorMsg
       };
     }
@@ -237,7 +238,7 @@ export class MediaSaveService {
       } else {
         results.push({
           success: false,
-          message: '歌词内容为空'
+          message: t('media_lyric_empty')
         });
       }
     }
@@ -256,7 +257,7 @@ export class MediaSaveService {
       } else {
         results.push({
           success: false,
-          message: '图片URL为空'
+          message: t('media_url_empty')
         });
       }
     }

@@ -23,6 +23,8 @@ export enum RouteName {
   USER_LISTS = 'userlists',
   /** 我喜欢的列表页 */
   LOVE_LIST = 'lovelist',
+  /** 本地音乐 */
+  LOCAL_MUSIC = 'localmusic',
 }
 
 // 导航参数类型

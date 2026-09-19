@@ -1,4 +1,5 @@
-import { t } from '../service/LocalizationService';
+import { t , tf } from '../service/LocalizationService';
+import { EmptyView } from '../components/common/EmptyView';
 // 自建歌单管理页面
 import hilog from '@ohos.hilog';
 import { navigationService, RouteName } from '../service/NavigationService';
@@ -74,7 +75,7 @@ export struct UserListsPage {
   private async submitNewList(): Promise<void> {
     const name = this.newListName.trim();
     if (!name) {
-      this.showToast('请输入歌单名称');
+      this.showToast(t('input_playlist_name'));
       return;
     }
     try {
@@ -82,9 +83,9 @@ export struct UserListsPage {
       this.newListName = '';
       this.showCreateSheet = false;
       await this.loadUserLists();
-      this.showToast(`已创建「${name}」`);
+      this.showToast(tf('toast_created_quoted', [name]));
     } catch (e) {
-      this.showToast('创建失败，请重试');
+      this.showToast(t('toast_create_list_fail'));
     }
   }
 
@@ -92,7 +93,7 @@ export struct UserListsPage {
     if (!this.editingList) return;
     const name = this.editName.trim();
     if (!name) {
-      this.showToast('请输入歌单名称');
+      this.showToast(t('input_playlist_name'));
       return;
     }
     try {
@@ -100,9 +101,9 @@ export struct UserListsPage {
       this.editingList = null;
       this.editName = '';
       await this.loadUserLists();
-      this.showToast('已重命名');
+      this.showToast(t('toast_playlist_renamed'));
     } catch (e) {
-      this.showToast('重命名失败');
+      this.showToast(t('toast_rename_fail'));
     }
   }
 
@@ -111,10 +112,10 @@ export struct UserListsPage {
       const confirmed = await new Promise<boolean>((resolve) => {
         this.getUIContext().getPromptAction().showDialog({
           title: t('confirm_delete_title'),
-          message: `确认删除「${list.name}」？`,
+          message: tf('confirm_delete_quoted', [list.name]),
           buttons: [
             { text: t('cancel'), color: DesignTokens.labelSecondary(this.theme) },
-            { text: t('delete'), color: '#FF3B30' },
+            { text: t('delete'), color: DesignTokens.danger() },
           ],
         }, (_err: object, data: PromptActionResult) => {
           resolve(data.index === 1);
@@ -123,9 +124,9 @@ export struct UserListsPage {
       if (!confirmed) return;
       await deleteUserList(list.id);
       await this.loadUserLists();
-      this.showToast('已删除');
+      this.showToast(t('toast_playlist_deleted'));
     } catch (e) {
-      this.showToast('删除失败');
+      this.showToast(t('toast_delete_fail'));
     }
   }
 
@@ -161,7 +162,7 @@ export struct UserListsPage {
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(`${list.count} 首歌曲`)
+        Text(tf('count_songs_unit', [list.count.toString()]))
           .fontSize(13)
           .fontColor(DesignTokens.labelTertiary(this.theme))
           .margin({ top: 6 })
@@ -181,7 +182,7 @@ export struct UserListsPage {
 
       Text(t('delete'))
         .fontSize(13)
-        .fontColor('#FF3B30')
+        .fontColor(DesignTokens.danger())
         .padding({ left: 10, right: 10, top: 6, bottom: 6 })
         .onClick(() => {
           void this.deleteList(list);
@@ -389,13 +390,11 @@ export struct UserListsPage {
           .justifyContent(FlexAlign.Center)
         } else if (this.userLists.length === 0) {
           Column() {
-            Text(t('no_data'))
-              .fontSize(16)
-              .fontColor(DesignTokens.labelSecondary(this.theme))
-            Text('点击右上角新建按钮创建')
+            EmptyView({ icon: '📁', message: t('no_data') })
+            Text(t('user_lists_empty_hint'))
               .fontSize(13)
               .fontColor(DesignTokens.labelTertiary(this.theme))
-              .margin({ top: 8 })
+              .margin({ top: 6 })
           }
           .width('100%')
           .layoutWeight(1)

@@ -2,6 +2,10 @@
  * QQ音乐 - 热搜
  */
 import { httpRequest, parseHttpBodyJson, type HttpRequestConfig } from '../../../../core/network/http';
+import hilog from '@ohos.hilog';
+
+const TAG = 'TxHotSearch';
+const DOMAIN = 0x0003;
 
 // 热搜项
 export interface HotSearchItem {
@@ -160,7 +164,8 @@ export const hotSearch: HotSearchInterface = {
       // 如果API调用失败，返回空结果
       return buildEmptyHotSearchResult();
     } catch (error) {
-      console.error('QQ音乐热搜榜获取失败:', error);
+      hilog.warn(DOMAIN, TAG, 'getHotSearch failed: %{public}s',
+        error instanceof Error ? error.message : JSON.stringify(error));
       return buildEmptyHotSearchResult();
     }
   },

@@ -3,6 +3,10 @@
  */
 import { md5 } from '../../../../utils/CryptoUtils';
 import { httpRequest } from '../../../../core/network/http';
+import hilog from '@ohos.hilog';
+
+const TAG = 'KgUtil';
+const DOMAIN = 0x0003;
 
 // MD5 key
 const KG_MD5_KEY = 'OIlwieks28dk2k092lksi2UIkp';
@@ -98,7 +102,8 @@ export async function createHttpFetch<T>(url: string, retryNum: number = 0): Pro
     }
     return data as T;
   } catch (err) {
-    console.error('HTTP Error:', err);
+    hilog.warn(DOMAIN, TAG, 'http request failed: %{public}s',
+      err instanceof Error ? err.message : JSON.stringify(err));
     return createHttpFetch<T>(url, ++retryNum);
   }
 }

@@ -2,6 +2,10 @@
  * 网易云音乐 - 热门搜索
  */
 import { httpRequest, parseHttpBodyJson, type HttpRequestConfig } from '../../../../core/network/http';
+import hilog from '@ohos.hilog';
+
+const TAG = 'WyHotSearch';
+const DOMAIN = 0x0003;
 
 // 热搜项
 export interface HotSearchItem {
@@ -168,7 +172,8 @@ export const hotSearch: HotSearchInterface = {
       }
       return buildEmptyHotSearchResult();
     } catch (error) {
-      console.error('网易云音乐热搜榜获取失败:', error);
+      hilog.warn(DOMAIN, TAG, 'getHotSearch failed: %{public}s',
+        error instanceof Error ? error.message : JSON.stringify(error));
       return buildEmptyHotSearchResult();
     }
   },

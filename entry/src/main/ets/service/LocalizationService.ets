@@ -10,29 +10,55 @@ const DOMAIN = 0x0001;
 // 构建中文翻译 Map
 function buildZhCN(): Map<string, string> {
   const m: Map<string, string> = new Map();
-  m.set('tab_songlist', '歌单');
   m.set('tab_leaderboard', '排行榜');
-  m.set('tab_download', '下载');
   m.set('tab_my', '我的');
   m.set('songlist_title', '歌单');
-  m.set('songlist_search', '搜索歌单');
   m.set('search_placeholder', '搜索音乐');
   m.set('search_hot', '热搜');
   m.set('search_history', '搜索历史');
   m.set('search_clear_history', '清除历史');
   m.set('search_no_result', '暂无搜索结果');
   m.set('search_no_hot', '暂无热搜数据');
+  m.set('search_type_music', '单曲');
+  m.set('search_type_songlist', '歌单');
+  // 本地音乐
+  m.set('local_music', '本地音乐');
+  m.set('local_music_desc', '播放设备里的音频文件');
+  m.set('local_import', '导入本地音乐');
+  m.set('local_imported', '本地曲库共 {0} 首');
+  m.set('local_import_failed', '导入失败，请重试');
+  m.set('local_empty_hint', '还没有本地音乐\n点击右上角「+」或下方按钮导入音频文件');
+  m.set('local_remove_title', '从本地曲库移除');
+  m.set('play', '播放');
+  m.set('toast_deleted', '已删除');
+  m.set('toast_share_copy', '歌曲信息已复制到剪贴板');
+  m.set('toast_export_running', '正在导出歌单…');
+  m.set('toast_import_running', '正在导入歌单…');
+  m.set('player_unloved_ok', '已取消收藏');
+  m.set('player_loved', '已收藏');
+  m.set('player_unlove', '取消收藏');
+  m.set('player_love', '收藏');
+  m.set('more_actions', '更多操作');
+  m.set('load_failed_hint', '请返回重试');
+  m.set('toast_backup_running', '正在备份…');
+  m.set('user_lists_empty_hint', '点击右上角新建按钮创建');
+  m.set('download_empty_active', '等待、下载中与暂停的任务会出现在「进行中」');
+  m.set('download_empty_completed', '完成后可在「已完成」中查看或清理');
+  m.set('download_empty_failed', '失败任务可在此重试或删除');
+  m.set('play_speed', '播放速度');
+  m.set('play_speed_set', '已切换为 {0}');
+  m.set('lyric_offset', '歌词偏移');
+  m.set('lyric_offset_none', '不偏移');
+  m.set('toast_restore_running', '正在读取备份…');
   m.set('my_love', '我喜欢');
   m.set('my_history', '播放历史');
-  m.set('my_playlist', '我的歌单');
   m.set('my_create_list', '新建歌单');
   m.set('player_title', '正在播放');
-  m.set('player_lyric', '歌词');
   m.set('player_comment', '评论');
-  m.set('player_playlist', '播放列表');
   m.set('player_no_lyric', '纯音乐，请欣赏');
   m.set('player_download', '下载');
   m.set('player_no_song', '当前没有正在播放的歌曲');
+  m.set('no_lyric', '暂无歌词');
   m.set('player_share', '分享');
   m.set('player_add_to_list', '添加到歌单');
   m.set('player_view_artist', '查看歌手');
@@ -47,9 +73,6 @@ function buildZhCN(): Map<string, string> {
   m.set('download_pending', '等待中');
   m.set('download_completed', '已完成');
   m.set('download_failed', '失败');
-  m.set('download_pause_all', '全部暂停');
-  m.set('download_resume_all', '全部继续');
-  m.set('download_clear_completed', '清除已完成');
   m.set('settings_title', '设置');
   m.set('settings_basic', '基础设置');
   m.set('settings_language', '语言');
@@ -116,12 +139,9 @@ function buildZhCN(): Map<string, string> {
   m.set('load_failed', '加载失败');
   m.set('retry', '重试');
   m.set('no_data', '暂无数据');
-  m.set('back', '返回');
   m.set('play_all', '播放全部');
-  m.set('collect', '收藏');
   m.set('toast_export_success', '歌单导出成功');
   m.set('toast_export_fail', '歌单导出失败');
-  m.set('toast_import_success', '成功导入歌单');
   m.set('toast_import_fail', '歌单导入失败');
   m.set('toast_import_cancel', '已取消导入');
   m.set('toast_export_cancel', '已取消导出');
@@ -131,7 +151,6 @@ function buildZhCN(): Map<string, string> {
   m.set('toast_restore_fail', '数据恢复失败');
   m.set('toast_restore_cancel', '已取消恢复');
   m.set('toast_cache_cleared', '已清除缓存数据');
-  m.set('toast_lang_saved', '语言已保存，即时生效');
   m.set('toast_theme_dark', '已切换为深色模式');
   m.set('toast_theme_light', '已切换为浅色模式');
   m.set('toast_mode_changed', '播放模式已切换');
@@ -147,13 +166,8 @@ function buildZhCN(): Map<string, string> {
   m.set('toast_sync_fail', '同步失败');
   m.set('toast_last_sync', '上次同步:');
   m.set('toast_never_sync', '从未同步');
-  m.set('toast_share_copy', '已复制:');
-  m.set('toast_search_hint', '可在首页搜索:');
   m.set('toast_format_invalid', '文件格式无效');
-  m.set('toast_file_read_fail', '导入文件读取失败');
-  m.set('songlist_detail', '歌单详情');
   m.set('songlist_total', '首');
-  m.set('songlist_play_count', '播放');
   m.set('songlist_creator', '创建者');
   m.set('comment_title', '评论');
   m.set('comment_hot', '热门');
@@ -163,13 +177,11 @@ function buildZhCN(): Map<string, string> {
   m.set('history_clear', '清除全部');
   m.set('love_title', '我喜欢');
   m.set('love_empty', '还没有喜欢的歌曲');
-  m.set('user_lists_title', '我的歌单');
   m.set('source_kw', '酷我音乐');
   m.set('source_tx', 'QQ音乐');
   m.set('source_wy', '网易云音乐');
   m.set('source_kg', '酷狗音乐');
   m.set('source_mg', '咪咕音乐');
-  m.set('source_local', '本地');
   m.set('download_settings', '下载设置');
   m.set('download_path', '保存位置');
   m.set('download_auto_start', '自动开始下载');
@@ -185,7 +197,6 @@ function buildZhCN(): Map<string, string> {
   m.set('toast_dl_path_updated', '下载保存位置已更新');
   m.set('toast_dl_path_fail', '选择下载路径失败');
   m.set('toast_dl_cancel', '已取消选择');
-  m.set('toast_dl_concurrent_set', '同时下载数量已设置为:');
   m.set('source_import_title', '导入音源');
   m.set('source_import_url_hint', '输入在线JS链接（https://...）');
   m.set('source_import_btn', '导入在线链接');
@@ -197,9 +208,6 @@ function buildZhCN(): Map<string, string> {
   m.set('source_import_fail', '导入失败，请检查链接内容是否为可用JS插件');
   m.set('source_local_import_success', '本地音源导入成功');
   m.set('source_local_import_fail', '本地文件导入失败，请确认文件内容正确');
-  m.set('source_local_cancel', '已取消导入');
-  m.set('sync_mode_client', '客户端模式');
-  m.set('sync_mode_server', '服务器模式');
   m.set('unknown', '未知');
   m.set('unknown_artist', '未知歌手');
   m.set('unknown_album', '未知专辑');
@@ -208,7 +216,6 @@ function buildZhCN(): Map<string, string> {
   m.set('toast_play_url_failed', '获取播放地址失败，请稍后重试或切换音源');
   m.set('file_not_found', '文件路径不存在');
   m.set('task_not_found', '任务不存在');
-  m.set('page_settings', '设置');
   m.set('source_kw_short', '酷我');
   m.set('source_wy_short', '网易');
   m.set('source_kg_short', '酷狗');
@@ -232,25 +239,17 @@ function buildZhCN(): Map<string, string> {
   m.set('open_desktop_lyric', '开启桌面歌词');
   m.set('create_list_btn', '创建');
   m.set('input_playlist_name', '输入歌单名称');
-  m.set('edit_playlist_name', '编辑歌单名称');
   m.set('local_playlist', '本地歌单');
   m.set('billion_unit', '亿');
   m.set('ten_thousand_unit', '万');
   m.set('download_confirm_title', '下载确认');
-  m.set('download_confirm_msg', '确定要下载歌单');
   m.set('confirm_delete_title', '删除歌单');
-  m.set('confirm_delete_msg', '确定要删除该歌单吗？');
   m.set('restore_confirm_title', '确认恢复');
-  m.set('restore_confirm_msg', '确定要恢复备份吗？当前数据将被覆盖。');
-  m.set('toast_download_start', '开始下载');
-  m.set('toast_added_to_list', '已添加到列表');
   m.set('toast_add_list_fail', '添加失败');
   m.set('toast_cancel_download', '已取消下载');
   m.set('toast_playlist_created', '歌单已创建');
   m.set('toast_playlist_deleted', '歌单已删除');
   m.set('toast_playlist_renamed', '歌单已重命名');
-  m.set('playing_label', '正在播放');
-  m.set('playing_now', '正在播放');
   m.set('not_playing_text', '未在播放');
   m.set('select_song_hint', '选择歌曲开始收听');
   m.set('sort_default', '默认');
@@ -259,21 +258,15 @@ function buildZhCN(): Map<string, string> {
   m.set('filter_all', '全部');
   m.set('filter_all_board', '全部榜单');
   m.set('category_official', '官方');
-  m.set('media_saving', '保存中...');
   m.set('media_save_lyric', '保存歌词');
   m.set('media_save_cover', '保存封面');
-  m.set('media_save_both', '保存歌词和封面');
   m.set('media_lyric_empty', '歌词内容为空');
   m.set('media_url_empty', '图片URL为空');
-  m.set('media_nothing_to_save', '没有可保存的内容');
-  m.set('media_save_partial', '部分保存失败');
   m.set('media_save_success', '保存成功');
   m.set('media_save_fail', '保存失败');
-  m.set('media_path_prefix', '路径:');
   m.set('about_lx_title', '关于 LX Music');
   m.set('about_opensource', '开源信息');
   m.set('about_thanks', '致谢');
-  m.set('toast_restart', '重启应用后生效');
   m.set('lyric_pos_top', '顶部');
   m.set('lyric_pos_middle', '中间');
   m.set('lyric_pos_bottom', '底部');
@@ -285,6 +278,77 @@ function buildZhCN(): Map<string, string> {
   m.set('lyric_pos_title', '桌面歌词位置');
   m.set('lyric_color_title', '桌面歌词颜色');
   m.set('lyric_color_updated', '歌词颜色已更新');
+  m.set('lyric_bg_title', '歌词背景');
+  m.set('lyric_bg_transparent', '透明（浮动文字）');
+  m.set('lyric_bg_light', '淡色底');
+  m.set('lyric_bg_medium', '半透明');
+  m.set('lyric_bg_solid', '纯色底');
+  m.set('lyric_size_title', '歌词字号');
+  m.set('lyric_size_small', '小');
+  m.set('lyric_size_normal', '标准');
+  m.set('lyric_size_large', '大');
+  m.set('lyric_size_xlarge', '特大');
+  m.set('lyric_show_next', '显示下一句');
+  m.set('lyric_lock_title', '锁定歌词位置');
+  m.set('lyric_lock_desc', '锁定后不可拖动，点击穿透到下层应用');
+  // 带参数文案（用 tf(key, args) 渲染）
+  m.set('count_songs', '共 {0} 首');
+  m.set('count_songs_short', '{0} 首');
+  m.set('count_songs_unit', '{0} 首歌曲');
+  m.set('count_play', '播放: {0}');
+  m.set('count_plays', '{0} 次播放');
+  m.set('toast_created_quoted', '已创建「{0}」');
+  m.set('confirm_delete_quoted', '确认删除「{0}」？');
+  m.set('toast_added_quoted', '已添加到「{0}」');
+  m.set('confirm_download_songlist', '确定要下载歌单「{0}」中的 {1} 首歌曲吗？');
+  m.set('toast_downloading_progress', '下载中... ({0}/{1})');
+  m.set('toast_download_summary', '下载完成: {0} 首成功, {1} 首失败');
+  m.set('toast_added_to_default', '已添加到默认列表: {0}');
+  m.set('toast_download_start_song', '开始下载: {0}');
+  m.set('toast_view_artist', '查看歌手: {0}');
+  m.set('toast_view_album', '查看专辑: {0}');
+  m.set('toast_concurrent_set', '同时下载数量已设置为: {0}');
+  m.set('toast_cache_cleared_count', '已清除 {0} 项缓存数据');
+  m.set('toast_import_count', '成功导入 {0} 个歌单');
+  m.set('confirm_restore_backup', '确定要恢复备份文件 {0} 吗？\n当前所有数据将被覆盖。');
+  m.set('confirm_redownload', '确定要重新下载「{0}」吗？');
+  m.set('toast_collected', '已收藏: {0}');
+  m.set('toast_uncollected', '已取消收藏: {0}');
+  m.set('input_title_prefix', '输入{0}');
+  m.set('toast_lang_zh', '已切换为中文');
+  // 同步状态
+  m.set('sync_msg_disconnected', '未连接');
+  m.set('sync_msg_not_enabled', '同步未启用或服务器地址未设置');
+  m.set('sync_msg_connecting', '正在连接服务器...');
+  m.set('sync_msg_server_unavailable', '服务器不可用');
+  m.set('sync_msg_connected', '已连接到同步服务器');
+  m.set('sync_msg_connect_failed', '连接失败');
+  m.set('sync_msg_syncing', '正在同步数据...');
+  m.set('sync_msg_request_sent', '同步请求已发送');
+  m.set('sync_msg_failed', '同步失败');
+  m.set('sync_msg_data_done', '数据同步完成');
+  m.set('sync_msg_done', '同步完成');
+  m.set('sync_msg_error', '同步过程中发生错误');
+  m.set('sync_msg_normal_close', '正常关闭');
+  // 自定义源使用说明
+  m.set('custom_source_help_title', '使用说明');
+  m.set('custom_source_help_body', '1. 在设置 -> 自定义源 中，可以输入在线JS源文件地址\n2. JS源文件需要与 LX Music 插件格式兼容\n3. 加载自定义源后，可以获取更好的音乐播放体验\n4. 如需使用内置源，选择对应的音乐源即可');
+  // 播放/列表/下载提示
+  m.set('toast_play_failed', '播放失败');
+  m.set('toast_clear_failed', '清空失败');
+  m.set('toast_history_cleared', '已清空试听列表');
+  m.set('toast_no_play_url', '无法获取播放链接');
+  m.set('no_playlist_available', '暂无可用歌单');
+  m.set('toast_create_list_fail', '创建失败，请重试');
+  m.set('toast_rename_fail', '重命名失败');
+  m.set('toast_delete_fail', '删除失败');
+  m.set('list_empty', '列表为空');
+  m.set('toast_unloved', '已取消喜欢');
+  m.set('toast_operation_failed', '操作失败');
+  m.set('toast_songlist_empty', '歌单为空，无法下载');
+  m.set('toast_download_failed_network', '下载失败，请检查网络连接');
+  m.set('toast_redownload_started', '已开始重新下载');
+  m.set('toast_redownload_failed', '重新下载失败');
   m.set('confirm_clear_history', '清空试听列表');
   m.set('confirm_clear_history_msg', '确认清空最近听过的歌曲记录？');
   m.set('retry_download', '重新下载');
@@ -298,12 +362,8 @@ function buildZhCN(): Map<string, string> {
   m.set('plugin_invalid_url', '无效的URL格式，请输入完整的JS源文件地址');
   m.set('plugin_load_btn', '加载插件');
   m.set('plugin_url_hint', '例如: https://example.com/api-source.js');
-  m.set('plugin_tips', 'JS源文件需要与 LX Music 插件格式兼容');
   m.set('builtin_sources', '内置音乐源');
   m.set('custom_sources', '自定义源');
-  m.set('confirm_action', '确认操作');
-  m.set('confirm_action_msg', '是否确认');
-  m.set('set_sleep_timer', '设置定时退出');
   m.set('search_board_hint', '搜索榜单名称');
   m.set('board_item', '榜单');
   m.set('collapse_preview', '收起预览');
@@ -313,37 +373,61 @@ function buildZhCN(): Map<string, string> {
   m.set('category_jk', '日韩');
   m.set('category_feature', '特色');
   m.set('category_all', '全部');
-  m.set('download_settings_title', '下载设置');
-  m.set('execute_action', '执行此操作');
   return m;
 }
 
 // 构建英文翻译 Map
 function buildEnUS(): Map<string, string> {
   const m: Map<string, string> = new Map();
-  m.set('tab_songlist', 'Playlists');
   m.set('tab_leaderboard', 'Charts');
-  m.set('tab_download', 'Downloads');
   m.set('tab_my', 'Library');
   m.set('songlist_title', 'Playlists');
-  m.set('songlist_search', 'Search playlists');
   m.set('search_placeholder', 'Search music');
   m.set('search_hot', 'Hot Search');
   m.set('search_history', 'Search History');
   m.set('search_clear_history', 'Clear History');
   m.set('search_no_result', 'No results');
   m.set('search_no_hot', 'No trending searches');
+  m.set('search_type_music', 'Songs');
+  m.set('search_type_songlist', 'Playlists');
+  // 本地音乐
+  m.set('local_music', 'Local Music');
+  m.set('local_music_desc', 'Play audio files on this device');
+  m.set('local_import', 'Import local music');
+  m.set('local_imported', '{0} tracks in the local library');
+  m.set('local_import_failed', 'Import failed, please retry');
+  m.set('local_empty_hint', 'No local music yet\nTap "+" at the top right or the button below to import audio files');
+  m.set('local_remove_title', 'Remove from local library');
+  m.set('play', 'Play');
+  m.set('toast_deleted', 'Deleted');
+  m.set('toast_share_copy', 'Song info copied to clipboard');
+  m.set('toast_export_running', 'Exporting playlists…');
+  m.set('toast_import_running', 'Importing playlists…');
+  m.set('player_love', 'Favorite');
+  m.set('player_unlove', 'Unfavorite');
+  m.set('player_loved', 'Added to favorites');
+  m.set('player_unloved_ok', 'Removed from favorites');
+  m.set('more_actions', 'More actions');
+  m.set('load_failed_hint', 'Please go back and retry');
+  m.set('toast_backup_running', 'Backing up…');
+  m.set('user_lists_empty_hint', 'Tap the + button at the top right to create one');
+  m.set('download_empty_active', 'Queued, downloading and paused tasks appear here');
+  m.set('download_empty_completed', 'Finished downloads can be viewed or cleared here');
+  m.set('download_empty_failed', 'Failed tasks can be retried or deleted here');
+  m.set('play_speed', 'Playback Speed');
+  m.set('play_speed_set', 'Switched to {0}');
+  m.set('lyric_offset', 'Lyric Offset');
+  m.set('lyric_offset_none', 'No offset');
+  m.set('toast_restore_running', 'Reading backup…');
   m.set('my_love', 'Favorites');
   m.set('my_history', 'Play History');
-  m.set('my_playlist', 'My Playlists');
   m.set('my_create_list', 'New Playlist');
   m.set('player_title', 'Now Playing');
-  m.set('player_lyric', 'Lyrics');
   m.set('player_comment', 'Comments');
-  m.set('player_playlist', 'Playlist');
   m.set('player_no_lyric', 'Instrumental');
   m.set('player_download', 'Download');
   m.set('player_no_song', 'No song is playing');
+  m.set('no_lyric', 'No lyrics');
   m.set('player_share', 'Share');
   m.set('player_add_to_list', 'Add to Playlist');
   m.set('player_view_artist', 'View Artist');
@@ -358,9 +442,6 @@ function buildEnUS(): Map<string, string> {
   m.set('download_pending', 'Waiting');
   m.set('download_completed', 'Completed');
   m.set('download_failed', 'Failed');
-  m.set('download_pause_all', 'Pause All');
-  m.set('download_resume_all', 'Resume All');
-  m.set('download_clear_completed', 'Clear Completed');
   m.set('settings_title', 'Settings');
   m.set('settings_basic', 'Basic');
   m.set('settings_language', 'Language');
@@ -427,12 +508,9 @@ function buildEnUS(): Map<string, string> {
   m.set('load_failed', 'Load Failed');
   m.set('retry', 'Retry');
   m.set('no_data', 'No Data');
-  m.set('back', 'Back');
   m.set('play_all', 'Play All');
-  m.set('collect', 'Collect');
   m.set('toast_export_success', 'Exported successfully');
   m.set('toast_export_fail', 'Export failed');
-  m.set('toast_import_success', 'Playlists imported');
   m.set('toast_import_fail', 'Import failed');
   m.set('toast_import_cancel', 'Import cancelled');
   m.set('toast_export_cancel', 'Export cancelled');
@@ -442,7 +520,6 @@ function buildEnUS(): Map<string, string> {
   m.set('toast_restore_fail', 'Restore failed');
   m.set('toast_restore_cancel', 'Restore cancelled');
   m.set('toast_cache_cleared', 'Cache cleared');
-  m.set('toast_lang_saved', 'Language changed');
   m.set('toast_theme_dark', 'Dark mode');
   m.set('toast_theme_light', 'Light mode');
   m.set('toast_mode_changed', 'Play mode changed');
@@ -458,13 +535,8 @@ function buildEnUS(): Map<string, string> {
   m.set('toast_sync_fail', 'Sync failed');
   m.set('toast_last_sync', 'Last sync:');
   m.set('toast_never_sync', 'Never synced');
-  m.set('toast_share_copy', 'Copied:');
-  m.set('toast_search_hint', 'Search:');
   m.set('toast_format_invalid', 'Invalid format');
-  m.set('toast_file_read_fail', 'File read failed');
-  m.set('songlist_detail', 'Playlist Detail');
   m.set('songlist_total', 'songs');
-  m.set('songlist_play_count', 'Plays');
   m.set('songlist_creator', 'Creator');
   m.set('comment_title', 'Comments');
   m.set('comment_hot', 'Hot');
@@ -474,13 +546,11 @@ function buildEnUS(): Map<string, string> {
   m.set('history_clear', 'Clear All');
   m.set('love_title', 'Favorites');
   m.set('love_empty', 'No favorites yet');
-  m.set('user_lists_title', 'My Playlists');
   m.set('source_kw', 'Kuwo');
   m.set('source_tx', 'QQ Music');
   m.set('source_wy', 'Netease');
   m.set('source_kg', 'Kugou');
   m.set('source_mg', 'Migu');
-  m.set('source_local', 'Local');
   m.set('download_settings', 'Download');
   m.set('download_path', 'Save Location');
   m.set('download_auto_start', 'Auto Start Download');
@@ -496,7 +566,6 @@ function buildEnUS(): Map<string, string> {
   m.set('toast_dl_path_updated', 'Download path updated');
   m.set('toast_dl_path_fail', 'Failed to select download path');
   m.set('toast_dl_cancel', 'Selection cancelled');
-  m.set('toast_dl_concurrent_set', 'Concurrent downloads set to:');
   m.set('source_import_title', 'Import Source');
   m.set('source_import_url_hint', 'Enter online JS URL (https://...)');
   m.set('source_import_btn', 'Import from URL');
@@ -508,9 +577,6 @@ function buildEnUS(): Map<string, string> {
   m.set('source_import_fail', 'Import failed, check URL content');
   m.set('source_local_import_success', 'Local source imported');
   m.set('source_local_import_fail', 'Local file import failed');
-  m.set('source_local_cancel', 'Import cancelled');
-  m.set('sync_mode_client', 'Client Mode');
-  m.set('sync_mode_server', 'Server Mode');
   m.set('unknown', 'Unknown');
   m.set('unknown_artist', 'Unknown Artist');
   m.set('unknown_album', 'Unknown Album');
@@ -519,7 +585,6 @@ function buildEnUS(): Map<string, string> {
   m.set('toast_play_url_failed', 'Failed to get the play URL, try again later or switch the source');
   m.set('file_not_found', 'File path not found');
   m.set('task_not_found', 'Task not found');
-  m.set('page_settings', 'Settings');
   m.set('source_kw_short', 'Kuwo');
   m.set('source_wy_short', 'Netease');
   m.set('source_kg_short', 'Kugou');
@@ -543,25 +608,17 @@ function buildEnUS(): Map<string, string> {
   m.set('open_desktop_lyric', 'Open Desktop Lyrics');
   m.set('create_list_btn', 'Create');
   m.set('input_playlist_name', 'Enter playlist name');
-  m.set('edit_playlist_name', 'Edit playlist name');
   m.set('local_playlist', 'Local Playlist');
   m.set('billion_unit', 'B');
   m.set('ten_thousand_unit', 'K');
   m.set('download_confirm_title', 'Download Confirm');
-  m.set('download_confirm_msg', 'Download this playlist?');
   m.set('confirm_delete_title', 'Delete Playlist');
-  m.set('confirm_delete_msg', 'Delete this playlist?');
   m.set('restore_confirm_title', 'Confirm Restore');
-  m.set('restore_confirm_msg', 'Restore backup? Current data will be overwritten.');
-  m.set('toast_download_start', 'Download started');
-  m.set('toast_added_to_list', 'Added to list');
   m.set('toast_add_list_fail', 'Add failed');
   m.set('toast_cancel_download', 'Download cancelled');
   m.set('toast_playlist_created', 'Playlist created');
   m.set('toast_playlist_deleted', 'Playlist deleted');
   m.set('toast_playlist_renamed', 'Playlist renamed');
-  m.set('playing_label', 'Now Playing');
-  m.set('playing_now', 'Now Playing');
   m.set('not_playing_text', 'Not Playing');
   m.set('select_song_hint', 'Select a song to start');
   m.set('sort_default', 'Default');
@@ -570,7 +627,6 @@ function buildEnUS(): Map<string, string> {
   m.set('filter_all', 'All');
   m.set('filter_all_board', 'All Charts');
   m.set('category_official', 'Official');
-  m.set('media_saving', 'Saving...');
   m.set('media_save_lyric', 'Save Lyrics');
   m.set('unknown_playlist', 'Unknown Playlist');
   m.set('unknown_error', 'Unknown Error');
@@ -582,12 +638,8 @@ function buildEnUS(): Map<string, string> {
   m.set('plugin_invalid_url', 'Invalid URL format, enter full JS source URL');
   m.set('plugin_load_btn', 'Load Plugin');
   m.set('plugin_url_hint', 'e.g. https://example.com/api-source.js');
-  m.set('plugin_tips', 'JS source must be compatible with LX Music plugin format');
   m.set('builtin_sources', 'Built-in Sources');
   m.set('custom_sources', 'Custom Sources');
-  m.set('confirm_action', 'Confirm Action');
-  m.set('confirm_action_msg', 'Are you sure?');
-  m.set('set_sleep_timer', 'Set Sleep Timer');
   m.set('search_board_hint', 'Search charts');
   m.set('board_item', 'Chart');
   m.set('collapse_preview', 'Collapse');
@@ -597,21 +649,14 @@ function buildEnUS(): Map<string, string> {
   m.set('category_jk', 'Japan/Korea');
   m.set('category_feature', 'Featured');
   m.set('category_all', 'All');
-  m.set('download_settings_title', 'Download Settings');
-  m.set('execute_action', 'Execute');
   m.set('media_save_cover', 'Save Cover');
-  m.set('media_save_both', 'Save Lyrics & Cover');
   m.set('media_lyric_empty', 'Lyrics is empty');
   m.set('media_url_empty', 'Image URL is empty');
-  m.set('media_nothing_to_save', 'Nothing to save');
-  m.set('media_save_partial', 'Partial save failed');
   m.set('media_save_success', 'Save success');
   m.set('media_save_fail', 'Save failed');
-  m.set('media_path_prefix', 'Path:');
   m.set('about_lx_title', 'About LX Music');
   m.set('about_opensource', 'Open Source');
   m.set('about_thanks', 'Thanks');
-  m.set('toast_restart', 'Restart to apply');
   m.set('lyric_pos_top', 'Top');
   m.set('lyric_pos_middle', 'Middle');
   m.set('lyric_pos_bottom', 'Bottom');
@@ -623,6 +668,77 @@ function buildEnUS(): Map<string, string> {
   m.set('lyric_pos_title', 'Lyric Position');
   m.set('lyric_color_title', 'Lyric Color');
   m.set('lyric_color_updated', 'Lyric color updated');
+  m.set('lyric_bg_title', 'Lyric Background');
+  m.set('lyric_bg_transparent', 'Transparent (floating text)');
+  m.set('lyric_bg_light', 'Light');
+  m.set('lyric_bg_medium', 'Semi-transparent');
+  m.set('lyric_bg_solid', 'Solid');
+  m.set('lyric_size_title', 'Lyric Size');
+  m.set('lyric_size_small', 'Small');
+  m.set('lyric_size_normal', 'Normal');
+  m.set('lyric_size_large', 'Large');
+  m.set('lyric_size_xlarge', 'Extra large');
+  m.set('lyric_show_next', 'Show Next Line');
+  m.set('lyric_lock_title', 'Lock Lyric Position');
+  m.set('lyric_lock_desc', 'When locked, the lyric cannot be dragged and touches pass through');
+  // 带参数文案（用 tf(key, args) 渲染）
+  m.set('count_songs', '{0} songs');
+  m.set('count_songs_short', '{0} songs');
+  m.set('count_songs_unit', '{0} songs');
+  m.set('count_play', 'Plays: {0}');
+  m.set('count_plays', '{0} plays');
+  m.set('toast_created_quoted', 'Created "{0}"');
+  m.set('confirm_delete_quoted', 'Delete "{0}"?');
+  m.set('toast_added_quoted', 'Added to "{0}"');
+  m.set('confirm_download_songlist', 'Download {0} songs from "{1}"?');
+  m.set('toast_downloading_progress', 'Downloading... ({0}/{1})');
+  m.set('toast_download_summary', 'Download finished: {0} succeeded, {1} failed');
+  m.set('toast_added_to_default', 'Added to default list: {0}');
+  m.set('toast_download_start_song', 'Downloading: {0}');
+  m.set('toast_view_artist', 'Artist: {0}');
+  m.set('toast_view_album', 'Album: {0}');
+  m.set('toast_concurrent_set', 'Concurrent downloads set to: {0}');
+  m.set('toast_cache_cleared_count', 'Cleared {0} cached items');
+  m.set('toast_import_count', 'Imported {0} playlists');
+  m.set('confirm_restore_backup', 'Restore backup {0}?\nAll current data will be overwritten.');
+  m.set('confirm_redownload', 'Download "{0}" again?');
+  m.set('toast_collected', 'Added to favorites: {0}');
+  m.set('toast_uncollected', 'Removed from favorites: {0}');
+  m.set('input_title_prefix', 'Enter {0}');
+  m.set('toast_lang_zh', 'Switched to Chinese');
+  // 同步状态
+  m.set('sync_msg_disconnected', 'Disconnected');
+  m.set('sync_msg_not_enabled', 'Sync is disabled or the server address is missing');
+  m.set('sync_msg_connecting', 'Connecting to the server...');
+  m.set('sync_msg_server_unavailable', 'Server unavailable');
+  m.set('sync_msg_connected', 'Connected to the sync server');
+  m.set('sync_msg_connect_failed', 'Connection failed');
+  m.set('sync_msg_syncing', 'Syncing data...');
+  m.set('sync_msg_request_sent', 'Sync request sent');
+  m.set('sync_msg_failed', 'Sync failed');
+  m.set('sync_msg_data_done', 'Data sync completed');
+  m.set('sync_msg_done', 'Sync completed');
+  m.set('sync_msg_error', 'An error occurred during sync');
+  m.set('sync_msg_normal_close', 'Closed normally');
+  // 自定义源使用说明
+  m.set('custom_source_help_title', 'How to use');
+  m.set('custom_source_help_body', '1. In Settings -> Custom Source, enter the URL of an online JS source file\n2. The JS file must be compatible with the LX Music plugin format\n3. Loading a custom source can improve playback availability\n4. To use built-in sources, just pick one of them');
+  // 播放/列表/下载提示
+  m.set('toast_play_failed', 'Playback failed');
+  m.set('toast_clear_failed', 'Failed to clear');
+  m.set('toast_history_cleared', 'History cleared');
+  m.set('toast_no_play_url', 'Unable to get the play URL');
+  m.set('no_playlist_available', 'No playlist available');
+  m.set('toast_create_list_fail', 'Failed to create, please retry');
+  m.set('toast_rename_fail', 'Rename failed');
+  m.set('toast_delete_fail', 'Delete failed');
+  m.set('list_empty', 'The list is empty');
+  m.set('toast_unloved', 'Removed from favorites');
+  m.set('toast_operation_failed', 'Operation failed');
+  m.set('toast_songlist_empty', 'The playlist is empty');
+  m.set('toast_download_failed_network', 'Download failed, please check your network');
+  m.set('toast_redownload_started', 'Download restarted');
+  m.set('toast_redownload_failed', 'Failed to restart the download');
   m.set('confirm_clear_history', 'Clear History');
   m.set('confirm_clear_history_msg', 'Clear all play history?');
   m.set('retry_download', 'Retry');
@@ -680,6 +796,42 @@ export function t(key: string): string {
 // 获取当前语言
 export function getCurrentLanguage(): string {
   return getCurrentLang();
+}
+
+/**
+ * 带占位符的翻译：文案里用 {0} {1} 表示参数。
+ * 例：tf('toast_added_to_list', [name]) 对应文案 '已添加到「{0}」'
+ */
+export function tf(key: string, args: string[]): string {
+  let text: string = t(key);
+  for (let i = 0; i < args.length; i++) {
+    const placeholder: string = `{${i}}`;
+    // 用 split/join 代替 replaceAll，兼容 ArkTS 的字符串实现
+    text = text.split(placeholder).join(args[i]);
+  }
+  return text;
+}
+
+/**
+ * 音乐源展示名（各源文案在 i18n 中，这里做显式映射，便于静态检查与复用）
+ */
+export function sourceLabel(source: string): string {
+  switch (source) {
+    case 'kw':
+      return t('source_kw');
+    case 'kg':
+      return t('source_kg');
+    case 'tx':
+      return t('source_tx');
+    case 'wy':
+      return t('source_wy');
+    case 'mg':
+      return t('source_mg');
+    case 'local':
+      return t('local_music');
+    default:
+      return source;
+  }
 }
 
 /**

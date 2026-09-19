@@ -30,9 +30,10 @@ function handleLaunchWant(want?: object): void {
 }
 
 export async function runBootstrapAfterServices(want?: object): Promise<void> {
-  // 语言与桌面歌词配置由 SettingsService 统一加载并镜像到 AppStorage，
-  // 这里只补一个子窗口用的初始文本，避免首帧空白。
-  AppStorage.setOrCreate('desktopLyricText', '♪ LX Music');
+  // 语言与桌面歌词配置由 SettingsService 统一加载并镜像到 AppStorage；
+  // 歌词文本由 PlayerService（播放器歌词中枢）在切歌/播放时下发。
+  AppStorage.setOrCreate('desktopLyricText', '');
+  AppStorage.setOrCreate('desktopLyricNextText', '');
   await initMusicSDK();
   hilog.info(
     DOMAIN,
@@ -51,7 +52,7 @@ function scheduleDesktopLyricRestore(): void {
     try {
       if (settingsService.get().showDesktopLyric) {
         hilog.info(DOMAIN, TAG, 'Restoring desktop lyric window');
-        DesktopLyricManager.setEnabled(true);
+        void DesktopLyricManager.setEnabled(true);
       }
     } catch (err) {
       hilog.warn(DOMAIN, TAG, 'Desktop lyric restore skipped: %{public}s', JSON.stringify(err));

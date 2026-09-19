@@ -24,7 +24,10 @@ export interface AvMediaMetadata {
   album?: string;
   duration: number; // 毫秒
   mediaImage?: string; // 封面URL（播控中心要求为 URL string 或 PixelMap，直接传 string 即可）
-  lyric?: string; // LRC格式歌词
+  /** 标准 LRC 歌词全文，系统播控中心/锁屏据此显示歌词 */
+  lyric?: string;
+  /** 当前这一句歌词（不含时间前缀），用于灵动岛/胶囊的单行歌词展示 */
+  singleLyricText?: string;
 }
 
 // AVSession 播控命令回调接口
@@ -346,6 +349,9 @@ export class BackgroundRunningManager {
       if (metadata.lyric) {
         avMetadata.lyric = metadata.lyric;
       }
+      if (metadata.singleLyricText) {
+        avMetadata.singleLyricText = metadata.singleLyricText;
+      }
       await this.session.setAVMetadata(avMetadata);
       hilog.info(DOMAIN, TAG, 'AVMetadata set successfully: title=%{public}s, artist=%{public}s, durationMs=%{public}d',
         metadata.title, metadata.artist, metadata.duration);
@@ -365,6 +371,129 @@ export class BackgroundRunningManager {
       return;
     }
     await this.setAvMetadata(metadata);
+  }
+
+  /**
+   * 只更新歌词相关信息，其余元数据沿用上一次的值。
+   * 频次与歌词行切换同频（每首歌几十次），不会造成额外负担。
+   */
+  async updateLyric(lyricText: string, singleLyricText: string): Promise<void> {
+    const base = this.pendingMetadata;
+    if (!base) {
+      return;
+    }
+    const merged: AvMediaMetadata = {
+      assetId: base.assetId,
+      title: base.title,
+      artist: base.artist,
+      duration: base.duration,
+      album: base.album,
+      mediaImage: base.mediaImage,
+      lyric: lyricText,
+      singleLyricText: singleLyricText,
+    };
+    this.pendingMetadata = merged;
+    if (!this.session) {
+      return;
+    }
+    await this.setAvMetadata(merged);
+  }
+
+  // ==================== 系统桌面歌词（HarmonyOS 26+） ====================
+
+  /**
+   * 系统是否支持原生桌面歌词。
+   * 支持时优先用系统能力（与华为音乐一致的观感、跟随系统主题/位置设置）。
+   */
+  async isSystemDesktopLyricSupported(): Promise<boolean> {
+    try {
+      if (!canIUse('SystemCapability.Multimedia.AVSession.Core')) {
+        return false;
+      }
+      return await avSession.isDesktopLyricSupported();
+    } catch (err) {
+      hilog.info(DOMAIN, TAG, 'System desktop lyric not supported: %{public}s',
+        err instanceof Error ? err.message : JSON.stringify(err));
+      return false;
+    }
+  }
+
+  /**
+   * 开启/关闭系统桌面歌词。
+   * @returns 是否成功使用系统能力（false 时调用方应回退到内置悬浮窗）
+   */
+  async enableSystemDesktopLyric(enable: boolean): Promise<boolean> {
+    if (!this.session) {
+      hilog.warn(DOMAIN, TAG, 'enableSystemDesktopLyric skipped: session not created');
+      return false;
+    }
+    try {
+      await this.session.enableDesktopLyric(enable);
+      hilog.info(DOMAIN, TAG, 'System desktop lyric enabled=%{public}s', enable.toString());
+      return true;
+    } catch (err) {
+      const code: number = (err as BusinessError)?.code ?? 0;
+      // 6600111 = 设备不支持桌面歌词能力
+      hilog.warn(DOMAIN, TAG, 'enableSystemDesktopLyric failed: code=%{public}d, msg=%{public}s',
+        code, (err as Error)?.message ?? '');
+      return false;
+    }
+  }
+
+  /** 系统桌面歌词显示/隐藏 */
+  async setSystemDesktopLyricVisible(visible: boolean): Promise<boolean> {
+    if (!this.session) {
+      return false;
+    }
+    try {
+      await this.session.setDesktopLyricVisible(visible);
+      return true;
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'setSystemDesktopLyricVisible failed: %{public}s',
+        (err as Error)?.message ?? '');
+      return false;
+    }
+  }
+
+  /** 系统桌面歌词锁定（锁定后不可拖动、点击穿透） */
+  async setSystemDesktopLyricLocked(locked: boolean): Promise<boolean> {
+    if (!this.session) {
+      return false;
+    }
+    try {
+      const state: avSession.DesktopLyricState = { isLocked: locked };
+      await this.session.setDesktopLyricState(state);
+      return true;
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'setSystemDesktopLyricLocked failed: %{public}s',
+        (err as Error)?.message ?? '');
+      return false;
+    }
+  }
+
+  /** 系统桌面歌词可见性/锁定状态变化（用户在系统歌词上操作时回调） */
+  onSystemDesktopLyricStateChanged(callback: (state: avSession.DesktopLyricState) => void): void {
+    if (!this.session) {
+      return;
+    }
+    try {
+      this.session.onDesktopLyricStateChanged(callback);
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'onSystemDesktopLyricStateChanged failed: %{public}s',
+        (err as Error)?.message ?? '');
+    }
+  }
+
+  offSystemDesktopLyricStateChanged(): void {
+    if (!this.session) {
+      return;
+    }
+    try {
+      this.session.offDesktopLyricStateChanged();
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'offSystemDesktopLyricStateChanged failed: %{public}s',
+        (err as Error)?.message ?? '');
+    }
   }
 
   /**

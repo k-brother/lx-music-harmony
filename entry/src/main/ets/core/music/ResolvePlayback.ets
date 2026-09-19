@@ -8,6 +8,9 @@ import { pluginManager, PluginSongInfo as PluginSongInfoType } from '../plugin/P
 import hilog from '@ohos.hilog';
 import { httpRequest } from '../network/http/HttpClient';
 import { settingsService } from '../../service/SettingsService';
+import fs from '@ohos.file.fs';
+import { media } from '@kit.MediaKit';
+import { image } from '@kit.ImageKit';
 
 const TAG = 'ONLINE_MUSIC';
 const DOMAIN = 0x0003;
@@ -1178,12 +1181,119 @@ export interface LocalMusicInfo {
 }
 
 /**
- * 扫描本地音乐文件（本地文件扫描功能暂不支持）
+ * 本地音频扩展名（小写，含点）
+ */
+const LOCAL_AUDIO_EXTENSIONS: string[] = [
+  '.mp3', '.flac', '.m4a', '.aac', '.wav', '.ogg', '.opus', '.wma', '.ape', '.mgg', '.mflac'
+];
+
+function isAudioFile(fileName: string): boolean {
+  const lower = fileName.toLowerCase();
+  for (let i = 0; i < LOCAL_AUDIO_EXTENSIONS.length; i++) {
+    if (lower.endsWith(LOCAL_AUDIO_EXTENSIONS[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function formatDurationText(durationMs: number): string {
+  const totalSec = Math.max(0, Math.floor(durationMs / 1000));
+  const minutes = Math.floor(totalSec / 60);
+  const seconds = totalSec % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+/**
+ * 用系统 AVMetadataExtractor 读取本地音频的标题/歌手/专辑/时长。
+ * 读不到时返回 null，由调用方用文件名兜底。
+ */
+async function extractLocalMetadata(filePath: string): Promise<LocalMusicInfo | null> {
+  let file: fs.File | null = null;
+  let extractor: media.AVMetadataExtractor | null = null;
+  try {
+    file = fs.openSync(filePath, fs.OpenMode.READ_ONLY);
+    const stat = fs.statSync(filePath);
+    extractor = await media.createAVMetadataExtractor();
+    extractor.fdSrc = { fd: file.fd };
+    const meta = await extractor.fetchMetadata();
+    const durationMs = parseInt(meta.duration ?? '0');
+    const fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
+    const nameFromFile = fileName.replace(/\.[^.]+$/, '');
+    const info: LocalMusicInfo = {
+      id: filePath,
+      name: meta.title && meta.title.length > 0 ? meta.title : nameFromFile,
+      singer: meta.artist && meta.artist.length > 0 ? meta.artist : (meta.albumArtist ?? ''),
+      album: meta.album ?? '',
+      duration: isNaN(durationMs) ? 0 : durationMs,
+      interval: formatDurationText(isNaN(durationMs) ? 0 : durationMs),
+      filePath: filePath,
+      size: stat.size,
+    };
+    return info;
+  } catch (err) {
+    hilog.warn(DOMAIN_LOCAL, TAG_LOCAL, 'extractLocalMetadata failed (%{public}s): %{public}s',
+      filePath, err instanceof Error ? err.message : JSON.stringify(err));
+    return null;
+  } finally {
+    if (extractor !== null) {
+      try {
+        await extractor.release();
+      } catch (releaseErr) {
+        hilog.warn(DOMAIN_LOCAL, TAG_LOCAL, 'extractor release failed');
+      }
+    }
+    if (file !== null) {
+      fs.closeSync(file);
+    }
+  }
+}
+
+/**
+ * 扫描本地音乐目录（递归一层子目录），返回可播放的曲目列表。
  */
 export async function scanLocalMusic(dirPath: string): Promise<LocalMusicInfo[]> {
   hilog.info(DOMAIN_LOCAL, TAG_LOCAL, 'Scanning local music: %{public}s', dirPath);
-  // 本地文件扫描功能在当前版本暂不支持
-  return [];
+  const results: LocalMusicInfo[] = [];
+  if (!dirPath || dirPath.length === 0) {
+    return results;
+  }
+
+  const candidates: string[] = [];
+  try {
+    const rootFiles = fs.listFileSync(dirPath);
+    for (let i = 0; i < rootFiles.length; i++) {
+      const name = rootFiles[i];
+      const fullPath = `${dirPath}/${name}`;
+      try {
+        if (fs.statSync(fullPath).isDirectory()) {
+          const subFiles = fs.listFileSync(fullPath);
+          for (let j = 0; j < subFiles.length; j++) {
+            if (isAudioFile(subFiles[j])) {
+              candidates.push(`${fullPath}/${subFiles[j]}`);
+            }
+          }
+        } else if (isAudioFile(name)) {
+          candidates.push(fullPath);
+        }
+      } catch (statErr) {
+        hilog.warn(DOMAIN_LOCAL, TAG_LOCAL, 'scan skip %{public}s', name);
+      }
+    }
+  } catch (err) {
+    hilog.warn(DOMAIN_LOCAL, TAG_LOCAL, 'scanLocalMusic failed: %{public}s',
+      err instanceof Error ? err.message : JSON.stringify(err));
+    return results;
+  }
+
+  for (let i = 0; i < candidates.length; i++) {
+    const info = await extractLocalMetadata(candidates[i]);
+    if (info) {
+      results.push(info);
+    }
+  }
+  hilog.info(DOMAIN_LOCAL, TAG_LOCAL, 'Scan finished: %{public}d tracks', results.length);
+  return results;
 }
 
 // 本地音乐 URL 获取参数接口
@@ -1348,9 +1458,64 @@ export function localToOnlineMusicInfo(localInfo: LocalMusicInfo): MusicInfo {
 /**
  * 检查文件是否存在
  */
-async function readEmbeddedPic(_filePath: string): Promise<string | null> {
-  // 媒体元数据API暂不支持
-  return null;
+/**
+ * 读取音频文件内嵌封面并缓存为同目录图片文件，返回可直接给 Image 用的路径。
+ * 封面较大时只在首次读取时解码，后续命中缓存。
+ */
+async function readEmbeddedPic(filePath: string): Promise<string | null> {
+  if (!filePath || filePath.length === 0) {
+    return null;
+  }
+  const coverPath = `${filePath}.cover.jpg`;
+  try {
+    if (fs.accessSync(coverPath)) {
+      return coverPath;
+    }
+  } catch (accessErr) {
+    // 还没有缓存，继续提取
+  }
+
+  let file: fs.File | null = null;
+  let extractor: media.AVMetadataExtractor | null = null;
+  let packer: image.ImagePacker | null = null;
+  try {
+    file = fs.openSync(filePath, fs.OpenMode.READ_ONLY);
+    extractor = await media.createAVMetadataExtractor();
+    extractor.fdSrc = { fd: file.fd };
+    const cover: image.PixelMap = await extractor.fetchAlbumCover();
+    packer = image.createImagePacker();
+    const packed: ArrayBuffer = await packer.packing(cover, { format: 'image/jpeg', quality: 85 });
+    const out: fs.File = fs.openSync(coverPath, fs.OpenMode.CREATE | fs.OpenMode.WRITE_ONLY);
+    try {
+      fs.writeSync(out.fd, packed);
+    } finally {
+      fs.closeSync(out);
+    }
+    hilog.info(DOMAIN_LOCAL, TAG_LOCAL, 'Embedded cover extracted: %{public}s', coverPath);
+    return coverPath;
+  } catch (err) {
+    hilog.info(DOMAIN_LOCAL, TAG_LOCAL, 'No embedded cover for %{public}s: %{public}s',
+      filePath, err instanceof Error ? err.message : '');
+    return null;
+  } finally {
+    if (packer !== null) {
+      try {
+        await packer.release();
+      } catch (packErr) {
+        hilog.warn(DOMAIN_LOCAL, TAG_LOCAL, 'packer release failed');
+      }
+    }
+    if (extractor !== null) {
+      try {
+        await extractor.release();
+      } catch (releaseErr) {
+        hilog.warn(DOMAIN_LOCAL, TAG_LOCAL, 'extractor release failed');
+      }
+    }
+    if (file !== null) {
+      fs.closeSync(file);
+    }
+  }
 }
 
 /**

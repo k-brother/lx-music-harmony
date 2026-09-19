@@ -13,6 +13,7 @@ import { utf8Encode, utf8Decode } from '../../utils/TextCodec';
 import { musicItemFromPlainObject } from '../../core/list/PlaylistRecordMapper';
 import {
   getUserList,
+  initListService,
   getDefaultList,
   getLoveList,
   getUserListMusic,
@@ -30,7 +31,7 @@ import { settingsService } from '../../service/SettingsService';
 import { sleepTimerService } from '../../service/SleepTimerService';
 import { DesktopLyricManager } from '../../components/common/DesktopLyric';
 import type { DesktopLyricPosition, StartupPage, PlayMode, AddMusicLocation } from '../../service/SettingsService';
-import { t, setLanguage } from '../../service/LocalizationService';
+import { t, tf, setLanguage } from '../../service/LocalizationService';
 import { applyThemeById, getAllThemes } from '../../service/ThemeService';
 import { DEFAULT_THEME_ID } from '../../core/theme/themes';
 import type { ThemeItem } from '../../types/ThemeTypes';
@@ -109,6 +110,10 @@ export struct SettingView {
   @State timeoutExit: boolean = false;
   @State timeoutMinutes: number = 30;
   @State showDesktopLyric: boolean = true;
+  @State desktopLyricBgAlpha: number = 0;
+  @State desktopLyricFontSize: number = 18;
+  @State desktopLyricShowNext: boolean = true;
+  @State desktopLyricLocked: boolean = false;
 
   // 搜索设置
   @State searchSource: string = 'kw';
@@ -178,6 +183,10 @@ export struct SettingView {
     this.timeoutExit = settings.sleepTimerEnabled;
     this.timeoutMinutes = settings.sleepTimerMinutes;
     this.showDesktopLyric = settings.showDesktopLyric;
+    this.desktopLyricBgAlpha = settings.desktopLyricBgAlpha;
+    this.desktopLyricFontSize = settings.desktopLyricFontSize;
+    this.desktopLyricShowNext = settings.desktopLyricShowNext;
+    this.desktopLyricLocked = settings.desktopLyricLocked;
 
     // 搜索设置
     this.searchSource = settings.searchSource;
@@ -218,6 +227,10 @@ export struct SettingView {
         sleepTimerEnabled: this.timeoutExit,
         sleepTimerMinutes: this.timeoutMinutes,
         showDesktopLyric: this.showDesktopLyric,
+        desktopLyricBgAlpha: this.desktopLyricBgAlpha,
+        desktopLyricFontSize: this.desktopLyricFontSize,
+        desktopLyricShowNext: this.desktopLyricShowNext,
+        desktopLyricLocked: this.desktopLyricLocked,
         searchSource: this.searchSource,
         showHotSearch: this.showHotSearch,
         searchHistoryCount: this.searchHistoryCount,
@@ -372,7 +385,7 @@ export struct SettingView {
       Text(title)
         .fontSize(13)
         .fontWeight(FontWeight.Medium)
-        .fontColor(this.theme === 'dark' ? '#8E8E93' : '#8E8E93')
+        .fontColor(DesignTokens.labelTertiary(this.theme))
         .padding({ left: 16, top: 20, bottom: 8 })
         .width('100%')
         .backgroundColor(DesignTokens.pageBg(this.theme))
@@ -405,21 +418,21 @@ export struct SettingView {
             } else if (item.type === 'select') {
               Text(this.getOptionLabel(item.options || [], item.value as string))
                 .fontSize(14)
-                .fontColor('#999999')
+                .fontColor(DesignTokens.labelSecondary(this.theme))
               Image($r('sys.symbol.chevron_right'))
                 .width(16)
                 .height(16)
-                .fillColor('#999999')
+                .fillColor(DesignTokens.labelSecondary(this.theme))
                 .margin({ left: 8 })
             } else if (item.type === 'button') {
               Image($r('sys.symbol.chevron_right'))
                 .width(16)
                 .height(16)
-                .fillColor('#999999')
+                .fillColor(DesignTokens.labelSecondary(this.theme))
             } else if (item.type === 'input') {
               Text(item.value as string)
                 .fontSize(14)
-                .fontColor('#999999')
+                .fontColor(DesignTokens.labelSecondary(this.theme))
                 .maxLines(1)
             }
           }
@@ -493,7 +506,7 @@ export struct SettingView {
         this.saveSettings().then(() => {
           hilog.info(0x0001, 'SettingView', 'Language saved to prefs: %{public}s', value);
         });
-        this.showToast(value === 'zh-CN' ? '已切换为中文' : 'Switched to English');
+        this.showToast(value === 'zh-CN' ? t('toast_lang_zh') : 'Switched to English');
         // pop 回首页触发 HomePage 重新渲染
         navigationService.backTo(RouteName.HOME);
       }
@@ -638,7 +651,7 @@ export struct SettingView {
         this.showDesktopLyric = value;
         this.saveSettings();
         // 立即生效：开启/关闭桌面歌词子窗口
-        DesktopLyricManager.setEnabled(value);
+        void DesktopLyricManager.setEnabled(value);
         this.showToast(value ? t('toast_desktop_on') : t('toast_desktop_off'));
       }
     };
@@ -680,6 +693,82 @@ export struct SettingView {
       }
     };
     items.push(lyricColorItem);
+
+    // 背景不透明度：0 = 完全透明的"浮字"效果（默认），调高则更接近纯色底
+    const lyricBgOption: SettingOption[] = [
+      { label: t('lyric_bg_transparent'), value: '0' },
+      { label: t('lyric_bg_light'), value: '30' },
+      { label: t('lyric_bg_medium'), value: '55' },
+      { label: t('lyric_bg_solid'), value: '85' },
+    ];
+    const lyricBgItem: SettingSectionItem = {
+      type: 'select',
+      title: t('lyric_bg_title'),
+      value: this.desktopLyricBgAlpha.toString(),
+      options: lyricBgOption,
+      onChange: (value: string) => {
+        const alpha = parseInt(value);
+        if (!isNaN(alpha)) {
+          this.desktopLyricBgAlpha = alpha;
+          void settingsService.update({ desktopLyricBgAlpha: alpha });
+        }
+      }
+    };
+    items.push(lyricBgItem);
+
+    const lyricSizeOption: SettingOption[] = [
+      { label: t('lyric_size_small'), value: '14' },
+      { label: t('lyric_size_normal'), value: '18' },
+      { label: t('lyric_size_large'), value: '22' },
+      { label: t('lyric_size_xlarge'), value: '26' },
+    ];
+    const lyricSizeItem: SettingSectionItem = {
+      type: 'select',
+      title: t('lyric_size_title'),
+      value: this.desktopLyricFontSize.toString(),
+      options: lyricSizeOption,
+      onChange: (value: string) => {
+        const size = parseInt(value);
+        if (!isNaN(size)) {
+          this.desktopLyricFontSize = size;
+          // 字号影响窗口高度，改完要让子窗口重新计算尺寸
+          settingsService.update({ desktopLyricFontSize: size }).then((): void => {
+            DesktopLyricManager.applyAppearance();
+          }).catch((err: Error) => {
+            hilog.warn(DOMAIN, TAG, 'update desktopLyricFontSize failed: %{public}s', err.message);
+          });
+        }
+      }
+    };
+    items.push(lyricSizeItem);
+
+    const lyricNextItem: SettingSectionItem = {
+      type: 'toggle',
+      title: t('lyric_show_next'),
+      value: this.desktopLyricShowNext,
+      onChangeToggle: (value: boolean) => {
+        this.desktopLyricShowNext = value;
+        settingsService.update({ desktopLyricShowNext: value }).then((): void => {
+          DesktopLyricManager.applyAppearance();
+        }).catch((err: Error) => {
+          hilog.warn(DOMAIN, TAG, 'update desktopLyricShowNext failed: %{public}s', err.message);
+        });
+      }
+    };
+    items.push(lyricNextItem);
+
+    const lyricLockItem: SettingSectionItem = {
+      type: 'toggle',
+      title: t('lyric_lock_title'),
+      description: t('lyric_lock_desc'),
+      value: this.desktopLyricLocked,
+      onChangeToggle: (value: boolean) => {
+        this.desktopLyricLocked = value;
+        void settingsService.update({ desktopLyricLocked: value });
+        DesktopLyricManager.setLocked(value);
+      }
+    };
+    items.push(lyricLockItem);
 
     return items;
   }
@@ -804,10 +893,10 @@ export struct SettingView {
 
       this.downloadPath = dirUri;
       await this.saveDownloadSettings();
-      this.showToast('下载保存位置已更新');
+      this.showToast(t('toast_dl_path_updated'));
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
-      this.showToast('选择下载路径失败: ' + errorMsg);
+      this.showToast(t('toast_dl_path_fail') + ': ' + errorMsg);
     }
   }
 
@@ -834,7 +923,7 @@ export struct SettingView {
       this.maxConcurrentDownloads = count;
       await this.saveDownloadSettings();
       setMaxConcurrentDownloads(count);
-      this.showToast(`同时下载数量已设置为: ${count}`);
+      this.showToast(tf('toast_concurrent_set', [count.toString()]));
     }
   }
 
@@ -1189,7 +1278,7 @@ export struct SettingView {
       const ok = await loadCustomSource(url);
       if (ok) {
         this.showSourceImportDialog = false;
-        this.showToast('音源导入成功');
+        this.showToast(t('source_import_success'));
       } else {
         const msg = t('source_import_fail');
         this.sourceImportError = msg;
@@ -1214,14 +1303,14 @@ export struct SettingView {
       const picker = new filePicker.DocumentViewPicker(context);
       const uris = await picker.select(pickerOptions);
       if (!uris || uris.length === 0) {
-        this.showToast('已取消导入');
+        this.showToast(t('toast_import_cancel'));
         return;
       }
       const selectedUri = uris[0];
       const ok = await loadCustomSource(selectedUri);
       if (ok) {
         this.showSourceImportDialog = false;
-        this.showToast('本地音源导入成功');
+        this.showToast(t('source_local_import_success'));
       } else {
         const msg = t('source_local_import_fail');
         this.sourceImportError = msg;
@@ -1345,7 +1434,7 @@ export struct SettingView {
           })
 
         Column() {
-          Text('输入' + this.inputDialogTitle)
+          Text(tf('input_title_prefix', [this.inputDialogTitle]))
             .fontSize(18)
             .fontWeight(FontWeight.Medium)
             .fontColor(DesignTokens.labelPrimary(this.theme))
@@ -1569,6 +1658,7 @@ export struct SettingView {
   async backupData(): Promise<void> {
     try {
       hilog.info(0x0001, 'SettingView', 'Starting data backup...');
+      this.showToast(t('toast_backup_running'));
 
       // 设置备份服务上下文
       const context = this.getUIContext().getHostContext();
@@ -1581,10 +1671,10 @@ export struct SettingView {
 
       if (backupFile) {
         hilog.info(0x0001, 'SettingView', 'Data backup completed: %{public}s', backupFile.fileName);
-        this.showToast('备份创建成功');
+        this.showToast(t('toast_backup_success'));
       } else {
         hilog.error(0x0001, 'SettingView', 'Data backup failed: backup file is null');
-        this.showToast('备份创建失败');
+        this.showToast(t('toast_backup_fail'));
       }
     } catch (err) {
       hilog.error(0x0001, 'SettingView', 'Data backup failed: %{public}s', JSON.stringify(err));
@@ -1596,6 +1686,7 @@ export struct SettingView {
   async restoreData(): Promise<void> {
     try {
       hilog.info(0x0001, 'SettingView', 'Starting data restore...');
+      this.showToast(t('toast_restore_running'));
 
       // 设置备份服务上下文
       const context = this.getUIContext().getHostContext();
@@ -1608,15 +1699,15 @@ export struct SettingView {
 
       if (!backupFile) {
         hilog.info(0x0001, 'SettingView', 'Data restore cancelled: no file selected');
-        this.showToast('已取消恢复');
+        this.showToast(t('toast_restore_cancel'));
         return;
       }
 
       // 确认恢复操作
       const confirmed = await this.showConfirmDialog(t('restore_confirm_title'),
-        `确定要恢复备份文件 ${backupFile.fileName} 吗？\n当前所有数据将被覆盖。`);
+        tf('confirm_restore_backup', [backupFile.fileName]));
       if (!confirmed) {
-        this.showToast('已取消恢复');
+        this.showToast(t('toast_restore_cancel'));
         return;
       }
 
@@ -1625,17 +1716,17 @@ export struct SettingView {
 
       if (success) {
         hilog.info(0x0001, 'SettingView', 'Data restore completed: %{public}s', backupFile.fileName);
-        this.showToast('数据恢复成功');
+        this.showToast(t('toast_restore_success'));
 
         // 重新加载应用数据
         await this.reloadAppData();
       } else {
         hilog.error(0x0001, 'SettingView', 'Data restore failed');
-        this.showToast('数据恢复失败');
+        this.showToast(t('toast_restore_fail'));
       }
     } catch (err) {
       hilog.error(0x0001, 'SettingView', 'Data restore failed: %{public}s', JSON.stringify(err));
-      this.showToast('数据恢复失败: ' + (err instanceof Error ? err.message : t('unknown_error')));
+      this.showToast(t('toast_restore_fail') + ': ' + (err instanceof Error ? err.message : t('unknown_error')));
     }
   }
 
@@ -1643,6 +1734,7 @@ export struct SettingView {
   async exportPlaylists(): Promise<void> {
     try {
       hilog.info(0x0001, 'SettingView', 'Exporting playlists...');
+      this.showToast(t('toast_export_running'));
 
       // 1. 收集所有歌单数据
       const playlistsData = await this.collectPlaylistsData();
@@ -1656,7 +1748,7 @@ export struct SettingView {
       saveOptions.newFileNames = [fileName];
       const uris = await picker.save(saveOptions);
       if (!uris || uris.length === 0) {
-        this.showToast('已取消导出');
+        this.showToast(t('toast_export_cancel'));
         return;
       }
 
@@ -1667,14 +1759,14 @@ export struct SettingView {
         fs.writeSync(file.fd, data.buffer as ArrayBuffer);
         fs.fsyncSync(file.fd);
         hilog.info(0x0001, 'SettingView', 'Playlists exported to: %{public}s', uris[0]);
-        this.showToast('歌单导出成功: ' + fileName);
+        this.showToast(t('toast_export_success') + ': ' + fileName);
       } finally {
         fs.closeSync(file.fd);
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
       hilog.error(0x0001, 'SettingView', 'Playlists export failed: %{public}s', errorMsg);
-      this.showToast('歌单导出失败: ' + errorMsg);
+      this.showToast(t('toast_export_fail') + ': ' + errorMsg);
     }
   }
 
@@ -1748,6 +1840,7 @@ export struct SettingView {
   async importPlaylists(): Promise<void> {
     try {
       hilog.info(0x0001, 'SettingView', 'Importing playlists...');
+      this.showToast(t('toast_import_running'));
 
       // 1. 使用文件选择器选择JSON文件（不限制后缀以确保兼容性）
       const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
@@ -1755,7 +1848,7 @@ export struct SettingView {
       const picker = new filePicker.DocumentViewPicker(context);
       const uris = await picker.select(pickerOptions);
       if (!uris || uris.length === 0) {
-        this.showToast('已取消导入');
+        this.showToast(t('toast_import_cancel'));
         return;
       }
       const filePath = uris[0];
@@ -1771,21 +1864,21 @@ export struct SettingView {
         const playlistsData = JSON.parse(jsonData) as Record<string, Object>;
         // 4. 验证数据格式
         if (!this.validatePlaylistsData(playlistsData)) {
-          this.showToast('文件格式无效');
+          this.showToast(t('toast_format_invalid'));
           return;
         }
         // 5. 导入到应用
         const importCount = await this.importPlaylistsData(playlistsData);
 
-        hilog.info(0x0001, 'SettingView', 'Playlists import completed: %{public}d playlists imported', importCount);
-        this.showToast(`成功导入 ${importCount} 个歌单`);
+        await initListService();
+        this.showToast(tf('toast_import_count', [importCount.toString()]));
       } finally {
         fs.closeSync(file.fd);
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
       hilog.error(0x0001, 'SettingView', 'Playlists import failed: %{public}s', errorMsg);
-      this.showToast('歌单导入失败: ' + errorMsg);
+      this.showToast(t('toast_import_fail') + ': ' + errorMsg);
     }
   }
 
@@ -1883,12 +1976,12 @@ export struct SettingView {
       clearedItems++;
 
       hilog.info(0x0001, 'SettingView', 'Cache cleared: %{public}d items', clearedItems);
-      this.showToast(`已清除 ${clearedItems} 项缓存数据`);
+      this.showToast(tf('toast_cache_cleared_count', [clearedItems.toString()]));
       
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
       hilog.error(0x0001, 'SettingView', 'Cache clear failed: %{public}s', errorMsg);
-      this.showToast('清除缓存失败: ' + errorMsg);
+      this.showToast(t('toast_cache_cleared') + ': ' + errorMsg);
     }
   }
 
@@ -1957,6 +2050,8 @@ export struct SettingView {
   // 恢复后重新加载应用数据
   private async reloadAppData(): Promise<void> {
     try {
+      // 备份恢复后：列表状态、设置、下载配置都要重新加载，否则界面还是旧数据
+      await initListService();
       await this.loadSettings();
       await this.loadDownloadSettings();
       hilog.info(0x0001, 'SettingView', 'App data reloaded after restore');

@@ -1,4 +1,5 @@
-import { t } from '../../service/LocalizationService';
+import { t, tf } from '../../service/LocalizationService';
+import { SkeletonGridItem } from '../../components/common/SkeletonView';
 // 排行榜视图：纵向分组卡片 + 榜单内预览曲目 + 展开/收起与进入完整榜单
 // 信息架构：一屏浏览多个榜；弱打扰预览 3 条；展开看更多；右侧箭头进二级页
 
@@ -791,22 +792,25 @@ export struct LeaderboardView {
     .border({ width: { bottom: 0.33 }, color: DesignTokens.hairlineSeparator(this.theme) })
   }
 
+  /** 榜单首屏骨架（与歌单页一致的加载观感） */
+  @Builder
+  SkeletonBoards() {
+    Column() {
+      ForEach([0, 1, 2], (index: number) => {
+        SkeletonGridItem()
+      }, (index: number) => `board_skeleton_${index}`)
+    }
+    .width('100%')
+    .layoutWeight(1)
+    .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter(), top: 12 })
+  }
+
   build() {
     Stack() {
       Column() {
         if (this.isLoading) {
-          Column() {
-            LoadingProgress()
-              .width(32)
-              .height(32)
-            Text(t('loading'))
-              .fontSize(14)
-              .fontColor(this.secondaryText())
-              .margin({ top: 12 })
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .justifyContent(FlexAlign.Center)
+          // 榜单首屏用骨架卡片占位，与歌单页保持一致
+          this.SkeletonBoards()
         } else {
           if (this.filteredBoardList.length < this.minPinCards) {
             Column() {
@@ -1041,7 +1045,7 @@ export struct LeaderboardView {
               .textOverflow({ overflow: TextOverflow.Ellipsis })
               .lineHeight(22)
             if (this.cardStates[index].board.playCount !== null && this.cardStates[index].board.playCount !== undefined) {
-              Text(`${this.formatPlayCount(this.cardStates[index].board.playCount as number)} 次播放`)
+              Text(tf('count_plays', [this.formatPlayCount(this.cardStates[index].board.playCount as number)]))
                 .fontSize(12)
                 .fontColor(this.tertiaryText())
                 .margin({ top: 8 })

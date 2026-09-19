@@ -15,7 +15,7 @@ import type {
   MusicSdkInterface,
   SourceInfo,
 } from './sources/MusicSdkContracts';
-import { resolveBuiltinMusicSdk, createMusicSdkAggregate } from './MusicSourceRegistry';
+import { resolveBuiltinMusicSdk, createMusicSdkAggregate, isBuiltinSourceId } from './MusicSourceRegistry';
 
 export type { MusicInfo, SearchResult };
 export * from './sources/MusicSdkContracts';
@@ -139,4 +139,53 @@ export async function getSongListDetail(
  */
 export async function getHotSearch(source: string = 'kw'): Promise<HotSearchResult> {
   return resolveBuiltinMusicSdk(source).hotSearch.search();
+}
+
+/**
+ * 按关键字搜索歌单。
+ *
+ * 并非所有源都提供歌单搜索（当前仅网易云 / QQ音乐可用），
+ * 未实现的源会被跳过；source 传空或 'all' 时聚合所有可用源的结果。
+ */
+export async function searchSongLists(
+  keyword: string,
+  page: number = 1,
+  limit: number = 20,
+  source?: string
+): Promise<SongListResult[]> {
+  const trimKeyword = keyword.trim();
+  if (trimKeyword.length === 0) {
+    return [];
+  }
+  const targets: string[] = [];
+  for (let i = 0; i < sources.length; i++) {
+    const id = sources[i].id;
+    if (source && source !== 'all' && id !== source) {
+      continue;
+    }
+    // 只处理内置源，避免自定义/本地源没有对应的 SDK 表项
+    if (!isBuiltinSourceId(id)) {
+      continue;
+    }
+    targets.push(id);
+  }
+
+  const results: (SongListResult | null)[] = await Promise.all(
+    targets.map((id: string): Promise<SongListResult | null> => {
+      const songListSdk = resolveBuiltinMusicSdk(id).songList;
+      if (!songListSdk.searchList) {
+        return Promise.resolve(null);
+      }
+      return songListSdk.searchList(trimKeyword, page, limit).catch(() => null);
+    })
+  );
+
+  const merged: SongListResult[] = [];
+  for (let i = 0; i < results.length; i++) {
+    const item = results[i];
+    if (item && item.list.length > 0) {
+      merged.push(item);
+    }
+  }
+  return merged;
 }

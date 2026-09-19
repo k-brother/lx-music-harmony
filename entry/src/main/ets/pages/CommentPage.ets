@@ -7,6 +7,7 @@ import { MusicInfo, MusicSource } from '../types/MusicTypes';
 import { commentService } from '../service/CommentService';
 import type { NavigationParams } from '../service/NavigationService';
 import { DesignTokens } from '../theme/DesignTokens';
+import { EmptyView } from '../components/common/EmptyView';
 import { NavBackButton } from '../components/common/NavBackButton';
 import { t } from '../service/LocalizationService';
 
@@ -42,6 +43,13 @@ interface CommentResponse {
 @Component
 export struct CommentPage {
   @StorageProp('theme') theme: string = 'light';
+
+  /** 按压反馈：列表行/按钮变淡 */
+  @Styles
+  pressDim() {
+    .opacity(0.65)
+  }
+
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
   @State renderKey: number = Date.now();
@@ -221,7 +229,7 @@ export struct CommentPage {
       // 热门评论标签
       Text(t('comment_hot'))
         .fontSize(14)
-        .fontColor(this.commentType === 'hot' ? '#E63946' : (this.theme === 'dark' ? '#AAAAAA' : '#666666'))
+        .fontColor(this.commentType === 'hot' ? DesignTokens.accent() : (this.theme === 'dark' ? DesignTokens.labelTertiary(this.theme) : DesignTokens.labelSecondary(this.theme)))
         .fontWeight(this.commentType === 'hot' ? FontWeight.Medium : FontWeight.Normal)
         .padding({ left: 16, right: 16, top: 12, bottom: 12 })
         .onClick(() => {
@@ -231,7 +239,7 @@ export struct CommentPage {
       // 最新评论标签
       Text(t('comment_new'))
         .fontSize(14)
-        .fontColor(this.commentType === 'new' ? '#E63946' : (this.theme === 'dark' ? '#AAAAAA' : '#666666'))
+        .fontColor(this.commentType === 'new' ? DesignTokens.accent() : (this.theme === 'dark' ? DesignTokens.labelTertiary(this.theme) : DesignTokens.labelSecondary(this.theme)))
         .fontWeight(this.commentType === 'new' ? FontWeight.Medium : FontWeight.Normal)
         .padding({ left: 16, right: 16, top: 12, bottom: 12 })
         .onClick(() => {
@@ -239,7 +247,7 @@ export struct CommentPage {
         })
     }
     .width('100%')
-    .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
+    .backgroundColor(DesignTokens.card(this.theme))
   }
 
   @Builder
@@ -257,12 +265,12 @@ export struct CommentPage {
           Column() {
             Text(comment.userName.substring(0, 1))
               .fontSize(16)
-              .fontColor('#FFFFFF')
+              .fontColor(DesignTokens.onAccent())
           }
           .width(36)
           .height(36)
           .borderRadius(18)
-          .backgroundColor('#E63946')
+          .backgroundColor(DesignTokens.accent())
           .justifyContent(FlexAlign.Center)
           .alignItems(HorizontalAlign.Center)
         }
@@ -272,12 +280,12 @@ export struct CommentPage {
           Row() {
             Text(comment.userName)
               .fontSize(14)
-              .fontColor(this.theme === 'dark' ? '#FFFFFF' : '#333333')
+              .fontColor(DesignTokens.labelPrimary(this.theme))
               .fontWeight(FontWeight.Medium)
             
             Text(comment.time)
               .fontSize(12)
-              .fontColor('#999999')
+              .fontColor(DesignTokens.labelSecondary(this.theme))
               .margin({ left: 8 })
           }
           .width('100%')
@@ -286,7 +294,7 @@ export struct CommentPage {
           // 评论内容
           Text(comment.content)
             .fontSize(14)
-            .fontColor(this.theme === 'dark' ? '#E0E0E0' : '#444444')
+            .fontColor(this.theme === 'dark' ? DesignTokens.mutedFill(this.theme) : '#444444')
             .lineHeight(20)
             .margin({ bottom: 8 })
           
@@ -297,13 +305,14 @@ export struct CommentPage {
               Image(comment.isLiked ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
                 .width(16)
                 .height(16)
-                .fillColor(comment.isLiked ? '#E63946' : '#999999')
+                .fillColor(comment.isLiked ? DesignTokens.accent() : DesignTokens.labelSecondary(this.theme))
                 .margin({ right: 4 })
               
               Text(comment.likeCount.toString())
                 .fontSize(12)
-                .fontColor(comment.isLiked ? '#E63946' : '#999999')
+                .fontColor(comment.isLiked ? DesignTokens.accent() : DesignTokens.labelSecondary(this.theme))
             }
+            .stateStyles({ pressed: this.pressDim })
             .onClick(() => {
               this.toggleLikeComment(comment.id);
             })
@@ -312,12 +321,12 @@ export struct CommentPage {
             Row() {
               Text('💬')
                 .fontSize(16)
-                .fontColor('#999999')
+                .fontColor(DesignTokens.labelSecondary(this.theme))
                 .margin({ left: 16, right: 4 })
               
               Text(comment.replyCount > 0 ? comment.replyCount.toString() : t('comment_new'))
                 .fontSize(12)
-                .fontColor('#999999')
+                .fontColor(DesignTokens.labelSecondary(this.theme))
             }
             .margin({ left: 16 })
             
@@ -325,10 +334,10 @@ export struct CommentPage {
             if (comment.isHot) {
               Text('热评')
                 .fontSize(10)
-                .fontColor('#E63946')
+                .fontColor(DesignTokens.accent())
                 .padding({ left: 6, right: 6, top: 2, bottom: 2 })
                 .borderRadius(2)
-                .border({ width: 1, color: '#E63946' })
+                .border({ width: 1, color: DesignTokens.accent() })
                 .margin({ left: 16 })
             }
           }
@@ -344,30 +353,18 @@ export struct CommentPage {
       if (index < this.comments.length - 1) {
         Divider()
           .strokeWidth(0.5)
-          .color(this.theme === 'dark' ? '#2C2C2C' : '#E8E8E8')
+          .color(this.theme === 'dark' ? DesignTokens.mutedFill(this.theme) : '#E8E8E8')
           .margin({ left: 64, right: 16 })
       }
     }
     .width('100%')
-    .backgroundColor(this.theme === 'dark' ? '#1C1C1C' : '#FFFFFF')
+    .backgroundColor(DesignTokens.card(this.theme))
   }
 
   @Builder
   buildEmptyState() {
     Column() {
-      Text('💬')
-        .fontSize(48)
-        .fontColor('#CCCCCC')
-        .margin({ bottom: 16 })
-      
-      Text(t('comment_no_data'))
-        .fontSize(16)
-        .fontColor(this.theme === 'dark' ? '#AAAAAA' : '#666666')
-        .margin({ bottom: 8 })
-      
-      Text(t('comment_no_data'))
-        .fontSize(12)
-        .fontColor('#999999')
+      EmptyView({ icon: '💬', message: t('comment_no_data') })
     }
     .width('100%')
     .height('100%')
@@ -381,7 +378,7 @@ export struct CommentPage {
       LoadingProgress()
         .width(40)
         .height(40)
-        .color('#E63946')
+        .color(DesignTokens.accent())
     }
     .width('100%')
     .height(80)
@@ -411,7 +408,7 @@ export struct CommentPage {
             } else if (this.comments.length > 0) {
               Text(t('comment_no_data'))
                 .fontSize(12)
-                .fontColor('#999999')
+                .fontColor(DesignTokens.labelSecondary(this.theme))
                 .textAlign(TextAlign.Center)
                 .width('100%')
                 .padding({ top: 20, bottom: 20 })
@@ -427,7 +424,7 @@ export struct CommentPage {
         .width('100%')
       }
       .layoutWeight(1)
-      .backgroundColor(this.theme === 'dark' ? '#121212' : '#F5F5F5')
+      .backgroundColor(DesignTokens.pageBg(this.theme))
       .onScrollFrameBegin((offset: number) => {
         // 下拉刷新
         if (offset > 100 && !this.isRefreshing) {
@@ -438,6 +435,6 @@ export struct CommentPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.theme === 'dark' ? '#121212' : '#F5F5F5')
+    .backgroundColor(DesignTokens.pageBg(this.theme))
   }
 }

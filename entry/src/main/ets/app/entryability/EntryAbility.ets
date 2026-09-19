@@ -17,6 +17,7 @@ import { initLocalization } from '../../service/LocalizationService';
 import { setQuickJSContext } from '../../core/napi/napi_quickjs';
 import { backgroundRunningManager } from '../../service/BackgroundRunningManager';
 import { mediaSaveService } from '../../service/MediaSaveService';
+import { localMusicService } from '../../service/LocalMusicService';
 
 const TAG = 'EntryAbility';
 const DOMAIN = 0x0001;
@@ -195,10 +196,20 @@ export default class EntryAbility extends UIAbility {
       // 语言依赖已加载的设置快照，必须放在 initAllServices 之后
       initLocalization();
 
-      // 初始化图片缓存
-      await initImageCache(this.context);
-
       await runBootstrapAfterServices(want);
+
+      // 首帧之后再补做非关键初始化：避免冷启动被磁盘/目录操作拖慢
+      setTimeout(() => {
+        localMusicService.setContext(this.context);
+        localMusicService.init().then((): void => {
+          hilog.info(DOMAIN, TAG, 'Local music library loaded (deferred)');
+        }).catch((err: Error) => {
+          hilog.warn(DOMAIN, TAG, 'Deferred local music init failed: %{public}s', err.message);
+        });
+        initImageCache(this.context).catch((err: Error) => {
+          hilog.warn(DOMAIN, TAG, 'Deferred image cache init failed: %{public}s', err.message);
+        });
+      }, 300);
 
       // 延迟初始化播放器，避免窗口未准备好导致的错误
       setTimeout(async () => {

@@ -682,6 +682,40 @@ export function getAllDownloadTasks(): DownloadTask[] {
 }
 
 /**
+ * 备份用：导出已完成/失败的下载任务（含歌曲信息，便于恢复后仍可播放）
+ */
+export function exportDownloadTasksForBackup(): DownloadTask[] {
+  return Array.from(downloadTasks.values()).filter(
+    task => task.status === DownloadStatus.COMPLETED || task.status === DownloadStatus.FAILED
+  );
+}
+
+/**
+ * 恢复备份中的下载任务（恢复为已完成记录，文件路径沿用备份值）。
+ * @returns 成功恢复的任务数
+ */
+export async function restoreDownloadTasksFromBackup(tasks: DownloadTask[]): Promise<number> {
+  let restored = 0;
+  for (let i = 0; i < tasks.length; i++) {
+    const task = tasks[i];
+    if (!task || !task.id || !task.musicInfo) {
+      continue;
+    }
+    const existing = downloadTasks.get(task.id);
+    if (existing) {
+      continue;
+    }
+    downloadTasks.set(task.id, task);
+    restored++;
+  }
+  if (restored > 0) {
+    await saveDownloadHistory();
+    hilog.info(DOMAIN, TAG, '下载任务已从备份恢复: %{public}d 条', restored);
+  }
+  return restored;
+}
+
+/**
  * 获取下载中的任务
  */
 export function getDownloadingTasks(): DownloadTask[] {

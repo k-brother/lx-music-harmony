@@ -1,10 +1,12 @@
 import { t } from '../../service/LocalizationService';
+import { DesignTokens } from '../../theme/DesignTokens';
 /**
  * 确认对话框组件
  */
 
 @Component
 export struct ConfirmDialog {
+  @StorageProp('theme') theme: string = 'light';
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
   @Prop title: string = '';
@@ -36,13 +38,13 @@ export struct ConfirmDialog {
           Text(this.title)
             .fontSize(18)
             .fontWeight(FontWeight.Medium)
-            .fontColor('#333333')
+            .fontColor(DesignTokens.labelPrimary(this.theme))
             .padding({ top: 20, bottom: 12 })
 
           // 消息
           Text(this.message)
             .fontSize(14)
-            .fontColor('#666666')
+            .fontColor(DesignTokens.labelSecondary(this.theme))
             .padding({ left: 20, right: 20, bottom: 20 })
             .textAlign(TextAlign.Center)
 
@@ -51,7 +53,7 @@ export struct ConfirmDialog {
             Column()
               .height(0.5)
               .width('50%')
-              .backgroundColor('#E0E0E0')
+              .backgroundColor(DesignTokens.mutedFill(this.theme))
           }
 
           // 按钮行
@@ -82,7 +84,7 @@ export struct ConfirmDialog {
             Column() {
               Text(this.confirmText || t('confirm'))
                 .fontSize(16)
-                .fontColor('#E63946')
+                .fontColor(DesignTokens.accent())
                 .fontWeight(FontWeight.Medium)
                 .width('100%')
                 .textAlign(TextAlign.Center)
@@ -97,7 +99,7 @@ export struct ConfirmDialog {
           .width('100%')
         }
         .width('70%')
-        .backgroundColor('#FFFFFF')
+        .backgroundColor(DesignTokens.card(this.theme))
         .borderRadius(12)
         .alignItems(HorizontalAlign.Center)
       }

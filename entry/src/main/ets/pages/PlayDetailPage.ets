@@ -5,15 +5,24 @@ import { playerService, MusicInfo, ProgressInfo } from '../service/PlayerService
 import { navigationService } from '../service/NavigationService';
 import { LyricView } from '../components/common/LyricView';
 import { RouteName, NavigationParams } from '../service/NavigationService';
-import { getUserList, LIST_IDS, addMusicToList, MusicItem } from '../service/ListService';
-import { getLyricInfo, getPicPath } from '../core/music/MusicFeatureEntry';
+import {
+  getUserList,
+  LIST_IDS,
+  addMusicToList,
+  toggleLoveList,
+  isInLoveList,
+  MusicItem
+} from '../service/ListService';
+import pasteboard from '@ohos.pasteboard';
+import { getLyricInfo, getPicPath, download } from '../core/music/MusicFeatureEntry';
 import { parseLrc, getCurrentLyricIndex, LyricLine } from '../core/music/MusicParsingUtils';
 import { DesignTokens } from '../theme/DesignTokens';
 import { NavBackButton } from '../components/common/NavBackButton';
-import { t } from '../service/LocalizationService';
+import { t, tf, sourceLabel } from '../service/LocalizationService';
 import { settingsService, type PlayMode } from '../service/SettingsService';
 import { DesktopLyricManager } from '../components/common/DesktopLyric';
 import { sleepTimerService } from '../service/SleepTimerService';
+import { formatPlayTime } from '../utils/CommonUtils';
 import { mediaSaveService, type SaveResult } from '../service/MediaSaveService';
 
 const DOMAIN: number = 0x0001;
@@ -43,6 +52,9 @@ export struct PlayDetailPage {
   @State progress: number = 0;
   @State currentTime: string = '00:00';
   @State totalTime: string = '00:00';
+  /** 进度条拖动中：只预览目标时间，松手才 seek */
+  @State isSeeking: boolean = false;
+  @State previewProgress: number = 0;
   @State lyricLines: string[] = [t('loading_lyric')];
   @State secondaryLyricLines: string[] = [];
   @State currentLyricIndex: number = -1;
@@ -105,7 +117,7 @@ export struct PlayDetailPage {
       this.currentTime = prog.nowPlayTimeStr;
       this.totalTime = prog.maxPlayTimeStr;
       if (this.lyricTimeline.length > 0) {
-        this.currentLyricIndex = getCurrentLyricIndex(this.lyricTimeline, prog.nowPlayTime);
+        this.currentLyricIndex = getCurrentLyricIndex(this.lyricTimeline, prog.nowPlayTime + settingsService.get().lyricOffset);
       }
     });
     this.renderKey = Date.now();
@@ -297,9 +309,9 @@ export struct PlayDetailPage {
       if (!this.alive || seq !== this.lyricLoadSeq) {
         return;
       }
-      // 同步歌词给桌面歌词子窗口
+      // 歌词交给播放器统一维护：系统播控、桌面歌词、播放页共用同一份数据
       this.lyricRawText = lyricInfo.lyric || '';
-      DesktopLyricManager.onLyricLoaded(this.lyricRawText);
+      playerService.setLyricData(this.lyricRawText);
       const primaryLines = parseLrc(lyricInfo.lyric || '');
       const secondaryLines = parseLrc(lyricInfo.tlyric || '');
       if (primaryLines.length === 0) {
@@ -376,31 +388,21 @@ export struct PlayDetailPage {
     await playerService.seekTo(duration * progress);
   }
 
+  /** 拖动进度条时显示的预览时间（目标位置） */
+  private previewTimeText(): string {
+    const duration = playerService.getProgress().maxPlayTime;
+    if (duration <= 0) {
+      return '00:00';
+    }
+    return formatPlayTime(duration * this.previewProgress);
+  }
+
   private showToast(message: string): void {
     try {
       this.getUIContext().getPromptAction().showToast({ message, duration: 2000 });
     } catch (_e) {
       hilog.info(DOMAIN, TAG, '%{public}s', message);
     }
-  }
-
-  private showConfirmDialog(title: string, message: string): Promise<boolean> {
-    return new Promise((resolve: (value: boolean) => void) => {
-      this.getUIContext().getPromptAction().showDialog({
-        title,
-        message,
-        buttons: [
-          { text: t('cancel'), color: DesignTokens.labelSecondary(this.theme) },
-          { text: t('confirm'), color: DesignTokens.accent() },
-        ],
-      }, (err: BusinessError, data: ActionMenuResult) => {
-        if (err) {
-          resolve(false);
-          return;
-        }
-        resolve(data.index === 1);
-      });
-    });
   }
 
   private async loadPlaySettings(): Promise<void> {
@@ -414,7 +416,7 @@ export struct PlayDetailPage {
       this.timeoutExitEnabled = settings.sleepTimerEnabled;
       this.timeoutExitLabel = this.timeoutExitEnabled ? t('sleep_enabled') : t('sleep_timer_setting');
       // 应用启动时桌面歌词开关可能是开着的，这里补齐子窗口状态
-      DesktopLyricManager.setEnabled(this.showDesktopLyric);
+      void DesktopLyricManager.setEnabled(this.showDesktopLyric);
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'loadPlaySettings failed: %{public}s', JSON.stringify(err));
     }
@@ -449,17 +451,14 @@ export struct PlayDetailPage {
   private toggleDesktopLyric(): void {
     this.showDesktopLyric = !this.showDesktopLyric;
     // 真正创建/销毁桌面歌词子窗口
-    DesktopLyricManager.setEnabled(this.showDesktopLyric);
-    if (this.showDesktopLyric) {
-      DesktopLyricManager.onLyricLoaded(this.lyricRawText);
-    }
+    void DesktopLyricManager.setEnabled(this.showDesktopLyric);
     void this.savePlaySettings();
     this.showToast(this.showDesktopLyric ? t('toast_desktop_on') : t('toast_desktop_off'));
   }
 
   private async toggleTimeoutExit(): Promise<void> {
-    const primary = this.theme === 'dark' ? '#F5F5F7' : '#1D1D1F';
-    const tertiary = '#8E8E93';
+    const primary = DesignTokens.labelPrimary(this.theme);
+    const tertiary = DesignTokens.labelTertiary(this.theme);
     this.getUIContext().getPromptAction().showActionMenu({
       title: t('sleep_timer_setting'),
       buttons: [
@@ -508,11 +507,11 @@ export struct PlayDetailPage {
     }
     const maxCount = Math.min(5, options.length);
     if (maxCount <= 0) {
-      this.showToast('暂无可用歌单');
+      this.showToast(t('no_playlist_available'));
       return;
     }
-    const primary = this.theme === 'dark' ? '#F5F5F7' : '#1D1D1F';
-    const tertiary = '#8E8E93';
+    const primary = DesignTokens.labelPrimary(this.theme);
+    const tertiary = DesignTokens.labelTertiary(this.theme);
     const display = options.slice(0, maxCount);
     const opt0 = maxCount > 0 ? display[0].name : t('unnamed_list');
     const opt1 = maxCount > 1 ? display[1].name : t('unnamed_list');
@@ -547,9 +546,9 @@ export struct PlayDetailPage {
           lrc: null,
         };
         await addMusicToList(target.id, musicItem);
-        this.showToast(`已添加到「${target.name}」`);
+        this.showToast(tf('toast_added_quoted', [target.name]));
       } catch (e) {
-        this.showToast('添加到歌单失败');
+        this.showToast(t('toast_add_list_fail'));
       }
     });
   }
@@ -566,19 +565,7 @@ export struct PlayDetailPage {
   }
 
   private async executeMoreAction(index: number): Promise<void> {
-    const labels = [
-      t('player_add_to_list'),
-      t('player_comment'),
-      this.currentTab === 0 ? t('switch_to_lyric') : t('switch_to_cover'),
-      this.showDesktopLyric ? t('close_desktop_lyric') : t('open_desktop_lyric'),
-      t('set_sleep_timer'),
-    ];
-    const actionLabel = labels[index] ?? t('execute_action');
-    const confirmed = await this.showConfirmDialog(t('confirm_action'), `${t('confirm_action_msg')}「${actionLabel}」？`);
-    if (!confirmed) {
-      return;
-    }
-
+    // 这些动作都是即时且可逆的，直接执行即可（不再每次弹确认框）
     const ix = index;
     if (ix === 0) {
       void this.addToPlaylist();
@@ -611,7 +598,88 @@ export struct PlayDetailPage {
     }
     if (ix === 6) {
       void this.saveCoverToFile();
+      return;
     }
+    if (ix === 7) {
+      void this.showSpeedMenu();
+      return;
+    }
+    if (ix === 8) {
+      void this.showLyricOffsetMenu();
+    }
+  }
+
+  /** 倍速播放（0.5x - 2.0x），选择后立即生效并记住 */
+  private async showSpeedMenu(): Promise<void> {
+    // ActionMenu 最多 6 个按钮（含取消），因此取 5 档常用倍速
+    const rates: string[] = ['0.5', '0.75', '1.0', '1.5', '2.0'];
+    const primary = DesignTokens.labelPrimary(this.theme);
+    const tertiary = DesignTokens.labelTertiary(this.theme);
+    const current = settingsService.get().playRate;
+    const mark = (value: number): string => Math.abs(value - current) < 0.01 ? '  ✓' : '';
+
+    this.getUIContext().getPromptAction().showActionMenu({
+      title: t('play_speed'),
+      buttons: [
+        { text: `0.5x${mark(0.5)}`, color: primary },
+        { text: `0.75x${mark(0.75)}`, color: primary },
+        { text: `1.0x${mark(1.0)}`, color: primary },
+        { text: `1.5x${mark(1.5)}`, color: primary },
+        { text: `2.0x${mark(2.0)}`, color: primary },
+        { text: t('cancel'), color: tertiary },
+      ],
+    }, (err: BusinessError, data: ActionMenuResult) => {
+      if (err) {
+        return;
+      }
+      const ix = data.index;
+      if (ix < 0 || ix >= rates.length) {
+        return;
+      }
+      const rate = parseFloat(rates[ix]);
+      playerService.setPlaybackRate(rate).then((): void => {
+        this.showToast(tf('play_speed_set', [`${rates[ix]}x`]));
+      }).catch((setErr: Error) => {
+        hilog.warn(DOMAIN, TAG, 'setPlaybackRate failed: %{public}s', setErr.message);
+      });
+    });
+  }
+
+  /** 歌词偏移：正值让歌词更早出现，负值延后 */
+  private async showLyricOffsetMenu(): Promise<void> {
+    // ActionMenu 最多 6 个按钮（含取消）
+    const offsets: number[] = [-2, -1, 0, 1, 2];
+    const primary = DesignTokens.labelPrimary(this.theme);
+    const tertiary = DesignTokens.labelTertiary(this.theme);
+    const current = settingsService.get().lyricOffset;
+
+    this.getUIContext().getPromptAction().showActionMenu({
+      title: t('lyric_offset'),
+      buttons: [
+        { text: `-2s${current === -2 ? '  ✓' : ''}`, color: primary },
+        { text: `-1s${current === -1 ? '  ✓' : ''}`, color: primary },
+        { text: `${t('lyric_offset_none')}${current === 0 ? '  ✓' : ''}`, color: primary },
+        { text: `+1s${current === 1 ? '  ✓' : ''}`, color: primary },
+        { text: `+2s${current === 2 ? '  ✓' : ''}`, color: primary },
+        { text: t('cancel'), color: tertiary },
+      ],
+    }, (err: BusinessError, data: ActionMenuResult) => {
+      if (err) {
+        return;
+      }
+      const ix = data.index;
+      if (ix < 0 || ix >= offsets.length) {
+        return;
+      }
+      const offset = offsets[ix];
+      settingsService.update({ lyricOffset: offset }).then((): void => {
+        // 立即用新偏移重算当前句
+        playerService.refreshLyricIndex();
+        this.showToast(`${t('lyric_offset')}: ${offset > 0 ? '+' : ''}${offset}s`);
+      }).catch((setErr: Error) => {
+        hilog.warn(DOMAIN, TAG, 'update lyricOffset failed: %{public}s', setErr.message);
+      });
+    });
   }
 
   /** 保存当前歌词到本地文件 */
@@ -658,7 +726,7 @@ export struct PlayDetailPage {
   private viewComments(): void {
     const currentMusicInfo = playerService.getCurrentMusicInfo();
     if (!currentMusicInfo || !currentMusicInfo.name) {
-      this.showToast('当前没有正在播放的歌曲');
+      this.showToast(t('player_no_song'));
       return;
     }
     const params: NavigationParams = {
@@ -685,17 +753,46 @@ export struct PlayDetailPage {
 
   build() {
     Stack() {
+      // 封面高斯模糊垫底：主流音乐 App 的沉浸式背景（无封面时退回纯色）
+      if (this.canRenderCover(this.pic)) {
+        Image(this.pic)
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .blur(64)
+          .opacity(this.theme === 'dark' ? 0.35 : 0.5)
+        Column()
+          .width('100%')
+          .height('100%')
+          .linearGradient({
+            angle: 180,
+            colors: [
+              [this.theme === 'dark' ? '#CC000000' : '#B3FFFFFF', 0.0],
+              [this.theme === 'dark' ? '#F2000000' : '#F2FFFFFF', 0.55],
+              [DesignTokens.pageBg(this.theme), 1.0],
+            ],
+          })
+      }
+
       Column() {
         this.NavigationBar()
         this.TabSwitchBar()
 
         Swiper(this.swiperController) {
           this.AlbumArt()
-          LyricView({
-            lyricLines: this.lyricLines,
-            secondaryLyricLines: this.secondaryLyricLines,
-            currentLyricIndex: this.currentLyricIndex,
-          })
+          // 滑动切换的视觉反馈：非当前页轻微缩小淡出（@Builder 不能链式修饰，包一层容器）
+          Column() {
+            LyricView({
+              lyricLines: this.lyricLines,
+              secondaryLyricLines: this.secondaryLyricLines,
+              currentLyricIndex: this.currentLyricIndex,
+            })
+          }
+          .width('100%')
+          .height('100%')
+          .scale({ x: this.currentTab === 1 ? 1 : 0.94, y: this.currentTab === 1 ? 1 : 0.94 })
+          .opacity(this.currentTab === 1 ? 1 : 0.7)
+          .animation({ duration: 260, curve: Curve.EaseOut })
         }
         .index(this.currentTab)
         .width('100%')
@@ -741,7 +838,7 @@ export struct PlayDetailPage {
     Stack() {
       Column({ space: 6 }) {
         Row() {
-          Text('更多操作')
+          Text(t('more_actions'))
             .fontSize(16)
             .fontWeight(FontWeight.Medium)
             .fontColor(DesignTokens.labelPrimary(this.theme))
@@ -770,6 +867,8 @@ export struct PlayDetailPage {
         this.buildMoreActionRow(4, 5, $r('app.media.ic_pd_timer'), t('sleep_timer_setting'), () => this.onMoreActionSelected(4))
         this.buildMoreActionRow(5, 5, $r('app.media.ic_pd_lyric'), t('media_save_lyric'), () => this.onMoreActionSelected(5))
         this.buildMoreActionRow(6, 5, $r('app.media.ic_pd_comment'), t('media_save_cover'), () => this.onMoreActionSelected(6))
+        this.buildMoreActionRow(7, 5, $r('app.media.ic_pd_timer'), t('play_speed'), () => this.onMoreActionSelected(7))
+        this.buildMoreActionRow(8, 5, $r('app.media.ic_pd_lyric'), t('lyric_offset'), () => this.onMoreActionSelected(8))
       }
       .width('84%')
       .padding({ left: 18, right: 18, top: 16, bottom: 14 })
@@ -952,6 +1051,116 @@ export struct PlayDetailPage {
     .alignItems(HorizontalAlign.Center)
     .width('100%')
     .height('100%')
+    // 切到歌词页时封面轻微缩小淡出，形成层次过渡
+    .scale({ x: this.currentTab === 0 ? 1 : 0.92, y: this.currentTab === 0 ? 1 : 0.92 })
+    .opacity(this.currentTab === 0 ? 1 : 0.65)
+    .animation({ duration: 260, curve: Curve.EaseOut })
+    // 长按封面出快捷菜单（主流播放器惯例）
+    .gesture(
+      LongPressGesture()
+        .onAction(() => {
+          this.showCoverQuickMenu();
+        })
+    )
+  }
+
+  /** 长按封面的快捷操作（ActionMenu 最多 6 项，含取消） */
+  private showCoverQuickMenu(): void {
+    const primary = DesignTokens.labelPrimary(this.theme);
+    const info = playerService.getCurrentMusicInfo();
+    const isLoved = info.id ? isInLoveList(info.id) : false;
+    this.getUIContext().getPromptAction().showActionMenu({
+      title: info.name || t('player_title'),
+      buttons: [
+        { text: isLoved ? t('player_unlove') : t('player_love'), color: primary },
+        { text: t('player_download'), color: primary },
+        { text: t('player_share'), color: primary },
+        { text: t('media_save_cover'), color: primary },
+        { text: t('player_comment'), color: primary },
+        { text: t('cancel'), color: DesignTokens.labelTertiary(this.theme) },
+      ],
+    }, (err: BusinessError, data: ActionMenuResult) => {
+      if (err) {
+        return;
+      }
+      if (data.index === 0) {
+        void this.toggleLoveCurrent();
+      } else if (data.index === 1) {
+        void this.downloadCurrent();
+      } else if (data.index === 2) {
+        void this.shareCurrent();
+      } else if (data.index === 3) {
+        void this.saveCoverToFile();
+      } else if (data.index === 4) {
+        this.viewComments();
+      }
+    });
+  }
+
+  /** 收藏 / 取消收藏当前歌曲 */
+  private async toggleLoveCurrent(): Promise<void> {
+    const info = playerService.getCurrentMusicInfo();
+    if (!info.id || !info.name) {
+      this.showToast(t('player_no_song'));
+      return;
+    }
+    try {
+      const loved = await toggleLoveList({
+        id: info.id,
+        name: info.name,
+        singer: info.singer,
+        album: info.album ?? info.albumName ?? '',
+        albumId: info.albumId ?? null,
+        duration: 0,
+        source: info.source ?? '',
+        pic: info.pic ?? info.img ?? '',
+        lrc: null,
+      });
+      this.showToast(loved ? t('player_loved') : t('player_unloved_ok'));
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'toggleLoveCurrent failed: %{public}s', JSON.stringify(err));
+      this.showToast(t('toast_operation_failed'));
+    }
+  }
+
+  /** 下载当前歌曲（走统一下载服务，下载页可见） */
+  private async downloadCurrent(): Promise<void> {
+    const info = playerService.getCurrentMusicInfo();
+    if (!info.id || !info.name) {
+      this.showToast(t('player_no_song'));
+      return;
+    }
+    try {
+      const taskId = await download.startDownload({ musicInfo: info });
+      hilog.info(DOMAIN, TAG, 'download started: %{public}s', taskId);
+      this.showToast(tf('toast_download_start_song', [info.name]));
+    } catch (err) {
+      hilog.error(DOMAIN, TAG, 'downloadCurrent failed: %{public}s', JSON.stringify(err));
+      this.showToast(t('toast_download_failed_network'));
+    }
+  }
+
+  /** 分享：复制歌曲信息到系统剪贴板（本 SDK 无系统分享面板，先走复制） */
+  private async shareCurrent(): Promise<void> {
+    const info = playerService.getCurrentMusicInfo();
+    if (!info.name) {
+      this.showToast(t('player_no_song'));
+      return;
+    }
+    const text = `[${sourceLabel(info.source ?? '')}] ${info.name} - ${info.singer}${info.albumName ? ' · ' + info.albumName : ''}`;
+    // 附上当前播放位置，方便分享"听到哪儿了"
+    const progress = playerService.getProgress();
+    const withPosition = progress.nowPlayTime > 0
+      ? `${text} · ${progress.nowPlayTimeStr}`
+      : text;
+    try {
+      const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, withPosition);
+      await pasteboard.getSystemPasteboard().setData(data);
+      this.showToast(t('toast_share_copy'));
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'shareCurrent failed: %{public}s', JSON.stringify(err));
+      this.showToast(t('toast_operation_failed'));
+    }
   }
 
   @Builder
@@ -964,7 +1173,8 @@ export struct PlayDetailPage {
           .width(44)
           .textAlign(TextAlign.Center)
         Slider({
-          value: this.progress * 100,
+          // 拖动中显示手指位置（previewProgress），松手才真正 seek
+          value: (this.isSeeking ? this.previewProgress : this.progress) * 100,
           min: 0,
           max: 100,
           style: SliderStyle.OutSet,
@@ -974,12 +1184,21 @@ export struct PlayDetailPage {
           .blockColor(DesignTokens.accent())
           .trackColor(DesignTokens.mutedFill(this.theme))
           .selectedColor(DesignTokens.accent())
-          .onChange((value: number) => {
-            void this.seekTo(value / 100);
+          .onChange((value: number, mode: SliderChangeMode) => {
+            const ratio = Math.max(0, Math.min(1, value / 100));
+            if (mode === SliderChangeMode.Begin || mode === SliderChangeMode.Moving) {
+              // 拖动中只更新预览，不发 seek 请求（否则会疯狂打断播放）
+              this.isSeeking = true;
+              this.previewProgress = ratio;
+              return;
+            }
+            // End / Click：提交一次真正的 seek
+            this.isSeeking = false;
+            void this.seekTo(ratio);
           })
-        Text(this.totalTime)
+        Text(this.isSeeking ? this.previewTimeText() : this.currentTime)
           .fontSize(DesignTokens.fontMicro())
-          .fontColor(DesignTokens.labelTertiary(this.theme))
+          .fontColor(this.isSeeking ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
           .width(44)
           .textAlign(TextAlign.Center)
       }
@@ -1003,12 +1222,12 @@ export struct PlayDetailPage {
             Image($r('app.media.ic_pd_pause'))
               .width(20)
               .height(20)
-              .fillColor('#FFFFFF')
+              .fillColor(DesignTokens.onAccent())
           } else {
             Image($r('app.media.ic_pd_play'))
               .width(20)
               .height(20)
-              .fillColor('#FFFFFF')
+              .fillColor(DesignTokens.onAccent())
               .margin({ left: 1 })
           }
         }

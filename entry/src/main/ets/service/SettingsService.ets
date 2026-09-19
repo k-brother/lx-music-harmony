@@ -30,8 +30,8 @@ export type ThemeMode = 'light' | 'dark';
 export type StartupPage = 'home' | 'playdetail';
 /** 添加歌曲到列表的位置 */
 export type AddMusicLocation = 'top' | 'bottom';
-/** 桌面歌词位置 */
-export type DesktopLyricPosition = 'top' | 'middle' | 'bottom';
+/** 桌面歌词位置（custom = 用户拖动后的自由位置） */
+export type DesktopLyricPosition = 'top' | 'middle' | 'bottom' | 'custom';
 /** 同步模式 */
 export type SyncMode = 'client' | 'server';
 
@@ -48,6 +48,10 @@ export interface AppSettings {
   autoPlay: boolean;
   highQuality: boolean;
   playMode: PlayMode;
+  /** 播放倍速（0.5 - 2.0） */
+  playRate: number;
+  /** 歌词偏移（秒）：正值=歌词提前出现 */
+  lyricOffset: number;
   /** 0-100 */
   volume: number;
   sleepTimerEnabled: boolean;
@@ -55,6 +59,17 @@ export interface AppSettings {
   showDesktopLyric: boolean;
   desktopLyricPosition: DesktopLyricPosition;
   desktopLyricColor: string;
+  /** 歌词窗口背景不透明度 0-100（0 = 全透明） */
+  desktopLyricBgAlpha: number;
+  /** 歌词字号 14-32 */
+  desktopLyricFontSize: number;
+  /** 是否显示下一句 */
+  desktopLyricShowNext: boolean;
+  /** 锁定后不可拖动/点击穿透 */
+  desktopLyricLocked: boolean;
+  /** 自定义位置（position=custom 时生效），-1 表示未设置 */
+  desktopLyricX: number;
+  desktopLyricY: number;
 
   // 搜索
   searchSource: string;
@@ -94,12 +109,20 @@ export interface SettingsPatch {
   autoPlay?: boolean;
   highQuality?: boolean;
   playMode?: PlayMode;
+  playRate?: number;
+  lyricOffset?: number;
   volume?: number;
   sleepTimerEnabled?: boolean;
   sleepTimerMinutes?: number;
   showDesktopLyric?: boolean;
   desktopLyricPosition?: DesktopLyricPosition;
   desktopLyricColor?: string;
+  desktopLyricBgAlpha?: number;
+  desktopLyricFontSize?: number;
+  desktopLyricShowNext?: boolean;
+  desktopLyricLocked?: boolean;
+  desktopLyricX?: number;
+  desktopLyricY?: number;
 
   searchSource?: string;
   showHotSearch?: boolean;
@@ -135,12 +158,20 @@ function createDefaultSettings(): AppSettings {
     autoPlay: true,
     highQuality: true,
     playMode: 'listLoop',
+    playRate: 1.0,
+    lyricOffset: 0,
     volume: 80,
     sleepTimerEnabled: false,
     sleepTimerMinutes: 30,
     showDesktopLyric: false,
     desktopLyricPosition: 'top',
     desktopLyricColor: '#FFFFFF',
+    desktopLyricBgAlpha: 0,
+    desktopLyricFontSize: 18,
+    desktopLyricShowNext: true,
+    desktopLyricLocked: false,
+    desktopLyricX: -1,
+    desktopLyricY: -1,
 
     searchSource: 'kw',
     showHotSearch: true,
@@ -189,7 +220,7 @@ function toAddMusicLocation(value: string, fallback: AddMusicLocation): AddMusic
 }
 
 function toDesktopLyricPosition(value: string, fallback: DesktopLyricPosition): DesktopLyricPosition {
-  if (value === 'top' || value === 'middle' || value === 'bottom') {
+  if (value === 'top' || value === 'middle' || value === 'bottom' || value === 'custom') {
     return value;
   }
   return fallback;
@@ -379,6 +410,10 @@ class SettingsServiceImpl {
     this.values.highQuality = await storage.getBoolean(StorageKeys.PLAY_HIGH_QUALITY, defaults.highQuality);
     this.values.playMode = toPlayMode(
       await storage.getString(StorageKeys.PLAY_MODE, defaults.playMode), defaults.playMode);
+    this.values.playRate = clampNumber(
+      await storage.getNumber(StorageKeys.PLAY_RATE, defaults.playRate), 0.5, 2.0, defaults.playRate);
+    this.values.lyricOffset = clampNumber(
+      await storage.getNumber(StorageKeys.LYRIC_OFFSET, defaults.lyricOffset), -5, 5, defaults.lyricOffset);
     this.values.volume = clampNumber(
       await storage.getNumber(StorageKeys.PLAY_VOLUME, defaults.volume), 0, 100, defaults.volume);
     this.values.sleepTimerEnabled = await storage.getBoolean(
@@ -393,6 +428,18 @@ class SettingsServiceImpl {
       defaults.desktopLyricPosition);
     this.values.desktopLyricColor = await storage.getString(
       StorageKeys.PLAY_DESKTOP_LYRIC_COLOR, defaults.desktopLyricColor);
+    this.values.desktopLyricBgAlpha = clampNumber(
+      await storage.getNumber(StorageKeys.PLAY_DESKTOP_LYRIC_BG_ALPHA, defaults.desktopLyricBgAlpha),
+      0, 100, defaults.desktopLyricBgAlpha);
+    this.values.desktopLyricFontSize = clampNumber(
+      await storage.getNumber(StorageKeys.PLAY_DESKTOP_LYRIC_FONT_SIZE, defaults.desktopLyricFontSize),
+      14, 32, defaults.desktopLyricFontSize);
+    this.values.desktopLyricShowNext = await storage.getBoolean(
+      StorageKeys.PLAY_DESKTOP_LYRIC_SHOW_NEXT, defaults.desktopLyricShowNext);
+    this.values.desktopLyricLocked = await storage.getBoolean(
+      StorageKeys.PLAY_DESKTOP_LYRIC_LOCKED, defaults.desktopLyricLocked);
+    this.values.desktopLyricX = await storage.getNumber(StorageKeys.PLAY_DESKTOP_LYRIC_X, defaults.desktopLyricX);
+    this.values.desktopLyricY = await storage.getNumber(StorageKeys.PLAY_DESKTOP_LYRIC_Y, defaults.desktopLyricY);
 
     this.values.searchSource = await storage.getString(StorageKeys.SEARCH_SOURCE, defaults.searchSource);
     this.values.showHotSearch = await storage.getBoolean(StorageKeys.SEARCH_SHOW_HOT, defaults.showHotSearch);
@@ -443,12 +490,20 @@ class SettingsServiceImpl {
     copy.autoPlay = source.autoPlay;
     copy.highQuality = source.highQuality;
     copy.playMode = source.playMode;
+    copy.playRate = source.playRate;
+    copy.lyricOffset = source.lyricOffset;
     copy.volume = source.volume;
     copy.sleepTimerEnabled = source.sleepTimerEnabled;
     copy.sleepTimerMinutes = source.sleepTimerMinutes;
     copy.showDesktopLyric = source.showDesktopLyric;
     copy.desktopLyricPosition = source.desktopLyricPosition;
     copy.desktopLyricColor = source.desktopLyricColor;
+    copy.desktopLyricBgAlpha = source.desktopLyricBgAlpha;
+    copy.desktopLyricFontSize = source.desktopLyricFontSize;
+    copy.desktopLyricShowNext = source.desktopLyricShowNext;
+    copy.desktopLyricLocked = source.desktopLyricLocked;
+    copy.desktopLyricX = source.desktopLyricX;
+    copy.desktopLyricY = source.desktopLyricY;
     copy.searchSource = source.searchSource;
     copy.showHotSearch = source.showHotSearch;
     copy.searchHistoryCount = source.searchHistoryCount;
@@ -518,6 +573,22 @@ class SettingsServiceImpl {
       await storage.setString(StorageKeys.PLAY_MODE, patch.playMode);
       changed.push('playMode');
     }
+    if (patch.playRate !== undefined) {
+      const next = clampNumber(patch.playRate, 0.5, 2.0, this.values.playRate);
+      if (Math.abs(next - this.values.playRate) > 0.001) {
+        this.values.playRate = next;
+        await storage.setNumber(StorageKeys.PLAY_RATE, next);
+        changed.push('playRate');
+      }
+    }
+    if (patch.lyricOffset !== undefined) {
+      const next = clampNumber(patch.lyricOffset, -5, 5, this.values.lyricOffset);
+      if (Math.abs(next - this.values.lyricOffset) > 0.001) {
+        this.values.lyricOffset = next;
+        await storage.setNumber(StorageKeys.LYRIC_OFFSET, next);
+        changed.push('lyricOffset');
+      }
+    }
     if (patch.volume !== undefined) {
       const next = clampNumber(patch.volume, 0, 100, this.values.volume);
       if (next !== this.values.volume) {
@@ -554,6 +625,42 @@ class SettingsServiceImpl {
       this.values.desktopLyricColor = patch.desktopLyricColor;
       await storage.setString(StorageKeys.PLAY_DESKTOP_LYRIC_COLOR, patch.desktopLyricColor);
       changed.push('desktopLyricColor');
+    }
+    if (patch.desktopLyricBgAlpha !== undefined) {
+      const next = clampNumber(patch.desktopLyricBgAlpha, 0, 100, this.values.desktopLyricBgAlpha);
+      if (next !== this.values.desktopLyricBgAlpha) {
+        this.values.desktopLyricBgAlpha = next;
+        await storage.setNumber(StorageKeys.PLAY_DESKTOP_LYRIC_BG_ALPHA, next);
+        changed.push('desktopLyricBgAlpha');
+      }
+    }
+    if (patch.desktopLyricFontSize !== undefined) {
+      const next = clampNumber(patch.desktopLyricFontSize, 14, 32, this.values.desktopLyricFontSize);
+      if (next !== this.values.desktopLyricFontSize) {
+        this.values.desktopLyricFontSize = next;
+        await storage.setNumber(StorageKeys.PLAY_DESKTOP_LYRIC_FONT_SIZE, next);
+        changed.push('desktopLyricFontSize');
+      }
+    }
+    if (patch.desktopLyricShowNext !== undefined && patch.desktopLyricShowNext !== this.values.desktopLyricShowNext) {
+      this.values.desktopLyricShowNext = patch.desktopLyricShowNext;
+      await storage.setBoolean(StorageKeys.PLAY_DESKTOP_LYRIC_SHOW_NEXT, patch.desktopLyricShowNext);
+      changed.push('desktopLyricShowNext');
+    }
+    if (patch.desktopLyricLocked !== undefined && patch.desktopLyricLocked !== this.values.desktopLyricLocked) {
+      this.values.desktopLyricLocked = patch.desktopLyricLocked;
+      await storage.setBoolean(StorageKeys.PLAY_DESKTOP_LYRIC_LOCKED, patch.desktopLyricLocked);
+      changed.push('desktopLyricLocked');
+    }
+    if (patch.desktopLyricX !== undefined && patch.desktopLyricX !== this.values.desktopLyricX) {
+      this.values.desktopLyricX = patch.desktopLyricX;
+      await storage.setNumber(StorageKeys.PLAY_DESKTOP_LYRIC_X, patch.desktopLyricX);
+      changed.push('desktopLyricX');
+    }
+    if (patch.desktopLyricY !== undefined && patch.desktopLyricY !== this.values.desktopLyricY) {
+      this.values.desktopLyricY = patch.desktopLyricY;
+      await storage.setNumber(StorageKeys.PLAY_DESKTOP_LYRIC_Y, patch.desktopLyricY);
+      changed.push('desktopLyricY');
     }
 
     if (patch.searchSource !== undefined && patch.searchSource !== this.values.searchSource) {
@@ -677,12 +784,18 @@ class SettingsServiceImpl {
       autoPlay: defaults.autoPlay,
       highQuality: defaults.highQuality,
       playMode: defaults.playMode,
+      playRate: defaults.playRate,
+      lyricOffset: defaults.lyricOffset,
       volume: defaults.volume,
       sleepTimerEnabled: defaults.sleepTimerEnabled,
       sleepTimerMinutes: defaults.sleepTimerMinutes,
       showDesktopLyric: defaults.showDesktopLyric,
       desktopLyricPosition: defaults.desktopLyricPosition,
       desktopLyricColor: defaults.desktopLyricColor,
+      desktopLyricBgAlpha: defaults.desktopLyricBgAlpha,
+      desktopLyricFontSize: defaults.desktopLyricFontSize,
+      desktopLyricShowNext: defaults.desktopLyricShowNext,
+      desktopLyricLocked: defaults.desktopLyricLocked,
       searchSource: defaults.searchSource,
       showHotSearch: defaults.showHotSearch,
       searchHistoryCount: defaults.searchHistoryCount,
@@ -714,7 +827,10 @@ class SettingsServiceImpl {
     AppStorage.setOrCreate('showDesktopLyric', this.values.showDesktopLyric);
     AppStorage.setOrCreate('desktopLyricPosition', this.values.desktopLyricPosition);
     AppStorage.setOrCreate('desktopLyricColor', this.values.desktopLyricColor);
-    AppStorage.setOrCreate('desktopLyricBgAlpha', 0.75);
+    AppStorage.setOrCreate('desktopLyricBgAlpha', this.values.desktopLyricBgAlpha);
+    AppStorage.setOrCreate('desktopLyricFontSize', this.values.desktopLyricFontSize);
+    AppStorage.setOrCreate('desktopLyricShowNext', this.values.desktopLyricShowNext);
+    AppStorage.setOrCreate('desktopLyricLocked', this.values.desktopLyricLocked);
     AppStorage.setOrCreate('appFontSize', this.values.fontSize);
     AppStorage.setOrCreate('showAnimation', this.values.showAnimation);
   }
