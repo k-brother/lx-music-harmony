@@ -18,3 +18,12 @@ declare module 'libquickjs_napi.so' {
   const module: QuickJSNapiModule;
   export default module;
 }
+
+declare module 'libinflate_napi.so' {
+  interface InflateNapiModule {
+    /** zlib/gzip 内存解压；失败返回 undefined */
+    inflateBytes(data: ArrayBuffer | Uint8Array): ArrayBuffer | undefined;
+  }
+  const module: InflateNapiModule;
+  export default module;
+}

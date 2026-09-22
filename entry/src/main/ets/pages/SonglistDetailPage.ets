@@ -10,7 +10,7 @@ import { playerService, SongInfo } from '../service/PlayerService';
 import { navigationService } from '../service/NavigationService';
 import { common } from '@kit.AbilityKit';
 import { addMusicToList, getUserList, getUserListMusic, LIST_IDS, MusicItem, ListInfo } from '../service/ListService';
-import { createUserList, removeMusicsFromList, replaceUserListMusic } from '../service/ListService';
+import { createUserList, moveMusicInList, removeMusicsFromList, replaceUserListMusic } from '../service/ListService';
 import type { BusinessError } from '@kit.BasicServicesKit';
 import { emitSearchRequest } from '../service/EventBus';
 import { buildShareText, getMusicDetailPageUrl } from '../core/music/MusicDetailUrl';
@@ -29,6 +29,9 @@ import { songRowToListItem, songRowToMusicInfo, songRowToQueueItem } from '../co
 import { appActionMenu } from '../service/DialogService';
 import { ListRow } from '../components/ui/ListRow';
 import { NavBar } from '../components/ui/NavBar';
+import { InputSheet } from '../components/ui/InputSheet';
+import { SelectSheet } from '../components/ui/SelectSheet';
+import type { SettingOption } from '../components/ui/SettingsTypes';
 import type { SongItem, SonglistInfo } from './SonglistDetail/SonglistTypes';
 import { SonglistDetailHeader } from './SonglistDetail/SonglistDetailHeader';
 import { SonglistBatchBar } from './SonglistDetail/SonglistBatchBar';
@@ -91,6 +94,14 @@ export struct SonglistDetailPage {
   @State sortOrder: string = 'up';
   /** 去重时是否忽略 Live/伴奏等版本后缀 */
   @State dedupeFilterVariant: boolean = true;
+
+  // ===== 本地列表的「调整位置 / 移动到其他列表」（对齐安卓版 change_position / move_to）=====
+  @State showMovePositionSheet: boolean = false;
+  @State movePositionValue: string = '';
+  private movePositionTarget: SongItem | null = null;
+  @State showMoveToListSheet: boolean = false;
+  @State moveToListOptions: SettingOption[] = [];
+  private moveToListTarget: SongItem | null = null;
 
   // 歌单信息
   @State listInfo: SonglistInfo = {
@@ -458,27 +469,7 @@ export struct SonglistDetailPage {
       };
       this.listCoverLoadFailed = false;
 
-      const items: SongItem[] = [];
-      for (let i = 0; i < localSongs.length; i++) {
-        const song = localSongs[i];
-        items.push({
-          id: song.id || '',
-          name: song.name || '',
-          singer: song.singer || '',
-          album: song.album || '',
-          duration: song.duration || 0,
-          isPlaying: false,
-          source: song.source || 'local',
-          pic: song.pic || '',
-          albumId: song.albumId || '',
-          songmid: song.id || '',
-          hash: '',
-          strMediaMid: '',
-          copyrightId: '',
-        });
-      }
-
-      this.songList = items;
+      this.songList = this.musicRowsFromLocal(localSongs);
       this.detailLoaded = true;
     } catch (err) {
       hilog.error(0x0001, 'SonglistDetail', 'Failed to load local song list: %{public}s', JSON.stringify(err));
@@ -487,6 +478,30 @@ export struct SonglistDetailPage {
     } finally {
       this.isLoading = false;
     }
+  }
+
+  /** 本地曲库行 -> 页面行（首次加载与位置调整后的刷新共用一份映射） */
+  private musicRowsFromLocal(list: MusicItem[]): SongItem[] {
+    const rows: SongItem[] = [];
+    for (let i = 0; i < list.length; i++) {
+      const song = list[i];
+      rows.push({
+        id: song.id || '',
+        name: song.name || '',
+        singer: song.singer || '',
+        album: song.album || '',
+        duration: song.duration || 0,
+        isPlaying: false,
+        source: song.source || 'local',
+        pic: song.pic || '',
+        albumId: song.albumId || '',
+        songmid: song.id || '',
+        hash: '',
+        strMediaMid: '',
+        copyrightId: '',
+      });
+    }
+    return rows;
   }
 
   parsePlayCount(countStr: string): number {
@@ -1096,6 +1111,17 @@ export struct SonglistDetailPage {
     this.songList = sortSongs(this.songList, field, order, locale);
     this.showSortSheet = false;
     this.showToast(tf('toast_sorted_count', [this.songList.length.toString()]));
+
+    // 本地列表排序结果要落库，否则退出再进又变回原顺序
+    if (this.canEditLocalList()) {
+      const items: MusicItem[] = [];
+      for (let i = 0; i < this.songList.length; i++) {
+        items.push(songRowToListItem(this.songList[i]));
+      }
+      replaceUserListMusic(this.listInfo.id, items).catch((err: Error) => {
+        hilog.error(0x0001, 'SonglistDetail', 'persist sort failed: %{public}s', err?.message);
+      });
+    }
   }
 
   // ===== 去重 =====
@@ -1221,6 +1247,16 @@ export struct SonglistDetailPage {
       onViewAlbum: (target: SongItem): void => {
         this.viewAlbum(target);
       },
+      onMovePosition: (target: SongItem): void => {
+        this.openMovePosition(target);
+      },
+      onMoveToList: (target: SongItem): void => {
+        this.openMoveToList(target);
+      },
+    }, {
+      // 只有本地（我的）列表能改顺序/移动；在线歌单是只读的
+      canEditPosition: this.canEditLocalList(),
+      canMoveToList: this.canEditLocalList() && this.buildMoveTargetOptions().length > 0,
     });
   }
 
@@ -1293,6 +1329,103 @@ export struct SonglistDetailPage {
     });
   }
 
+
+  // ===== 调整位置 / 移动到其他列表（仅本地列表）=====
+
+  /** 在线歌单是只读的：只有本地（我的）列表能改顺序和移动 */
+  private canEditLocalList(): boolean {
+    return this.listInfo.source === 'local' && this.listInfo.id.length > 0;
+  }
+
+  /** 按存储顺序刷新本地列表（位置调整/移动后调用，避免看到的顺序和库里不一致） */
+  private refreshLocalRows(): void {
+    if (!this.canEditLocalList()) {
+      return;
+    }
+    this.songList = this.musicRowsFromLocal(getUserListMusic(this.listInfo.id));
+  }
+
+  /** 可移动的目标列表（排除当前列表） */
+  private buildMoveTargetOptions(): SettingOption[] {
+    const options: SettingOption[] = [];
+    const lists: ListInfo[] = getUserList();
+    for (const list of lists) {
+      if (list.id === this.listInfo.id) {
+        continue;
+      }
+      options.push({ label: list.name, value: list.id });
+    }
+    return options;
+  }
+
+  /** 调整位置：面板默认填当前所在位置 */
+  private openMovePosition(song: SongItem): void {
+    let index = -1;
+    for (let i = 0; i < this.songList.length; i++) {
+      if (this.songList[i].id === song.id) {
+        index = i;
+        break;
+      }
+    }
+    this.movePositionTarget = song;
+    this.movePositionValue = (index + 1).toString();
+    this.showMovePositionSheet = true;
+  }
+
+  /** 应用位置调整 */
+  private async applyMovePosition(value: string): Promise<void> {
+    const song = this.movePositionTarget;
+    this.movePositionTarget = null;
+    if (!song) {
+      return;
+    }
+
+    const position = parseInt(value.trim(), 10);
+    if (isNaN(position) || position < 1 || position > this.songList.length) {
+      this.showToast(tf('list_position_invalid', [this.songList.length.toString()]));
+      return;
+    }
+
+    try {
+      const moved = await moveMusicInList(this.listInfo.id, song.id, position);
+      this.refreshLocalRows();
+      this.showToast(moved ? tf('list_position_moved', [position.toString()]) : t('list_position_unchanged'));
+    } catch (err) {
+      hilog.error(0x0001, 'SonglistDetail', 'applyMovePosition failed: %{public}s', JSON.stringify(err));
+      this.showToast(t('toast_operation_failed'));
+    }
+  }
+
+  /** 移动到其他列表 */
+  private openMoveToList(song: SongItem): void {
+    const options = this.buildMoveTargetOptions();
+    if (options.length === 0) {
+      this.showToast(t('list_move_no_target'));
+      return;
+    }
+    this.moveToListTarget = song;
+    this.moveToListOptions = options;
+    this.showMoveToListSheet = true;
+  }
+
+  /** 「移动」= 加入目标列表 + 从当前列表移除（与安卓版 move_to 语义一致） */
+  private async applyMoveToList(listId: string): Promise<void> {
+    const song = this.moveToListTarget;
+    this.moveToListTarget = null;
+    if (!song || listId.length === 0) {
+      return;
+    }
+
+    try {
+      await addMusicToList(listId, songRowToListItem(song));
+      await removeMusicsFromList(this.listInfo.id, [song.id]);
+      this.refreshLocalRows();
+      this.showToast(t('list_move_done'));
+    } catch (err) {
+      hilog.error(0x0001, 'SonglistDetail', 'applyMoveToList failed: %{public}s', JSON.stringify(err));
+      this.showToast(t('toast_operation_failed'));
+    }
+  }
 
   // 添加到歌单
   private async addToPlaylist(song: SongItem): Promise<void> {
@@ -1449,6 +1582,11 @@ export struct SonglistDetailPage {
 
       // 播放器栏（组件内部处理底部沉浸）
       PlayerBar({ immersiveBottom: true })
+
+      // 面板类浮层：必须在 build 中挂载才会渲染（此前排序面板漏挂，点了没反应）
+      this.SortSheet()
+      this.MovePositionSheet()
+      this.MoveToListSheet()
     }
     .width('100%')
     .height('100%')
@@ -1517,6 +1655,35 @@ export struct SonglistDetailPage {
         this.sortField = field;
         this.sortOrder = order;
         this.applySort();
+      },
+    })
+  }
+
+  /** 调整位置：输入 1 起始的位置 */
+  @Builder
+  MovePositionSheet() {
+    InputSheet({
+      visible: $showMovePositionSheet,
+      title: t('list_change_position'),
+      placeholder: tf('list_position_placeholder', [this.songList.length.toString()]),
+      value: this.movePositionValue,
+      numberOnly: true,
+      onSubmit: (value: string): void => {
+        void this.applyMovePosition(value);
+      },
+    })
+  }
+
+  /** 移动到其他列表 */
+  @Builder
+  MoveToListSheet() {
+    SelectSheet({
+      visible: $showMoveToListSheet,
+      title: t('list_move_to'),
+      options: this.moveToListOptions,
+      value: '',
+      onPick: (listId: string): void => {
+        void this.applyMoveToList(listId);
       },
     })
   }

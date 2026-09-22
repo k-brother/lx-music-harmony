@@ -3,6 +3,7 @@ import { lyric } from './lyric';
 import { leaderboard } from './leaderboard';
 import { songList } from './songList';
 import { hotSearch } from './hotSearch';
+import { searchTips } from './tipSearch';
 import { getKwMusicUrl } from './kwPlayUrl';
 import { getKwAlbumPic } from './kwAlbumPic';
 import type { SingleMusicSdkInterface } from '../MusicSdkContracts';
@@ -29,9 +30,7 @@ export class KuwoMusicSource extends AbstractMusicSource {
   }
 
   protected getSearchTipBinder(): ((keyword: string) => Promise<string[]>) | undefined {
-    return (keyword: string): Promise<string[]> => {
-      return musicSearch.tip(keyword);
-    };
+    return searchTips;
   }
 
   search(keyword: string, page: number, limit: number): Promise<SearchResult | null> {

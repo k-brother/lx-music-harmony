@@ -5,6 +5,13 @@
 export { withQuery, flattenHeaders, parseHttpBodyJson, httpResponseBody } from './HttpShared';
 export type { HttpResponseBodyHolder } from './HttpShared';
 
-export { HttpClient, httpClient, httpRequest, httpGet, httpPost, checkNetworkConnection } from './HttpClient';
+export {
+  HttpClient,
+  httpClient,
+  httpRequest,
+  httpRequestBinary,
+  httpGet,
+  httpPost,
+  checkNetworkConnection,
+} from './HttpClient';
 export type { HttpRequestConfig, HttpResponse, HttpTask } from './HttpClient';
-

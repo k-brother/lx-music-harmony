@@ -5,6 +5,7 @@ import { leaderboard } from './leaderboard';
 import { hotSearch } from './hotSearch';
 import { songList } from './songList';
 import { getWyMusicUrl } from './wyPlayUrl';
+import { searchTips } from './tipSearch';
 import type { SingleMusicSdkInterface, SongListSdkInterface } from '../MusicSdkContracts';
 import type { MusicInfo, LyricInfo, SearchResult } from '../../../../types/MusicTypes';
 import type {
@@ -25,6 +26,10 @@ const wySongList: SongListSdkInterface = songList as SongListSdkInterface;
 export class NeteaseMusicSource extends AbstractMusicSource {
   readonly sourceId: string = 'wy';
   protected readonly logTag: string = 'NeteaseMusicSource';
+
+  protected getSearchTipBinder(): ((keyword: string) => Promise<string[]>) | undefined {
+    return searchTips;
+  }
 
   getConfig(): MusicSourceClientConfig {
     return { timeoutMs: 15000 };

@@ -189,7 +189,6 @@ function buildZhCN(): Map<string, string> {
   m.set('settings_source_name', '源名显示');
   m.set('settings_source_name_desc', '音源名称显示为别名或原名');
   m.set('settings_share_type', '分享方式');
-  m.set('more_actions', '更多操作');
   m.set('music_source_detail', '查看来源详情');
   m.set('play_later', '下一首播放');
   m.set('toast_play_later_added', '已加入下一首播放: {0}');
@@ -266,6 +265,14 @@ function buildZhCN(): Map<string, string> {
   m.set('toast_sorted_count', '已排序 {0} 首歌曲');
   m.set('list_select_mode', '多选');
   m.set('list_select_done', '完成');
+  m.set('list_change_position', '调整位置');
+  m.set('list_position_placeholder', '输入新的位置（1-{0}）');
+  m.set('list_position_invalid', '请输入 1 到 {0} 之间的位置');
+  m.set('list_position_unchanged', '位置没有变化');
+  m.set('list_position_moved', '已移动到第 {0} 位');
+  m.set('list_move_to', '移动到');
+  m.set('list_move_done', '已移动');
+  m.set('list_move_no_target', '没有其他列表可以移动');
   m.set('list_select_all', '全选');
   m.set('list_deselect_all', '取消全选');
   m.set('list_selected_count', '已选 {0} 首');
@@ -803,7 +810,6 @@ function buildEnUS(): Map<string, string> {
   m.set('settings_source_name', 'Source Names');
   m.set('settings_source_name_desc', 'Show source alias or real name');
   m.set('settings_share_type', 'Share Method');
-  m.set('more_actions', 'More Actions');
   m.set('play_queue', 'Play Queue');
   m.set('play_queue_count', 'Play Queue ({0} songs)');
   m.set('volume_mute', 'Mute');
@@ -886,6 +892,14 @@ function buildEnUS(): Map<string, string> {
   m.set('toast_sorted_count', 'Sorted {0} songs');
   m.set('list_select_mode', 'Select');
   m.set('list_select_done', 'Done');
+  m.set('list_change_position', 'Change Position');
+  m.set('list_position_placeholder', 'Enter new position (1-{0})');
+  m.set('list_position_invalid', 'Enter a position between 1 and {0}');
+  m.set('list_position_unchanged', 'Position unchanged');
+  m.set('list_position_moved', 'Moved to position {0}');
+  m.set('list_move_to', 'Move to');
+  m.set('list_move_done', 'Moved');
+  m.set('list_move_no_target', 'No other list to move to');
   m.set('list_select_all', 'Select all');
   m.set('list_deselect_all', 'Deselect all');
   m.set('list_selected_count', '{0} selected');
@@ -1033,6 +1047,7 @@ function buildEnUS(): Map<string, string> {
   m.set('comment_new', 'New');
   m.set('comment_no_data', 'No comments');
   m.set('history_title', 'History');
+  m.set('history_count', '{0} songs in history');
   m.set('history_clear', 'Clear All');
   m.set('love_title', 'Favorites');
   m.set('source_kw', 'Kuwo');

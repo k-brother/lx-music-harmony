@@ -72,3 +72,28 @@ set_target_properties(quickjs_loader PROPERTIES
     CXX_VISIBILITY_PRESET default
     VISIBILITY_INLINES_HIDDEN OFF
 )
+
+# ==================== zlib Inflate Module ====================
+
+add_library(inflate_napi SHARED
+    ${CMAKE_CURRENT_SOURCE_DIR}/napi_inflate.cpp
+)
+
+target_link_libraries(inflate_napi
+    m
+    "${TARGET_LIB_DIR}/libace_napi.z.so"
+    "${TARGET_LIB_DIR}/libhilog_ndk.z.so"
+    "${TARGET_LIB_DIR}/libz.so"
+)
+
+target_include_directories(inflate_napi PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${TARGET_INCLUDE_DIR}
+)
+
+set_target_properties(inflate_napi PROPERTIES
+    OUTPUT_NAME "inflate_napi"
+    C_VISIBILITY_PRESET default
+    CXX_VISIBILITY_PRESET default
+    VISIBILITY_INLINES_HIDDEN OFF
+)

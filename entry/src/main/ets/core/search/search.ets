@@ -419,34 +419,46 @@ export async function getHotSearch(source: string = 'kw'): Promise<HotSearchItem
   }
 }
 
-// 获取搜索提示
+/**
+ * 获取搜索提示（联想词）
+ *
+ * 各源的实现在 core/music/sources/<源>/tipSearch.ets，经 AbstractMusicSource
+ * 的 getSearchTipBinder 挂到 musicSearch.tip 上，这里只做分发与兜底。
+ * 咪咕没有可用联想接口（返回 HTML 页面），直接返回空，不打扰用户。
+ */
 export async function getTipListInfo(keyword: string, source: string = 'kw'): Promise<string[]> {
   try {
-    let tips: string[] = [];
+    const trimmed = keyword.trim();
+    if (trimmed.length === 0) {
+      return [];
+    }
     switch (source) {
       case 'kw':
-        if (musicSdk.kw.musicSearch.tip) {
-          tips = await musicSdk.kw.musicSearch.tip(keyword);
-        }
-        break;
+        return await getSourceTips(musicSdk.kw.musicSearch.tip, trimmed);
       case 'kg':
-        if (musicSdk.kg.musicSearch.tip) {
-          tips = await musicSdk.kg.musicSearch.tip(keyword);
-        }
-        break;
+        return await getSourceTips(musicSdk.kg.musicSearch.tip, trimmed);
       case 'tx':
-        if (musicSdk.tx.musicSearch.tip) {
-          tips = await musicSdk.tx.musicSearch.tip(keyword);
-        }
-        break;
+        return await getSourceTips(musicSdk.tx.musicSearch.tip, trimmed);
+      case 'wy':
+        return await getSourceTips(musicSdk.wy.musicSearch.tip, trimmed);
       default:
-        tips = [];
+        return [];
     }
-    return tips;
   } catch (err) {
     hilog.warn(DOMAIN, TAG, 'getTipListInfo failed for %{public}s: %{public}s', source, (err as Error).message);
     return [];
   }
+}
+
+/** 源不支持联想（没有挂 binder）时返回空数组，避免调用方到处判空 */
+async function getSourceTips(
+  tipFn: ((keyword: string) => Promise<string[]>) | undefined, keyword: string
+): Promise<string[]> {
+  if (!tipFn) {
+    return [];
+  }
+  const tips = await tipFn(keyword);
+  return tips ?? [];
 }
 
 // 清除搜索结果

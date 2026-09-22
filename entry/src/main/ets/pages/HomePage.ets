@@ -6,7 +6,7 @@ import { SourceTabBar } from './Home/Home/SourceTabBar';
 import { HomeBottomTabBar, type HomeTabItem } from './Home/Home/HomeBottomTabBar';
 import { SearchMusicResultList, SearchSonglistResultList } from './Home/Home/SearchResultLists';
 import { StateView } from '../components/ui/StateView';
-import { searchMusic, getHotSearch, HotSearchItem, Source } from '../core/search/search';
+import { searchMusic, getHotSearch, getTipListInfo, HotSearchItem, Source } from '../core/search/search';
 
 // 导入播放器栏组件
 import { PlayerBar } from '../components/player/PlayerBar';
@@ -99,6 +99,8 @@ export struct HomePage {
   @State searchType: string = 'music';
   @State songlistResults: SonglistSearchResult[] = [];
   @State searchHistory: string[] = [];
+  /** 搜索联想词（输入即出，对应安卓版 TipList） */
+  @State searchTips: string[] = [];
   @State showHotSearchSetting: boolean = true;
   /** 是否显示搜索历史（设置 → 搜索设置） */
   @State showSearchHistorySetting: boolean = false;
@@ -122,6 +124,9 @@ export struct HomePage {
   private hotSearchEpoch: number = 0;
   /** 记录上一次成功展示结果的关键词，避免同词重复请求抖动把结果清空 */
   private lastResolvedSearchQuery: string = '';
+  /** 联想词请求版本与防抖定时器：丢弃过期响应，避免逐字符打请求 */
+  private tipEpoch: number = 0;
+  private tipTimer: number = -1;
   private sourceSwitchLocked: boolean = false;
 
   /** 歌单顶栏下搜索条：与 SearchStrip 共享回调 */
@@ -245,6 +250,7 @@ export struct HomePage {
       this.searchRequestUnsub();
       this.searchRequestUnsub = null;
     }
+    this.clearSearchTips();
   }
 
   // 打开搜索界面
@@ -264,6 +270,61 @@ export struct HomePage {
     this.searchViewState = SearchViewState.HIDDEN;
     this.searchText = '';
     this.searchResults = [];
+    this.clearSearchTips();
+  }
+
+  /** 取消待发的联想词请求并清空列表 */
+  private clearSearchTips(): void {
+    this.tipEpoch++;
+    if (this.tipTimer !== -1) {
+      clearTimeout(this.tipTimer);
+      this.tipTimer = -1;
+    }
+    this.searchTips = [];
+  }
+
+  /**
+   * 输入防抖：停止输入 260ms 后再请求联想词
+   * 输入被清空时立即收起联想列表
+   */
+  private scheduleSearchTips(keyword: string): void {
+    if (this.tipTimer !== -1) {
+      clearTimeout(this.tipTimer);
+      this.tipTimer = -1;
+    }
+    const trimmed = keyword.trim();
+    if (trimmed.length === 0) {
+      this.clearSearchTips();
+      return;
+    }
+    const epoch = ++this.tipEpoch;
+    this.tipTimer = setTimeout(() => {
+      this.tipTimer = -1;
+      void this.loadSearchTips(trimmed, epoch);
+    }, 260);
+  }
+
+  /** 拉取联想词（源不支持时静默返回空，不影响搜索） */
+  private async loadSearchTips(keyword: string, epoch: number): Promise<void> {
+    try {
+      const tips = await getTipListInfo(keyword, this.currentSource);
+      if (epoch !== this.tipEpoch || this.searchViewState !== SearchViewState.INPUT) {
+        return;
+      }
+      this.searchTips = tips;
+    } catch (err) {
+      if (epoch === this.tipEpoch) {
+        this.searchTips = [];
+      }
+      hilog.warn(0x0001, 'HomePage', 'loadSearchTips failed: %{public}s', (err as Error)?.message);
+    }
+  }
+
+  /** 点击联想词：立即用该词发起搜索 */
+  private onSearchTipClick(tip: string): void {
+    this.searchText = tip;
+    this.clearSearchTips();
+    void this.submitGlobalSearchFromStrip();
   }
 
   // 加载热搜
@@ -444,6 +505,7 @@ export struct HomePage {
   /** 歌单主页：与排行榜页内搜索条一致的圆角灰底 + 放大镜 + 输入（提交即打开结果浮层） */
   async submitGlobalSearchFromStrip(): Promise<void> {
     const q = this.searchText.trim();
+    this.clearSearchTips();
     if (q.length === 0) {
       this.openSearch();
       return;
@@ -554,8 +616,10 @@ export struct HomePage {
               .padding({ right: 10 })
               .onChange((text: string) => {
                 this.searchText = text;
+                this.scheduleSearchTips(text);
               })
               .onSubmit(() => {
+                this.clearSearchTips();
                 void this.submitGlobalSearchFromStrip();
               })
           }
@@ -597,8 +661,52 @@ export struct HomePage {
   @Builder
   SearchInputContent() {
     Column() {
+      // 联想词：一有输入就顶掉热搜/历史，与主流音乐 App 一致
+      if (this.searchTips.length > 0 && this.searchText.trim().length > 0) {
+        List() {
+          ForEach(this.searchTips, (tip: string) => {
+            ListItem() {
+              Row() {
+                Image($r('sys.symbol.magnifyingglass'))
+                  .width(15)
+                  .height(15)
+                  .fillColor(DesignTokens.labelTertiary(this.theme))
+                  .margin({ right: 10 })
+
+                Text(tip)
+                  .fontSize(16)
+                  .fontColor(DesignTokens.labelPrimary(this.theme))
+                  .layoutWeight(1)
+                  .maxLines(1)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+                Image($r('sys.symbol.arrow_up_left'))
+                  .width(14)
+                  .height(14)
+                  .fillColor(DesignTokens.labelTertiary(this.theme))
+              }
+              .width('100%')
+              .padding({
+                left: DesignTokens.spaceGutter(),
+                right: DesignTokens.spaceGutter(),
+                top: 12,
+                bottom: 12,
+              })
+              .alignItems(VerticalAlign.Center)
+              .border({ width: { bottom: 0.33 }, color: DesignTokens.hairlineSeparator(this.theme) })
+              .onClick(() => {
+                this.onSearchTipClick(tip);
+              })
+            }
+          }, (tip: string) => tip)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .scrollBar(BarState.Off)
+      }
+
       // 搜索历史：显示开关与条数分别由「设置 → 搜索设置」决定（对齐安卓版 search.isShowHistorySearch）
-      if (this.showSearchHistorySetting && this.searchHistory.length > 0) {
+      if (this.searchTips.length === 0 && this.showSearchHistorySetting && this.searchHistory.length > 0) {
         Row() {
           Text(t('search_history'))
             .fontSize(13)
@@ -637,7 +745,7 @@ export struct HomePage {
         .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter() })
       }
 
-      if (this.showHotSearchSetting) {
+      if (this.searchTips.length === 0 && this.showHotSearchSetting) {
       // 热搜标题（小号大写感：次级标签样式）
       Row() {
         Text(t('search_hot'))

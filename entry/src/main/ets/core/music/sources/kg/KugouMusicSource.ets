@@ -5,6 +5,7 @@ import { songList } from './songList';
 import { hotSearch } from './hotSearch';
 import { pic } from './pic';
 import { getKgMusicUrl } from './kgPlayUrl';
+import { searchTips } from './tipSearch';
 import type { SingleMusicSdkInterface } from '../MusicSdkContracts';
 import type { MusicInfo, LyricInfo, SearchResult } from '../../../../types/MusicTypes';
 import type {
@@ -23,6 +24,10 @@ import { AbstractMusicSource } from '../AbstractMusicSource';
 export class KugouMusicSource extends AbstractMusicSource {
   readonly sourceId: string = 'kg';
   protected readonly logTag: string = 'KugouMusicSource';
+
+  protected getSearchTipBinder(): ((keyword: string) => Promise<string[]>) | undefined {
+    return searchTips;
+  }
 
   getConfig(): MusicSourceClientConfig {
     return { timeoutMs: 15000 };

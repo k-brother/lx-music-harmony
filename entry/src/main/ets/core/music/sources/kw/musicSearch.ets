@@ -159,7 +159,6 @@ interface KwSearchResponse {
 // 搜索模块
 export interface MusicSearchInterface {
   search: (keyword: string, page?: number, limit?: number) => Promise<SearchResult>;
-  tip: (keyword: string) => Promise<string[]>;
 }
 
 export const musicSearch: MusicSearchInterface = {
@@ -221,33 +220,6 @@ export const musicSearch: MusicSearchInterface = {
     return requestOnce(0);
   },
 
-  /**
-   * 获取搜索建议
-   */
-  tip(keyword: string): Promise<string[]> {
-    const url = `http://search.kuwo.cn/r.s?client=kt&all=${encodeURIComponent(keyword)}&pn=0&rn=10&uid=794762570&ver=kwplayer_ar_9.2.2.1&vipver=1&show_copyright_off=1&newver=1&ft=music&cluster=0&strategy=2012&encoding=utf8&rformat=json&vermerge=1&mobi=1&issubtitle=1`;
-
-    return new Promise((resolve, reject) => {
-      const task = httpGet(url);
-
-      task.promise.then((response) => {
-        try {
-          const raw = response.result as string | Object | ArrayBuffer;
-          const result = parseHttpBodyJson<KwSearchResponse>(raw);
-          if (!result) {
-            reject(new Error('解析搜索建议失败'));
-            return;
-          }
-          const tips = result.abslist?.map((item: KwSearchItem) => item.SONGNAME).filter(Boolean) || [];
-          resolve(tips);
-        } catch (err) {
-          reject(new Error('解析搜索建议失败'));
-        }
-      }).catch(() => {
-        reject(new Error('搜索建议请求失败'));
-      });
-    });
-  },
 };
 
 export default musicSearch;

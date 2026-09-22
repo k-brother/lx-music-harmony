@@ -149,6 +149,12 @@ export function parseHttpBodyJson<T>(raw: string | Object | ArrayBuffer | undefi
     if (text.length === 0) {
       return null;
     }
+    // 正文里没有花括号/方括号说明根本不是 JSON：
+    // 例如酷我 anti_server 直接返回音频直链、部分接口返回纯文本。
+    // 这些情况调用方会按纯文本处理，这里静默返回，避免刷出误导性的解析告警。
+    if (text.indexOf('{') < 0 && text.indexOf('[') < 0) {
+      return null;
+    }
     try {
       return JSON.parse(text) as T;
     } catch (e) {

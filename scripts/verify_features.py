@@ -1,0 +1,91 @@
+import pathlib, re, sys
+
+# 允许从任意目录执行：以脚本位置定位工程根目录
+import os
+root = pathlib.Path(__file__).resolve().parent.parent / 'entry/src/main/ets'
+def read(rel):
+    p = root / rel
+    return p.read_text() if p.exists() else ''
+
+CHECKS = [
+ ('不喜欢列表（屏蔽+跳过）', 'core/dislike/DislikeList.ets', r'dislikeList'),
+ ('保存播放进度/续播', 'service/PlayerService.ets', r'restoreLastPlayback|saveProgress'),
+ ('歌词简繁转换', 'core/lyric/ChineseConvert.ets', r'convertChinese'),
+ ('歌词翻译/罗马音开关', 'pages/PlayDetailPage.ets', r'showLyricTranslation|showLyricRoma|toRoma'),
+ ('评论楼层+图片', 'service/CommentService.ets', r'images: string\[\]|replies: Comment\[\]|location: string'),
+ ('评论图片预览', 'pages/CommentPage.ets', r'buildImagePreview'),
+ ('列表排序/去重工具', 'utils/ListTools.ets', r'sortSongs|dedupeSongs'),
+ ('歌单多选批量', 'pages/SonglistDetailPage.ets', r'BatchBar|batchDownload|batchRemove'),
+ ('列表级同步到本地', 'service/ListService.ets', r'replaceUserListMusic|removeMusicsFromList'),
+ ('手动换源弹窗', 'pages/PlayDetailPage.ets', r'sourceCandidates|showSourceCandidates|switchSource'),
+ ('本地音乐元数据编辑', 'service/LocalMusicService.ets', r'updateMetadata'),
+ ('运行日志页', 'pages/LogPage.ets', r'logService'),
+ ('日志落盘/回读', 'service/LogService.ets', r'restoreFromFile|exportToFile'),
+ ('日志门面接入', 'core/log/AppLogger.ets', r'appLog'),
+ ('缓存分项统计', 'service/CacheService.ets', r'getMetadataCacheInfo|getResourceCacheInfo'),
+ ('主题 16 套', 'core/theme/themes.ets', r'themes'),
+ ('桌面歌词宽度/行数/动画/阴影', 'pages/DesktopLyricPage.ets', r'desktopLyricWidth|maxLines|lyricFontSize|shadowColor'),
+ ('桌面歌词单行/文字位置/当前句色', 'pages/DesktopLyricPage.ets', r'singleLine|textPosX|playedColor'),
+ ('音质四档', 'service/SettingsService.ets', r'playQuality'),
+ ('分享服务（系统分享+回退）', 'service/ShareService.ets', r'ACTION_SEND_TO_DATA'),
+ ('歌曲详情页链接', 'core/music/MusicDetailUrl.ets', r'getMusicDetailPageUrl'),
+ ('源名别名/原名', 'service/LocalizationService.ets', r'source_alias_kw|sourceName\('),
+ ('自动跟随系统主题', 'service/ThemeService.ets', r'applyAutoTheme|setSystemDarkMode'),
+ ('主题动态背景/字体阴影/隐藏背景', 'pages/PlayDetailPage.ets', r'dynamicBg|fontShadow|hideBgDark'),
+ ('定时退出播完再退', 'service/SleepTimerService.ets', r'sleepTimerWaitTrackEnd|onTrackCompleted|cancelPendingExit'),
+ ('允许拖动进度条开关', 'pages/PlayDetailPage.ets', r'allowProgressBarSeek'),
+ ('搜索历史显示开关', 'pages/HomePage.ets', r'showSearchHistorySetting'),
+ ('点击列表项播放整个列表', 'pages/SonglistDetailPage.ets', r'listClickPlay'),
+ ('许可协议弹层', 'components/common/PactDialog.ets', r'PactDialog|agreedPact'),
+ ('许可协议正文', 'core/legal/PactText.ets', r'PactSection'),
+ ('自定义源多源管理', 'core/plugin/PluginStore.ets', r'StoredCustomSource'),
+ ('自定义源启用/更新/删除', 'core/plugin/PluginManager.ets', r'setSourceEnabled|updateSource|removeSource|restoreEnabledSource'),
+ ('自定义源管理 UI', 'pages/Home/CustomSourceView.ets', r'buildCustomSourceRow|toggleSourceEnabled|removeSource'),
+ ('播控封面开关', 'service/BackgroundRunningManager.ets', r'showNotificationImage'),
+ ('蓝牙歌词开关', 'service/BackgroundRunningManager.ets', r'showBluetoothLyric'),
+ ('整首播完事件', 'service/PlayerService.ets', r'onTrackCompleted'),
+ ('收藏歌单=绑定列表', 'service/UserListSyncService.ets', r'collectOnlineSonglist|findUserListByBinding'),
+ ('列表级同步(拉取覆盖)', 'service/UserListSyncService.ets', r'syncUserListFromOnline|fetchAllOnlineSongs'),
+ ('旧收藏标记迁移', 'service/UserListSyncService.ets', r'migrateLegacyCollections'),
+ ('我的歌单同步入口', 'pages/UserListsPage.ets', r'syncList'),
+ ('我的tab绑定角标+同步', 'pages/Home/MylistView.ets', r'bindingListId'),
+ ('歌单详情收藏/更新菜单', 'pages/SonglistDetailPage.ets', r'openCollectedMenu|syncBoundList'),
+ ('桌面歌词文字不透明度', 'pages/DesktopLyricPage.ets', r'textOpacity'),
+ ('同步历史(可选中/清空)', 'service/SyncService.ets', r'getServerHistory|rememberServer|removeServerHistory'),
+ ('同步历史 UI', 'pages/Home/Setting/SyncSection.ets', r'openHistory|refreshHistory'),
+ ('版本检查服务可调用', 'service/VersionCheckService.ets', r'checkVersionNow|compareVersion'),
+ ('版本检查 UI', 'pages/Home/AboutView.ets', r'runVersionCheck|versionStatus'),
+ ('打开链接(仓库/发布页)', 'pages/Home/AboutView.ets', r'openUrl'),
+ ('自定义源本地文件导入', 'pages/Home/CustomSourceView.ets', r'importFromLocalFile'),
+ ('下一首播放(插队)', 'service/PlayerService.ets', r'insertNext'),
+ ('队列后台补全全量', 'service/PlayerService.ets', r'refineQueueWithFullList'),
+ ('歌单行菜单:下一首/来源详情/不喜欢', 'pages/SonglistDetailPage.ets', r'playLater|openSourceDetail|showDislikeMenu'),
+ ('搜索结果整列表入队', 'pages/HomePage.ets', r'this.searchResults.length > 1'),
+ ('榜单整列表入队', 'pages/BoardDetailPage.ets', r'buildQueue\(\)'),
+ ('播放页音量/静音', 'pages/PlayDetailPage.ets', r'applyVolume|toggleMute|VolumeSheet'),
+ ('播放队列面板', 'pages/PlayDetailPage.ets', r'QueueSheet|playFromQueue'),
+ ('队列读取接口', 'service/PlayerService.ets', r'getPlayList\(\): SongInfo\[\]|getCurrentIndex'),
+ ('搜索联想词 UI', 'pages/HomePage.ets', r'getTipListInfo|scheduleSearchTips'),
+ ('歌单内调整位置', 'service/ListService.ets', r'moveMusicInList'),
+ ('歌单行菜单:调整位置/移动到列表', 'pages/SonglistDetail/SonglistMenus.ets', r'list_change_position|list_move_to'),
+ ('歌单排序面板已挂载', 'pages/SonglistDetailPage.ets', r'this\.SortSheet\(\)'),
+ ('本地列表排序落库', 'pages/SonglistDetailPage.ets', r'canEditLocalList\(\)[\s\S]{0,400}replaceUserListMusic'),
+ ('酷我歌词双通道+重试', 'core/music/sources/kw/lyric.ets', r'requestNewlyric|requestMobileLyric'),
+ ('酷我歌词 zlib 解压(原生)', 'core/napi/napi_inflate.ets', r'zlibInflate'),
+ ('二进制 HTTP 请求入口', 'core/network/http/HttpClient.ets', r'httpRequestBinary'),
+ ('下载页多选批量栏已挂载', 'pages/DownloadPage.ets', r'this\.buildToolbar\(\)'),
+ # 面板必须「条件渲染 + 绝对定位」，否则放进页面 Column 会把正文挤扁（历史缺陷）
+ ('底部面板条件渲染', 'components/ui/BottomSheet.ets', r'if \(this\.visible\)'),
+ ('底部面板绝对定位', 'components/ui/BottomSheet.ets', r'position\(\{ x: 0, y: 0 \}\)'),
+]
+
+fails = []
+for name, rel, pattern in CHECKS:
+    text = read(rel)
+    ok = bool(text) and re.search(pattern, text) is not None
+    print(('PASS ' if ok else 'FAIL ') + name)
+    if not ok:
+        fails.append(name)
+print()
+print('总计', len(CHECKS), '未通过', len(fails))
+sys.exit(1 if fails else 0)

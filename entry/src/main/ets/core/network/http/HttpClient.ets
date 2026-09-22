@@ -168,7 +168,10 @@ function doRequest<T>(
           if (parsed !== null) {
             data = parsed;
           } else {
-            if (typeof raw === 'string' && raw.trim().length > 0) {
+            // 只有「看起来是 JSON 却解析失败」才告警；纯文本响应（音频直链等）属于正常情况
+            const text = typeof raw === 'string' ? raw : '';
+            const looksLikeJson = text.indexOf('{') >= 0 || text.indexOf('[') >= 0;
+            if (looksLikeJson) {
               hilog.warn(DOMAIN, TAG, 'doRequest JSON parse fallback to raw text');
             }
             data = raw as T;
@@ -255,6 +258,34 @@ export class HttpClient {
 export const httpClient = new HttpClient();
 
 // ============ 可取消的任务函数 ============
+
+/**
+ * 二进制请求（图片 / 音频 / 压缩体等）
+ *
+ * 与 httpRequest 的区别：不做文本解码，直接返回 ArrayBuffer。
+ * 目前酷我歌词接口返回的就是 zlib 压缩体，需要原始字节才能解压。
+ *
+ * @returns ArrayBuffer；响应不是二进制时返回 null
+ */
+export function httpRequestBinary(url: string, config?: HttpRequestConfig): Promise<ArrayBuffer | null> {
+  const cfg: HttpRequestConfig = {
+    method: config?.method ?? 'GET',
+    responseType: 'arraybuffer',
+  };
+  if (config) {
+    cfg.headers = config.headers;
+    cfg.header = config.header;
+    cfg.params = config.params;
+    cfg.timeout = config.timeout;
+    cfg.connectTimeout = config.connectTimeout;
+    cfg.readTimeout = config.readTimeout;
+  }
+
+  return doRequest<ArrayBuffer>(url, cfg).then((response: HttpResponse<ArrayBuffer>) => {
+    const raw = response.result;
+    return raw instanceof ArrayBuffer ? raw : null;
+  });
+}
 
 /**
  * HTTP 请求任务（支持取消）

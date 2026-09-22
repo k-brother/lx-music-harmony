@@ -218,36 +218,35 @@ export function getUserListMusic(listId: string): MusicItem[] {
 }
 
 /**
+ * 解析列表容器
+ *
+ * 默认列表 / 我喜欢 / 用户列表三者的取用方式不同，之前 add / remove 各写一份 switch，
+ * 加一个操作就要再抄一遍。这里统一成一处，新增列表操作只需调用它。
+ */
+function resolveListContainer(listId: string): MusicItem[] {
+  switch (listId) {
+    case LIST_IDS.DEFAULT:
+      return listState.defaultListMusic;
+    case LIST_IDS.LOVE:
+      return listState.loveListMusic;
+    default: {
+      let list = listState.userListMusic.get(listId);
+      if (!list) {
+        list = [];
+        listState.userListMusic.set(listId, list);
+      }
+      return list;
+    }
+  }
+}
+
+/**
  * 添加歌曲到列表
  */
 export async function addMusicToList(listId: string, music: MusicItem): Promise<void> {
-  let list: MusicItem[];
-  let key: string;
-
-  switch (listId) {
-    case LIST_IDS.DEFAULT:
-      list = listState.defaultListMusic;
-      key = StorageService.StorageKeys.LIST_DEFAULT;
-      break;
-    case LIST_IDS.LOVE:
-      list = listState.loveListMusic;
-      key = StorageService.StorageKeys.LIST_LOVE;
-      break;
-    default:
-      list = listState.userListMusic.get(listId) || [];
-      listState.userListMusic.set(listId, list);
-      key = `list.user.${listId}`;
-  }
-
+  const list: MusicItem[] = resolveListContainer(listId);
   // 检查是否已存在
-  let exists = false;
-  for (let i = 0; i < list.length; i++) {
-    if (list[i].id === music.id) {
-      exists = true;
-      break;
-    }
-  }
-  if (exists) {
+  if (findMusicIndex(list, music.id) > -1) {
     return;
   }
 
@@ -265,29 +264,45 @@ export async function addMusicToList(listId: string, music: MusicItem): Promise<
  * 从列表移除歌曲
  */
 export async function removeMusicFromList(listId: string, musicId: string): Promise<void> {
-  let list: MusicItem[];
-  let key: string;
-
-  switch (listId) {
-    case LIST_IDS.DEFAULT:
-      list = listState.defaultListMusic;
-      key = StorageService.StorageKeys.LIST_DEFAULT;
-      break;
-    case LIST_IDS.LOVE:
-      list = listState.loveListMusic;
-      key = StorageService.StorageKeys.LIST_LOVE;
-      break;
-    default:
-      list = listState.userListMusic.get(listId) || [];
-      key = `list.user.${listId}`;
-  }
-
+  const list: MusicItem[] = resolveListContainer(listId);
   const index = findMusicIndex(list, musicId);
   if (index > -1) {
     list.splice(index, 1);
     await saveList(listId);
     notifyListeners(listId);
   }
+}
+
+/**
+ * 调整歌曲在列表中的位置
+ *
+ * 对应安卓版「我的列表 → 歌曲右侧菜单 → 调整位置」。
+ * @param targetPosition 目标位置，从 1 开始计数；越界会被收敛到列表首/尾
+ * @returns 是否真的移动了（位置没变或歌曲不存在时返回 false）
+ */
+export async function moveMusicInList(
+  listId: string, musicId: string, targetPosition: number
+): Promise<boolean> {
+  const list: MusicItem[] = resolveListContainer(listId);
+  if (list.length < 2) {
+    return false;
+  }
+  const from = findMusicIndex(list, musicId);
+  if (from < 0) {
+    return false;
+  }
+
+  const requested = Math.trunc(targetPosition);
+  const to = Math.min(Math.max(requested - 1, 0), list.length - 1);
+  if (to === from) {
+    return false;
+  }
+
+  const moved = list.splice(from, 1)[0];
+  list.splice(to, 0, moved);
+  await saveList(listId);
+  notifyListeners(listId);
+  return true;
 }
 
 /**

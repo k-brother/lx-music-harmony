@@ -5,6 +5,7 @@ import { leaderboard } from './leaderboard';
 import { hotSearch } from './hotSearch';
 import { songList } from './songList';
 import { getTxMusicUrl } from './txPlayUrl';
+import { searchTips } from './tipSearch';
 import type { SingleMusicSdkInterface } from '../MusicSdkContracts';
 import type { MusicInfo, LyricInfo, SearchResult } from '../../../../types/MusicTypes';
 import type {
@@ -23,6 +24,10 @@ import { AbstractMusicSource } from '../AbstractMusicSource';
 export class QQMusicSource extends AbstractMusicSource {
   readonly sourceId: string = 'tx';
   protected readonly logTag: string = 'QQMusicSource';
+
+  protected getSearchTipBinder(): ((keyword: string) => Promise<string[]>) | undefined {
+    return searchTips;
+  }
 
   getConfig(): MusicSourceClientConfig {
     return { timeoutMs: 15000 };

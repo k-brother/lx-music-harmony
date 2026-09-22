@@ -677,6 +677,11 @@ export struct DownloadPage {
       .align(Alignment.TopStart)
       .layoutWeight(1)
       .backgroundColor(DesignTokens.pageBg(this.theme))
+
+      // 多选批量操作栏：必须在 build 中挂载（此前漏挂，勾选后没有批量暂停/继续/取消入口）
+      if (this.isSelectMode) {
+        this.buildToolbar()
+      }
     }
     .width('100%')
     .height('100%')

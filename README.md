@@ -521,10 +521,20 @@ pages/Home/Home/
 - 搜索结果空态/加载态统一 `StateView`；
 - 切源逻辑抽成 `onSourceSelected()`（含 180ms 防连点锁），顶栏 builder 不再内联 60 行。
 
-**仍待拆分（Phase 2 续）**：
+**Phase 2 收尾（巨型文件拆分，已完成）**：
 
+| 原文件 | 原行数 | 现行数 | 拆出的模块 |
+| --- | --- | --- | --- |
+| `SettingView` | 2971 | **57** | `pages/Home/Setting/*`（12 个分组组件） |
+| `SonglistDetailPage` | 2011 | 1660 | `pages/SonglistDetail/*`（Header / BatchBar / SortSheet / Menus / Types） |
+| `PlayDetailPage` | 1915 | 1508 | `pages/PlayDetail/*`（封面 / 面板 / 菜单） |
+| `PlayerService` | 1637 | 1516 | `service/player/{LyricHub,QueueRules}.ets` |
+| `ResolvePlayback` | 1598 | 1000 | `core/music/local/LocalPlayback`、`playback/{PlaybackCache,CandidateMatch}` |
+| `SongListView` / `LeaderboardView` | 1216 | — | 首页筛选条统一到 `pages/Home/Home/FilterPillBar` |
+| `MylistView` | 926 | 526 | `pages/Home/Mylist/*` |
+| `HomePage` | 1082 | 942 | `pages/Home/Home/*`（Tab 条 / 搜索结果） |
 
-`PlayerService`(1637) / `ResolvePlayback`(1598) / `MylistView`(926) / `CommentService`(960)。
+**仍未拆分**：`CommentService`(960)。
 
 **Phase 3（UI/UX 商业化）**：把首页/我的/下载/本地音乐/排行榜/评论页逐个套 UI Kit，
 统一大标题滚动收缩、Tab 切换动效、骨架屏与空态、深色层次、触控目标校验。
@@ -533,9 +543,71 @@ pages/Home/Home/
 
 - 已完成：`HistoryListPage`、`LoveListPage`、`UserListsPage`（三页从「手写顶栏 + 手写确认框 + 手写遮罩」
   改为 UI Kit + DialogService，行尾统一 ⋮ 菜单，空/加载态统一）
-- 待迁移：SettingView（2971 行，按分组拆组件）、SonglistDetailPage（2011 行，拆 Header/List/Menu/Actions）、
-  PlayDetailPage（1915 行，拆封面/歌词/控制条/面板）、HomePage、MylistView、DownloadPage、LocalMusicPage、
-  LeaderboardView、CommentPage，以及 PlayerService（1637 行）与 ResolvePlayback（1598 行）的职责拆分。
+- 已完成：`SettingView`、`SonglistDetailPage`、`PlayDetailPage`、`MylistView`、`HomePage`、
+  `LeaderboardView`、`PlayerService`、`ResolvePlayback` 的拆分（见上表）
+- 待迁移：`DownloadPage`、`LocalMusicPage`、`CommentPage`、`BoardDetailPage`、`UserListsPage` 的 UI Kit 收口
+
+### 本轮修正（真机日志暴露的问题 + 对齐补口）
+
+- **酷我歌词失败（真机日志 `lyric source result kw ... lyricLen=14` → 暂无歌词）**：
+  `core/music/sources/kw/lyric.ets` 重写为双通道 —— 优先 `newlyric`（zlib 压缩体，实测 6/6 稳定），
+  失败再走移动端 `songinfoandlrc`（实测服务端约 1/3 概率返回空，**带 3 次重试**）。
+  同时按安卓版 `sortLrcArr` 规则把「同时间戳的第二行」拆到 `tlyric`，翻译歌词不再混进正文。
+  关键结论（已实测写入注释）：`m.kuwo.cn` **带 Referer 会固定返回「音乐查询失败」**，两个通道都只带移动端 UA。
+- **新增原生解压模块**：`entry/src/main/cpp/napi_inflate.cpp` + `core/napi/napi_inflate.ets`。
+  ArkTS 只有基于文件、且只认 zip 的 `zlib.decompressFile`，拿不到内存解压能力；
+  该模块用系统 `libz` 做内存 inflate，酷我歌词的压缩体由此解开（GB18030 文本用 `util.TextDecoder` 解码）。
+- **误导性 JSON 告警**：`HttpClient` / `HttpShared` 对「正文里没有花括号/方括号」的纯文本响应
+  （例如酷我 `anti_server` 直接返回音频直链）不再打 `JSON.parse failed`，只在真正像 JSON 却解析失败时告警。
+- **搜索联想词**：服务层早有 `getTipListInfo()` 却没有入口，现在首页搜索框输入即出联想列表
+  （260ms 防抖 + 请求版本号丢弃过期响应，点击直接搜索），对齐安卓版 `TipList`。
+- **歌单内「调整位置 / 移动到其他列表」**：`ListService.moveMusicInList()` + 歌单行菜单两项动作，
+  只对本地（我的）列表开放；在线歌单保持只读。菜单改为「按 key 分发」而不是按下标分发，后续插入动作不会错位。
+- **修复：歌单排序面板没挂载**（`SortSheet` Builder 定义了但 `build()` 里从未调用，点「排序」无反应），
+  同时本地列表排序结果落库（此前只改内存，退出再进又变回原顺序）。
+- **列表容器统一**：`ListService` 里 `add/remove/move` 各自复制的一份「默认/我喜欢/用户列表」switch
+  收敛成 `resolveListContainer()`，并删掉两处只赋值不使用的 `key` 变量。
+- **i18n 清理**：清掉 `more_actions` 重复词条、补上英文缺失的 `history_count`（现在中英一一对齐、无重复、无闲置）。
+
+**真机回归时又揪出三个「定义了但没接上」的缺陷（都已修复并复验）**：
+
+- **底部面板没有脱离文档流**：`components/ui/BottomSheet.ets` 无论 `visible` 真假都会渲染一个
+  满屏 `Stack`，被放进页面 `Column` 后会把正文挤扁、面板自身被顶到屏幕外
+  （真机表现为：歌单详情只剩上半屏可点，点「排序」毫无反应）。现改为
+  `visible` 条件渲染 + `position({x:0,y:0})` 绝对定位，与 `components/common/Dialog.ets` 的既有做法一致。
+- **歌单排序面板从未挂载**：`SonglistDetailPage` 里 `@Builder SortSheet()` 定义了却没有在 `build()`
+  中调用（点「排序」没反应）；同时本地列表排序只改内存、不落库，退出再进又变回原顺序。两者都已修复。
+- **下载页多选批量栏从未挂载**：`DownloadPage.buildToolbar()` 同样漏挂，勾选后没有批量暂停/继续/取消入口。
+
+为避免同类问题再次溜过，`scripts/verify_features.py` 增加了「面板/工具条是否真的挂载」这类结构断言。
+
+### 搜索联想（本轮补齐）
+
+此前只有酷我用「搜索接口的歌名」凑联想词，酷狗/QQ/网易云干脆没有实现，咪咕的联想接口已失效。
+现在每个源各自拥有 `core/music/sources/<源>/tipSearch.ets`（与安卓版 `tipSearch.js` 一一对应），
+通过既有的 `AbstractMusicSource.getSearchTipBinder()` 挂到 `musicSearch.tip`：
+
+| 源 | 接口 | 备注 |
+| --- | --- | --- |
+| 酷我 | `tips.kuwo.cn/t.s` | 专用联想服务，返回关键词（不再拿搜索接口凑数） |
+| 酷狗 | `searchtip.kugou.com/getSearchTip` | `RecordDatas[].HintInfo` |
+| QQ | `c.y.qq.com/.../smartbox_new.fcg` | 返回「歌名 - 歌手」 |
+| 网易云 | `music.163.com/api/search/suggest/web` | 明文接口即可，省掉 weapi 加密 |
+| 咪咕 | 无 | 官方联想接口返回 HTML，直接返回空，不打扰用户 |
+
+首页搜索框输入后 260ms 防抖拉取，点击联想词直接搜索（安卓版 `TipList` 的对应能力）。
+
+### 自检脚本
+
+每轮改完在 `harmony/` 下跑一遍（脚本在 `scripts/`，不依赖网络）：
+
+```bash
+./scripts/check.sh            # 依次跑下面四项
+python3 scripts/check_imports.py       # 未使用的 import = 0
+python3 scripts/check_dead.py          # 未被引用的私有方法 = 0
+python3 scripts/check_i18n.py          # 中英词条一一对应、无重复、无闲置
+python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
+```
 
 ## 设备验收清单（需要真机确认，代码侧已按此实现）
 

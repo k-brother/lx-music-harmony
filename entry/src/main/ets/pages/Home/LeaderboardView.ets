@@ -12,6 +12,7 @@ import type { MusicInfo } from '../../types/MusicTypes';
 import hilog from '@ohos.hilog';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { SearchStrip, SearchStripActions } from '../../components/common/SearchStrip';
+import { FilterPillBar, type FilterPillOption } from './Home/FilterPillBar';
 
 const PREVIEW_COLLAPSED = 3;
 const PREVIEW_EXPANDED = 8;
@@ -705,64 +706,48 @@ export struct LeaderboardView {
     return this.resolveCardCover(this.cardStates[index]);
   }
 
+  /** 分类筛选 -> 通用胶囊数据 */
+  private getCategoryPills(): FilterPillOption[] {
+    const pills: FilterPillOption[] = [];
+    for (const opt of this.categoryFilterOptions) {
+      pills.push({ id: opt.id, label: opt.name });
+    }
+    return pills;
+  }
+
+  /** 榜单筛选 -> 通用胶囊数据 */
+  private getBoardPills(): FilterPillOption[] {
+    const pills: FilterPillOption[] = [];
+    for (const opt of this.boardFilterOptions) {
+      pills.push({ id: opt.id, label: opt.name });
+    }
+    return pills;
+  }
+
   @Builder
   LeaderboardFilterBar() {
     Column() {
-      Scroll() {
-        Row() {
-          ForEach(this.categoryFilterOptions, (opt: LeaderboardFilterOption) => {
-            Text(opt.name)
-              .fontSize(13)
-              .padding({ left: 10, right: 10, top: 6, bottom: 6 })
-              .fontColor(this.selectedCategoryFilterId === opt.id ? DesignTokens.accent() : this.secondaryText())
-              .fontWeight(this.selectedCategoryFilterId === opt.id ? FontWeight.Medium : FontWeight.Normal)
-              .backgroundColor(this.selectedCategoryFilterId === opt.id ? DesignTokens.accentSoft(this.theme) : Color.Transparent)
-              .borderRadius(DesignTokens.radiusSearch())
-              .margin({ right: 6 })
-              .onClick(() => {
-                this.onCategoryFilterChange(opt.id);
-              })
-          }, (opt: LeaderboardFilterOption) => `cat_${opt.id}`)
-        }
-        .padding({
-          left: DesignTokens.spaceGutter(),
-          right: DesignTokens.spaceGutter(),
-          top: 4,
-          bottom: 2,
-        })
-        .alignItems(VerticalAlign.Center)
-      }
-      .width('100%')
-      .scrollable(ScrollDirection.Horizontal)
-      .scrollBar(BarState.Off)
+      // 分类筛选
+      FilterPillBar({
+        options: this.getCategoryPills(),
+        activeId: this.selectedCategoryFilterId,
+        topPadding: 4,
+        bottomPadding: 2,
+        onSelect: (id: string): void => {
+          this.onCategoryFilterChange(id);
+        },
+      })
 
-      Scroll() {
-        Row() {
-          ForEach(this.boardFilterOptions, (opt: LeaderboardFilterOption) => {
-            Text(opt.name)
-              .fontSize(13)
-              .padding({ left: 10, right: 10, top: 6, bottom: 6 })
-              .fontColor(this.selectedBoardFilterId === opt.id ? DesignTokens.accent() : this.secondaryText())
-              .fontWeight(this.selectedBoardFilterId === opt.id ? FontWeight.Medium : FontWeight.Normal)
-              .backgroundColor(this.selectedBoardFilterId === opt.id ? DesignTokens.accentSoft(this.theme) : Color.Transparent)
-              .borderRadius(DesignTokens.radiusSearch())
-              .margin({ right: 6 })
-              .onClick(() => {
-                this.onBoardFilterChange(opt.id);
-              })
-          }, (opt: LeaderboardFilterOption) => `board_${opt.id}`)
-        }
-        .padding({
-          left: DesignTokens.spaceGutter(),
-          right: DesignTokens.spaceGutter(),
-          top: 0,
-          bottom: 4,
-        })
-        .alignItems(VerticalAlign.Center)
-      }
-      .width('100%')
-      .scrollable(ScrollDirection.Horizontal)
-      .scrollBar(BarState.Off)
+      // 榜单筛选
+      FilterPillBar({
+        options: this.getBoardPills(),
+        activeId: this.selectedBoardFilterId,
+        topPadding: 0,
+        bottomPadding: 4,
+        onSelect: (id: string): void => {
+          this.onBoardFilterChange(id);
+        },
+      })
     }
     .width('100%')
     .height(this.filterBarPinnedHeight)
