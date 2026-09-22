@@ -133,6 +133,10 @@ if tap_until_ui_text 170 2690 "搜索音乐"; then
 else
   bad "回到歌单页" "点击底部歌单 Tab 后仍未出现搜索条"
 fi
+# 先切到第一个音源再切第二个：若当前已经是第二个源，直接点它不会触发重载
+tap 168 190
+sleep 5
+hdc_do shell "hilog -r" >/dev/null 2>&1
 tap 464 190          # 顶栏切到第二个音源（QQ）
 sleep 7
 assert_log "换源触发列表重载" "SongListView: Source/reCreateKey changed"
