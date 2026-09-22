@@ -130,10 +130,9 @@ export struct SettingsSection {
                     .fontSize(14)
                     .fontColor(item.danger === true ? DesignTokens.danger() : DesignTokens.labelSecondary(this.theme))
                     .maxLines(1)
-                  Image($r('sys.symbol.chevron_right'))
-                    .width(15)
-                    .height(15)
-                    .fillColor(DesignTokens.labelTertiary(this.theme))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(18)
+                    .fontColor([DesignTokens.labelTertiary(this.theme)])
                     .margin({ left: 6 })
                 } else if (item.type === 'input') {
                   Text(item.value as string)
@@ -141,10 +140,9 @@ export struct SettingsSection {
                     .fontColor(DesignTokens.labelSecondary(this.theme))
                     .maxLines(1)
                 } else if (item.type === 'button') {
-                  Image($r('sys.symbol.chevron_right'))
-                    .width(15)
-                    .height(15)
-                    .fillColor(DesignTokens.labelTertiary(this.theme))
+                  SymbolGlyph($r('sys.symbol.chevron_right'))
+                    .fontSize(18)
+                    .fontColor([DesignTokens.labelTertiary(this.theme)])
                 }
               }
               .width('100%')

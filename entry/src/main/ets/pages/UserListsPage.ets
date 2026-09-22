@@ -193,10 +193,9 @@ export struct UserListsPage {
             .objectFit(ImageFit.Cover)
         } else {
           Column() {
-            Image($r('sys.symbol.music_note_list'))
-              .width(24)
-              .height(24)
-              .fillColor(DesignTokens.labelTertiary(this.theme))
+            SymbolGlyph($r('sys.symbol.music_note_list'))
+              .fontSize(29)
+              .fontColor([DesignTokens.labelTertiary(this.theme)])
           }
           .width(52)
           .height(52)

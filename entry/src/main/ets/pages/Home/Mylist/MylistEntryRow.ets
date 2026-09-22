@@ -21,10 +21,9 @@ export struct MylistEntryRow {
 
   build() {
     Row({ space: 10 }) {
-      Image(this.icon)
-        .width(20)
-        .height(20)
-        .fillColor(DesignTokens.labelSecondary(this.theme))
+      SymbolGlyph(this.icon)
+        .fontSize(22)
+        .fontColor([DesignTokens.labelSecondary(this.theme)])
 
       Column({ space: 2 }) {
         Text(this.title)
@@ -41,10 +40,9 @@ export struct MylistEntryRow {
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
 
-      Image($r('sys.symbol.chevron_right'))
-        .width(14)
-        .height(14)
-        .fillColor(DesignTokens.labelTertiary(this.theme))
+      SymbolGlyph($r('sys.symbol.chevron_right'))
+        .fontSize(17)
+        .fontColor([DesignTokens.labelTertiary(this.theme)])
     }
     .width('100%')
     .padding({ left: 14, right: 14, top: 13, bottom: 13 })

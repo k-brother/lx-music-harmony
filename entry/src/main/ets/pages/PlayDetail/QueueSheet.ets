@@ -46,10 +46,9 @@ export struct QueueSheet {
       .margin({ left: 8 })
 
       if (index === this.currentIndex) {
-        Image($r('sys.symbol.play_fill'))
-          .width(14)
-          .height(14)
-          .fillColor(DesignTokens.accent())
+        SymbolGlyph($r('sys.symbol.play_fill'))
+          .fontSize(17)
+          .fontColor([DesignTokens.accent()])
       }
     }
     .width('100%')

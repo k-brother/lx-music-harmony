@@ -19,10 +19,10 @@ export struct EmptyView {
 
   build() {
     Column() {
-      Image(this.iconRes)
-        .width(this.iconSize)
-        .height(this.iconSize)
-        .fillColor(DesignTokens.labelTertiary(this.theme))
+      // 系统符号必须用 SymbolGlyph 渲染：Image 无法加载 sys.symbol.* 资源
+      SymbolGlyph(this.iconRes)
+        .fontSize(this.iconSize)
+        .fontColor([DesignTokens.labelTertiary(this.theme)])
         .opacity(0.55)
 
       Text(this.message.length > 0 ? this.message : t('no_data'))

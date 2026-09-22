@@ -601,10 +601,9 @@ export struct HomePage {
       Column() {
         Row() {
           Row() {
-            Image($r('sys.symbol.magnifyingglass'))
-              .width(17)
-              .height(17)
-              .fillColor(DesignTokens.labelSecondary(this.theme))
+            SymbolGlyph($r('sys.symbol.magnifyingglass'))
+              .fontSize(20)
+              .fontColor([DesignTokens.labelSecondary(this.theme)])
               .margin({ left: 10, right: 6 })
             TextInput({ placeholder: t('search_placeholder'), text: this.searchText })
               .layoutWeight(1)
@@ -667,10 +666,9 @@ export struct HomePage {
           ForEach(this.searchTips, (tip: string) => {
             ListItem() {
               Row() {
-                Image($r('sys.symbol.magnifyingglass'))
-                  .width(15)
-                  .height(15)
-                  .fillColor(DesignTokens.labelTertiary(this.theme))
+                SymbolGlyph($r('sys.symbol.magnifyingglass'))
+                  .fontSize(18)
+                  .fontColor([DesignTokens.labelTertiary(this.theme)])
                   .margin({ right: 10 })
 
                 Text(tip)
@@ -680,10 +678,9 @@ export struct HomePage {
                   .maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-                Image($r('sys.symbol.arrow_up_left'))
-                  .width(14)
-                  .height(14)
-                  .fillColor(DesignTokens.labelTertiary(this.theme))
+                SymbolGlyph($r('sys.symbol.arrow_up_left'))
+                  .fontSize(17)
+                  .fontColor([DesignTokens.labelTertiary(this.theme)])
               }
               .width('100%')
               .padding({
@@ -772,10 +769,9 @@ export struct HomePage {
                 .fontColor(DesignTokens.labelPrimary(this.theme))
                 .layoutWeight(1)
 
-              Image($r('sys.symbol.chevron_right'))
-                .width(14)
-                .height(14)
-                .fillColor(DesignTokens.labelTertiary(this.theme))
+              SymbolGlyph($r('sys.symbol.chevron_right'))
+                .fontSize(17)
+                .fontColor([DesignTokens.labelTertiary(this.theme)])
             }
             .width('100%')
             .padding({

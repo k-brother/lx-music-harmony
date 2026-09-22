@@ -117,10 +117,9 @@ export struct SearchSonglistResultList {
                   .backgroundColor(DesignTokens.mutedFill(this.theme))
               } else {
                 Column() {
-                  Image($r('sys.symbol.music_note_list'))
-                    .width(22)
-                    .height(22)
-                    .fillColor(DesignTokens.labelTertiary(this.theme))
+                  SymbolGlyph($r('sys.symbol.music_note_list'))
+                    .fontSize(26)
+                    .fontColor([DesignTokens.labelTertiary(this.theme)])
                 }
                 .width(56)
                 .height(56)
@@ -149,10 +148,9 @@ export struct SearchSonglistResultList {
               .alignItems(HorizontalAlign.Start)
               .margin({ left: 12 })
 
-              Image($r('sys.symbol.chevron_right'))
-                .width(14)
-                .height(14)
-                .fillColor(DesignTokens.labelTertiary(this.theme))
+              SymbolGlyph($r('sys.symbol.chevron_right'))
+                .fontSize(17)
+                .fontColor([DesignTokens.labelTertiary(this.theme)])
             }
             .width('100%')
             .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter(), top: 10, bottom: 10 })

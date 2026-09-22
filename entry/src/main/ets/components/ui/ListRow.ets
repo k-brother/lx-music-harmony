@@ -59,10 +59,9 @@ export struct ListRow {
             .objectFit(ImageFit.Cover)
         } else {
           Column() {
-            Image($r('sys.symbol.music_note_list'))
-              .width(20)
-              .height(20)
-              .fillColor(DesignTokens.labelTertiary(this.theme))
+            SymbolGlyph($r('sys.symbol.music_note_list'))
+              .fontSize(24)
+              .fontColor([DesignTokens.labelTertiary(this.theme)])
           }
           .width(DesignTokens.rowCover())
           .height(DesignTokens.rowCover())

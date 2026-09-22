@@ -103,6 +103,9 @@ CHECKS = [
  ('返回按钮热区', 'components/common/NavBackButton.ets', r'touchRegion\(34\)'),
  ('榜单展开/进入热区', 'pages/Home/LeaderboardView.ets', r'touchRegion\('),
  ('歌单批量栏触控高度', 'pages/SonglistDetail/SonglistBatchBar.ets', r'touchTarget\(\)'),
+ ('系统符号用 SymbolGlyph 渲染', 'components/ui/StateView.ets', r'SymbolGlyph\('),
+ ('底部 Tab 图标用 SymbolGlyph', 'pages/Home/Home/HomeBottomTabBar.ets', r'SymbolGlyph\(tab\.icon\)'),
+ ('空态图标用 SymbolGlyph', 'components/common/EmptyView.ets', r'SymbolGlyph\(this\.iconRes\)'),
 ]
 
 fails = []

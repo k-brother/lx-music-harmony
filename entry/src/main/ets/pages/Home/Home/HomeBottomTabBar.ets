@@ -23,10 +23,10 @@ export struct HomeBottomTabBar {
   @Builder
   TabItem(tab: HomeTabItem) {
     Column({ space: 2 }) {
-      Image(tab.icon)
-        .width(DesignTokens.iconMd())
-        .height(DesignTokens.iconMd())
-        .fillColor(this.activeIndex === tab.idx ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
+      // 系统符号必须用 SymbolGlyph 渲染（Image 加载 sys.symbol.* 会空白）
+      SymbolGlyph(tab.icon)
+        .fontSize(DesignTokens.iconMd() + 4)
+        .fontColor([this.activeIndex === tab.idx ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme)])
         .scale({ x: this.activeIndex === tab.idx ? 1.08 : 1, y: this.activeIndex === tab.idx ? 1.08 : 1 })
         .animation({ duration: DesignTokens.motionFast(), curve: Curve.EaseOut })
       Text(tab.label)

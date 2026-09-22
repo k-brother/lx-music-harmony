@@ -9,8 +9,9 @@ import { commentService } from '../service/CommentService';
 import type { Comment } from '../service/CommentService';
 import type { NavigationParams } from '../service/NavigationService';
 import { DesignTokens } from '../theme/DesignTokens';
-import { EmptyView } from '../components/common/EmptyView';
-import { NavBackButton } from '../components/common/NavBackButton';
+import { NavBar } from '../components/ui/NavBar';
+import { StateView } from '../components/ui/StateView';
+import { SegmentedBar } from '../components/ui/SegmentedBar';
 import { t } from '../service/LocalizationService';
 
 const DOMAIN: number = 0x0001;
@@ -194,49 +195,30 @@ export struct CommentPage {
 
   @Builder
   buildHeader() {
-    Row() {
-      NavBackButton()
-
-      Text(t('comment_title'))
-        .fontSize(DesignTokens.fontTitle())
-        .fontWeight(FontWeight.Medium)
-        .fontColor(DesignTokens.labelPrimary(this.theme))
-        .margin({ left: 12 })
-        .layoutWeight(1)
-
-      Blank()
-    }
-    .width('100%')
-    .height(60)
-    .padding({ left: 14, right: 14, top: 8, bottom: 6 })
-    .backgroundColor(DesignTokens.chromeBar(this.theme))
-    .alignItems(VerticalAlign.Center)
+    // 统一顶部栏（返回按钮热区、标题字号、沉底背景一处维护）
+    NavBar({ title: t('comment_title') })
   }
 
   @Builder
   buildCommentTypeTabs() {
+    // 热门/最新：统一分段控件（与其它页选中态一致）
     Row() {
-      // 热门评论标签
-      Text(t('comment_hot'))
-        .fontSize(14)
-        .fontColor(this.commentType === 'hot' ? DesignTokens.accent() : (this.theme === 'dark' ? DesignTokens.labelTertiary(this.theme) : DesignTokens.labelSecondary(this.theme)))
-        .fontWeight(this.commentType === 'hot' ? FontWeight.Medium : FontWeight.Normal)
-        .padding({ left: 16, right: 16, top: 12, bottom: 12 })
-        .onClick(() => {
-          this.switchCommentType('hot');
-        })
-
-      // 最新评论标签
-      Text(t('comment_new'))
-        .fontSize(14)
-        .fontColor(this.commentType === 'new' ? DesignTokens.accent() : (this.theme === 'dark' ? DesignTokens.labelTertiary(this.theme) : DesignTokens.labelSecondary(this.theme)))
-        .fontWeight(this.commentType === 'new' ? FontWeight.Medium : FontWeight.Normal)
-        .padding({ left: 16, right: 16, top: 12, bottom: 12 })
-        .onClick(() => {
-          this.switchCommentType('new');
-        })
+      SegmentedBar({
+        options: [
+          { id: 'hot', label: t('comment_hot') },
+          { id: 'new', label: t('comment_new') },
+        ],
+        activeId: this.commentType,
+        fillWidth: false,
+        fontSize: 14,
+        onSelect: (id: string): void => {
+          this.switchCommentType(id);
+        },
+      })
+      Blank()
     }
     .width('100%')
+    .padding({ left: 12, right: 12, top: 6, bottom: 6 })
     .backgroundColor(DesignTokens.card(this.theme))
     .stateStyles({ pressed: this.pressDim })
   }
@@ -339,10 +321,9 @@ export struct CommentPage {
           Row() {
             // 点赞按钮
             Row() {
-              Image(comment.isLiked ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
-                .width(16)
-                .height(16)
-                .fillColor(comment.isLiked ? DesignTokens.accent() : DesignTokens.labelSecondary(this.theme))
+              SymbolGlyph(comment.isLiked ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
+                .fontSize(18)
+                .fontColor([comment.isLiked ? DesignTokens.accent() : DesignTokens.labelSecondary(this.theme)])
                 .margin({ right: 4 })
               
               Text(comment.likeCount.toString())
@@ -356,10 +337,9 @@ export struct CommentPage {
             
             // 回复按钮
             Row() {
-              Image($r('sys.symbol.music_note_list'))
-                .width(16)
-                .height(16)
-                .fillColor(DesignTokens.labelSecondary(this.theme))
+              SymbolGlyph($r('sys.symbol.music_note_list'))
+                .fontSize(19)
+                .fontColor([DesignTokens.labelSecondary(this.theme)])
                 .margin({ left: 16, right: 4 })
               
               Text(comment.replyCount > 0 ? comment.replyCount.toString() : t('comment_new'))
@@ -468,7 +448,11 @@ export struct CommentPage {
   @Builder
   buildEmptyState() {
     Column() {
-      EmptyView({ iconRes: $r('sys.symbol.music_note_list'), message: t('comment_no_data') })
+      StateView({
+        state: 'empty',
+        iconRes: $r('sys.symbol.music_note_list'),
+        message: t('comment_no_data'),
+      })
     }
     .width('100%')
     .height('100%')

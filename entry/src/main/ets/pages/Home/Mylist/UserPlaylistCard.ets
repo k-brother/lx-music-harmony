@@ -35,10 +35,9 @@ export struct UserPlaylistCard {
           .objectFit(ImageFit.Cover)
       } else {
         Column() {
-          Image($r('sys.symbol.music_note_list'))
-            .width(24)
-            .height(24)
-            .fillColor(DesignTokens.labelTertiary(this.theme))
+          SymbolGlyph($r('sys.symbol.music_note_list'))
+            .fontSize(29)
+            .fontColor([DesignTokens.labelTertiary(this.theme)])
         }
         .width(52)
         .height(52)
@@ -76,10 +75,9 @@ export struct UserPlaylistCard {
       .alignItems(HorizontalAlign.Start)
 
       if (this.bindingListId.length > 0) {
-        Image($r('sys.symbol.arrow_clockwise'))
-          .width(20)
-          .height(20)
-          .fillColor(DesignTokens.accent())
+        SymbolGlyph($r('sys.symbol.arrow_clockwise'))
+          .fontSize(24)
+          .fontColor([DesignTokens.accent()])
           .padding(10)
           .responseRegion(DesignTokens.touchRegion(40))
           .onClick(() => {
@@ -89,10 +87,9 @@ export struct UserPlaylistCard {
           })
       }
 
-      Image($r('sys.symbol.play_circle'))
-        .width(30)
-        .height(30)
-        .fillColor(DesignTokens.accent())
+      SymbolGlyph($r('sys.symbol.play_circle'))
+        .fontSize(36)
+        .fontColor([DesignTokens.accent()])
         .responseRegion(DesignTokens.touchRegion(30))
         .onClick(() => {
           if (this.onPlay) {
@@ -100,10 +97,9 @@ export struct UserPlaylistCard {
           }
         })
 
-      Image($r('sys.symbol.chevron_right'))
-        .width(14)
-        .height(14)
-        .fillColor(DesignTokens.labelTertiary(this.theme))
+      SymbolGlyph($r('sys.symbol.chevron_right'))
+        .fontSize(17)
+        .fontColor([DesignTokens.labelTertiary(this.theme)])
         .margin({ left: 8 })
     }
     .width('100%')

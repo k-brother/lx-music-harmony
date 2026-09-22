@@ -687,10 +687,9 @@ export struct SongListView {
 
         // 播放量
         Row() {
-          Image($r('sys.symbol.play_fill'))
-            .width(10)
-            .height(10)
-            .fillColor('#FFFFFF')
+          SymbolGlyph($r('sys.symbol.play_fill'))
+            .fontSize(12)
+            .fontColor(['#FFFFFF'])
           Text(this.formatPlayCount(item.play_count))
             .fontSize(10)
             .fontColor('#FFFFFF')

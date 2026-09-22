@@ -325,10 +325,9 @@ export struct SonglistDetailPage {
     if (this.selectMode) {
       Stack() {
         if (this.isSelected(index)) {
-          Image($r('sys.symbol.checkmark_circle_fill'))
-            .width(22)
-            .height(22)
-            .fillColor(DesignTokens.accent())
+          SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
+            .fontSize(26)
+            .fontColor([DesignTokens.accent()])
         } else {
           Circle({ width: 22, height: 22 })
             .fill(Color.Transparent)

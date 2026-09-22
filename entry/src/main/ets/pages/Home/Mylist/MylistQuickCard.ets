@@ -21,10 +21,9 @@ export struct MylistQuickCard {
 
   build() {
     Column({ space: 8 }) {
-      Image(this.icon)
-        .width(22)
-        .height(22)
-        .fillColor(this.iconColor)
+      SymbolGlyph(this.icon)
+        .fontSize(24)
+        .fontColor([this.iconColor])
       Text(this.title)
         .fontSize(15)
         .fontWeight(FontWeight.Medium)

@@ -43,10 +43,9 @@ export struct SelectSheet {
               .textOverflow({ overflow: TextOverflow.Ellipsis })
 
             if (option.value === this.value) {
-              Image($r('sys.symbol.checkmark_circle_fill'))
-                .width(18)
-                .height(18)
-                .fillColor(DesignTokens.accent())
+              SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
+                .fontSize(22)
+                .fontColor([DesignTokens.accent()])
             }
           }
           .width('100%')

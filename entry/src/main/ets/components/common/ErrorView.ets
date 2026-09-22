@@ -17,10 +17,10 @@ export struct ErrorView {
 
   build() {
     Column() {
-      Image(this.iconRes)
-        .width(44)
-        .height(44)
-        .fillColor(DesignTokens.labelTertiary(this.theme))
+      // 系统符号必须用 SymbolGlyph 渲染（Image 加载 sys.symbol.* 会空白）
+      SymbolGlyph(this.iconRes)
+        .fontSize(44)
+        .fontColor([DesignTokens.labelTertiary(this.theme)])
         .opacity(0.6)
 
       Text(this.message.length > 0 ? this.message : t('load_failed'))

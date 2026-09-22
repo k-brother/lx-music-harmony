@@ -6,14 +6,15 @@ import hilog from '@ohos.hilog';
 import { showAppToast, TOAST_DURATION_SHORT } from '../utils/Toast';
 import filePicker from '@ohos.file.picker';
 import { common } from '@kit.AbilityKit';
-import { NavBackButton } from '../components/common/NavBackButton';
 import { PlayerBar } from '../components/player/PlayerBar';
 import { DesignTokens } from '../theme/DesignTokens';
 import { t, tf } from '../service/LocalizationService';
 import { localMusicService } from '../service/LocalMusicService';
 import { playerService, type SongInfo } from '../service/PlayerService';
 import { getLocalPicUrl, type LocalMusicInfo } from '../core/music/local/LocalPlayback';
-import { EmptyView } from '../components/common/EmptyView';
+import { NavBar } from '../components/ui/NavBar';
+import { StateView } from '../components/ui/StateView';
+import { hapticService } from '../service/HapticService';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'LocalMusicPage';
@@ -237,36 +238,52 @@ export struct LocalMusicPage {
 
   @Builder
   TopBar() {
-    Row() {
-      NavBackButton()
-      Text(t('local_music'))
-        .fontSize(DesignTokens.fontTitle())
-        .fontWeight(FontWeight.Medium)
-        .fontColor(DesignTokens.labelPrimary(this.theme))
-        .margin({ left: 12 })
-        .layoutWeight(1)
+    // 统一顶部栏：返回按钮触控区/标题字号/沉浸式安全区都由 NavBar 负责
+    NavBar({
+      title: t('local_music'),
+      trailing: (): void => {
+        this.TopBarActions();
+      },
+    })
+  }
+
+  @Builder
+  TopBarActions() {
+    Row({ space: 4 }) {
       if (this.tracks.length > 0) {
-        Image($r('sys.symbol.arrow_clockwise'))
-          .width(20)
-          .height(20)
-          .fillColor(DesignTokens.labelSecondary(this.theme))
-          .margin({ right: 16 })
-          .responseRegion(DesignTokens.touchRegion(20))
-          .onClick(() => {
-            void this.rescan();
-          })
-      }
-      Image($r('sys.symbol.plus'))
-        .width(20)
-        .height(20)
-        .fillColor(DesignTokens.accent())
+        Row() {
+          SymbolGlyph($r('sys.symbol.arrow_clockwise'))
+            .fontSize(19)
+            .fontColor([DesignTokens.labelSecondary(this.theme)])
+        }
+        .width(34)
+        .height(34)
+        .justifyContent(FlexAlign.Center)
+        .backgroundColor(DesignTokens.mutedFill(this.theme))
+        .borderRadius(17)
+        .responseRegion(DesignTokens.touchRegion(34))
         .onClick(() => {
-          void this.importMusic();
+          hapticService.light();
+          void this.rescan();
         })
+      }
+
+      Row() {
+        SymbolGlyph($r('sys.symbol.plus'))
+          .fontSize(18)
+          .fontColor([DesignTokens.accent()])
+      }
+      .width(34)
+      .height(34)
+      .justifyContent(FlexAlign.Center)
+      .backgroundColor(DesignTokens.accentSoft(this.theme))
+      .borderRadius(17)
+      .responseRegion(DesignTokens.touchRegion(34))
+      .onClick(() => {
+        hapticService.light();
+        void this.importMusic();
+      })
     }
-    .width('100%')
-    .height(56)
-    .padding({ left: 4, right: 16 })
     .alignItems(VerticalAlign.Center)
   }
 
@@ -395,13 +412,19 @@ export struct LocalMusicPage {
   @Builder
   EmptyState() {
     Column() {
-      EmptyView({ iconRes: $r('sys.symbol.music_note_list'), message: t('local_empty_hint') })
+      StateView({
+        state: 'empty',
+        iconRes: $r('sys.symbol.music_note_list'),
+        message: t('local_empty_hint'),
+      })
       Button(t('local_import'))
         .fontSize(15)
+        .height(DesignTokens.touchTarget())
         .backgroundColor(DesignTokens.accent())
         .borderRadius(20)
-        .margin({ top: 6 })
+        .margin({ top: 10 })
         .onClick(() => {
+          hapticService.light();
           void this.importMusic();
         })
     }

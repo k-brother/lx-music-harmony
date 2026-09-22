@@ -957,10 +957,9 @@ export struct LeaderboardView {
                 Text(t('leaderboard_title'))
                   .fontSize(12)
                   .fontColor(this.tertiaryText())
-                Image($r('sys.symbol.chevron_right'))
-                  .width(14)
-                  .height(14)
-                  .fillColor(this.tertiaryText())
+                SymbolGlyph($r('sys.symbol.chevron_right'))
+                  .fontSize(17)
+                  .fontColor([this.tertiaryText()])
                   .margin({ left: 6 })
               }
               .width('100%')
@@ -1052,19 +1051,17 @@ export struct LeaderboardView {
           })
 
           Row() {
-            Image(this.cardStates[index].expanded ? $r('sys.symbol.chevron_up') : $r('sys.symbol.chevron_down'))
-              .width(22)
-              .height(22)
-              .fillColor(this.secondaryText())
+            SymbolGlyph(this.cardStates[index].expanded ? $r('sys.symbol.chevron_up') : $r('sys.symbol.chevron_down'))
+              .fontSize(24)
+              .fontColor([this.secondaryText()])
               .padding(8)
               .responseRegion(DesignTokens.touchRegion(38))
               .onClick(() => {
                 this.toggleExpand(index);
               })
-            Image($r('sys.symbol.chevron_right'))
-              .width(22)
-              .height(22)
-              .fillColor(DesignTokens.accent())
+            SymbolGlyph($r('sys.symbol.chevron_right'))
+              .fontSize(26)
+              .fontColor([DesignTokens.accent()])
               .padding({ left: 4, right: 4, top: 8, bottom: 8 })
               .responseRegion(DesignTokens.touchRegion(30))
               .onClick(() => {
@@ -1202,10 +1199,9 @@ export struct LeaderboardView {
             .fontSize(14)
             .fontColor(DesignTokens.accent())
             .fontWeight(FontWeight.Medium)
-          Image($r('sys.symbol.chevron_right'))
-            .width(14)
-            .height(14)
-            .fillColor(DesignTokens.accent())
+          SymbolGlyph($r('sys.symbol.chevron_right'))
+            .fontSize(17)
+            .fontColor([DesignTokens.accent()])
             .margin({ left: 4 })
         }
         .width('100%')

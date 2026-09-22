@@ -11,7 +11,7 @@ import { getMusicUrl, download } from '../core/music/MusicFeatureEntry';
 import type { MusicInfo } from '../types/MusicTypes';
 import { navigationService, NavigationParams } from '../service/NavigationService';
 import { DesignTokens } from '../theme/DesignTokens';
-import { NavBackButton } from '../components/common/NavBackButton';
+import { NavBar } from '../components/ui/NavBar';
 
 interface BoardDetailParams {
   boardId: string;
@@ -335,29 +335,24 @@ export struct BoardDetailPage {
     }
   }
 
+  /** 顶栏右侧：曲目总数 */
+  @Builder
+  NavTrailingCount() {
+    Text(tf('count_songs', [this.totalCount.toString()]))
+      .fontSize(DesignTokens.fontCaption())
+      .fontColor(DesignTokens.labelSecondary(this.theme))
+      .margin({ right: 4 })
+  }
+
   build() {
     Column() {
-      Row() {
-        NavBackButton()
-
-        Text(this.boardName)
-          .fontSize(DesignTokens.fontTitle())
-          .fontColor(DesignTokens.labelPrimary(this.theme))
-          .fontWeight(FontWeight.Medium)
-          .margin({ left: 12 })
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-        Blank()
-
-        Text(tf('count_songs', [this.totalCount.toString()]))
-          .fontSize(DesignTokens.fontCaption())
-          .fontColor(DesignTokens.labelSecondary(this.theme))
-      }
-      .width('100%')
-      .height(60)
-      .padding({ left: 14, right: 14, top: 8, bottom: 6 })
-      .backgroundColor(DesignTokens.chromeBar(this.theme))
+      // 统一顶部栏；曲目数作为右侧动作区展示
+      NavBar({
+        title: this.boardName,
+        trailing: (): void => {
+          this.NavTrailingCount();
+        },
+      })
 
       if (this.isLoading) {
         // 加载中

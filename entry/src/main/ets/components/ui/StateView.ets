@@ -30,10 +30,10 @@ export struct StateView {
           .height(32)
           .color(DesignTokens.accent())
       } else {
-        Image(this.state === 'error' ? $r('sys.symbol.xmark') : this.iconRes)
-          .width(this.state === 'error' ? 40 : 48)
-          .height(this.state === 'error' ? 40 : 48)
-          .fillColor(DesignTokens.labelTertiary(this.theme))
+        // 系统符号必须用 SymbolGlyph 渲染（Image 加载 sys.symbol.* 会空白）
+        SymbolGlyph(this.state === 'error' ? $r('sys.symbol.xmark') : this.iconRes)
+          .fontSize(this.state === 'error' ? 40 : 48)
+          .fontColor([DesignTokens.labelTertiary(this.theme)])
           .opacity(0.6)
       }
 

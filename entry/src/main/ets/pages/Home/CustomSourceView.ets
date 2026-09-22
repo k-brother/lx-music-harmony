@@ -418,10 +418,9 @@ export struct CustomSourceView {
         .layoutWeight(1)
 
         if (this.selectedSource === item.id) {
-          Image($r('sys.symbol.checkmark_circle_fill'))
-            .width(22)
-            .height(22)
-            .fillColor(DesignTokens.accent())
+          SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
+            .fontSize(26)
+            .fontColor([DesignTokens.accent()])
         }
       }
       .width('100%')
@@ -489,10 +488,9 @@ export struct CustomSourceView {
             .layoutWeight(1)
 
             if (this.selectedSource === 'custom') {
-              Image($r('sys.symbol.checkmark_circle_fill'))
-                .width(22)
-                .height(22)
-                .fillColor(DesignTokens.accent())
+              SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
+                .fontSize(26)
+                .fontColor([DesignTokens.accent()])
             }
           }
           .width('100%')
@@ -629,10 +627,9 @@ export struct CustomSourceView {
             .alignItems(HorizontalAlign.Start)
             .layoutWeight(1)
 
-            Image($r('sys.symbol.folder'))
-              .width(18)
-              .height(18)
-              .fillColor(DesignTokens.accent())
+            SymbolGlyph($r('sys.symbol.folder'))
+              .fontSize(22)
+              .fontColor([DesignTokens.accent()])
           }
           .width('100%')
           .padding({ left: 16, right: 16, top: 14, bottom: 14 })

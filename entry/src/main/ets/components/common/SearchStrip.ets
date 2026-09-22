@@ -27,10 +27,9 @@ export struct SearchStrip {
 
   build() {
     Row() {
-      Image($r('sys.symbol.magnifyingglass'))
-        .width(17)
-        .height(17)
-        .fillColor(DesignTokens.labelSecondary(this.theme))
+      SymbolGlyph($r('sys.symbol.magnifyingglass'))
+        .fontSize(20)
+        .fontColor([DesignTokens.labelSecondary(this.theme)])
         .margin({ left: 10, right: 6 })
         .onClick(() => {
           this.actions.onMagnifierClick();

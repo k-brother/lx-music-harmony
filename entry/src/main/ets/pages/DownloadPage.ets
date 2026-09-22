@@ -322,11 +322,10 @@ export struct DownloadPage {
   buildToolbar() {
     if (this.isSelectMode) {
       Row() {
-        Image(this.isAllScopeSelected() ?
+        SymbolGlyph(this.isAllScopeSelected() ?
           $r('sys.symbol.checkmark_square_fill') : $r('sys.symbol.square'))
-          .width(22)
-          .height(22)
-          .fillColor(DesignTokens.accent())
+          .fontSize(24)
+          .fontColor([DesignTokens.accent()])
           .responseRegion(DesignTokens.touchRegion(22))
           .onClick(() => {
             this.selectAllTasks();
@@ -353,10 +352,9 @@ export struct DownloadPage {
         }
 
         if (this.selectedTasks.size > 0 && this.hasSelectedTasksWithStatus(DownloadStatus.DOWNLOADING)) {
-          Image($r('sys.symbol.pause'))
-            .width(22)
-            .height(22)
-            .fillColor(DesignTokens.accent())
+          SymbolGlyph($r('sys.symbol.pause'))
+            .fontSize(26)
+            .fontColor([DesignTokens.accent()])
             .margin({ right: 14 })
             .responseRegion(DesignTokens.touchRegion(22))
             .onClick(() => {
@@ -367,10 +365,9 @@ export struct DownloadPage {
         if (this.selectedTasks.size > 0 &&
           (this.hasSelectedTasksWithStatus(DownloadStatus.PAUSED) ||
             this.hasSelectedTasksWithStatus(DownloadStatus.PENDING))) {
-          Image($r('sys.symbol.play'))
-            .width(22)
-            .height(22)
-            .fillColor(DesignTokens.accent())
+          SymbolGlyph($r('sys.symbol.play'))
+            .fontSize(26)
+            .fontColor([DesignTokens.accent()])
             .margin({ right: 14 })
             .responseRegion(DesignTokens.touchRegion(22))
             .onClick(() => {
@@ -379,10 +376,9 @@ export struct DownloadPage {
         }
 
         if (this.selectedTasks.size > 0) {
-          Image($r('sys.symbol.xmark'))
-            .width(22)
-            .height(22)
-            .fillColor('#F44336')
+          SymbolGlyph($r('sys.symbol.xmark'))
+            .fontSize(26)
+            .fontColor(['#F44336'])
             .responseRegion(DesignTokens.touchRegion(22))
             .onClick(() => {
               void this.cancelSelectedTasks();
@@ -408,11 +404,10 @@ export struct DownloadPage {
 
       Row() {
         if (this.isSelectMode) {
-          Image(this.selectedTasks.has(task.id) ?
+          SymbolGlyph(this.selectedTasks.has(task.id) ?
             $r('sys.symbol.checkmark_square_fill') : $r('sys.symbol.square'))
-            .width(22)
-            .height(22)
-            .fillColor(DesignTokens.accent())
+            .fontSize(24)
+            .fontColor([DesignTokens.accent()])
             .margin({ right: 12 })
         }
 
@@ -473,20 +468,18 @@ export struct DownloadPage {
         if (!this.isSelectMode) {
           Column() {
             if (task.status === DownloadStatus.DOWNLOADING) {
-              Image($r('sys.symbol.pause'))
-                .width(22)
-                .height(22)
-                .fillColor(DesignTokens.accent())
+              SymbolGlyph($r('sys.symbol.pause'))
+                .fontSize(26)
+                .fontColor([DesignTokens.accent()])
                 .responseRegion(DesignTokens.touchRegion(22))
                 .onClick(() => {
                   download.pauseDownload(task.id);
                 })
             } else if (task.status === DownloadStatus.PENDING) {
               // 等待中（如关闭了"自动开始下载"）：手动开始
-              Image($r('sys.symbol.play'))
-                .width(22)
-                .height(22)
-                .fillColor(DesignTokens.accent())
+              SymbolGlyph($r('sys.symbol.play'))
+                .fontSize(26)
+                .fontColor([DesignTokens.accent()])
                 .responseRegion(DesignTokens.touchRegion(22))
                 .onClick(() => {
                   void download.resumeDownload(task.id).then((): void => {
@@ -494,19 +487,17 @@ export struct DownloadPage {
                   });
                 })
             } else if (task.status === DownloadStatus.PAUSED) {
-              Image($r('sys.symbol.play'))
-                .width(22)
-                .height(22)
-                .fillColor(DesignTokens.accent())
+              SymbolGlyph($r('sys.symbol.play'))
+                .fontSize(26)
+                .fontColor([DesignTokens.accent()])
                 .responseRegion(DesignTokens.touchRegion(22))
                 .onClick(() => {
                   void download.resumeDownload(task.id);
                 })
             } else if (task.status === DownloadStatus.FAILED) {
-              Image($r('sys.symbol.arrow_clockwise'))
-                .width(22)
-                .height(22)
-                .fillColor(DesignTokens.accent())
+              SymbolGlyph($r('sys.symbol.arrow_clockwise'))
+                .fontSize(26)
+                .fontColor([DesignTokens.accent()])
                 .responseRegion(DesignTokens.touchRegion(22))
                 .onClick(() => {
                   void this.retryDownload(task.id);
@@ -514,18 +505,16 @@ export struct DownloadPage {
             }
 
             if (task.status === DownloadStatus.COMPLETED) {
-              Image($r('sys.symbol.play'))
-                .width(22)
-                .height(22)
-                .fillColor(DesignTokens.accent())
+              SymbolGlyph($r('sys.symbol.play'))
+                .fontSize(26)
+                .fontColor([DesignTokens.accent()])
                 .responseRegion(DesignTokens.touchRegion(22))
                 .onClick(() => {
                   void this.playDownloadedSong(task);
                 })
-              Image($r('sys.symbol.xmark'))
-                .width(22)
-                .height(22)
-                .fillColor('#F44336')
+              SymbolGlyph($r('sys.symbol.xmark'))
+                .fontSize(26)
+                .fontColor(['#F44336'])
                 .margin({ top: 14 })
                 .responseRegion(DesignTokens.touchRegion(22))
                 .onClick(() => {
@@ -534,10 +523,9 @@ export struct DownloadPage {
             }
 
             if (task.status !== DownloadStatus.COMPLETED) {
-              Image($r('sys.symbol.xmark'))
-                .width(22)
-                .height(22)
-                .fillColor('#F44336')
+              SymbolGlyph($r('sys.symbol.xmark'))
+                .fontSize(26)
+                .fontColor(['#F44336'])
                 .margin({ top: 14 })
                 .responseRegion(DesignTokens.touchRegion(22))
                 .onClick(() => {
@@ -571,10 +559,9 @@ export struct DownloadPage {
   @Builder
   buildEmptyState() {
     Column() {
-      Image($r('sys.symbol.arrow_down_circle'))
-        .width(64)
-        .height(64)
-        .fillColor(DesignTokens.disabled(this.theme))
+      SymbolGlyph($r('sys.symbol.arrow_down_circle'))
+        .fontSize(77)
+        .fontColor([DesignTokens.disabled(this.theme)])
         .margin({ bottom: 16 })
 
       Text(t('download_title'))
@@ -597,10 +584,9 @@ export struct DownloadPage {
   @Builder
   buildEmptyForFilter() {
     Column() {
-      Image($r('sys.symbol.arrow_down_circle'))
-        .width(56)
-        .height(56)
-        .fillColor(DesignTokens.disabled(this.theme))
+      SymbolGlyph($r('sys.symbol.arrow_down_circle'))
+        .fontSize(67)
+        .fontColor([DesignTokens.disabled(this.theme)])
         .margin({ bottom: 14 })
 
       if (this.filterTabIndex === 1) {

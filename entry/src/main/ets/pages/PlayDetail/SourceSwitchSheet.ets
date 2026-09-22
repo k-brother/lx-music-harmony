@@ -43,10 +43,9 @@ export struct SourceSwitchSheet {
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
 
-      Image($r('sys.symbol.chevron_right'))
-        .width(14)
-        .height(14)
-        .fillColor(DesignTokens.labelTertiary(this.theme))
+      SymbolGlyph($r('sys.symbol.chevron_right'))
+        .fontSize(17)
+        .fontColor([DesignTokens.labelTertiary(this.theme)])
     }
     .width('100%')
     .height(DesignTokens.rowHeightTwoLine())

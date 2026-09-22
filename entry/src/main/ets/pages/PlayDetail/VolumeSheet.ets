@@ -30,10 +30,9 @@ export struct VolumeSheet {
       .width('100%')
 
       Row({ space: 12 }) {
-        Image(this.volume === 0 ? $r('sys.symbol.xmark') : $r('sys.symbol.arrow_down_circle'))
-          .width(18)
-          .height(18)
-          .fillColor(DesignTokens.labelSecondary(this.theme))
+        SymbolGlyph(this.volume === 0 ? $r('sys.symbol.xmark') : $r('sys.symbol.arrow_down_circle'))
+          .fontSize(20)
+          .fontColor([DesignTokens.labelSecondary(this.theme)])
 
         Slider({
           value: this.volume,
