@@ -58,6 +58,11 @@ export class BackgroundRunningManager {
   private showNotificationImage: boolean = true;
   /** 蓝牙/车机歌词：是否把整段 LRC 写入 AVSession 元数据 */
   private showBluetoothLyric: boolean = false;
+  /** 系统桌面歌词是否已接管（决定元数据里是否必须带整段 LRC） */
+  private systemDesktopLyricActive: boolean = false;
+  /** 会话就绪前收到的桌面歌词意图（启动恢复时常见） */
+  private pendingSystemDesktopLyric: boolean = false;
+  private sessionReadyListeners: Array<() => void> = [];
 
   private static instance: BackgroundRunningManager | null = null;
 
@@ -162,6 +167,9 @@ export class BackgroundRunningManager {
       if (this.hasPendingPlaybackState) {
         await this.applyPendingPlaybackState();
       }
+
+      // 7. 会话就绪：通知依赖会话的能力（系统桌面歌词等）补挂
+      this.notifySessionReady();
     } catch (err) {
       const msg: string = err instanceof Error ? err.message : JSON.stringify(err);
       hilog.error(DOMAIN, TAG, 'Failed to create/activate AVSession: %{public}s', msg);
@@ -373,16 +381,19 @@ export class BackgroundRunningManager {
       if (metadata.mediaImage && this.showNotificationImage) {
         avMetadata.mediaImage = metadata.mediaImage;
       }
-      // 整段 LRC 仅在「蓝牙/车机歌词」开启时下发；当前句始终下发，保证锁屏/播控单行歌词
-      if (metadata.lyric && this.showBluetoothLyric) {
+      // 整段 LRC：蓝牙歌词或系统桌面歌词开启时必须下发（后者靠它逐句滚动）；
+      // 当前句始终下发，保证锁屏/播控/胶囊的单行歌词
+      if (metadata.lyric && (this.showBluetoothLyric || this.systemDesktopLyricActive)) {
         avMetadata.lyric = metadata.lyric;
       }
       if (metadata.singleLyricText) {
         avMetadata.singleLyricText = metadata.singleLyricText;
       }
       await this.session.setAVMetadata(avMetadata);
-      hilog.info(DOMAIN, TAG, 'AVMetadata set successfully: title=%{public}s, artist=%{public}s, durationMs=%{public}d',
-        metadata.title, metadata.artist, metadata.duration);
+      hilog.info(DOMAIN, TAG,
+        'AVMetadata set: title=%{public}s, artist=%{public}s, durationMs=%{public}d, lrc=%{public}s, single=%{public}s',
+        metadata.title, metadata.artist, metadata.duration,
+        String(avMetadata.lyric !== undefined), String(avMetadata.singleLyricText !== undefined));
     } catch (err) {
       const msg: string = err instanceof Error ? err.message : JSON.stringify(err);
       hilog.error(DOMAIN, TAG, 'Failed to set AVMetadata: %{public}s', msg);
@@ -393,6 +404,17 @@ export class BackgroundRunningManager {
    * 更新媒体元数据（歌曲信息变化时调用）
    */
   async updateMetadata(metadata: AvMediaMetadata): Promise<void> {
+    // 同一首歌的元数据可能被多次重设（切音质、改封面开关等），
+    // 这些调用不带歌词，直接覆盖会把已下发的 LRC 丢掉，这里做一次继承。
+    const previous = this.pendingMetadata;
+    if (previous && previous.assetId === metadata.assetId) {
+      if (!metadata.lyric && previous.lyric) {
+        metadata.lyric = previous.lyric;
+      }
+      if (!metadata.singleLyricText && previous.singleLyricText) {
+        metadata.singleLyricText = previous.singleLyricText;
+      }
+    }
     this.pendingMetadata = metadata;
     if (!this.session) {
       hilog.info(DOMAIN, TAG, 'Metadata cached (session not yet created): title=%{public}s', metadata.title);
@@ -452,12 +474,23 @@ export class BackgroundRunningManager {
    */
   async enableSystemDesktopLyric(enable: boolean): Promise<boolean> {
     if (!this.session) {
-      hilog.warn(DOMAIN, TAG, 'enableSystemDesktopLyric skipped: session not created');
+      // 启动恢复桌面歌词时会话通常还没建立（要等首次播放）。
+      // 这里先记住意图，等会话就绪后由 onSessionReady 的订阅者补挂系统歌词，
+      // 避免用户端表现成「永久退化成内置黑色浮窗」。
+      this.pendingSystemDesktopLyric = enable;
+      hilog.info(DOMAIN, TAG, 'System desktop lyric deferred until session ready: enable=%{public}s',
+        enable.toString());
       return false;
     }
     try {
       await this.session.enableDesktopLyric(enable);
-      hilog.info(DOMAIN, TAG, 'System desktop lyric enabled=%{public}s', enable.toString());
+      // 只是「启用能力」还不够：系统歌词窗口默认不可见，必须显式置为可见，
+      // 否则用户开了桌面歌词却只在桌面上看到一片空白（胶囊里只有歌名）。
+      await this.session.setDesktopLyricVisible(enable);
+      this.setSystemDesktopLyricActive(enable);
+      const visible = await this.session.isDesktopLyricVisible();
+      hilog.info(DOMAIN, TAG, 'System desktop lyric enabled=%{public}s visible=%{public}s',
+        enable.toString(), visible.toString());
       return true;
     } catch (err) {
       const code: number = (err as BusinessError)?.code ?? 0;
@@ -466,6 +499,61 @@ export class BackgroundRunningManager {
         code, (err as Error)?.message ?? '');
       return false;
     }
+  }
+
+  /**
+   * 系统桌面歌词是否正在接管。
+   *
+   * 与「蓝牙歌词」区分：系统桌面歌词/锁屏歌词必须拿到整段 LRC 才能逐句滚动，
+   * 所以元数据下发按「蓝牙歌词 || 系统桌面歌词」决定是否带 LRC，
+   * 否则用户开了桌面歌词却只能看到一句静态文本。
+   */
+  setSystemDesktopLyricActive(active: boolean): void {
+    if (this.systemDesktopLyricActive === active) {
+      return;
+    }
+    this.systemDesktopLyricActive = active;
+    hilog.info(DOMAIN, TAG, 'System desktop lyric active=%{public}s', active.toString());
+    // 立即用缓存元数据重放一次，开启歌词无需等下一首
+    this.reapplyPendingMetadata();
+  }
+
+  /** 订阅「会话已创建并激活」：依赖会话的能力在这里补挂 */
+  onSessionReady(listener: () => void): void {
+    this.sessionReadyListeners.push(listener);
+  }
+
+  private notifySessionReady(): void {
+    // 先把启动阶段记下的桌面歌词意图补上（不依赖订阅者注册顺序）
+    if (this.pendingSystemDesktopLyric && this.session) {
+      const session = this.session;
+      this.pendingSystemDesktopLyric = false;
+      session.enableDesktopLyric(true).then(() => {
+        this.setSystemDesktopLyricActive(true);
+        hilog.info(DOMAIN, TAG, 'Pending system desktop lyric applied after session ready');
+      }).catch((err: Error) => {
+        hilog.warn(DOMAIN, TAG, 'apply pending desktop lyric failed: %{public}s', err.message);
+      });
+    }
+    for (const listener of this.sessionReadyListeners) {
+      try {
+        listener();
+      } catch (err) {
+        hilog.warn(DOMAIN, TAG, 'session-ready listener failed: %{public}s',
+          err instanceof Error ? err.message : JSON.stringify(err));
+      }
+    }
+  }
+
+  /** 用缓存元数据重放（开关切换/歌词状态变化时调用） */
+  private reapplyPendingMetadata(): void {
+    const pending = this.pendingMetadata;
+    if (!pending || !this.session) {
+      return;
+    }
+    this.setAvMetadata(pending).catch((err: Error) => {
+      hilog.warn(DOMAIN, TAG, 're-apply metadata failed: %{public}s', err.message);
+    });
   }
 
   /** 系统桌面歌词显示/隐藏 */

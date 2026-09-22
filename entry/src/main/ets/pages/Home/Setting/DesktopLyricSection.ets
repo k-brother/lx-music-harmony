@@ -40,11 +40,14 @@ export struct DesktopLyricSection {
   @State animEnabled: boolean = true;
   @State lyricShadowColor: string = '#99000000';
   @State locked: boolean = false;
+  /** 是否由系统原生歌词接管（决定提示文案） */
+  @State usingSystemLyric: boolean = false;
 
   private settingsUnsub: (() => void) | null = null;
 
   aboutToAppear() {
     this.loadFromSettings();
+    this.usingSystemLyric = DesktopLyricManager.isUsingSystemLyric();
     // 外部改动（恢复备份 / 同步下发 / 其它入口）也要刷新本分组
     this.settingsUnsub = watchSettings((): void => {
       this.loadFromSettings();
@@ -158,6 +161,16 @@ export struct DesktopLyricSection {
 
     const items: SettingSectionItem[] = [];
 
+    // 系统原生歌词接管时，外观项由系统统一控制（跟随系统主题/位置），
+    // 这里给用户一句明确说明，避免"改了字号颜色却没反应"的困惑。
+    if (this.lyricEnabled) {
+      items.push({
+        type: 'info',
+        title: this.usingSystemLyric ? t('desktop_lyric_system_mode') : t('desktop_lyric_builtin_mode'),
+        description: this.usingSystemLyric ? t('desktop_lyric_system_mode_desc') : t('desktop_lyric_builtin_mode_desc'),
+      });
+    }
+
     items.push({
       type: 'toggle',
       title: t('desktop_lyric'),
@@ -165,8 +178,13 @@ export struct DesktopLyricSection {
       value: this.lyricEnabled,
       onChangeToggle: (value: boolean): void => {
         this.lyricEnabled = value;
+        this.usingSystemLyric = false;
         void settingsService.update({ showDesktopLyric: value });
-        void DesktopLyricManager.setEnabled(value);
+        DesktopLyricManager.setEnabled(value).then((): void => {
+          this.usingSystemLyric = DesktopLyricManager.isUsingSystemLyric();
+        }).catch((err: Error) => {
+          hilog.warn(DOMAIN, TAG, 'toggle desktop lyric failed: %{public}s', err.message);
+        });
         appToast(value ? t('toast_desktop_on') : t('toast_desktop_off'));
       },
     });

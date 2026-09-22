@@ -77,6 +77,13 @@ CHECKS = [
  # 面板必须「条件渲染 + 绝对定位」，否则放进页面 Column 会把正文挤扁（历史缺陷）
  ('底部面板条件渲染', 'components/ui/BottomSheet.ets', r'if \(this\.visible\)'),
  ('底部面板绝对定位', 'components/ui/BottomSheet.ets', r'position\(\{ x: 0, y: 0 \}\)'),
+ ('系统歌词:会话就绪后接管', 'service/BackgroundRunningManager.ets',
+  r'pendingSystemDesktopLyric|notifySessionReady'),
+ ('系统歌词:显式置为可见', 'service/BackgroundRunningManager.ets', r'setDesktopLyricVisible\(enable\)'),
+ ('系统歌词:元数据带整段 LRC', 'service/BackgroundRunningManager.ets',
+  r'showBluetoothLyric \|\| this\.systemDesktopLyricActive'),
+ ('系统歌词:由浮窗自动升级', 'components/common/DesktopLyric.ets', r'upgradeToSystemLyric'),
+ ('桌面歌词模式提示', 'pages/Home/Setting/DesktopLyricSection.ets', r'desktop_lyric_system_mode'),
 ]
 
 fails = []

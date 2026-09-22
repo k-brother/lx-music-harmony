@@ -321,6 +321,49 @@ class DesktopLyricWindow {
 export class DesktopLyricManager {
   /** 当前是否在使用系统原生桌面歌词（否则为内置悬浮窗） */
   private static usingSystemLyric: boolean = false;
+  /** 会话就绪回调只绑定一次 */
+  private static sessionHookBound: boolean = false;
+
+  /**
+   * 绑定「AVSession 就绪」回调。
+   *
+   * 启动恢复桌面歌词时播控会话还没建立（要等首次播放），系统歌词挂不上，
+   * 只能先给内置浮窗；等会话就绪后这里自动升级到系统原生歌词，
+   * 用户端就不会一直看到那个黑色浮条了。
+   */
+  static bindSessionReadyHook(): void {
+    if (DesktopLyricManager.sessionHookBound) {
+      return;
+    }
+    DesktopLyricManager.sessionHookBound = true;
+    backgroundRunningManager.onSessionReady((): void => {
+      if (DesktopLyricManager.usingSystemLyric || !settingsService.get().showDesktopLyric) {
+        return;
+      }
+      void DesktopLyricManager.upgradeToSystemLyric();
+    });
+  }
+
+  /** 从内置浮窗切换到系统原生歌词（失败则保持浮窗） */
+  private static async upgradeToSystemLyric(): Promise<void> {
+    const settings = settingsService.get();
+    const supported = await backgroundRunningManager.isSystemDesktopLyricSupported();
+    if (!supported) {
+      return;
+    }
+    const enabledOnSystem = await backgroundRunningManager.enableSystemDesktopLyric(true);
+    if (!enabledOnSystem) {
+      return;
+    }
+
+    DesktopLyricManager.usingSystemLyric = true;
+    DesktopLyricController.getInstance().start();
+    DesktopLyricController.applyLyricState(playerService.getLyricState());
+    await backgroundRunningManager.setSystemDesktopLyricLocked(settings.desktopLyricLocked);
+    // 释放内置浮窗，避免系统歌词与浮窗同时显示
+    await DesktopLyricWindow.destroy();
+    hilog.info(DOMAIN, TAG, 'Upgraded to system desktop lyric after session ready');
+  }
 
   /**
    * 开关桌面歌词。
@@ -328,12 +371,14 @@ export class DesktopLyricManager {
    * 设备/系统不支持时自动降级为内置悬浮窗。
    */
   static async setEnabled(enabled: boolean): Promise<void> {
+    DesktopLyricManager.bindSessionReadyHook();
     const controller = DesktopLyricController.getInstance();
     if (!enabled) {
       if (DesktopLyricManager.usingSystemLyric) {
         await backgroundRunningManager.setSystemDesktopLyricVisible(false);
         await backgroundRunningManager.enableSystemDesktopLyric(false);
       }
+      backgroundRunningManager.setSystemDesktopLyricActive(false);
       controller.stop();
       await DesktopLyricWindow.destroy();
       DesktopLyricManager.usingSystemLyric = false;

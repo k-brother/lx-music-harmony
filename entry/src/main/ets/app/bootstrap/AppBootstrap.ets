@@ -47,6 +47,8 @@ export async function runBootstrapAfterServices(want?: object): Promise<void> {
 }
 
 function scheduleDesktopLyricRestore(): void {
+  // 先绑定「播控会话就绪」回调：启动阶段会话还没建，系统歌词要等它就绪后自动接管
+  DesktopLyricManager.bindSessionReadyHook();
   setTimeout(() => {
     try {
       if (settingsService.get().showDesktopLyric) {

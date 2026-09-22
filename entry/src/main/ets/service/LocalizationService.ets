@@ -273,6 +273,10 @@ function buildZhCN(): Map<string, string> {
   m.set('list_move_to', '移动到');
   m.set('list_move_done', '已移动');
   m.set('list_move_no_target', '没有其他列表可以移动');
+  m.set('desktop_lyric_system_mode', '正在使用系统原生歌词');
+  m.set('desktop_lyric_system_mode_desc', '与华为音乐同款：歌词显示在系统桌面上，跟随系统主题与位置，下面的外观项仅在内置悬浮歌词模式生效');
+  m.set('desktop_lyric_builtin_mode', '正在使用内置悬浮歌词');
+  m.set('desktop_lyric_builtin_mode_desc', '当前设备未启用系统原生歌词，下面的外观项对内置悬浮歌词立即生效');
   m.set('list_select_all', '全选');
   m.set('list_deselect_all', '取消全选');
   m.set('list_selected_count', '已选 {0} 首');
@@ -900,6 +904,10 @@ function buildEnUS(): Map<string, string> {
   m.set('list_move_to', 'Move to');
   m.set('list_move_done', 'Moved');
   m.set('list_move_no_target', 'No other list to move to');
+  m.set('desktop_lyric_system_mode', 'Using system desktop lyric');
+  m.set('desktop_lyric_system_mode_desc', 'Same as Huawei Music: lyric is rendered by the system on the home screen and follows system theme/position. The appearance options below apply to the built-in floating lyric only');
+  m.set('desktop_lyric_builtin_mode', 'Using built-in floating lyric');
+  m.set('desktop_lyric_builtin_mode_desc', 'System desktop lyric is unavailable on this device. The appearance options below apply to the built-in floating lyric immediately');
   m.set('list_select_all', 'Select all');
   m.set('list_deselect_all', 'Deselect all');
   m.set('list_selected_count', '{0} selected');
