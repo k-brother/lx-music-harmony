@@ -197,7 +197,13 @@ function copyFileToUri(sandboxFilePath: string, targetUri: string): void {
 
 /**
  * 转存到公共下载目录。
- * 优先写入「下载设置 -> 保存位置」配置的目录，失败时回退到系统保存面板。
+ *
+ * 优先级：
+ * 1. 「下载设置 -> 保存位置」配置的目录（正常路径）；
+ * 2. 配置目录不可写时，若开启了「使用系统文件选择器」则拉起保存面板由用户决定；
+ * 3. 否则保留在应用沙箱目录（文件已下载完成，不打扰用户，可在设置里配置目录后重新导出）。
+ *
+ * @returns 实际可播放的路径（file:// 形式）
  */
 async function saveSandboxFileToPublicDownload(sandboxFilePath: string, fileName: string): Promise<string> {
   const configuredDir = settingsService.get().downloadPath;
@@ -210,8 +216,15 @@ async function saveSandboxFileToPublicDownload(sandboxFilePath: string, fileName
       return targetUri;
     } catch (dirErr) {
       const msg = dirErr instanceof Error ? dirErr.message : JSON.stringify(dirErr);
-      hilog.warn(DOMAIN, TAG, '写入配置目录失败，回退系统保存面板: %{public}s', msg);
+      hilog.warn(DOMAIN, TAG, '写入配置目录失败: %{public}s', msg);
     }
+  }
+
+  // 没开「使用系统文件选择器」时不要打断用户：文件留在沙箱，任务照常完成
+  if (!settingsService.get().downloadUseFilePicker) {
+    const sandboxUri = `file://${sandboxFilePath}`;
+    hilog.info(DOMAIN, TAG, '保留在应用目录（可在下载设置里配置保存位置）: %{public}s', sandboxUri);
+    return sandboxUri;
   }
 
   const context = getContext();
@@ -553,14 +566,13 @@ async function startActualDownload(task: DownloadTask, onProgress?: DownloadProg
       if (onProgress) {
         onProgress(task);
       }
-      const publicUri = await saveSandboxFileToPublicDownload(sandboxPath, cleanFileName);
-      const publicDir = settingsService.get().downloadPath || DEFAULT_DOWNLOAD_DIR;
-      const publicPath = `${publicDir}/${cleanFileName}`;
-      hilog.info(DOMAIN, TAG, '转存到公共目录成功: uri=%{public}s path=%{public}s', publicUri, publicPath);
+      const savedPath = await saveSandboxFileToPublicDownload(sandboxPath, cleanFileName);
+      hilog.info(DOMAIN, TAG, '下载落盘位置: %{public}s', savedPath);
 
       task.status = DownloadStatus.COMPLETED;
       task.progress = 100;
-      task.filePath = publicPath;
+      // 用真实保存位置，而不是设置里的路径：用户在选择器里换了目录也能播
+      task.filePath = savedPath;
       if (onProgress) {
         onProgress(task);
       }

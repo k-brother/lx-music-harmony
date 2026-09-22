@@ -24,6 +24,7 @@ const DEFAULT_DOWNLOAD_DIR = '/storage/Users/currentUser/Download';
 export struct DownloadSection {
   @State downloadPath: string = '';
   @State autoStartDownload: boolean = true;
+  @State useFilePicker: boolean = false;
   @State maxConcurrentDownloads: number = 1;
 
   private settingsUnsub: (() => void) | null = null;
@@ -49,6 +50,7 @@ export struct DownloadSection {
     const stored = (settings.downloadPath || '').trim();
     this.downloadPath = stored.length > 0 ? stored : DEFAULT_DOWNLOAD_DIR;
     this.autoStartDownload = settings.autoStartDownload;
+    this.useFilePicker = settings.downloadUseFilePicker;
     this.maxConcurrentDownloads = settings.maxConcurrentDownloads;
     setMaxConcurrentDownloads(this.maxConcurrentDownloads);
     if (stored.length === 0) {
@@ -104,6 +106,16 @@ export struct DownloadSection {
         onChangeToggle: (value: boolean): void => {
           this.autoStartDownload = value;
           void settingsService.update({ autoStartDownload: value });
+        },
+      },
+      {
+        type: 'toggle',
+        title: t('download_use_file_picker'),
+        description: t('download_use_file_picker_desc'),
+        value: this.useFilePicker,
+        onChangeToggle: (value: boolean): void => {
+          this.useFilePicker = value;
+          void settingsService.update({ downloadUseFilePicker: value });
         },
       },
       {

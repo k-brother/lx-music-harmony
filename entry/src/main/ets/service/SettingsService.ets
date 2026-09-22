@@ -179,6 +179,8 @@ export interface AppSettings {
 
   // 下载
   downloadPath: string;
+  /** 下载时是否每次都拉起系统文件选择器（默认关闭：写不进配置目录时留在应用目录，不打扰） */
+  downloadUseFilePicker: boolean;
   autoStartDownload: boolean;
   maxConcurrentDownloads: number;
 
@@ -270,6 +272,7 @@ export interface SettingsPatch {
   listClickPlay?: boolean;
 
   downloadPath?: string;
+  downloadUseFilePicker?: boolean;
   autoStartDownload?: boolean;
   maxConcurrentDownloads?: number;
 
@@ -360,6 +363,7 @@ function createDefaultSettings(): AppSettings {
     listClickPlay: false,
 
     downloadPath: '',
+    downloadUseFilePicker: false,
     autoStartDownload: true,
     maxConcurrentDownloads: 1,
 
@@ -745,6 +749,8 @@ class SettingsServiceImpl {
       StorageKeys.LIST_AUTO_CLEAN_PLAYED, defaults.autoCleanPlayedList);
 
     this.values.downloadPath = await storage.getString(StorageKeys.DOWNLOAD_PATH, defaults.downloadPath);
+    this.values.downloadUseFilePicker = await storage.getBoolean(
+      StorageKeys.DOWNLOAD_USE_FILE_PICKER, defaults.downloadUseFilePicker);
     this.values.autoStartDownload = await storage.getBoolean(
       StorageKeys.DOWNLOAD_AUTO_START, defaults.autoStartDownload);
     this.values.maxConcurrentDownloads = clampNumber(
@@ -842,6 +848,7 @@ class SettingsServiceImpl {
     copy.autoCleanPlayedList = source.autoCleanPlayedList;
     copy.listClickPlay = source.listClickPlay;
     copy.downloadPath = source.downloadPath;
+    copy.downloadUseFilePicker = source.downloadUseFilePicker;
     copy.autoStartDownload = source.autoStartDownload;
     copy.maxConcurrentDownloads = source.maxConcurrentDownloads;
     copy.syncEnabled = source.syncEnabled;
@@ -1274,6 +1281,12 @@ class SettingsServiceImpl {
       changed.push('autoCleanPlayedList');
     }
 
+    if (patch.downloadUseFilePicker !== undefined
+      && patch.downloadUseFilePicker !== this.values.downloadUseFilePicker) {
+      this.values.downloadUseFilePicker = patch.downloadUseFilePicker;
+      await storage.setBoolean(StorageKeys.DOWNLOAD_USE_FILE_PICKER, patch.downloadUseFilePicker);
+      changed.push('downloadUseFilePicker');
+    }
     if (patch.downloadPath !== undefined && patch.downloadPath !== this.values.downloadPath) {
       this.values.downloadPath = patch.downloadPath;
       await storage.setString(StorageKeys.DOWNLOAD_PATH, patch.downloadPath);

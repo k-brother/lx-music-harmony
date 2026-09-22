@@ -280,6 +280,8 @@ function buildZhCN(): Map<string, string> {
   m.set('desktop_lyric_builtin_mode_desc', '当前设备未启用系统原生歌词，下面的外观项对内置悬浮歌词立即生效');
   m.set('settings_haptic', '触感反馈');
   m.set('settings_haptic_desc', '切歌、暂停、长按菜单等操作时轻微振动');
+  m.set('download_use_file_picker', '每次下载询问保存位置');
+  m.set('download_use_file_picker_desc', '关闭时按「保存位置」自动保存，写不进去就留在应用目录，不会打断下载');
   m.set('list_select_all', '全选');
   m.set('list_deselect_all', '取消全选');
   m.set('list_selected_count', '已选 {0} 首');
@@ -914,6 +916,8 @@ function buildEnUS(): Map<string, string> {
   m.set('desktop_lyric_builtin_mode_desc', 'System desktop lyric is unavailable on this device. The appearance options below apply to the built-in floating lyric immediately');
   m.set('settings_haptic', 'Haptic Feedback');
   m.set('settings_haptic_desc', 'Gentle vibration on track change, pause and long-press menus');
+  m.set('download_use_file_picker', 'Ask where to save every download');
+  m.set('download_use_file_picker_desc', 'When off, downloads use the configured folder; if it is not writable the file stays in the app folder without interrupting you');
   m.set('list_select_all', 'Select all');
   m.set('list_deselect_all', 'Deselect all');
   m.set('list_selected_count', '{0} selected');
