@@ -124,8 +124,15 @@ export struct PlayDetailPage {
   private coverRetryTimer: number = -1;
   private lyricRetryTimer: number = -1;
   private coverRetryCount: number = 0;
+  /** 封面请求进行中：避免同一时刻并发多次（onMusicInfoChange 可能高频触发） */
+  private coverLoading: boolean = false;
+  /** 已经尝试过且未成功的歌曲 key：避免逐帧重复请求封面（真机出现过请求风暴） */
+  private coverAttemptKey: string = '';
   private lyricRetryCount: number = 0;
   private lyricSongKey: string = '';
+  /** 歌词请求进行中 / 已尝试失败的歌曲 key（同封面：防止高频回调引发请求风暴） */
+  private lyricLoading: boolean = false;
+  private lyricFailedKey: string = '';
   /** 最近一次加载到的原始歌词文本（用于同步给桌面歌词窗口） */
   private lyricRawText: string = '';
   private swiperController: SwiperController = new SwiperController();
@@ -305,6 +312,13 @@ export struct PlayDetailPage {
     if (!force && this.pic.trim().length > 0 && this.canRenderCover(this.pic)) {
       return;
     }
+    // 同一首歌已经试过且失败 / 已有请求在飞：直接跳过。
+    // onMusicInfoChange 是高频回调，不拦会导致「封面拉不到就逐帧重试」的请求风暴。
+    const attemptKey = this.buildMusicKey(info);
+    if (this.coverLoading || (!force && this.coverAttemptKey === attemptKey)) {
+      return;
+    }
+    this.coverLoading = true;
     const seq = ++this.picLoadSeq;
     try {
       const picPath = await getPicPath({
@@ -320,12 +334,15 @@ export struct PlayDetailPage {
       if (normalized.length > 0) {
         this.pic = normalized;
         this.coverRetryCount = 0;
+        this.coverAttemptKey = '';
       } else {
         // 明确置空以触发默认封面显示，避免无效旧值残留导致空白。
         this.pic = '';
+        this.coverAttemptKey = attemptKey;
       }
     } catch (err) {
       hilog.warn(DOMAIN, TAG, 'ensureCoverReady failed: %{public}s', JSON.stringify(err));
+      this.coverAttemptKey = attemptKey;
       if (this.coverRetryCount < 2 && this.alive) {
         this.coverRetryCount += 1;
         if (this.coverRetryTimer !== -1) {
@@ -336,6 +353,8 @@ export struct PlayDetailPage {
           void this.ensureCoverReady(latest, true);
         }, 600);
       }
+    } finally {
+      this.coverLoading = false;
     }
   }
 
@@ -347,6 +366,12 @@ export struct PlayDetailPage {
       return;
     }
     const targetKey = this.buildMusicKey(info);
+    // 同一首歌已经拿到歌词或已经试过失败，且不是强制刷新：直接跳过。
+    // onMusicInfoChange 高频触发，不拦会出现「歌词拉不到就逐帧重试」。
+    if (this.lyricLoading || (!force && (this.lyricSongKey === targetKey || this.lyricFailedKey === targetKey))) {
+      return;
+    }
+    this.lyricLoading = true;
     const hasUsableLyric = this.lyricTimeline.length > 0 ||
       (this.lyricLines.length > 0 && this.lyricLines[0] !== t('loading_lyric'));
     // 已有可用歌词时，后台刷新不抢占 UI，避免切 tab 期间出现“空白/失败占位”闪烁。
@@ -398,10 +423,12 @@ export struct PlayDetailPage {
       this.currentLyricIndex = getCurrentLyricIndex(this.lyricTimeline, now);
       this.lyricSongKey = targetKey;
       this.lyricRetryCount = 0;
+      this.lyricFailedKey = '';
     } catch (err) {
       if (!this.alive || seq !== this.lyricLoadSeq) {
         return;
       }
+      this.lyricFailedKey = targetKey;
       const canKeepCurrentLyric = this.lyricSongKey === targetKey && this.lyricTimeline.length > 0;
       if (!canKeepCurrentLyric) {
         this.lyricTimeline = [];
@@ -420,6 +447,8 @@ export struct PlayDetailPage {
           void this.ensureLyricReady(latest, true);
         }, 700);
       }
+    } finally {
+      this.lyricLoading = false;
     }
   }
 
