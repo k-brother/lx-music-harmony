@@ -29,12 +29,28 @@ import { recordPlayedSong } from './PlayHistoryService';
 import { backgroundRunningManager, type AvMediaMetadata, type AvSessionCallbacks } from './BackgroundRunningManager';
 import { getMusicUrl } from '../core/music/MusicFeatureEntry';
 import { settingsService, type PlayMode as SettingsPlayMode } from './SettingsService';
-import { getStorageService } from '../core/interfaces/IStorageService';
 import { dislikeList } from '../core/dislike/DislikeList';
 import { on, EventTypes } from './EventBus';
 import { LyricHub } from './player/LyricHub';
 import { nextIndexFor, prevIndexFor, pickRandomIndex, indexAfterRemoval, trimRandomHistory } from './player/QueueRules';
 import type { LyricLineState, LyricLineListener } from './player/LyricHub';
+import { playbackEvents } from './player/PlaybackEvents';
+import {
+  savePlaybackSnapshot,
+  loadPlaybackSnapshot,
+  clearPlaybackSnapshot,
+  SAVE_PROGRESS_INTERVAL_MS,
+} from './player/PlaybackProgressStore';
+import type {
+  StateChangeListener,
+  PlayStateListener,
+  ProgressListener,
+  ProgressInfoListener,
+  MusicInfoListener,
+  TrackCompletedListener,
+} from './player/PlaybackEvents';
+import type { PlayStatus, ProgressInfo } from './player/PlaybackTypes';
+
 
 export type { MusicInfo } from '../types/MusicTypes';
 // 歌词状态类型统一由 LyricHub 定义，这里转出以保持既有引用不变
@@ -51,8 +67,8 @@ const DOMAIN = 0x0002;
 export type { PlayMode } from './SettingsService';
 type PlayMode = SettingsPlayMode;
 
-// 播放状态
-export type PlayStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'stopped' | 'buffering' | 'error';
+// 播放状态与进度类型定义在 service/player/PlaybackTypes，这里 re-export 保持调用方路径不变
+export type { PlayStatus, ProgressInfo } from './player/PlaybackTypes';
 
 // 歌曲信息
 export interface SongInfo {
@@ -72,33 +88,10 @@ export interface SongInfo {
   copyrightId?: string;
 }
 
-// 事件监听器类型
-type StateChangeListener = (status: PlayStatus) => void;
-type ProgressListener = (position: number, duration: number) => void;
-type MusicInfoListener = (info: MusicInfo) => void;
-type PlayStateListener = (isPlay: boolean) => void;
-/** 整首歌曲播完（自动或手动切歌前触发一次） */
-type TrackCompletedListener = () => void;
-
-// 进度信息接口
-export interface ProgressInfo {
-  nowPlayTime: number;
-  maxPlayTime: number;
-  progress: number;
-  nowPlayTimeStr: string;
-  maxPlayTimeStr: string;
-}
-
-type ProgressInfoListener = (progress: ProgressInfo) => void;
-
-/** 播放进度快照（续播用） */
-interface PlaybackSnapshot {
-  song: SongInfo;
-  position: number;
-}
+// 事件监听器类型定义在 service/player/PlaybackEvents（订阅中心），本文件只使用
 
 /** 进度保存节流间隔（毫秒） */
-const SAVE_PROGRESS_INTERVAL_MS: number = 5000;
+// 节流间隔常量由 service/player/PlaybackProgressStore 提供
 
 // 播放器状态存储
 interface ProgressData {
@@ -203,12 +196,7 @@ export class PlayerService {
   private randomHistory: number[] = [];
 
   // 事件监听器数组
-  private stateListeners: StateChangeListener[] = [];
-  private progressListeners: ProgressListener[] = [];
-  private musicInfoListeners: MusicInfoListener[] = [];
-  private playStateListeners: PlayStateListener[] = [];
-  private trackCompletedListeners: TrackCompletedListener[] = [];
-  private progressInfoListeners: ProgressInfoListener[] = [];
+  // 订阅与广播统一由 service/player/PlaybackEvents 承担（原先 6 组样板各写一遍）
 
   // ===== 歌词状态（唯一数据源）=====
   // ===== 播放进度保存（续播）=====
@@ -688,24 +676,16 @@ export class PlayerService {
 
   // 通知状态变化
   private notifyStateChange(): void {
-    for (let i = 0; i < this.stateListeners.length; i++) {
-      try {
-        this.stateListeners[i](this.currentStatus);
-      } catch (err) {
-        hilog.error(DOMAIN, TAG, 'state listener failed: %{public}s', JSON.stringify(err));
-      }
-    }
+    playbackEvents.state.emit((listener: StateChangeListener): void => {
+      listener(this.currentStatus);
+    });
   }
 
   // 通知播放状态变化
   private notifyPlayStateChange(isPlay: boolean): void {
-    for (let i = 0; i < this.playStateListeners.length; i++) {
-      try {
-        this.playStateListeners[i](isPlay);
-      } catch (err) {
-        hilog.error(DOMAIN, TAG, 'playState listener failed: %{public}s', JSON.stringify(err));
-      }
-    }
+    playbackEvents.playState.emit((listener: PlayStateListener): void => {
+      listener(isPlay);
+    });
   }
 
   // 通知进度变化
@@ -718,13 +698,9 @@ export class PlayerService {
     playerStateData.progress.maxPlayTimeStr = formatPlayTime(duration);
     playerStateData.progress.progress = duration ? position / duration : 0;
 
-    for (let i = 0; i < this.progressListeners.length; i++) {
-      try {
-        this.progressListeners[i](position, duration);
-      } catch (err) {
-        hilog.error(DOMAIN, TAG, 'progress listener failed: %{public}s', JSON.stringify(err));
-      }
-    }
+    playbackEvents.progress.emit((listener: ProgressListener): void => {
+      listener(position, duration);
+    });
 
     const progressInfo: ProgressInfo = {
       nowPlayTime: position,
@@ -740,13 +716,9 @@ export class PlayerService {
     // 保存播放进度（节流：默认每 5 秒写一次，避免频繁落盘）
     this.saveProgressThrottled(position);
 
-    for (let i = 0; i < this.progressInfoListeners.length; i++) {
-      try {
-        this.progressInfoListeners[i](progressInfo);
-      } catch (err) {
-        hilog.error(DOMAIN, TAG, 'progressInfo listener failed: %{public}s', JSON.stringify(err));
-      }
-    }
+    playbackEvents.progressInfo.emit((listener: ProgressInfoListener): void => {
+      listener(progressInfo);
+    });
   }
 
   // 设置播放源
@@ -859,31 +831,9 @@ export class PlayerService {
 
   // 通知音乐信息变化
   private notifyMusicInfoChange(): void {
-    const musicInfoCopy: MusicInfo = {
-      id: playerStateData.musicInfo.id,
-      songmid: playerStateData.musicInfo.songmid,
-      hash: playerStateData.musicInfo.hash,
-      strMediaMid: playerStateData.musicInfo.strMediaMid,
-      songId: playerStateData.musicInfo.songId,
-      albumId: playerStateData.musicInfo.albumId,
-      copyrightId: playerStateData.musicInfo.copyrightId,
-      img: playerStateData.musicInfo.img,
-      pic: playerStateData.musicInfo.pic,
-      lrc: playerStateData.musicInfo.lrc,
-      name: playerStateData.musicInfo.name,
-      singer: playerStateData.musicInfo.singer,
-      source: playerStateData.musicInfo.source,
-      interval: playerStateData.musicInfo.interval,
-      albumName: playerStateData.musicInfo.albumName ?? undefined,
-      album: playerStateData.musicInfo.album ?? undefined,
-    };
-    for (let i = 0; i < this.musicInfoListeners.length; i++) {
-      try {
-        this.musicInfoListeners[i](musicInfoCopy);
-      } catch (err) {
-        hilog.error(DOMAIN, TAG, 'musicInfo listener failed: %{public}s', JSON.stringify(err));
-      }
-    }
+    playbackEvents.musicInfo.emit((listener: MusicInfoListener): void => {
+      listener(this.getCurrentMusicInfo());
+    });
   }
 
   // 播放
@@ -1291,78 +1241,38 @@ export class PlayerService {
   // 供定时退出（"播完当前歌曲再退出"）等场景订阅；每首歌播完触发一次
 
   onTrackCompleted(listener: TrackCompletedListener): () => void {
-    this.trackCompletedListeners.push(listener);
-    return (): void => {
-      const index = this.trackCompletedListeners.indexOf(listener);
-      if (index > -1) {
-        this.trackCompletedListeners.splice(index, 1);
-      }
-    };
+    return playbackEvents.trackCompleted.on(listener);
   }
 
   private notifyTrackCompleted(): void {
-    for (let i = 0; i < this.trackCompletedListeners.length; i++) {
-      try {
-        this.trackCompletedListeners[i]();
-      } catch (err) {
-        hilog.warn(DOMAIN, TAG, 'trackCompleted listener failed: %{public}s', JSON.stringify(err));
-      }
-    }
+    playbackEvents.trackCompleted.emit((listener: TrackCompletedListener): void => {
+      listener();
+    });
   }
 
   // 订阅状态变化
   onStatusChange(listener: StateChangeListener): () => void {
-    this.stateListeners.push(listener);
-    return () => {
-      const index = this.stateListeners.indexOf(listener);
-      if (index > -1) {
-        this.stateListeners.splice(index, 1);
-      }
-    };
+    return playbackEvents.state.on(listener);
   }
 
   // 订阅播放进度
   onProgress(listener: ProgressListener): () => void {
-    this.progressListeners.push(listener);
-    return () => {
-      const index = this.progressListeners.indexOf(listener);
-      if (index > -1) {
-        this.progressListeners.splice(index, 1);
-      }
-    };
+    return playbackEvents.progress.on(listener);
   }
 
   // 订阅音乐信息变化
   onMusicInfoChange(listener: MusicInfoListener): () => void {
-    this.musicInfoListeners.push(listener);
-    return () => {
-      const index = this.musicInfoListeners.indexOf(listener);
-      if (index > -1) {
-        this.musicInfoListeners.splice(index, 1);
-      }
-    };
+    return playbackEvents.musicInfo.on(listener);
   }
 
   // 订阅播放状态变化
   onPlayStateChange(listener: PlayStateListener): () => void {
-    this.playStateListeners.push(listener);
-    return () => {
-      const index = this.playStateListeners.indexOf(listener);
-      if (index > -1) {
-        this.playStateListeners.splice(index, 1);
-      }
-    };
+    return playbackEvents.playState.on(listener);
   }
 
   // 订阅进度信息变化
   onProgressInfoChange(listener: ProgressInfoListener): () => void {
-    this.progressInfoListeners.push(listener);
-    return () => {
-      const index = this.progressInfoListeners.indexOf(listener);
-      if (index > -1) {
-        this.progressInfoListeners.splice(index, 1);
-      }
-    };
+    return playbackEvents.progressInfo.on(listener);
   }
 
   // ==================== 歌词 ====================
@@ -1427,10 +1337,6 @@ export class PlayerService {
 
   // ==================== 播放进度保存 / 续播 ====================
 
-  private snapshotKey(): string {
-    return 'playback.lastSnapshot';
-  }
-
   /** 节流保存：默认 5 秒一次 + 暂停/停止时立即保存 */
   private saveProgressThrottled(positionSec: number): void {
     if (!settingsService.get().savePlayTime) {
@@ -1446,28 +1352,13 @@ export class PlayerService {
 
   /** 立即保存当前进度（暂停/停止/退出时调用） */
   saveProgress(positionSec?: number): void {
-    if (!settingsService.get().savePlayTime) {
-      return;
-    }
-    const song = this.currentSong;
-    if (!song || !song.title) {
-      return;
-    }
     const position = positionSec ?? playerStateData.progress.nowPlayTime;
-    const snapshot: PlaybackSnapshot = {
-      song: song,
-      position: Math.max(0, Math.floor(position)),
-    };
-    getStorageService().setString(this.snapshotKey(), JSON.stringify(snapshot)).catch((err: Error) => {
-      hilog.warn(DOMAIN, TAG, 'save playback snapshot failed: %{public}s', err.message);
-    });
+    void savePlaybackSnapshot(this.currentSong, position, settingsService.get().savePlayTime);
   }
 
   /** 清除进度（用户关闭设置或清空数据时） */
   clearSavedProgress(): void {
-    getStorageService().remove(this.snapshotKey()).catch((err: Error) => {
-      hilog.warn(DOMAIN, TAG, 'clear playback snapshot failed: %{public}s', err.message);
-    });
+    void clearPlaybackSnapshot();
   }
 
   /**
@@ -1479,12 +1370,8 @@ export class PlayerService {
       return;
     }
     try {
-      const raw = await getStorageService().getString(this.snapshotKey(), '');
-      if (raw.length === 0) {
-        return;
-      }
-      const snapshot = JSON.parse(raw) as PlaybackSnapshot;
-      if (!snapshot || !snapshot.song || !snapshot.song.title) {
+      const snapshot = await loadPlaybackSnapshot(true);
+      if (!snapshot) {
         return;
       }
       const song = snapshot.song;

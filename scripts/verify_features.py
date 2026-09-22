@@ -91,6 +91,10 @@ CHECKS = [
  ('播放页菜单走统一入口', 'pages/PlayDetailPage.ets', r'await appActionMenu\('),
  ('本地音乐菜单走统一入口', 'pages/LocalMusicPage.ets', r'await appActionMenu\('),
  ('收藏歌单菜单走统一入口', 'pages/SonglistDetailPage.ets', r'await appActionMenu\('),
+ # 播放服务拆分：订阅中心 / 进度快照存储 / 公共类型
+ ('播放事件订阅中心', 'service/player/PlaybackEvents.ets', r'export const playbackEvents'),
+ ('播放进度快照存储', 'service/player/PlaybackProgressStore.ets', r'export async function savePlaybackSnapshot'),
+ ('播放公共类型模块', 'service/player/PlaybackTypes.ets', r'export type PlayStatus'),
  ('酷我歌词双通道+重试', 'core/music/sources/kw/lyric.ets', r'requestNewlyric|requestMobileLyric'),
  ('酷我歌词 zlib 解压(原生)', 'core/napi/napi_inflate.ets', r'zlibInflate'),
  ('二进制 HTTP 请求入口', 'core/network/http/HttpClient.ets', r'httpRequestBinary'),
