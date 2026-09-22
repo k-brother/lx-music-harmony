@@ -677,6 +677,28 @@ python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 它会装包、冷启动，然后按顺序跑「换源重载 → 歌单详情出歌 → 播放页歌词链路 →
 队列面板 → 设置项面板」并做日志/UI 树断言（`HDC=` / `TARGET=` 可指定设备）。
 
+### 本轮真机走查修掉的问题
+
+| 现象 | 根因 | 修复 |
+| --- | --- | --- |
+| 图标全隐形（45 处） | `Image($r('sys.symbol.*'))` 不渲染系统符号 | 统一 `SymbolGlyph` + `check_symbols.py` 防回归 |
+| 设置项点了没反应 | 自绘浮层被 Scroll 裁剪 | `BottomSheet` 改 `bindSheet` + 全局面板宿主 |
+| 主题名与实际不符 | 主题有两条写入路径 | 收敛到 `settingsService.update` |
+| 换源后列表不刷新 / 详情「暂无歌曲」 | 只改高亮不重载；卡片音源取的是「页面当前源」 | 以 `sourceId` 变化触发重载；卡片以数据自身 source 为准 |
+| QQ 歌单详情永远 0 首 | 老接口固定返回 check privacy error；新接口 cdlist 嵌在 data 里 | 换 `fcg_v8_playlist_cp` + 兼容两种结构 + 旧接口兜底 |
+| 播放页封面/歌词请求风暴（~5 次/秒） | `onMusicInfoChange` 高频回调每次都直接发请求，失败后无「已尝试」记忆 | 加「进行中 / 本首已尝试」守卫，实测 10 秒内 50 次 → 0 |
+| 每次下载都弹系统保存面板 | 配置目录写不进去就直接回退选择器 | 新增「每次下载询问保存位置」开关（默认关），失败时保留在应用目录不打断 |
+| 下载任务路径指向错误文件 | 记录的是设置里的目录而不是实际落盘位置 | 用真实保存路径写回任务 |
+
+### 本轮结构拆分
+
+| 原 | 现 | 说明 |
+| --- | --- | --- |
+| `CommentService` 960 行 | 105 行 + `comment/{CommentTypes,CommentShared,CommentSourceAdapter,sources/*}` | 五平台评论各成适配器，主服务只做分发 |
+| `SettingsService` 1521 行 | 864 行 + `settings/{SettingsTypes,SettingsStorage}` | 类型/默认值、存储加载与旧数据迁移各自成文件 |
+| `SonglistDetailPage` 1689 行 | 1541 行 + `SonglistDetail/{SonglistPlayback,SonglistListOps,SonglistScrollMemory}` | 播放/队列、排序去重落库、滚动记忆 |
+| `NavIndex` 13 段 NavDestination 样板 | `components/ui/AppDestination` | 新增页面只写一行 |
+
 ## 设备验收清单（需要真机确认，代码侧已按此实现）
 
 > 这些能力依赖真机系统服务或物理设备，构建通过 ≠ 设备可用，逐项勾选即可。
