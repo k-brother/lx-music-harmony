@@ -597,6 +597,42 @@ pages/Home/Home/
 
 首页搜索框输入后 260ms 防抖拉取，点击联想词直接搜索（安卓版 `TipList` 的对应能力）。
 
+### 商业化交互与鸿蒙系统能力（本轮）
+
+**系统原生桌面歌词（华为音乐同款）**
+
+桌面歌词此前永远退化成应用自绘的黑色浮条——真机日志是
+`enableSystemDesktopLyric skipped: session not created` 后直接降级。三处根因与修法：
+
+| 根因 | 修法 |
+| --- | --- |
+| 启动恢复时 AVSession 还没建，enable 失败即永久降级 | 记住待挂意图，`onSessionReady` 后补挂；`DesktopLyricManager` 再自动把内置浮窗升级成系统歌词并销毁浮窗 |
+| 只 `enableDesktopLyric` 没置可见 → 系统歌词窗口不显示 | 补 `setDesktopLyricVisible(true)`，并回读 `isDesktopLyricVisible` 打日志 |
+| 整段 LRC 只在「蓝牙歌词」开关开启时才下发 | 元数据按 `蓝牙歌词 \|\| 系统桌面歌词` 决定是否带 LRC，同一首歌重复 setMetadata 时继承已有歌词，避免被覆盖 |
+
+真机验证：系统 `mediacontroller` 拉起自己的 `DesktopLyricPage` 在桌面渲染歌词行，
+应用侧日志 `lrc=true, single=true`。设置页在系统接管时给出模式提示，避免"改外观没反应"的困惑。
+
+**触感反馈（`service/HapticService.ets`）**
+
+统一语义化 API（`selection/light/medium/heavy/success/warning`）+ 系统预设效果 + 时长兜底 +
+24ms 节流 + 跟随「设置 → 基本 → 触感反馈」；权限 `ohos.permission.VIBRATE` 已声明。
+接入点：底部 Tab、播放/暂停、上/下一曲、长按动作菜单、设置开关。
+
+**下拉刷新（`components/ui/RefreshContainer.ets`）**
+
+歌单、榜单、下载管理、我的列表四页支持下拉刷新（刷新触发同时给一次触感）。
+
+**统一分段控件（`components/ui/SegmentedBar.ets`）**
+
+`track`（轨道 + 浮起滑块）/ `chip`（等宽胶囊）两种变体，替换歌单排序、运行日志筛选、
+播放页封面/歌词切换、下载页状态筛选四处手写实现，分段样式现在只在一处维护。
+
+**触控热区（`DesignTokens.touchRegion`）**
+
+图标往往只有 16~30vp，直接放大图标会破坏视觉层次，于是用 `responseRegion` 把热区补到 44×44vp；
+已覆盖返回按钮、播放页更多、下载页任务操作图标、榜单展开/进入、我的歌单同步/播放、本地音乐重扫等。
+
 ### 自检脚本
 
 每轮改完在 `harmony/` 下跑一遍（脚本在 `scripts/`，不依赖网络）：
