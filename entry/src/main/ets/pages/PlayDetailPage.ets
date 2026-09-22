@@ -467,6 +467,31 @@ export struct PlayDetailPage {
     await playerService.playNext();
   }
 
+  /**
+   * 进度条 / 歌词进度线的拖动处理（两处共用一份实现）
+   *
+   * - 拖动中只更新预览，不发 seek（否则会疯狂打断播放）
+   * - 松手（End/Click）才提交一次真正的 seek
+   * - 「允许拖动进度条」关闭时只做展示并提示
+   */
+  private handleSeekChange(value: number, mode: SliderChangeMode): void {
+    if (!this.allowProgressBarSeek) {
+      // 只在手势开始/结束时提示一次，避免移动过程中刷屏
+      if (mode === SliderChangeMode.Begin || mode === SliderChangeMode.End) {
+        this.showToast(t('toast_seek_disabled'));
+      }
+      return;
+    }
+    const ratio = Math.max(0, Math.min(1, value / 100));
+    if (mode === SliderChangeMode.Begin || mode === SliderChangeMode.Moving) {
+      this.isSeeking = true;
+      this.previewProgress = ratio;
+      return;
+    }
+    this.isSeeking = false;
+    void this.seekTo(ratio);
+  }
+
   private async seekTo(progress: number): Promise<void> {
     const duration = playerService.getProgress().maxPlayTime;
     if (duration <= 0) return;
@@ -956,24 +981,41 @@ export struct PlayDetailPage {
               currentLyricIndex: this.currentLyricIndex,
             })
 
-            // 歌词页播放进度（设置可开）：左下角浮层显示 当前/总时长
+            // 歌词页播放进度（设置可开）：可拖拽的进度线 + 时间文本
+            // 拖歌词区即可调进度，与安卓版 playDetail.isShowLyricProgressSetting 一致
             if (this.showLyricProgress) {
-              Row() {
-                Text(this.currentTime)
-                  .fontSize(DesignTokens.fontMicro())
-                  .fontColor(DesignTokens.labelSecondary(this.theme))
-                Text(' / ')
-                  .fontSize(DesignTokens.fontMicro())
-                  .fontColor(DesignTokens.labelTertiary(this.theme))
-                Text(this.totalTime)
-                  .fontSize(DesignTokens.fontMicro())
-                  .fontColor(DesignTokens.labelTertiary(this.theme))
+              Column({ space: 4 }) {
+                Slider({
+                  value: (this.isSeeking ? this.previewProgress : this.progress) * 100,
+                  min: 0,
+                  max: 100,
+                  style: SliderStyle.OutSet,
+                })
+                  .width('100%')
+                  .height(22)
+                  .blockColor(DesignTokens.accent())
+                  .trackColor(DesignTokens.mutedFill(this.theme))
+                  .selectedColor(DesignTokens.accent())
+                  .onChange((value: number, mode: SliderChangeMode) => {
+                    this.handleSeekChange(value, mode);
+                  })
+
+                Row({ space: 4 }) {
+                  Text(this.isSeeking ? this.previewTimeText() : this.currentTime)
+                    .fontSize(DesignTokens.fontMicro())
+                    .fontColor(this.isSeeking ? DesignTokens.accent() : DesignTokens.labelSecondary(this.theme))
+                  Text('/')
+                    .fontSize(DesignTokens.fontMicro())
+                    .fontColor(DesignTokens.labelTertiary(this.theme))
+                  Text(this.totalTime)
+                    .fontSize(DesignTokens.fontMicro())
+                    .fontColor(DesignTokens.labelTertiary(this.theme))
+                }
+                .width('100%')
+                .justifyContent(FlexAlign.Start)
               }
-              .padding({ left: 10, right: 10, top: 4, bottom: 4 })
-              .backgroundColor(DesignTokens.mutedFill(this.theme))
-              .borderRadius(12)
-              .margin({ left: 16, bottom: 8 })
-              .alignSelf(ItemAlign.Start)
+              .width('100%')
+              .padding({ left: 16, right: 16, bottom: 8 })
             }
           }
           .justifyContent(FlexAlign.SpaceBetween)
@@ -1315,24 +1357,7 @@ export struct PlayDetailPage {
           .trackColor(DesignTokens.mutedFill(this.theme))
           .selectedColor(DesignTokens.accent())
           .onChange((value: number, mode: SliderChangeMode) => {
-            // 「允许拖动进度条」关闭时只做展示，避免误触跳转
-            if (!this.allowProgressBarSeek) {
-              // 只在手势开始/结束时提示一次，避免移动过程中刷屏
-              if (mode === SliderChangeMode.Begin || mode === SliderChangeMode.End) {
-                this.showToast(t('toast_seek_disabled'));
-              }
-              return;
-            }
-            const ratio = Math.max(0, Math.min(1, value / 100));
-            if (mode === SliderChangeMode.Begin || mode === SliderChangeMode.Moving) {
-              // 拖动中只更新预览，不发 seek 请求（否则会疯狂打断播放）
-              this.isSeeking = true;
-              this.previewProgress = ratio;
-              return;
-            }
-            // End / Click：提交一次真正的 seek
-            this.isSeeking = false;
-            void this.seekTo(ratio);
+            this.handleSeekChange(value, mode);
           })
         Text(this.isSeeking ? this.previewTimeText() : this.currentTime)
           .fontSize(DesignTokens.fontMicro())

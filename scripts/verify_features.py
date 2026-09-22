@@ -95,6 +95,8 @@ CHECKS = [
  ('播放事件订阅中心', 'service/player/PlaybackEvents.ets', r'export const playbackEvents'),
  ('播放进度快照存储', 'service/player/PlaybackProgressStore.ets', r'export async function savePlaybackSnapshot'),
  ('播放公共类型模块', 'service/player/PlaybackTypes.ets', r'export type PlayStatus'),
+ ('歌词页可拖拽进度线', 'pages/PlayDetailPage.ets', r'handleSeekChange'),
+ ('两处进度控件共用 seek 逻辑', 'pages/PlayDetailPage.ets', r'this\.handleSeekChange\(value, mode\)'),
  ('酷我歌词双通道+重试', 'core/music/sources/kw/lyric.ets', r'requestNewlyric|requestMobileLyric'),
  ('酷我歌词 zlib 解压(原生)', 'core/napi/napi_inflate.ets', r'zlibInflate'),
  ('二进制 HTTP 请求入口', 'core/network/http/HttpClient.ets', r'httpRequestBinary'),
