@@ -14,6 +14,7 @@ import { DesignTokens } from '../../theme/DesignTokens';
 import { SelectSheet } from './SelectSheet';
 import { InputSheet } from './InputSheet';
 import type { SettingOption, SettingSectionItem } from './SettingsTypes';
+import { hapticService } from '../../service/HapticService';
 
 @Component
 export struct SettingsSection {
@@ -119,6 +120,7 @@ export struct SettingsSection {
                   Toggle({ type: ToggleType.Switch, isOn: item.value as boolean })
                     .selectedColor(DesignTokens.accent())
                     .onChange((isOn: boolean) => {
+                      hapticService.light();
                       if (item.onChangeToggle) {
                         item.onChangeToggle(isOn);
                       }

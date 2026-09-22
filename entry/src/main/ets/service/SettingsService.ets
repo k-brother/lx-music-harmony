@@ -111,6 +111,8 @@ export interface AppSettings {
   desktopLyricShadowColor: string;
   /** 列表是否显示音源 */
   showListSource: boolean;
+  /** 触感反馈（切 Tab / 播放暂停 / 长按菜单等操作的轻微振动） */
+  hapticFeedback: boolean;
   /** 列表是否显示专辑名 */
   showListAlbum: boolean;
   /** 列表是否显示时长 */
@@ -233,6 +235,7 @@ export interface SettingsPatch {
   desktopLyricAnim?: boolean;
   desktopLyricShadowColor?: string;
   showListSource?: boolean;
+  hapticFeedback?: boolean;
   showListAlbum?: boolean;
   showListDuration?: boolean;
   rememberScrollPosition?: boolean;
@@ -322,6 +325,7 @@ function createDefaultSettings(): AppSettings {
     desktopLyricAnim: true,
     desktopLyricShadowColor: '#99000000',
     showListSource: true,
+    hapticFeedback: true,
     showListAlbum: true,
     showListDuration: true,
     rememberScrollPosition: true,
@@ -672,6 +676,7 @@ class SettingsServiceImpl {
     this.values.desktopLyricShadowColor = await storage.getString(
       StorageKeys.PLAY_DL_SHADOW_COLOR, defaults.desktopLyricShadowColor);
     this.values.showListSource = await storage.getBoolean(StorageKeys.LIST_SHOW_SOURCE, defaults.showListSource);
+    this.values.hapticFeedback = await storage.getBoolean(StorageKeys.HAPTIC_FEEDBACK, defaults.hapticFeedback);
     this.values.showListAlbum = await storage.getBoolean(StorageKeys.LIST_SHOW_ALBUM, defaults.showListAlbum);
     this.values.showListDuration = await storage.getBoolean(StorageKeys.LIST_SHOW_DURATION, defaults.showListDuration);
     this.values.rememberScrollPosition = await storage.getBoolean(
@@ -802,6 +807,7 @@ class SettingsServiceImpl {
     copy.desktopLyricAnim = source.desktopLyricAnim;
     copy.desktopLyricShadowColor = source.desktopLyricShadowColor;
     copy.showListSource = source.showListSource;
+    copy.hapticFeedback = source.hapticFeedback;
     copy.showListAlbum = source.showListAlbum;
     copy.showListDuration = source.showListDuration;
     copy.rememberScrollPosition = source.rememberScrollPosition;
@@ -997,6 +1003,11 @@ class SettingsServiceImpl {
       this.values.showListSource = patch.showListSource;
       await storage.setBoolean(StorageKeys.LIST_SHOW_SOURCE, patch.showListSource);
       changed.push('showListSource');
+    }
+    if (patch.hapticFeedback !== undefined && patch.hapticFeedback !== this.values.hapticFeedback) {
+      this.values.hapticFeedback = patch.hapticFeedback;
+      await storage.setBoolean(StorageKeys.HAPTIC_FEEDBACK, patch.hapticFeedback);
+      changed.push('hapticFeedback');
     }
     if (patch.showListAlbum !== undefined && patch.showListAlbum !== this.values.showListAlbum) {
       this.values.showListAlbum = patch.showListAlbum;
@@ -1381,6 +1392,7 @@ class SettingsServiceImpl {
       desktopLyricAnim: defaults.desktopLyricAnim,
       desktopLyricShadowColor: defaults.desktopLyricShadowColor,
       showListSource: defaults.showListSource,
+      hapticFeedback: defaults.hapticFeedback,
       showListAlbum: defaults.showListAlbum,
       showListDuration: defaults.showListDuration,
       rememberScrollPosition: defaults.rememberScrollPosition,
@@ -1454,6 +1466,7 @@ class SettingsServiceImpl {
     AppStorage.setOrCreate('desktopLyricAnim', this.values.desktopLyricAnim);
     AppStorage.setOrCreate('desktopLyricShadowColor', this.values.desktopLyricShadowColor);
     AppStorage.setOrCreate('showListSource', this.values.showListSource);
+    AppStorage.setOrCreate('hapticFeedback', this.values.hapticFeedback);
     AppStorage.setOrCreate('showListAlbum', this.values.showListAlbum);
     AppStorage.setOrCreate('showListDuration', this.values.showListDuration);
     AppStorage.setOrCreate('rememberScrollPosition', this.values.rememberScrollPosition);

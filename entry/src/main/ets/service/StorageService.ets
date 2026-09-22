@@ -288,6 +288,7 @@ interface StorageKeysInterface {
   LYRIC_SHOW_ROMA: string;
   LOG_VERBOSE: string;
   LYRIC_S2T_MODE: string;
+  HAPTIC_FEEDBACK: string;
   COMMON_SOURCE_NAME_TYPE: string;
   COMMON_SHARE_TYPE: string;
   COMMON_AGREE_PACT: string;
@@ -393,6 +394,7 @@ export const StorageKeys: StorageKeysInterface = {
   LYRIC_SHOW_ROMA: 'setting.lyric.showRoma',
   LOG_VERBOSE: 'setting.log.verbose',
   LYRIC_S2T_MODE: 'setting.lyric.s2tMode',
+  HAPTIC_FEEDBACK: 'setting.ui.hapticFeedback',
   COMMON_SOURCE_NAME_TYPE: 'setting.common.sourceNameType',
   COMMON_SHARE_TYPE: 'setting.common.shareType',
   COMMON_AGREE_PACT: 'setting.common.isAgreePact',

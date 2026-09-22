@@ -84,6 +84,10 @@ CHECKS = [
   r'showBluetoothLyric \|\| this\.systemDesktopLyricActive'),
  ('系统歌词:由浮窗自动升级', 'components/common/DesktopLyric.ets', r'upgradeToSystemLyric'),
  ('桌面歌词模式提示', 'pages/Home/Setting/DesktopLyricSection.ets', r'desktop_lyric_system_mode'),
+ ('触感反馈服务(鸿蒙振动)', 'service/HapticService.ets', r'vibrator\.startVibration|HapticService'),
+ ('触感反馈接入交互点', 'components/player/PlayerBar.ets', r'hapticService\.'),
+ ('触感反馈设置项', 'pages/Home/Setting/BasicSection.ets', r'hapticFeedback'),
+ ('触感反馈权限声明', '../module.json5', r'ohos\.permission\.VIBRATE'),
 ]
 
 fails = []

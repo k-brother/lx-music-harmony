@@ -23,6 +23,7 @@ export struct BasicSection {
   @State sourceNameType: string = 'alias';
   @State shareType: string = 'system';
   @State allowProgressBarSeek: boolean = true;
+  @State hapticFeedback: boolean = true;
 
   private settingsUnsub: (() => void) | null = null;
 
@@ -49,7 +50,9 @@ export struct BasicSection {
     this.showExitDialog = settings.showExitDialog;
     this.sourceNameType = settings.sourceNameType;
     this.shareType = settings.shareType;
-    this.allowProgressBarSeek = settings.allowProgressBarSeek;  }
+    this.allowProgressBarSeek = settings.allowProgressBarSeek;
+    this.hapticFeedback = settings.hapticFeedback;
+  }
 
   private buildItems(): SettingSectionItem[] {
     const languageOptions: SettingOption[] = [
@@ -141,6 +144,17 @@ export struct BasicSection {
       onChangeToggle: (value: boolean): void => {
         this.allowProgressBarSeek = value;
         void settingsService.update({ allowProgressBarSeek: value });
+      },
+    });
+
+    items.push({
+      type: 'toggle',
+      title: t('settings_haptic'),
+      description: t('settings_haptic_desc'),
+      value: this.hapticFeedback,
+      onChangeToggle: (value: boolean): void => {
+        this.hapticFeedback = value;
+        void settingsService.update({ hapticFeedback: value });
       },
     });
 

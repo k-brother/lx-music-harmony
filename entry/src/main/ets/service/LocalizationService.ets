@@ -277,6 +277,8 @@ function buildZhCN(): Map<string, string> {
   m.set('desktop_lyric_system_mode_desc', '与华为音乐同款：歌词显示在系统桌面上，跟随系统主题与位置，下面的外观项仅在内置悬浮歌词模式生效');
   m.set('desktop_lyric_builtin_mode', '正在使用内置悬浮歌词');
   m.set('desktop_lyric_builtin_mode_desc', '当前设备未启用系统原生歌词，下面的外观项对内置悬浮歌词立即生效');
+  m.set('settings_haptic', '触感反馈');
+  m.set('settings_haptic_desc', '切歌、暂停、长按菜单等操作时轻微振动');
   m.set('list_select_all', '全选');
   m.set('list_deselect_all', '取消全选');
   m.set('list_selected_count', '已选 {0} 首');
@@ -908,6 +910,8 @@ function buildEnUS(): Map<string, string> {
   m.set('desktop_lyric_system_mode_desc', 'Same as Huawei Music: lyric is rendered by the system on the home screen and follows system theme/position. The appearance options below apply to the built-in floating lyric only');
   m.set('desktop_lyric_builtin_mode', 'Using built-in floating lyric');
   m.set('desktop_lyric_builtin_mode_desc', 'System desktop lyric is unavailable on this device. The appearance options below apply to the built-in floating lyric immediately');
+  m.set('settings_haptic', 'Haptic Feedback');
+  m.set('settings_haptic_desc', 'Gentle vibration on track change, pause and long-press menus');
   m.set('list_select_all', 'Select all');
   m.set('list_deselect_all', 'Deselect all');
   m.set('list_selected_count', '{0} selected');

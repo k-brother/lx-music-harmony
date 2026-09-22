@@ -18,6 +18,7 @@ import { t } from './LocalizationService';
 import { getAppUiContext } from './UiContext';
 import { DesignTokens } from '../theme/DesignTokens';
 import { promptAction } from '@kit.ArkUI';
+import { hapticService } from './HapticService';
 
 const DOMAIN = 0x0005;
 const TAG = 'DialogService';
@@ -103,6 +104,8 @@ export async function appActionMenu(
   if (items.length === 0) {
     return -1;
   }
+  // 长按菜单唤起时给一次「中等」触感，与系统原生菜单手感一致
+  hapticService.medium();
   return await showMenuPage(title, items, options ?? {}, 0, items.length);
 }
 

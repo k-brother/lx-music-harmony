@@ -5,6 +5,7 @@
  * 选中切换时图标填充色与文字颜色一起变化，避免"只有文字变色"的廉价感。
  */
 import { DesignTokens } from '../../../theme/DesignTokens';
+import { hapticService } from '../../../service/HapticService';
 
 export interface HomeTabItem {
   idx: number;
@@ -39,6 +40,10 @@ export struct HomeBottomTabBar {
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
     .onClick(() => {
+      // 切换 Tab 给一次「选择」触感：商业化 App 的基本手感
+      if (this.activeIndex !== tab.idx) {
+        hapticService.selection();
+      }
       if (this.onSelect) {
         this.onSelect(tab.idx);
       }

@@ -8,6 +8,7 @@ import { normalizeCoverUrl } from '../../utils/CommonUtils';
 
 // 导入播放器服务
 import { playerService } from '../../service/PlayerService';
+import { hapticService } from '../../service/HapticService';
 
 // 使用与PlayerService一致的MusicInfo接口
 import type { MusicInfo } from '../../service/PlayerService';
@@ -128,6 +129,7 @@ export struct PlayerBar {
 
   // 播放/暂停 - 先获取实际状态再执行
   async togglePlay(): Promise<void> {
+    hapticService.light();
     // 每次点击前先获取实际播放状态
     const actualIsPlaying = playerService.isPlaying();
     hilog.info(0x0001, 'PlayerBar', 'togglePlay: actual state is %{public}s', actualIsPlaying.toString());
@@ -144,11 +146,13 @@ export struct PlayerBar {
 
   // 上一曲
   async playPrev(): Promise<void> {
+    hapticService.selection();
     await playerService.playPrev();
   }
 
   // 下一曲
   async playNext(): Promise<void> {
+    hapticService.selection();
     await playerService.playNext();
   }
 

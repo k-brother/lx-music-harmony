@@ -51,6 +51,10 @@
     {
       "name": "background_permission_reason",
       "value": "需要后台运行权限来保持音乐在后台持续播放"
+    },
+    {
+      "name": "vibrate_permission_reason",
+      "value": "用于切换歌曲、收藏等操作时的轻微触感反馈"
     }
   ]
 }
