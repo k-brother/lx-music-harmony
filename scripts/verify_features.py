@@ -93,6 +93,11 @@ CHECKS = [
  ('运行日志用统一分段控件', 'pages/LogPage.ets', r'SegmentedBar\('),
  ('播放页用统一分段控件', 'pages/PlayDetailPage.ets', r'SegmentedBar\('),
  ('歌单排序用统一分段控件', 'pages/Home/SongListView.ets', r'SegmentedBar\('),
+ ('下拉刷新容器', 'components/ui/RefreshContainer.ets', r'export struct RefreshContainer'),
+ ('歌单页下拉刷新', 'pages/Home/SongListView.ets', r'RefreshContainer\('),
+ ('榜单页下拉刷新', 'pages/Home/LeaderboardView.ets', r'RefreshContainer\('),
+ ('下载页下拉刷新', 'pages/DownloadPage.ets', r'RefreshContainer\('),
+ ('我的页下拉刷新', 'pages/Home/MylistView.ets', r'RefreshContainer\('),
 ]
 
 fails = []

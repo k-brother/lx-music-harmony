@@ -15,6 +15,8 @@ import { DesignTokens } from '../../theme/DesignTokens';
 import { SearchStrip, SearchStripActions } from '../../components/common/SearchStrip';
 import { SkeletonGridItem } from '../../components/common/SkeletonView';
 import { SegmentedBar, type SegmentOption } from '../../components/ui/SegmentedBar';
+import { RefreshContainer } from '../../components/ui/RefreshContainer';
+import { hapticService } from '../../service/HapticService';
 
 // 排序选项接口
 interface SortOption {
@@ -419,8 +421,27 @@ export struct SongListView {
         if (this.isFilterPinned) {
           this.FilterBar()
         }
-        Scroll(this.songListScroller) {
-          Column() {
+        // 下拉刷新：重新拉取当前音源的歌单列表
+        RefreshContainer({
+          refreshing: $isRefreshing,
+          onRefresh: (): void => {
+            this.reloadFromTop();
+          },
+        }) {
+          this.ListContent()
+        }
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor(DesignTokens.pageBg(this.theme))
+  }
+
+  /** 可滚动内容（含吸顶占位与歌单网格） */
+  @Builder
+  ListContent() {
+    Scroll(this.songListScroller) {
+      Column() {
             if (!this.isFilterPinned) {
               SearchStrip({
                 text: $searchText,
@@ -463,11 +484,14 @@ export struct SongListView {
           this.syncFilterPinnedByOffset();
           this.checkAutoLoadMore(y);
         })
-      }
-    }
-    .width('100%')
-    .height('100%')
-    .backgroundColor(DesignTokens.pageBg(this.theme))
+  }
+
+  /** 下拉刷新：回到第一页重新拉取当前音源/标签的歌单 */
+  private reloadFromTop(): void {
+    hapticService.selection();
+    hilog.info(0x0001, 'SongListView', 'Pull-to-refresh: reload source=%{public}s, tag=%{public}s',
+      this.sourceId, this.selectedTag);
+    void this.loadSongList(true);
   }
 
   /** 排序选项 -> 通用分段控件数据 */

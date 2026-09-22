@@ -28,6 +28,8 @@ import { UserPlaylistCard } from './Mylist/UserPlaylistCard';
 import { SongRowList } from './Mylist/SongRowList';
 import type { MylistSongRow as MyListSongRow } from './Mylist/MylistTypes';
 import type { UserListRow } from './Mylist/MylistTypes';
+import { RefreshContainer } from '../../components/ui/RefreshContainer';
+import { hapticService } from '../../service/HapticService';
 
 interface PromptActionResult {
   index: number;
@@ -54,6 +56,8 @@ export struct MylistView {
   @State loveList: UserListRow | null = null;
   @State userLists: UserListRow[] = [];
   @State isLoading: boolean = false;
+  /** 下拉刷新中 */
+  @State isRefreshing: boolean = false;
   @State showCreateSheet: boolean = false;
   @State newListName: string = '';
   @State playHistory: MyListSongRow[] = [];
@@ -188,8 +192,20 @@ export struct MylistView {
           .width('100%')
           .height('100%')
       } else {
-        Scroll() {
-          Column() {
+        RefreshContainer({
+          refreshing: $isRefreshing,
+          onRefresh: (): void => {
+            hapticService.selection();
+            hilog.info(0x0001, 'MylistView', 'Pull-to-refresh: reload my lists');
+            this.loadMyLists().then((): void => {
+              this.isRefreshing = false;
+            }).catch((): void => {
+              this.isRefreshing = false;
+            });
+          },
+        }) {
+          Scroll() {
+            Column() {
             // 快捷入口：我喜欢 / 播放历史
             Row({ space: 10 }) {
               MylistQuickCard({
@@ -315,13 +331,14 @@ export struct MylistView {
               .width('100%')
               .padding({ bottom: 32 })
             }
+            }
+            .width('100%')
           }
           .width('100%')
+          .height('100%')
+          .scrollBar(BarState.Off)
+          .edgeEffect(EdgeEffect.Spring)
         }
-        .width('100%')
-        .height('100%')
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
       }
 
       // 新建歌单面板（底部面板，替代居中弹窗）

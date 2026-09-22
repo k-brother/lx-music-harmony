@@ -10,6 +10,8 @@ import { DesignTokens } from '../theme/DesignTokens';
 import { t , tf } from '../service/LocalizationService';
 import { playerService, SongInfo } from '../service/PlayerService';
 import { SegmentedBar } from '../components/ui/SegmentedBar';
+import { RefreshContainer } from '../components/ui/RefreshContainer';
+import { hapticService } from '../service/HapticService';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'DownloadPage';
@@ -29,6 +31,8 @@ export struct DownloadPage {
   @State isSelectMode: boolean = false;
   /** 0 全部 1 进行中 2 已完成 3 失败 */
   @State filterTabIndex: number = 0;
+  /** 下拉刷新中 */
+  @State isRefreshing: boolean = false;
 
   private refreshInterval: number | null = null;
 
@@ -629,8 +633,17 @@ export struct DownloadPage {
   build() {
     Column() {
       this.buildTopChrome()
-      Scroll() {
-        Column() {
+      RefreshContainer({
+        refreshing: $isRefreshing,
+        onRefresh: (): void => {
+          hapticService.selection();
+          hilog.info(DOMAIN, TAG, 'Pull-to-refresh: refresh download tasks');
+          this.refreshDownloadTasks();
+          this.isRefreshing = false;
+        },
+      }) {
+        Scroll() {
+          Column() {
           if (this.getFilteredTasks().length === 0) {
             this.buildEmptyForFilter()
           } else {
@@ -665,6 +678,7 @@ export struct DownloadPage {
       .align(Alignment.TopStart)
       .layoutWeight(1)
       .backgroundColor(DesignTokens.pageBg(this.theme))
+      }
 
       // 多选批量操作栏：必须在 build 中挂载（此前漏挂，勾选后没有批量暂停/继续/取消入口）
       if (this.isSelectMode) {

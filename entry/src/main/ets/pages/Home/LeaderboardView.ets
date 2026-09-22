@@ -13,6 +13,8 @@ import hilog from '@ohos.hilog';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { SearchStrip, SearchStripActions } from '../../components/common/SearchStrip';
 import { FilterPillBar, type FilterPillOption } from './Home/FilterPillBar';
+import { RefreshContainer } from '../../components/ui/RefreshContainer';
+import { hapticService } from '../../service/HapticService';
 
 const PREVIEW_COLLAPSED = 3;
 const PREVIEW_EXPANDED = 8;
@@ -45,6 +47,20 @@ export struct LeaderboardView {
   @Prop @Watch("onReCreateKeyChange") reCreateKey: number = 0;
   @State boardList: BoardItem[] = [];
   @State isLoading: boolean = false;
+  /** 下拉刷新中（榜单列表重新拉取） */
+  @State isRefreshing: boolean = false;
+
+  /** 下拉刷新：重新拉取当前音源的榜单列表 */
+  private reloadBoards(): void {
+    hapticService.selection();
+    hilog.info(0x0001, 'LeaderboardView', 'Pull-to-refresh: reload boards, source=%{public}s', this.sourceId);
+    this.isRefreshing = true;
+    this.loadBoardList().then((): void => {
+      this.isRefreshing = false;
+    }).catch((): void => {
+      this.isRefreshing = false;
+    });
+  }
   @State searchText: string = '';
   @State overlaySearchText: string = '';
   @State searchOverlayVisible: boolean = false;
@@ -820,8 +836,14 @@ export struct LeaderboardView {
               if (this.isFilterPinned) {
                 this.LeaderboardFilterBar()
               }
-              Scroll(this.leaderboardScroller) {
-                Column() {
+              RefreshContainer({
+                refreshing: $isRefreshing,
+                onRefresh: (): void => {
+                  this.reloadBoards();
+                },
+              }) {
+                Scroll(this.leaderboardScroller) {
+                  Column() {
                   if (!this.isFilterPinned) {
                     SearchStrip({
                       text: $searchText,
@@ -857,17 +879,18 @@ export struct LeaderboardView {
                   }
                   .width('100%')
                   .padding({ bottom: 16 })
+                  }
+                  .width('100%')
                 }
+                .layoutWeight(1)
                 .width('100%')
+                .scrollable(ScrollDirection.Vertical)
+                .scrollBar(BarState.Off)
+                .edgeEffect(EdgeEffect.None)
+                .onDidScroll(() => {
+                  this.syncFilterPinnedByOffset();
+                })
               }
-              .layoutWeight(1)
-              .width('100%')
-              .scrollable(ScrollDirection.Vertical)
-              .scrollBar(BarState.Off)
-              .edgeEffect(EdgeEffect.None)
-              .onDidScroll(() => {
-                this.syncFilterPinnedByOffset();
-              })
             }
             .width('100%')
             .layoutWeight(1)
