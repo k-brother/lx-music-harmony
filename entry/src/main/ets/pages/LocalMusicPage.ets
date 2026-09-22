@@ -15,6 +15,7 @@ import { getLocalPicUrl, type LocalMusicInfo } from '../core/music/local/LocalPl
 import { NavBar } from '../components/ui/NavBar';
 import { StateView } from '../components/ui/StateView';
 import { hapticService } from '../service/HapticService';
+import { appActionMenu } from '../service/DialogService';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'LocalMusicPage';
@@ -139,31 +140,23 @@ export struct LocalMusicPage {
    * 统一使用系统 ActionMenu（与歌单详情的长按菜单同一套交互），
    * 而不是各页各写一个自绘确认框。
    */
-  private showTrackMenu(track: LocalMusicInfo): void {
-    const primary = DesignTokens.labelPrimary(this.theme);
-    this.getUIContext().getPromptAction().showActionMenu({
-      title: track.name,
-      buttons: [
-        { text: t('play'), color: primary },
-        { text: t('edit_metadata'), color: primary },
-        { text: t('pick_cover'), color: primary },
-        { text: t('local_remove_title'), color: DesignTokens.danger() },
-        { text: t('cancel'), color: DesignTokens.labelTertiary(this.theme) },
-      ],
-    }, (err: BusinessError, data: PromptDialogResult) => {
-      if (err) {
-        return;
-      }
-      if (data.index === 0) {
-        void this.playTrack(this.tracks.indexOf(track));
-      } else if (data.index === 1) {
-        this.openEditDialog(track);
-      } else if (data.index === 2) {
-        void this.pickCover(track);
-      } else if (data.index === 3) {
-        void this.removeTrack(track);
-      }
-    });
+  private async showTrackMenu(track: LocalMusicInfo): Promise<void> {
+    // 统一走 DialogService：取消项由系统菜单提供，「移除」用危险色
+    const picked = await appActionMenu(track.name, [
+      t('play'),
+      t('edit_metadata'),
+      t('pick_cover'),
+      t('local_remove_title'),
+    ], { dangerIndexes: [3] });
+    if (picked === 0) {
+      void this.playTrack(this.tracks.indexOf(track));
+    } else if (picked === 1) {
+      this.openEditDialog(track);
+    } else if (picked === 2) {
+      void this.pickCover(track);
+    } else if (picked === 3) {
+      void this.removeTrack(track);
+    }
   }
 
   /** 打开元数据编辑弹窗 */

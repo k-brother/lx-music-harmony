@@ -87,6 +87,10 @@ CHECKS = [
  ('设置存储加载模块', 'service/settings/SettingsStorage.ets', r'export async function loadSettingsFromStorage'),
  ('设置旧数据迁移模块', 'service/settings/SettingsStorage.ets', r'export async function migrateLegacySettings'),
  ('设置服务保留对外类型', 'service/SettingsService.ets', r"export type \{[\s\S]{0,200}AppSettings"),
+ # 动作菜单统一走 DialogService：取消项由系统菜单提供，避免两个「取消」
+ ('播放页菜单走统一入口', 'pages/PlayDetailPage.ets', r'await appActionMenu\('),
+ ('本地音乐菜单走统一入口', 'pages/LocalMusicPage.ets', r'await appActionMenu\('),
+ ('收藏歌单菜单走统一入口', 'pages/SonglistDetailPage.ets', r'await appActionMenu\('),
  ('酷我歌词双通道+重试', 'core/music/sources/kw/lyric.ets', r'requestNewlyric|requestMobileLyric'),
  ('酷我歌词 zlib 解压(原生)', 'core/napi/napi_inflate.ets', r'zlibInflate'),
  ('二进制 HTTP 请求入口', 'core/network/http/HttpClient.ets', r'httpRequestBinary'),

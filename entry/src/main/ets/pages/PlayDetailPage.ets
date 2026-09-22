@@ -1,6 +1,5 @@
 import hilog from '@ohos.hilog';
 import { showAppToast, TOAST_DURATION_DEFAULT } from '../utils/Toast';
-import { BusinessError } from '@kit.BasicServicesKit';
 import { common } from '@kit.AbilityKit';
 import { playerService, MusicInfo, ProgressInfo, SongInfo } from '../service/PlayerService';
 import { navigationService } from '../service/NavigationService';
@@ -42,7 +41,7 @@ import {
 } from './PlayDetail/PlayDetailMenus';
 import { toRoma } from '../utils/RomaConverter';
 import { hapticService } from '../service/HapticService';
-import { appToast } from '../service/DialogService';
+import { appActionMenu, appToast } from '../service/DialogService';
 import { buildShareText, getMusicDetailPageUrl } from '../core/music/MusicDetailUrl';
 import { shareText } from '../service/ShareService';
 
@@ -539,36 +538,30 @@ export struct PlayDetailPage {
   }
 
   private async toggleTimeoutExit(): Promise<void> {
-    const primary = DesignTokens.labelPrimary(this.theme);
-    const tertiary = DesignTokens.labelTertiary(this.theme);
-    this.getUIContext().getPromptAction().showActionMenu({
-      title: t('sleep_timer_setting'),
-      buttons: [
-        { text: t('sleep_15min'), color: primary },
-        { text: t('sleep_30min'), color: primary },
-        { text: t('sleep_60min'), color: primary },
-        { text: t('sleep_disable'), color: primary },
-        { text: t('cancel'), color: tertiary },
-      ],
-    }, (err: BusinessError, data: ActionMenuResult) => {
-      if (err) return;
-      const ix = data.index;
-      if (ix < 0 || ix > 3) return;
-      if (ix === 3) {
-        this.timeoutExitEnabled = false;
-        this.timeoutExitLabel = t('sleep_timer_setting');
-        sleepTimerService.stop();
-        sleepTimerService.cancelPendingExit();
-        this.showToast(t('toast_sleep_cancel'));
-        return;
-      }
-      const mins = ix === 0 ? 15 : (ix === 1 ? 30 : 60);
-      this.timeoutExitEnabled = true;
-      this.timeoutExitLabel = `${mins} ${t('settings_sleep_minutes')}`;
-      // 统一由 SleepTimerService 计时，保证与设置页状态一致
-      sleepTimerService.start(mins);
-      this.showToast(`${t('toast_sleep_set')} ${mins} ${t('toast_sleep_start')}`);
-    });
+    // 走 DialogService：取消项由系统菜单提供，避免出现两个「取消」
+    const ix = await appActionMenu(t('sleep_timer_setting'), [
+      t('sleep_15min'),
+      t('sleep_30min'),
+      t('sleep_60min'),
+      t('sleep_disable'),
+    ]);
+    if (ix < 0 || ix > 3) {
+      return;
+    }
+    if (ix === 3) {
+      this.timeoutExitEnabled = false;
+      this.timeoutExitLabel = t('sleep_timer_setting');
+      sleepTimerService.stop();
+      sleepTimerService.cancelPendingExit();
+      this.showToast(t('toast_sleep_cancel'));
+      return;
+    }
+    const mins = ix === 0 ? 15 : (ix === 1 ? 30 : 60);
+    this.timeoutExitEnabled = true;
+    this.timeoutExitLabel = `${mins} ${t('settings_sleep_minutes')}`;
+    // 统一由 SleepTimerService 计时，保证与设置页状态一致
+    sleepTimerService.start(mins);
+    this.showToast(`${t('toast_sleep_set')} ${mins} ${t('toast_sleep_start')}`);
   }
 
   private async addToPlaylist(): Promise<void> {
@@ -589,47 +582,30 @@ export struct PlayDetailPage {
       this.showToast(t('no_playlist_available'));
       return;
     }
-    const primary = DesignTokens.labelPrimary(this.theme);
-    const tertiary = DesignTokens.labelTertiary(this.theme);
     const display = options.slice(0, maxCount);
-    const opt0 = maxCount > 0 ? display[0].name : t('unnamed_list');
-    const opt1 = maxCount > 1 ? display[1].name : t('unnamed_list');
-    const opt2 = maxCount > 2 ? display[2].name : t('unnamed_list');
-    const opt3 = maxCount > 3 ? display[3].name : t('unnamed_list');
-    const opt4 = maxCount > 4 ? display[4].name : t('unnamed_list');
-    this.getUIContext().getPromptAction().showActionMenu({
-      title: t('player_add_to_list'),
-      buttons: [
-        { text: opt0, color: primary },
-        { text: opt1, color: primary },
-        { text: opt2, color: primary },
-        { text: opt3, color: primary },
-        { text: opt4, color: primary },
-        { text: t('cancel'), color: tertiary },
-      ],
-    }, async (err: BusinessError, data: ActionMenuResult) => {
-      if (err) return;
-      const ix = data.index;
-      if (ix < 0 || ix >= maxCount) return;
-      const target = display[ix];
-      try {
-        const musicItem: MusicItem = {
-          id: currentMusicInfo.id || currentMusicInfo.songmid || '',
-          name: currentMusicInfo.name,
-          singer: currentMusicInfo.singer,
-          album: currentMusicInfo.album ?? currentMusicInfo.albumName ?? '',
-          albumId: null,
-          duration: 0,
-          source: currentMusicInfo.source,
-          pic: currentMusicInfo.pic || currentMusicInfo.img || '',
-          lrc: null,
-        };
-        await addMusicToList(target.id, musicItem);
-        this.showToast(tf('toast_added_quoted', [target.name]));
-      } catch (e) {
-        this.showToast(t('toast_add_list_fail'));
-      }
-    });
+    const labels: string[] = display.map((option: PlaylistOptionRow) => option.name);
+    const ix = await appActionMenu(t('player_add_to_list'), labels);
+    if (ix < 0 || ix >= display.length) {
+      return;
+    }
+    const target = display[ix];
+    try {
+      const musicItem: MusicItem = {
+        id: currentMusicInfo.id || currentMusicInfo.songmid || '',
+        name: currentMusicInfo.name,
+        singer: currentMusicInfo.singer,
+        album: currentMusicInfo.album ?? currentMusicInfo.albumName ?? '',
+        albumId: null,
+        duration: 0,
+        source: currentMusicInfo.source,
+        pic: currentMusicInfo.pic || currentMusicInfo.img || '',
+        lrc: null,
+      };
+      await addMusicToList(target.id, musicItem);
+      this.showToast(tf('toast_added_quoted', [target.name]));
+    } catch (e) {
+      this.showToast(t('toast_add_list_fail'));
+    }
   }
 
   private showMoreActions(): void {
@@ -1225,36 +1201,28 @@ export struct PlayDetailPage {
   }
 
   /** 长按封面的快捷操作（ActionMenu 最多 6 项，含取消） */
-  private showCoverQuickMenu(): void {
-    const primary = DesignTokens.labelPrimary(this.theme);
+  private async showCoverQuickMenu(): Promise<void> {
     const info = playerService.getCurrentMusicInfo();
     const isLoved = info.id ? isInLoveList(info.id) : false;
-    this.getUIContext().getPromptAction().showActionMenu({
-      title: info.name || t('player_title'),
-      buttons: [
-        { text: isLoved ? t('player_unlove') : t('player_love'), color: primary },
-        { text: t('player_download'), color: primary },
-        { text: t('player_share'), color: primary },
-        { text: t('media_save_cover'), color: primary },
-        { text: t('player_comment'), color: primary },
-        { text: t('cancel'), color: DesignTokens.labelTertiary(this.theme) },
-      ],
-    }, (err: BusinessError, data: ActionMenuResult) => {
-      if (err) {
-        return;
-      }
-      if (data.index === 0) {
-        void this.toggleLoveCurrent();
-      } else if (data.index === 1) {
-        void this.downloadCurrent();
-      } else if (data.index === 2) {
-        void this.shareCurrent();
-      } else if (data.index === 3) {
-        void this.saveCoverToFile();
-      } else if (data.index === 4) {
-        this.viewComments();
-      }
-    });
+    // 统一走 DialogService（取消项由系统菜单提供，不再手写）
+    const ix = await appActionMenu(info.name || t('player_title'), [
+      isLoved ? t('player_unlove') : t('player_love'),
+      t('player_download'),
+      t('player_share'),
+      t('media_save_cover'),
+      t('player_comment'),
+    ]);
+    if (ix === 0) {
+      void this.toggleLoveCurrent();
+    } else if (ix === 1) {
+      void this.downloadCurrent();
+    } else if (ix === 2) {
+      void this.shareCurrent();
+    } else if (ix === 3) {
+      void this.saveCoverToFile();
+    } else if (ix === 4) {
+      this.viewComments();
+    }
   }
 
   /** 收藏 / 取消收藏当前歌曲 */

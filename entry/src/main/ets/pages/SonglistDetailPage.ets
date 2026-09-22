@@ -11,7 +11,6 @@ import { navigationService } from '../service/NavigationService';
 import { common } from '@kit.AbilityKit';
 import { addMusicToList, getUserList, getUserListMusic, LIST_IDS, MusicItem, ListInfo } from '../service/ListService';
 import { createUserList, moveMusicInList, removeMusicsFromList, replaceUserListMusic } from '../service/ListService';
-import type { BusinessError } from '@kit.BasicServicesKit';
 import { emitSearchRequest } from '../service/EventBus';
 import { buildShareText, getMusicDetailPageUrl } from '../core/music/MusicDetailUrl';
 import { shareText } from '../service/ShareService';
@@ -658,26 +657,17 @@ export struct SonglistDetailPage {
   }
 
   /** 已收藏时的菜单：更新内容 / 取消收藏 */
-  private openCollectedMenu(): void {
-    const primary = DesignTokens.labelPrimary(this.theme);
-    const tertiary = DesignTokens.labelTertiary(this.theme);
-    this.getUIContext().getPromptAction().showActionMenu({
-      title: this.listInfo.name,
-      buttons: [
-        { text: t('list_sync_content'), color: primary },
-        { text: t('toast_uncollected_action'), color: DesignTokens.danger() },
-        { text: t('cancel'), color: tertiary },
-      ],
-    }, (err: BusinessError, data: PromptActionResult) => {
-      if (err) {
-        return;
-      }
-      if (data.index === 0) {
-        void this.syncBoundList();
-      } else if (data.index === 1) {
-        void this.uncollect();
-      }
-    });
+  private async openCollectedMenu(): Promise<void> {
+    // 统一走 DialogService：「取消收藏」用危险色，取消项由系统菜单提供
+    const picked = await appActionMenu(this.listInfo.name, [
+      t('list_sync_content'),
+      t('toast_uncollected_action'),
+    ], { dangerIndexes: [1] });
+    if (picked === 0) {
+      void this.syncBoundList();
+    } else if (picked === 1) {
+      void this.uncollect();
+    }
   }
 
   /** 更新歌单内容（列表级同步） */
