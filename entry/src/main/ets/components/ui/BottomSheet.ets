@@ -41,6 +41,7 @@ export struct BottomSheet {
       this.content()
     }
     .width('100%')
+    .height('100%')
     .padding({ left: 16, right: 16, top: 4, bottom: 16 })
   }
 

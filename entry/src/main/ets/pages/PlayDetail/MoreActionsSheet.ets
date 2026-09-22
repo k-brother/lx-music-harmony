@@ -62,9 +62,10 @@ export struct MoreActionsSheet {
         }, (action: PlayActionRow) => action.key)
       }
       .width('100%')
+      .layoutWeight(1)
     }
     .width('100%')
-    .constraintSize({ maxHeight: 420 })
+    .layoutWeight(1)
     .scrollBar(BarState.Off)
   }
 

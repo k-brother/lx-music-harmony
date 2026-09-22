@@ -1184,6 +1184,55 @@ export class PlayerService {
     return this.currentIndex;
   }
 
+  /**
+   * 调整队列顺序（播放队列面板拖动排序）
+   *
+   * 只改顺序不打断播放：把「当前曲目」的新下标同步回去即可。
+   * @returns 是否真的发生了移动
+   */
+  moveInQueue(from: number, to: number): boolean {
+    if (from === to || from < 0 || to < 0
+      || from >= this.playList.length || to >= this.playList.length) {
+      return false;
+    }
+    const moved = this.playList.splice(from, 1)[0];
+    this.playList.splice(to, 0, moved);
+
+    // 维持「正在播放的那首」不变
+    if (this.currentIndex === from) {
+      this.currentIndex = to;
+    } else if (from < this.currentIndex && to >= this.currentIndex) {
+      this.currentIndex -= 1;
+    } else if (from > this.currentIndex && to <= this.currentIndex) {
+      this.currentIndex += 1;
+    }
+    hilog.info(DOMAIN, TAG, 'Queue reordered: %{public}d -> %{public}d (index=%{public}d)',
+      from, to, this.currentIndex);
+    return true;
+  }
+
+  /**
+   * 从队列移除某一首（播放队列面板长按删除）
+   *
+   * 移除当前正在播放的那首时不停播，只把 currentIndex 归位到「下一首原来的歌」；
+   * 队列被清空则退化为停止后的空队列。
+   */
+  removeFromQueue(index: number): boolean {
+    if (index < 0 || index >= this.playList.length) {
+      return false;
+    }
+    const removed = this.playList.splice(index, 1)[0];
+    if (index < this.currentIndex) {
+      this.currentIndex -= 1;
+    } else if (index === this.currentIndex) {
+      // 移除的是当前曲目：当前播放继续，下标指向原位置的下一首（越界则退回队尾）
+      this.currentIndex = Math.min(index, this.playList.length - 1);
+    }
+    hilog.info(DOMAIN, TAG, 'Removed from queue: %{public}s (queue=%{public}d, index=%{public}d)',
+      removed?.title ?? '', this.playList.length, this.currentIndex);
+    return true;
+  }
+
   // 获取当前音乐信息
   getCurrentMusicInfo(): MusicInfo {
     return {

@@ -85,6 +85,7 @@ function buildZhCN(): Map<string, string> {
   m.set('player_love', '收藏');
   m.set('more_actions', '更多操作');
   m.set('play_queue', '播放队列');
+  m.set('play_queue_remove', '从队列移除');
   m.set('play_queue_count', '播放队列（{0} 首）');
   m.set('volume_mute', '静音');
   m.set('volume_unmute', '取消静音');
@@ -817,6 +818,7 @@ function buildEnUS(): Map<string, string> {
   m.set('settings_source_name_desc', 'Show source alias or real name');
   m.set('settings_share_type', 'Share Method');
   m.set('play_queue', 'Play Queue');
+  m.set('play_queue_remove', 'Remove from queue');
   m.set('play_queue_count', 'Play Queue ({0} songs)');
   m.set('volume_mute', 'Mute');
   m.set('volume_unmute', 'Unmute');

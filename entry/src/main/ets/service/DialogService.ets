@@ -146,7 +146,8 @@ async function showMenuPage(
   if (overflow) {
     buttons.push({ text: t('more_actions'), color: DesignTokens.labelPrimary(theme) });
   }
-  buttons.push({ text: t('cancel'), color: DesignTokens.labelTertiary(theme) });
+  // 不再自己追加「取消」：系统 showActionMenu 底部自带一个，
+  // 之前两处叠加会出现两个「取消」（真机可见）。系统取消返回 index < 0，仍映射为 -1。
 
   return new Promise<number>((resolve: (value: number) => void) => {
     try {
@@ -165,7 +166,8 @@ async function showMenuPage(
             .catch(() => resolve(-1));
           return;
         }
-        if (index >= pageSize) {
+        if (index < 0 || index >= pageSize) {
+          // 越界（含系统自带的取消项）一律按取消处理
           resolve(-1);
           return;
         }

@@ -41,6 +41,8 @@ import {
   speedToast,
 } from './PlayDetail/PlayDetailMenus';
 import { toRoma } from '../utils/RomaConverter';
+import { hapticService } from '../service/HapticService';
+import { appToast } from '../service/DialogService';
 import { buildShareText, getMusicDetailPageUrl } from '../core/music/MusicDetailUrl';
 import { shareText } from '../service/ShareService';
 
@@ -1009,7 +1011,8 @@ export struct PlayDetailPage {
       if (this.showMoreActionsDialog) {
         MoreActionsSheet({
           visible: $showMoreActionsDialog,
-          title: tf('play_queue_count', [this.actionRows().length.toString()]),
+          // 标题用当前歌曲，用户才知道这些操作作用于哪首（此前误用了播放队列的文案）
+          title: this.singer.length > 0 ? `${this.musicName} - ${this.singer}` : this.musicName,
           rows: this.actionRows(),
           onPick: (key: string): void => {
             this.onActionPicked(key);
@@ -1049,6 +1052,12 @@ export struct PlayDetailPage {
           onPick: (index: number): void => {
             void this.playFromQueue(index);
           },
+          onMove: (from: number, to: number): void => {
+            this.reorderQueue(from, to);
+          },
+          onRemove: (index: number): void => {
+            this.removeFromQueue(index);
+          },
         })
       }
     }
@@ -1061,6 +1070,26 @@ export struct PlayDetailPage {
   /** 音量面板：滑杆 + 静音（对齐安卓版播放页设置里的音量项） */
 
   /** 播放队列面板：展示当前队列并高亮正在播放的曲目，点击即切歌 */
+  /** 队列拖动排序：更新当前面板数据（播放本身不中断） */
+  private reorderQueue(from: number, to: number): void {
+    if (!playerService.moveInQueue(from, to)) {
+      return;
+    }
+    hapticService.light();
+    this.queueItems = playerService.getPlayList();
+    this.queueIndex = playerService.getCurrentIndex();
+  }
+
+  /** 队列移除：播放中的那首被移除也不打断播放 */
+  private removeFromQueue(index: number): void {
+    if (!playerService.removeFromQueue(index)) {
+      return;
+    }
+    hapticService.light();
+    this.queueItems = playerService.getPlayList();
+    this.queueIndex = playerService.getCurrentIndex();
+    appToast(t('play_queue_remove'));
+  }
 
 
 

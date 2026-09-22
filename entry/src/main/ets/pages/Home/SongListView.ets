@@ -44,7 +44,9 @@ interface SongListItemData {
 
 @Component
 export struct SongListView {
-  @Prop sourceId: string = 'kw';
+  // 换源时以 sourceId 变化为触发（比依赖父级的 epoch 更直接）：
+  // @Watch 回调里会清空旧列表再按新源加载，避免旧源数据留在屏幕上被误点。
+  @Prop @Watch('onSourceIdChange') sourceId: string = 'kw';
   @Prop @Watch("onReCreateKeyChange") reCreateKey: number = 0;
   @StorageProp('theme') theme: string = 'light';
 
@@ -146,8 +148,25 @@ export struct SongListView {
   // reCreateKey 变化时重新加载（响应音乐源切换）
   // 注意：@Watch 回调参数为被监听属性名 (string)，不是属性新值，请读 this.reCreateKey
   onReCreateKeyChange(_changedPropertyName?: string): void {
+    this.reloadForSource();
+  }
+
+  /** 音源变化（顶栏切源）时重新加载 */
+  onSourceIdChange(_changedPropertyName?: string): void {
+    this.reloadForSource();
+  }
+
+  /** 换源后的统一重载：清空旧列表 -> 重置筛选 -> 拉标签与第一页 */
+  private reloadForSource(): void {
     const epoch = this.reCreateKey;
-    hilog.info(0x0001, 'SongListView', 'reCreateKey changed to %{public}d, reloading...', epoch);
+    hilog.info(0x0001, 'SongListView', 'Source/reCreateKey changed (epoch=%{public}d, source=%{public}s), reloading...',
+      epoch, this.sourceId);
+    // 换源必须先清空旧列表：否则新源还在加载时，用户点到的是上一个源的歌单，
+    // 详情页会拿着 A 源的 id 去问 B 源，结果必然是「没有歌曲」（真机复现过）。
+    this.songLists = [];
+    this.hasMore = true;
+    this.currentPage = 1;
+    this.isLoading = false;
     this.selectedSort = 'default';
     this.selectedTag = '';
     this.coverInteractionUnlocked = true;
@@ -237,7 +256,9 @@ export struct SongListView {
           play_count: sl.play_count || '0',
           desc: sl.desc || '',
           total: sl.total || 0,
-          source: this.sourceId,
+          // 以数据自身的来源为准：切源瞬间旧数据可能仍在屏幕上，
+          // 用 this.sourceId 会让详情页拿 A 源的 id 去问 B 源（真机表现为「该歌单暂无歌曲」）
+          source: sl.source || this.sourceId,
         };
         items.push(item);
       }

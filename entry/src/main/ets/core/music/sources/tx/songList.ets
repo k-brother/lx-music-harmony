@@ -121,6 +121,13 @@ function getListUrl(sortId: string, tagId: string, page: number): string {
 }
 
 function getListDetailUrl(id: string): string {
+  // 官方 playlist_cp 接口。qzone 的老接口现在固定返回 "check privacy error"（subcode 4000），
+  // 导致歌单详情永远 0 首（真机复现过）。
+  return `https://c.y.qq.com/v8/fcg-bin/fcg_v8_playlist_cp.fcg?id=${id}&format=json&newsong=1&platform=yqq`;
+}
+
+/** 旧接口（新接口异常时兜底） */
+function getLegacyListDetailUrl(id: string): string {
   return `https://c.y.qq.com/qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg?type=1&json=1&utf8=1&onlysong=0&new_format=1&disstid=${id}&loginUin=0&hostUin=0&format=json&inCharset=utf8&outCharset=utf-8&notice=0&platform=yqq.json&needNewCode=0`;
 }
 
@@ -221,6 +228,8 @@ interface TxAlbumMini {
 
 interface TxSongRow {
   title?: string;
+  /** 旧格式接口用 name 表示歌名（新格式是 title） */
+  name?: string;
   mid?: string;
   id?: number;
   interval?: number;
@@ -240,6 +249,13 @@ interface TxCdInfo {
 
 interface TxDetailBody {
   code?: number;
+  /** 旧 qzone 接口：cdlist 在顶层 */
+  cdlist?: TxCdInfo[];
+  /** 新 playlist_cp 接口：cdlist 嵌在 data 里 */
+  data?: TxDetailData;
+}
+
+interface TxDetailData {
   cdlist?: TxCdInfo[];
 }
 
@@ -414,7 +430,8 @@ function filterListDetail(rawList: TxSongRow[]): MusicInfo[] {
     }
     const out: MusicInfo = {
       singer: formatSingerName(singerArr, 'name'),
-      name: item.title ?? '',
+      // 新接口给 title，旧的 playlist_cp 给 name
+      name: item.title ?? item.name ?? '',
       albumName,
       albumId: albumMid,
       source: 'tx',
@@ -501,10 +518,34 @@ class TxSongListImpl implements TxSongListModule {
   getListDetail(listId: string, page: number): Promise<SongListDetailResult> {
     const emptyInfo: SongListDetailInfo = { name: '', img: '', desc: '', author: '', play_count: '' };
     return getListId(listId).then((id) => {
-      const url = getListDetailUrl(id);
-      const headers: Map<string, string> = buildTxDetailHeaderMap(id);
-      const detailReq: HttpRequestConfig = { header: headers };
-      return httpRequest(url, detailReq).promise.then((response) => {
+      return this.fetchDetail(id, getListDetailUrl(id)).then((detail: SongListDetailResult) => {
+        // 新接口异常（风控/改版）时回退到旧接口，避免整页空白
+        if (detail.list.length > 0) {
+          return detail;
+        }
+        hilog.warn(0x0001, 'TXSongList',
+          'playlist_cp returned empty for %{public}s, fallback to legacy endpoint', id);
+        return this.fetchDetail(id, getLegacyListDetailUrl(id));
+      });
+    }).catch(() => {
+      const fail: SongListDetailResult = {
+        list: [],
+        info: emptyInfo,
+        total: 0,
+        source: 'tx',
+        page: 1,
+        limit: 0,
+      };
+      return fail;
+    });
+  }
+
+  /** 拉取并解析一次歌单详情（两个接口共用） */
+  private fetchDetail(id: string, url: string): Promise<SongListDetailResult> {
+    const emptyInfo: SongListDetailInfo = { name: '', img: '', desc: '', author: '', play_count: '' };
+    const headers: Map<string, string> = buildTxDetailHeaderMap(id);
+    const detailReq: HttpRequestConfig = { header: headers };
+    return httpRequest(url, detailReq).promise.then((response) => {
         const emptyDetail: SongListDetailResult = {
           list: [],
           info: emptyInfo,
@@ -514,10 +555,15 @@ class TxSongListImpl implements TxSongListModule {
           limit: 0,
         };
         const body = parseHttpBodyJson<TxDetailBody>(response.result as string | Object);
-        if (!body || body.code !== SUCCESS_CODE || !body.cdlist || body.cdlist.length === 0) {
+        if (!body || body.code !== SUCCESS_CODE) {
           return emptyDetail;
         }
-        const cd = body.cdlist[0];
+        // 两个接口的外层结构不同：老的顶层给 cdlist，新的放在 data.cdlist
+        const cdList: TxCdInfo[] = body.data?.cdlist ?? body.cdlist ?? [];
+        if (cdList.length === 0) {
+          return emptyDetail;
+        }
+        const cd = cdList[0];
         const songs = cd.songlist ?? [];
         const list = filterListDetail(songs);
         const info: SongListDetailInfo = {
@@ -536,18 +582,17 @@ class TxSongListImpl implements TxSongListModule {
           limit: songs.length + 1,
         };
         return okDetail;
+      }).catch((): SongListDetailResult => {
+        const fail: SongListDetailResult = {
+          list: [],
+          info: emptyInfo,
+          total: 0,
+          source: 'tx',
+          page: 1,
+          limit: 0,
+        };
+        return fail;
       });
-    }).catch(() => {
-      const fail: SongListDetailResult = {
-        list: [],
-        info: emptyInfo,
-        total: 0,
-        source: 'tx',
-        page: 1,
-        limit: 0,
-      };
-      return fail;
-    });
   }
 
   getDetailPageUrl(listId: string): string {
