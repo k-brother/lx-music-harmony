@@ -67,6 +67,7 @@ export struct MylistSectionHeader {
           .padding({ left: 12, right: 12 })
           .backgroundColor(DesignTokens.accent())
           .borderRadius(DesignTokens.radiusPill())
+          .responseRegion({ x: 0, y: -7, width: '100%', height: 44 })
           .onClick(() => {
             if (this.onPrimaryAction) {
               this.onPrimaryAction();

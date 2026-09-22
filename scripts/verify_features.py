@@ -98,6 +98,11 @@ CHECKS = [
  ('榜单页下拉刷新', 'pages/Home/LeaderboardView.ets', r'RefreshContainer\('),
  ('下载页下拉刷新', 'pages/DownloadPage.ets', r'RefreshContainer\('),
  ('我的页下拉刷新', 'pages/Home/MylistView.ets', r'RefreshContainer\('),
+ ('触控热区工具函数', 'theme/DesignTokens.ets', r'touchRegion\('),
+ ('下载页操作图标热区', 'pages/DownloadPage.ets', r'touchRegion\(22\)'),
+ ('返回按钮热区', 'components/common/NavBackButton.ets', r'touchRegion\(34\)'),
+ ('榜单展开/进入热区', 'pages/Home/LeaderboardView.ets', r'touchRegion\('),
+ ('歌单批量栏触控高度', 'pages/SonglistDetail/SonglistBatchBar.ets', r'touchTarget\(\)'),
 ]
 
 fails = []

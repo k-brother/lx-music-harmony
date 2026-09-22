@@ -14,6 +14,7 @@ export struct NavBackButton {
         .height(16)
         .fillColor(DesignTokens.labelPrimary(this.theme))
     }
+    .responseRegion(DesignTokens.touchRegion(34))
     .onClick(() => {
       navigationService.back();
     })

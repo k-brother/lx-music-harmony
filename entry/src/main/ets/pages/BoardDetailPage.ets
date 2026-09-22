@@ -543,6 +543,7 @@ export struct BoardDetailPage {
                 .height(14)
                 .fillColor(DesignTokens.labelSecondary(this.theme))
             }
+            .responseRegion(DesignTokens.touchRegion(28))
             .onClick(() => {
               void this.downloadSong(song);
             })

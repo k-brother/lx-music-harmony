@@ -81,6 +81,7 @@ export struct UserPlaylistCard {
           .height(20)
           .fillColor(DesignTokens.accent())
           .padding(10)
+          .responseRegion(DesignTokens.touchRegion(40))
           .onClick(() => {
             if (this.onSync) {
               this.onSync();
@@ -92,6 +93,7 @@ export struct UserPlaylistCard {
         .width(30)
         .height(30)
         .fillColor(DesignTokens.accent())
+        .responseRegion(DesignTokens.touchRegion(30))
         .onClick(() => {
           if (this.onPlay) {
             this.onPlay();

@@ -45,7 +45,7 @@ export struct SonglistBatchBar {
       Row({ space: 8 }) {
         Button(t('player_add_to_list'))
           .layoutWeight(1)
-          .height(38)
+          .height(DesignTokens.touchTarget())
           .fontSize(13)
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .backgroundColor(DesignTokens.mutedFill(this.theme))
@@ -57,7 +57,7 @@ export struct SonglistBatchBar {
           })
         Button(t('player_download'))
           .layoutWeight(1)
-          .height(38)
+          .height(DesignTokens.touchTarget())
           .fontSize(13)
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .backgroundColor(DesignTokens.mutedFill(this.theme))
@@ -70,7 +70,7 @@ export struct SonglistBatchBar {
         if (this.removable) {
           Button(t('list_remove_songs'))
             .layoutWeight(1)
-            .height(38)
+            .height(DesignTokens.touchTarget())
             .fontSize(13)
             .fontColor('#FFFFFF')
             .backgroundColor(DesignTokens.danger())

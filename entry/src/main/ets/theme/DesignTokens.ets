@@ -200,6 +200,25 @@ export class DesignTokens {
     return 44;
   }
 
+  /**
+   * 把视觉尺寸小的控件（图标按钮等）响应区域放大到 44vp
+   *
+   * 系统可用性规范要求可点元素 ≥44×44vp；图标往往只有 20~30vp，
+   * 直接放大图标会破坏视觉层次，用 responseRegion 扩大热区即可。
+   * 用法：IconButton(...).responseRegion(DesignTokens.touchRegion(22))
+   */
+  static touchRegion(size: number): Rectangle {
+    const target = DesignTokens.touchTarget();
+    const pad = Math.max(0, (target - size) / 2);
+    const region: Rectangle = {
+      x: -pad,
+      y: -pad,
+      width: Math.max(target, size),
+      height: Math.max(target, size),
+    };
+    return region;
+  }
+
   /** 顶部栏高度 */
   static navBarHeight(): number {
     return 56;

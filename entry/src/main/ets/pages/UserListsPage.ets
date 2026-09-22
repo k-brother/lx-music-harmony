@@ -289,6 +289,7 @@ export struct UserListsPage {
     .height(32)
     .padding({ left: 12, right: 12 })
     .backgroundColor(DesignTokens.accent())
+    .responseRegion({ x: 0, y: -6, width: '100%', height: 44 })
     .onClick(() => {
       this.newListName = '';
       this.showCreateSheet = true;

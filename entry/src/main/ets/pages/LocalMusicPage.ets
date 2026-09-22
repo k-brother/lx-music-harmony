@@ -251,6 +251,7 @@ export struct LocalMusicPage {
           .height(20)
           .fillColor(DesignTokens.labelSecondary(this.theme))
           .margin({ right: 16 })
+          .responseRegion(DesignTokens.touchRegion(20))
           .onClick(() => {
             void this.rescan();
           })

@@ -327,6 +327,7 @@ export struct DownloadPage {
           .width(22)
           .height(22)
           .fillColor(DesignTokens.accent())
+          .responseRegion(DesignTokens.touchRegion(22))
           .onClick(() => {
             this.selectAllTasks();
           })
@@ -357,6 +358,7 @@ export struct DownloadPage {
             .height(22)
             .fillColor(DesignTokens.accent())
             .margin({ right: 14 })
+            .responseRegion(DesignTokens.touchRegion(22))
             .onClick(() => {
               void this.pauseSelectedTasks();
             })
@@ -370,6 +372,7 @@ export struct DownloadPage {
             .height(22)
             .fillColor(DesignTokens.accent())
             .margin({ right: 14 })
+            .responseRegion(DesignTokens.touchRegion(22))
             .onClick(() => {
               void this.resumeSelectedTasks();
             })
@@ -380,6 +383,7 @@ export struct DownloadPage {
             .width(22)
             .height(22)
             .fillColor('#F44336')
+            .responseRegion(DesignTokens.touchRegion(22))
             .onClick(() => {
               void this.cancelSelectedTasks();
             })
@@ -473,6 +477,7 @@ export struct DownloadPage {
                 .width(22)
                 .height(22)
                 .fillColor(DesignTokens.accent())
+                .responseRegion(DesignTokens.touchRegion(22))
                 .onClick(() => {
                   download.pauseDownload(task.id);
                 })
@@ -482,6 +487,7 @@ export struct DownloadPage {
                 .width(22)
                 .height(22)
                 .fillColor(DesignTokens.accent())
+                .responseRegion(DesignTokens.touchRegion(22))
                 .onClick(() => {
                   void download.resumeDownload(task.id).then((): void => {
                     this.refreshDownloadTasks();
@@ -492,6 +498,7 @@ export struct DownloadPage {
                 .width(22)
                 .height(22)
                 .fillColor(DesignTokens.accent())
+                .responseRegion(DesignTokens.touchRegion(22))
                 .onClick(() => {
                   void download.resumeDownload(task.id);
                 })
@@ -500,6 +507,7 @@ export struct DownloadPage {
                 .width(22)
                 .height(22)
                 .fillColor(DesignTokens.accent())
+                .responseRegion(DesignTokens.touchRegion(22))
                 .onClick(() => {
                   void this.retryDownload(task.id);
                 })
@@ -510,6 +518,7 @@ export struct DownloadPage {
                 .width(22)
                 .height(22)
                 .fillColor(DesignTokens.accent())
+                .responseRegion(DesignTokens.touchRegion(22))
                 .onClick(() => {
                   void this.playDownloadedSong(task);
                 })
@@ -518,6 +527,7 @@ export struct DownloadPage {
                 .height(22)
                 .fillColor('#F44336')
                 .margin({ top: 14 })
+                .responseRegion(DesignTokens.touchRegion(22))
                 .onClick(() => {
                   download.cancelDownload(task.id);
                 })
@@ -529,6 +539,7 @@ export struct DownloadPage {
                 .height(22)
                 .fillColor('#F44336')
                 .margin({ top: 14 })
+                .responseRegion(DesignTokens.touchRegion(22))
                 .onClick(() => {
                   download.cancelDownload(task.id);
                 })

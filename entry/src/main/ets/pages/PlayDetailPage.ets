@@ -1098,6 +1098,7 @@ export struct PlayDetailPage {
           .height(16)
           .fillColor(DesignTokens.labelSecondary(this.theme))
       }
+      .responseRegion(DesignTokens.touchRegion(34))
       .onClick(() => {
         this.showMoreActions();
       })

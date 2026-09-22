@@ -1057,6 +1057,7 @@ export struct LeaderboardView {
               .height(22)
               .fillColor(this.secondaryText())
               .padding(8)
+              .responseRegion(DesignTokens.touchRegion(38))
               .onClick(() => {
                 this.toggleExpand(index);
               })
@@ -1065,6 +1066,7 @@ export struct LeaderboardView {
               .height(22)
               .fillColor(DesignTokens.accent())
               .padding({ left: 4, right: 4, top: 8, bottom: 8 })
+              .responseRegion(DesignTokens.touchRegion(30))
               .onClick(() => {
                 if (index >= 0 && index < this.cardStates.length) {
                   this.navigateToBoardDetail(this.cardStates[index].board);
