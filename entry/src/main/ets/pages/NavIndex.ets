@@ -23,6 +23,7 @@ import { settingsService } from '../service/SettingsService';
 import { on, EventTypes } from '../service/EventBus';
 import { playerService } from '../service/PlayerService';
 import { SheetHost } from '../components/ui/SheetHost';
+import { AppDestination } from '../components/ui/AppDestination';
 
 
 @Component
@@ -125,121 +126,57 @@ export struct NavIndex {
     if (name === 'home') {
       HomePage()
     } else if (name === 'playdetail') {
-      NavDestination() {
+      AppDestination({ routeName: 'PlayDetailPage' }) {
         PlayDetailPage()
       }
-      .hideTitleBar(true)
-      .onReady((context: NavDestinationContext) => {
-        const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
-        hilog.info(0x0001, 'NavIndex', 'PlayDetailPage onReady with params: %{public}s', JSON.stringify(params));
-      })
     } else if (name === 'songlistdetail') {
-      NavDestination() {
+      AppDestination({ routeName: 'SonglistDetailPage' }) {
         SonglistDetailPage()
       }
-      .hideTitleBar(true)
-      .onReady((context: NavDestinationContext) => {
-        const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
-        hilog.info(0x0001, 'NavIndex', 'SonglistDetailPage onReady with params: %{public}s', JSON.stringify(params));
-      })
     } else if (name === 'boarddetail') {
-      NavDestination() {
+      AppDestination({ routeName: 'BoardDetailPage' }) {
         BoardDetailPage()
       }
-      .hideTitleBar(true)
-      .onReady((context: NavDestinationContext) => {
-        const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
-        hilog.info(0x0001, 'NavIndex', 'BoardDetailPage onReady with params: %{public}s', JSON.stringify(params));
-      })
     } else if (name === 'customsource') {
-      NavDestination() {
+      AppDestination({ routeName: 'CustomSourceView' }) {
         CustomSourceView()
       }
-      .hideTitleBar(true)
-      .onReady((context: NavDestinationContext) => {
-        const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
-        hilog.info(0x0001, 'NavIndex', 'CustomSourceView onReady with params: %{public}s', JSON.stringify(params));
-      })
     } else if (name === 'about') {
-      NavDestination() {
+      AppDestination({ routeName: 'AboutView' }) {
         AboutView()
       }
-      .hideTitleBar(true)
-      .onReady((context: NavDestinationContext) => {
-        const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
-        hilog.info(0x0001, 'NavIndex', 'AboutView onReady with params: %{public}s', JSON.stringify(params));
-      })
     } else if (name === 'settings') {
-      NavDestination() {
+      AppDestination({ routeName: 'SettingView' }) {
         SettingView()
       }
-      .onReady((context: NavDestinationContext) => {
-        const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
-        hilog.info(0x0001, 'NavIndex', 'SettingView onReady with params: %{public}s', JSON.stringify(params));
-      })
     } else if (name === 'download') {
-      NavDestination() {
+      AppDestination({ routeName: 'DownloadPage' }) {
         DownloadPage()
       }
-      .hideTitleBar(true)
-      .onReady((context: NavDestinationContext) => {
-        const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
-        hilog.info(0x0001, 'NavIndex', 'DownloadPage onReady with params: %{public}s', JSON.stringify(params));
-      })
     } else if (name === 'comment') {
-      NavDestination() {
+      AppDestination({ routeName: 'CommentPage' }) {
         CommentPage()
       }
-      .hideTitleBar(true)
-      .onReady((context: NavDestinationContext) => {
-        const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
-        hilog.info(0x0001, 'NavIndex', 'CommentPage onReady with params: %{public}s', JSON.stringify(params));
-      })
     } else if (name === 'historylist') {
-      NavDestination() {
+      AppDestination({ routeName: 'HistoryListPage' }) {
         HistoryListPage()
       }
-      .hideTitleBar(true)
-      .onReady((context: NavDestinationContext) => {
-        const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
-        hilog.info(0x0001, 'NavIndex', 'HistoryListPage onReady with params: %{public}s', JSON.stringify(params));
-      })
     } else if (name === 'userlists') {
-      NavDestination() {
+      AppDestination({ routeName: 'UserListsPage' }) {
         UserListsPage()
       }
-      .hideTitleBar(true)
-      .onReady((context: NavDestinationContext) => {
-        const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
-        hilog.info(0x0001, 'NavIndex', 'UserListsPage onReady with params: %{public}s', JSON.stringify(params));
-      })
     } else if (name === 'localmusic') {
-      NavDestination() {
+      AppDestination({ routeName: 'LocalMusicPage' }) {
         LocalMusicPage()
       }
-      .hideTitleBar(true)
-      .onReady((context: NavDestinationContext) => {
-        const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
-        hilog.info(0x0001, 'NavIndex', 'LocalMusicPage onReady with params: %{public}s', JSON.stringify(params));
-      })
     } else if (name === 'lovelist') {
-      NavDestination() {
+      AppDestination({ routeName: 'LoveListPage' }) {
         LoveListPage()
       }
-      .hideTitleBar(true)
-      .onReady((context: NavDestinationContext) => {
-        const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
-        hilog.info(0x0001, 'NavIndex', 'LoveListPage onReady with params: %{public}s', JSON.stringify(params));
-      })
     } else if (name === 'logs') {
-      NavDestination() {
+      AppDestination({ routeName: 'LogPage' }) {
         LogPage()
       }
-      .hideTitleBar(true)
-      .onReady((context: NavDestinationContext) => {
-        const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
-        hilog.info(0x0001, 'NavIndex', 'LogPage onReady with params: %{public}s', JSON.stringify(params));
-      })
     }
   }
 }
