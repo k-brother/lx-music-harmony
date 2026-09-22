@@ -108,6 +108,7 @@ CHECKS = [
  ('全局面板服务', 'service/SheetService.ets', r'export const sheetService'),
  ('面板宿主挂在根节点', 'pages/NavIndex.ets', r'SheetHost\(\)'),
  ('设置项走全局面板', 'components/ui/SettingsSection.ets', r'sheetService\.(select|input)'),
+ ('主题写入走设置服务(单一入口)', 'service/ThemeService.ets', r'settingsService\.update\(\{ themeId \}\)'),
 ]
 
 fails = []

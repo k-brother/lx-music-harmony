@@ -177,7 +177,10 @@ export async function applyThemeById(themeId: string, persist: boolean = true): 
 
   // 保存设置（自动模式下不覆盖用户手动选择的主题）
   if (persist) {
-    await StorageService.setString(StorageService.StorageKeys.THEME_ID, themeId);
+    // 统一走设置服务：它同时负责落库、刷新缓存并广播 SETTING_CHANGED。
+    // 早期直接写 StorageService，导致 SettingsService 缓存里的 themeId 与实际主题不同步——
+    // 设置页显示的还是旧主题名，重启后才暴露真实值。
+    await settingsService.update({ themeId });
   }
 
   // 通知所有监听器
