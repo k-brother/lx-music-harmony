@@ -697,7 +697,9 @@ python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 | `CommentService` 960 行 | 105 行 + `comment/{CommentTypes,CommentShared,CommentSourceAdapter,sources/*}` | 五平台评论各成适配器，主服务只做分发 |
 | `SettingsService` 1521 行 | 864 行 + `settings/{SettingsTypes,SettingsStorage}` | 类型/默认值、存储加载与旧数据迁移各自成文件 |
 | `SonglistDetailPage` 1689 行 | 1541 行 + `SonglistDetail/{SonglistPlayback,SonglistListOps,SonglistScrollMemory}` | 播放/队列、排序去重落库、滚动记忆 |
+| `PlayerService` 1565 行 | 1453 行 + `player/{PlaybackEvents,PlaybackProgressStore,PlaybackTypes}` | 订阅中心、续播快照存储、公共类型 |
 | `NavIndex` 13 段 NavDestination 样板 | `components/ui/AppDestination` | 新增页面只写一行 |
+| 5 处手写 `showActionMenu` | `DialogService.appActionMenu` | 取消项交给系统菜单，危险项统一危险色 |
 
 ## 设备验收清单（需要真机确认，代码侧已按此实现）
 
