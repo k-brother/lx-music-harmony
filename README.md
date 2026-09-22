@@ -633,6 +633,29 @@ pages/Home/Home/
 图标往往只有 16~30vp，直接放大图标会破坏视觉层次，于是用 `responseRegion` 把热区补到 44×44vp；
 已覆盖返回按钮、播放页更多、下载页任务操作图标、榜单展开/进入、我的歌单同步/播放、本地音乐重扫等。
 
+**系统符号渲染（`SymbolGlyph`）**
+
+真机确认 `Image($r('sys.symbol.*'))` 不会渲染任何内容（系统符号是字体字形资源），
+此前全项目 45 处图标（底部 Tab、空态、列表箭头、下载操作、播放量角标）都是空白的。
+现统一改用 `SymbolGlyph(...)`，`width/height` 换成 `fontSize`、`fillColor` 换成 `fontColor([...])`；
+`scripts/check_symbols.py` 会拦住回退写法。
+
+**底部浮层（`bindSheet` + 全局面板宿主）**
+
+自行绘制的浮层有两个真机缺陷：挂在页面 `Column` 里会把正文挤扁；改成绝对定位后又被 `Scroll`
+裁剪（表现为「设置里点选项没反应」）。现在 `BottomSheet` 底层用系统 `bindSheet`
+（窗口级浮层，不参与布局、不被裁剪，自带遮罩/圆角/下拉关闭/安全区；
+注意锚点必须是 1×1 有效尺寸，0×0 不会挂载）。
+
+设置分组则通过 `service/SheetService` + `components/ui/SheetHost` 命令式调用：
+
+```ts
+const theme = await sheetService.select('浅色主题', options, current); // 取消返回 ''
+const size = await sheetService.input('字体大小', '14', { numberOnly: true });
+```
+
+宿主挂在 `NavIndex` 根节点，任何页面/分组都能安全弹出面板。
+
 ### 自检脚本
 
 每轮改完在 `harmony/` 下跑一遍（脚本在 `scripts/`，不依赖网络）：
