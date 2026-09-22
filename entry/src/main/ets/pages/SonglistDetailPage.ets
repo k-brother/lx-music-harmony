@@ -4,7 +4,7 @@
 import hilog from '@ohos.hilog';
 import { showAppToast, TOAST_DURATION_SHORT } from '../utils/Toast';
 import { PlayerBar } from '../components/player/PlayerBar';
-import { getSongListDetail, getMusicUrl, setDownloadContext, download, type SongListDetailResult } from '../core/music/MusicFeatureEntry';
+import { getSongListDetail, setDownloadContext, download, type SongListDetailResult } from '../core/music/MusicFeatureEntry';
 import { NavigationParams } from '../service/NavigationService';
 import { playerService, SongInfo } from '../service/PlayerService';
 import { navigationService } from '../service/NavigationService';
@@ -22,7 +22,6 @@ import {
   isOnlineSonglistCollected,
 } from '../service/UserListSyncService';
 import { findUserListByBinding } from '../service/ListService';
-import { fetchAllOnlineSongs } from '../service/UserListSyncService';
 import { dislikeList } from '../core/dislike/DislikeList';
 import { showSongItemMenu, showSonglistMoreMenu } from './SonglistDetail/SonglistMenus';
 import { songRowToListItem, songRowToMusicInfo, songRowToQueueItem } from '../core/list/SongMappers';
@@ -36,14 +35,21 @@ import type { SongItem, SonglistInfo } from './SonglistDetail/SonglistTypes';
 import { SonglistDetailHeader } from './SonglistDetail/SonglistDetailHeader';
 import { SonglistBatchBar } from './SonglistDetail/SonglistBatchBar';
 import { SonglistSortSheet } from './SonglistDetail/SonglistSortSheet';
-import type { MusicInfo, MusicSource } from '../types/MusicTypes';
+import type { MusicInfo } from '../types/MusicTypes';
 import { DesignTokens } from '../theme/DesignTokens';
 import { formatPlayTime } from '../utils/CommonUtils';
-import { getStorageService } from '../core/interfaces/IStorageService';
 import { SkeletonListItem } from '../components/common/SkeletonView';
 import { ErrorView } from '../components/common/ErrorView';
 import { t, tf, sourceLabel } from '../service/LocalizationService';
-import { sortSongs, dedupeSongs, countDuplicateGroups, type SortField, type SortOrder } from '../utils/ListTools';
+import { type SortField, type SortOrder } from '../utils/ListTools';
+import {
+  sortRows,
+  dedupeRows,
+  countDuplicateGroupsOf,
+  persistLocalOrder,
+} from './SonglistDetail/SonglistListOps';
+import { loadScrollOffset, saveScrollOffset } from './SonglistDetail/SonglistScrollMemory';
+import { buildQueue, buildFullQueue, resolvePlayUrl, toMusicInfo } from './SonglistDetail/SonglistPlayback';
 
 interface PromptActionResult {
   index: number;
@@ -153,50 +159,30 @@ export struct SonglistDetailPage {
   }
 
   /** 滚动位置记忆的存储键（按歌单区分） */
-  private scrollKey(): string {
-    return `list.scroll.${this.lastSourceId}.${this.lastListId}`;
-  }
-
-  /** 退出页面时记住滚动位置 */
+  /** 退出页面时记住滚动位置（读写由 SonglistScrollMemory 负责） */
   private saveScrollPosition(): void {
-    if (!this.rememberScrollPosition || !this.detailLoaded || this.lastListId.length === 0) {
-      return;
-    }
-    try {
-      const y = this.getSongListOffsetY();
-      if (y <= 0) {
-        return;
-      }
-      getStorageService().setNumber(this.scrollKey(), Math.floor(y)).catch((err: Error) => {
-        hilog.warn(0x0001, 'SonglistDetail', 'save scroll failed: %{public}s', err.message);
-      });
-    } catch (err) {
-      hilog.warn(0x0001, 'SonglistDetail', 'saveScrollPosition failed: %{public}s', JSON.stringify(err));
-    }
+    void saveScrollOffset(this.lastSourceId, this.lastListId, this.getSongListOffsetY(),
+      this.rememberScrollPosition, this.detailLoaded);
   }
 
   /** 列表渲染后恢复上次滚动位置 */
   private async restoreScrollPosition(): Promise<void> {
-    if (!this.rememberScrollPosition || this.lastListId.length === 0) {
+    if (!this.rememberScrollPosition) {
       return;
     }
-    try {
-      const y = await getStorageService().getNumber(this.scrollKey(), 0);
-      if (y <= 0) {
-        return;
-      }
-      // 等一帧让列表完成布局，否则 scrollTo 会被忽略
-      setTimeout(() => {
-        try {
-          this.songListScroller.scrollTo({ xOffset: 0, yOffset: y, animation: false });
-          hilog.info(0x0001, 'SonglistDetail', 'Scroll restored to %{public}d', y);
-        } catch (err) {
-          hilog.warn(0x0001, 'SonglistDetail', 'scrollTo failed: %{public}s', JSON.stringify(err));
-        }
-      }, 120);
-    } catch (err) {
-      hilog.warn(0x0001, 'SonglistDetail', 'restoreScrollPosition failed: %{public}s', JSON.stringify(err));
+    const offset = await loadScrollOffset(this.lastSourceId, this.lastListId);
+    if (offset <= 0) {
+      return;
     }
+    // 等一帧让列表完成布局，否则 scrollTo 会被忽略
+    setTimeout(() => {
+      try {
+        this.songListScroller.scrollTo({ xOffset: 0, yOffset: offset, animation: false });
+        hilog.info(0x0001, 'SonglistDetail', 'Scroll restored to %{public}d', offset);
+      } catch (err) {
+        hilog.warn(0x0001, 'SonglistDetail', 'scrollTo failed: %{public}s', JSON.stringify(err));
+      }
+    }, 120);
   }
 
   private getSongListOffsetY(): number {
@@ -548,53 +534,11 @@ export struct SonglistDetailPage {
     this.songList = this.songList;
 
     try {
-      // 将整个歌单转换为 SongInfo 数组并设置到播放器
-      const songInfos: SongInfo[] = [];
-      for (let i = 0; i < this.songList.length; i++) {
-        const s = this.songList[i];
-        const songArtwork = s.pic || this.listInfo.pic || null;
-        const songInfo: SongInfo = {
-          id: s.id,
-          url: '', // 稍后动态获取
-          title: s.name,
-          artist: s.singer,
-          album: s.album,
-          artwork: songArtwork,
-          duration: s.duration,
-          source: s.source,
-        };
-        songInfos.push(songInfo);
-      }
-
-      // 获取当前歌曲的 URL
-      const musicInfo: MusicInfo = {
-        id: song.id,
-        name: song.name,
-        singer: song.singer,
-        source: song.source as 'kw' | 'kg' | 'tx' | 'wy' | 'mg',
-        songmid: song.songmid || song.id,
-        strMediaMid: song.source === 'tx' && song.strMediaMid && song.strMediaMid.length > 0 ? song.strMediaMid : undefined,
-        copyrightId: song.copyrightId && song.copyrightId.length > 0 ? song.copyrightId : undefined,
-        interval: this.formatPlayTime(song.duration),
-        img: song.pic || null,
-        lrc: null,
-        albumName: song.album,
-        album: song.album,
-        albumId: song.albumId || '',
-        hash: song.hash || '',
-        types: [],
-        _types: new Map(),
-        typeUrl: new Map(),
-        otherSource: null,
-      } as MusicInfo;
+      // 队列与平台对象都交给 SonglistPlayback 统一构建
+      const songInfos: SongInfo[] = buildQueue(this.songList, this.listInfo.pic);
 
       hilog.info(0x0001, 'SonglistDetail', 'Getting music URL for song: %{public}s', song.name);
-      const url: string | null = await getMusicUrl({
-        musicInfo: musicInfo,
-        isRefresh: false,
-        onToggleSource: null,
-        allowToggleSource: true,
-      });
+      const url: string | null = await resolvePlayUrl(toMusicInfo(song));
 
       if (!url || url.length === 0) {
         hilog.error(0x0001, 'SonglistDetail', 'Failed to get music URL for song: %{public}s', song.name);
@@ -636,32 +580,13 @@ export struct SonglistDetailPage {
     if (!this.listInfo.source || this.listInfo.source === 'local' || this.listInfo.id.length === 0) {
       return;
     }
-    try {
-      const all: MusicItem[] = await fetchAllOnlineSongs(this.listInfo.source, this.listInfo.id);
-      if (all.length <= this.songList.length) {
-        return;
-      }
-      // 队列补全（保持当前曲目）
-      const queue: SongInfo[] = [];
-      for (let i = 0; i < all.length; i++) {
-        queue.push({
-          id: all[i].id,
-          songmid: all[i].id,
-          url: '',
-          title: all[i].name,
-          artist: all[i].singer,
-          album: all[i].album,
-          artwork: all[i].pic || this.listInfo.pic || null,
-          duration: all[i].duration,
-          source: all[i].source,
-        });
-      }
-      playerService.refineQueueWithFullList(queue);
-      hilog.info(0x0001, 'SonglistDetail', 'Queue filled with all pages: %{public}d songs (anchor=%{public}s)',
-        all.length, anchorSong.name);
-    } catch (err) {
-      hilog.warn(0x0001, 'SonglistDetail', 'fillQueueWithAllPages failed: %{public}s', JSON.stringify(err));
+    const queue = await buildFullQueue(this.listInfo.source, this.listInfo.id, this.listInfo.pic, this.songList.length);
+    if (!queue) {
+      return;
     }
+    playerService.refineQueueWithFullList(queue);
+    hilog.info(0x0001, 'SonglistDetail', 'Queue filled with all pages: %{public}d songs (anchor=%{public}s)',
+      queue.length, anchorSong.name);
   }
 
   // 播放全部歌曲
@@ -669,51 +594,9 @@ export struct SonglistDetailPage {
     if (this.songList.length === 0) return;
     hilog.info(0x0001, 'SonglistDetail', 'Play all songs from index 0');
     // 设置整个播放列表，从第一首开始
-    const songInfos: SongInfo[] = [];
-    for (let i = 0; i < this.songList.length; i++) {
-      const s = this.songList[i];
-      const songArtwork = s.pic || this.listInfo.pic || null;
-      const songInfo: SongInfo = {
-        id: s.id,
-        url: '',
-        title: s.name,
-        artist: s.singer,
-        album: s.album,
-        artwork: songArtwork,
-        duration: s.duration,
-        source: s.source,
-      };
-      songInfos.push(songInfo);
-    }
-    // 获取第一首的 URL 并播放
+    const songInfos: SongInfo[] = buildQueue(this.songList, this.listInfo.pic);
     const firstSong = this.songList[0];
-    const musicInfo: MusicInfo = {
-      id: firstSong.id,
-      name: firstSong.name,
-      singer: firstSong.singer,
-      source: firstSong.source as 'kw' | 'kg' | 'tx' | 'wy' | 'mg',
-      songmid: firstSong.songmid || firstSong.id,
-      strMediaMid: firstSong.source === 'tx' && firstSong.strMediaMid && firstSong.strMediaMid.length > 0 ?
-        firstSong.strMediaMid : undefined,
-      copyrightId: firstSong.copyrightId && firstSong.copyrightId.length > 0 ? firstSong.copyrightId : undefined,
-      interval: this.formatPlayTime(firstSong.duration),
-      img: firstSong.pic || null,
-      lrc: null,
-      albumName: firstSong.album,
-      album: firstSong.album,
-      albumId: firstSong.albumId || '',
-      hash: firstSong.hash || '',
-      types: [],
-      _types: new Map(),
-      typeUrl: new Map(),
-      otherSource: null,
-    } as MusicInfo;
-    const url: string | null = await getMusicUrl({
-      musicInfo: musicInfo,
-      isRefresh: false,
-      onToggleSource: null,
-      allowToggleSource: true,
-    });
+    const url: string | null = await resolvePlayUrl(toMusicInfo(firstSong));
 
     if (!url || url.length === 0) {
       hilog.error(0x0001, 'SonglistDetail', 'Failed to get music URL for first song: %{public}s', firstSong.name);
@@ -1107,19 +990,13 @@ export struct SonglistDetailPage {
     const field = this.sortField as SortField;
     const order = this.sortOrder as SortOrder;
     const locale = this.language.replace('_', '-');
-    this.songList = sortSongs(this.songList, field, order, locale);
+    this.songList = sortRows(this.songList, field, order, locale);
     this.showSortSheet = false;
     this.showToast(tf('toast_sorted_count', [this.songList.length.toString()]));
 
     // 本地列表排序结果要落库，否则退出再进又变回原顺序
     if (this.canEditLocalList()) {
-      const items: MusicItem[] = [];
-      for (let i = 0; i < this.songList.length; i++) {
-        items.push(songRowToListItem(this.songList[i]));
-      }
-      replaceUserListMusic(this.listInfo.id, items).catch((err: Error) => {
-        hilog.error(0x0001, 'SonglistDetail', 'persist sort failed: %{public}s', err?.message);
-      });
+      void persistLocalOrder(this.listInfo.id, this.songList);
     }
   }
 
@@ -1130,7 +1007,7 @@ export struct SonglistDetailPage {
       this.showToast(t('list_dedupe_none'));
       return;
     }
-    const duplicateGroups = countDuplicateGroups(this.songList, this.dedupeFilterVariant);
+    const duplicateGroups = countDuplicateGroupsOf(this.songList, this.dedupeFilterVariant);
     if (duplicateGroups === 0) {
       this.showToast(t('list_dedupe_none'));
       return;
@@ -1141,10 +1018,9 @@ export struct SonglistDetailPage {
     if (!confirmed) {
       return;
     }
-    const before = this.songList.length;
-    const deduped = dedupeSongs(this.songList, this.dedupeFilterVariant);
-    const removed = before - deduped.length;
-    this.songList = deduped;
+    const outcome = dedupeRows(this.songList, this.dedupeFilterVariant);
+    const removed = outcome.removed;
+    this.songList = outcome.rows;
     // 本地歌单：同步把重复项从存储里删掉，避免下次进来又出现
     if (this.listInfo.source === 'local') {
       await this.persistLocalOrder();
@@ -1429,17 +1305,7 @@ export struct SonglistDetailPage {
   // 添加到歌单
   private async addToPlaylist(song: SongItem): Promise<void> {
     try {
-      const musicItem: MusicItem = {
-        id: song.id,
-        name: song.name,
-        singer: song.singer,
-        album: song.album,
-        albumId: song.albumId ?? null,
-        duration: song.duration,
-        source: song.source,
-        pic: song.pic,
-        lrc: null
-      };
+      const musicItem: MusicItem = songRowToListItem(song);
       
       await addMusicToList(LIST_IDS.DEFAULT, musicItem);
       
@@ -1468,21 +1334,7 @@ export struct SonglistDetailPage {
   // 分享歌曲
   private async shareSong(song: SongItem): Promise<void> {
     // 与播放页分享一致：按「设置 → 分享方式」走系统分享，失败回退剪贴板
-    const musicInfo: MusicInfo = {
-      id: song.id,
-      name: song.name,
-      singer: song.singer,
-      source: song.source as MusicSource,
-      songmid: song.songmid || song.id,
-      hash: song.hash || '',
-      copyrightId: song.copyrightId || '',
-      albumId: song.albumId || '',
-      albumName: song.album,
-      album: song.album,
-      interval: this.formatPlayTime(song.duration),
-      img: song.pic || null,
-      lrc: null,
-    };
+    const musicInfo: MusicInfo = songRowToMusicInfo(song);
     const text = `[${sourceLabel(song.source)}] ${buildShareText(musicInfo)}`;
     try {
       const context = this.getUIContext().getHostContext() as common.UIAbilityContext;

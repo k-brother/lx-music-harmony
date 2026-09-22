@@ -61,17 +61,37 @@ assert_no_crash() {
 }
 
 # 断言界面上出现某段文案（浮层/面板这类不写日志的 UI 用这个）
-assert_ui_text() {
-  local name="$1" pattern="$2"
+ui_has_text() {
+  local pattern="$1"
   local dump="/data/local/tmp/smoke_layout.json"
   local local_dump="${TMPDIR:-/tmp}/smoke_layout.json"
   hdc_do shell "uitest dumpLayout -p ${dump}" >/dev/null 2>&1 || true
   hdc_do file recv "$dump" "$local_dump" >/dev/null 2>&1 || true
-  if [ -f "$local_dump" ] && grep -qE "$pattern" "$local_dump"; then
+  [ -f "$local_dump" ] && grep -qE "$pattern" "$local_dump"
+}
+
+assert_ui_text() {
+  local name="$1" pattern="$2"
+  if ui_has_text "$pattern"; then
     ok "$name"
   else
     bad "$name" "界面未出现 /$pattern/"
   fi
+}
+
+# 反复点击直到界面出现目标文案（冷启动落点不定，用于「确保在某个页面」）
+tap_until_ui_text() {
+  local x="$1" y="$2" pattern="$3" tries="${4:-3}"
+  local i=0
+  while [ "$i" -lt "$tries" ]; do
+    if ui_has_text "$pattern"; then
+      return 0
+    fi
+    tap "$x" "$y"
+    sleep 3
+    i=$((i + 1))
+  done
+  ui_has_text "$pattern"
 }
 
 tap() { hdc_do shell "uitest uiInput click $1 $2" >/dev/null 2>&1 || true; }
@@ -107,9 +127,12 @@ assert_log "应用启动（AppBootstrap/PlayerService 初始化）" "com\.lxmusi
 assert_no_crash "启动无崩溃"
 
 log "== 2. 歌单列表与换源 =="
-# 冷启动可能落在「正在播放」页（跟随设置里的启动页面），先回到底部「歌单」Tab
-tap 170 2690
-sleep 4
+# 冷启动可能落在「正在播放」页（跟随设置里的启动页面），先确保回到歌单页
+if tap_until_ui_text 170 2690 "搜索音乐"; then
+  ok "回到歌单页（搜索条可见）"
+else
+  bad "回到歌单页" "点击底部歌单 Tab 后仍未出现搜索条"
+fi
 tap 464 190          # 顶栏切到第二个音源（QQ）
 sleep 7
 assert_log "换源触发列表重载" "SongListView: Source/reCreateKey changed"
@@ -140,10 +163,16 @@ sleep 2
 log "== 6. 设置与全局面板 =="
 key Back
 sleep 2
-tap 1100 2690        # 底部「我的」
-sleep 3
-tap 1130 205         # 设置
-sleep 4
+if tap_until_ui_text 1100 2690 "设置"; then
+  ok "回到「我的」页"
+else
+  bad "回到「我的」页" "未出现「设置」入口"
+fi
+if tap_until_ui_text 1130 205 "基础设置"; then
+  ok "进入设置页"
+else
+  bad "进入设置页" "未出现分组标题「基础设置」"
+fi
 # 设置页滚动位置不定，先回到顶部再点「语言」
 for _ in 1 2 3 4 5; do swipe 630 600 630 2200 120; done
 sleep 2

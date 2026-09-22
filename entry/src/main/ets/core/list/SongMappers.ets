@@ -85,7 +85,8 @@ export function songRowToListItem(song: SongRowLike): MusicItem {
 }
 
 /** 列表行 -> 播放队列项（url 留空由播放器按索引取链） */
-export function songRowToQueueItem(song: SongRowLike, url: string = ''): SongInfo {
+export function songRowToQueueItem(song: SongRowLike, url: string = '', fallbackCover: string = ''): SongInfo {
+  const cover = song.pic.length > 0 ? song.pic : fallbackCover;
   return {
     id: song.id,
     songmid: song.songmid || song.id,
@@ -93,12 +94,33 @@ export function songRowToQueueItem(song: SongRowLike, url: string = ''): SongInf
     title: song.name,
     artist: song.singer,
     album: song.album,
-    artwork: song.pic.length > 0 ? song.pic : null,
+    artwork: cover.length > 0 ? cover : null,
     duration: song.duration,
     source: song.source,
     hash: song.hash,
     strMediaMid: song.strMediaMid,
     albumId: song.albumId,
     copyrightId: song.copyrightId,
+  };
+}
+
+/**
+ * 本地列表项 -> 播放队列项
+ *
+ * 队列补全时拿到的是 MusicItem（已经落库的形状），字段名与 SongRowLike 不同，
+ * 这里统一转换，避免各页面再手写一遍。
+ */
+export function musicItemToQueueItem(item: MusicItem, fallbackCover: string = ''): SongInfo {
+  const cover = item.pic.length > 0 ? item.pic : fallbackCover;
+  return {
+    id: item.id,
+    songmid: item.id,
+    url: '',
+    title: item.name,
+    artist: item.singer,
+    album: item.album,
+    artwork: cover.length > 0 ? cover : null,
+    duration: item.duration,
+    source: item.source,
   };
 }
