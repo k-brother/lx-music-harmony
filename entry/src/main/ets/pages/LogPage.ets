@@ -7,6 +7,7 @@ import { DesignTokens } from '../theme/DesignTokens';
 import { logService } from '../service/LogService';
 import { EmptyView } from '../components/common/EmptyView';
 import { NavBackButton } from '../components/common/NavBackButton';
+import { SegmentedBar } from '../components/ui/SegmentedBar';
 import { t, tf } from '../service/LocalizationService';
 import type { LogRecord } from '../core/log/LogStore';
 
@@ -176,28 +177,15 @@ export struct LogPage {
   @Builder
   private FilterBar() {
     Row() {
-      Row({ space: 2 }) {
-        ForEach(this.filterOptions(), (option: LogFilterOption) => {
-          Text(option.label)
-            .fontSize(13)
-            .fontWeight(this.filter === option.id ? FontWeight.Medium : FontWeight.Normal)
-            .fontColor(this.filter === option.id
-              ? DesignTokens.labelPrimary(this.theme)
-              : DesignTokens.labelSecondary(this.theme))
-            .padding({ left: 14, right: 14, top: 5, bottom: 5 })
-            .backgroundColor(this.filter === option.id ? DesignTokens.segmentedThumb(this.theme) : Color.Transparent)
-            .borderRadius(DesignTokens.radiusSearch())
-            .onClick(() => {
-              if (this.filter !== option.id) {
-                this.filter = option.id;
-                this.refresh();
-              }
-            })
-        })
-      }
-      .padding(2)
-      .backgroundColor(DesignTokens.segmentedTrack(this.theme))
-      .borderRadius(DesignTokens.radiusSearch())
+      SegmentedBar({
+        options: this.filterOptions(),
+        activeId: this.filter,
+        fillWidth: false,
+        onSelect: (id: string): void => {
+          this.filter = id;
+          this.refresh();
+        },
+      })
 
       Blank()
 

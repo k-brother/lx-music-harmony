@@ -9,6 +9,7 @@ import { common } from '@kit.AbilityKit';
 import { DesignTokens } from '../theme/DesignTokens';
 import { t , tf } from '../service/LocalizationService';
 import { playerService, SongInfo } from '../service/PlayerService';
+import { SegmentedBar } from '../components/ui/SegmentedBar';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'DownloadPage';
@@ -296,34 +297,21 @@ export struct DownloadPage {
 
   @Builder
   buildSegmentStrip() {
-    Row({ space: 8 }) {
-      this.FilterTabButton(0, `${t('download_all')} (${this.downloadTasks.length})`)
-      this.FilterTabButton(1, `${t('download_active')} (${this.countActiveTasks()})`)
-      this.FilterTabButton(2, `${t('download_completed')} (${this.countCompletedTasks()})`)
-      this.FilterTabButton(3, `${t('download_failed')} (${this.countFailedTasks()})`)
-    }
-    .width('100%')
-    .padding({ left: 12, right: 12, top: 6, bottom: 6 })
-  }
-
-  @Builder
-  FilterTabButton(index: number, text: string) {
-    Row() {
-      Text(text)
-        .fontSize(13)
-        .fontWeight(this.filterTabIndex === index ? FontWeight.Medium : FontWeight.Normal)
-        .fontColor(this.filterTabIndex === index ? DesignTokens.accent() : DesignTokens.labelSecondary(this.theme))
-    }
-    .layoutWeight(1)
-    .height(36)
-    .justifyContent(FlexAlign.Center)
-    .alignItems(VerticalAlign.Center)
-    .backgroundColor(this.filterTabIndex === index ? DesignTokens.accentSoft(this.theme) : 'rgba(0,0,0,0)')
-    .border({ width: 0.5, color: this.filterTabIndex === index ? DesignTokens.accentSoft(this.theme) : DesignTokens.cardBorder(this.theme) })
-    .borderRadius(10)
-    .onClick(() => {
-      this.filterTabIndex = index;
+    // 统一分段控件（chip 变体），样式与其它页一致
+    SegmentedBar({
+      variant: 'chip',
+      options: [
+        { id: '0', label: `${t('download_all')} (${this.downloadTasks.length})` },
+        { id: '1', label: `${t('download_active')} (${this.countActiveTasks()})` },
+        { id: '2', label: `${t('download_completed')} (${this.countCompletedTasks()})` },
+        { id: '3', label: `${t('download_failed')} (${this.countFailedTasks()})` },
+      ],
+      activeId: this.filterTabIndex.toString(),
+      onSelect: (id: string): void => {
+        this.filterTabIndex = parseInt(id, 10);
+      },
     })
+    .padding({ left: 12, right: 12, top: 6, bottom: 6 })
   }
 
   @Builder

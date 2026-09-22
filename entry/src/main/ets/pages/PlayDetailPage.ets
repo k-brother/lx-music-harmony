@@ -32,6 +32,7 @@ import { MoreActionsSheet, type PlayActionRow } from './PlayDetail/MoreActionsSh
 import { VolumeSheet } from './PlayDetail/VolumeSheet';
 import { QueueSheet } from './PlayDetail/QueueSheet';
 import { SourceSwitchSheet } from './PlayDetail/SourceSwitchSheet';
+import { SegmentedBar } from '../components/ui/SegmentedBar';
 import {
   showSpeedMenu,
   showLyricOffsetMenu,
@@ -1110,37 +1111,25 @@ export struct PlayDetailPage {
   @Builder
   TabSwitchBar() {
     Row() {
-      Text(t('play_tab_cover'))
-        .layoutWeight(1)
-        .textAlign(TextAlign.Center)
-        .fontSize(DesignTokens.fontBody())
-        .fontWeight(this.currentTab === 0 ? FontWeight.Medium : FontWeight.Normal)
-        .fontColor(this.currentTab === 0 ? DesignTokens.labelPrimary(this.theme) : DesignTokens.labelSecondary(this.theme))
-        .padding({ top: 6, bottom: 6 })
-        .backgroundColor(this.currentTab === 0 ? DesignTokens.segmentedThumb(this.theme) : Color.Transparent)
-        .borderRadius(DesignTokens.radiusSearch())
-        .onClick(() => {
-          this.switchToCoverTab();
-        })
-      Text(t('play_tab_lyric'))
-        .layoutWeight(1)
-        .textAlign(TextAlign.Center)
-        .fontSize(DesignTokens.fontBody())
-        .fontWeight(this.currentTab === 1 ? FontWeight.Medium : FontWeight.Normal)
-        .fontColor(this.currentTab === 1 ? DesignTokens.labelPrimary(this.theme) : DesignTokens.labelSecondary(this.theme))
-        .padding({ top: 6, bottom: 6 })
-        .backgroundColor(this.currentTab === 1 ? DesignTokens.segmentedThumb(this.theme) : Color.Transparent)
-        .borderRadius(DesignTokens.radiusSearch())
-        .onClick(() => {
-          this.switchToLyricTab();
-        })
+      SegmentedBar({
+        options: [
+          { id: 'cover', label: t('play_tab_cover') },
+          { id: 'lyric', label: t('play_tab_lyric') },
+        ],
+        activeId: this.currentTab === 0 ? 'cover' : 'lyric',
+        equalWidth: true,
+        fontSize: DesignTokens.fontBody(),
+        onSelect: (id: string): void => {
+          if (id === 'cover') {
+            this.switchToCoverTab();
+          } else {
+            this.switchToLyricTab();
+          }
+        },
+      })
     }
     .width(176)
-    .padding(2)
-    .backgroundColor(DesignTokens.segmentedTrack(this.theme))
-    .borderRadius(DesignTokens.radiusSearch())
     .margin({ top: 8, bottom: 10 })
-    .justifyContent(FlexAlign.Center)
   }
 
   /** 封面：组件负责展示与手势，失败重试/降级仍由页面处理 */

@@ -14,6 +14,7 @@ import { RouteName, navigateTo, NavigationParams } from '../../service/Navigatio
 import { DesignTokens } from '../../theme/DesignTokens';
 import { SearchStrip, SearchStripActions } from '../../components/common/SearchStrip';
 import { SkeletonGridItem } from '../../components/common/SkeletonView';
+import { SegmentedBar, type SegmentOption } from '../../components/ui/SegmentedBar';
 
 // 排序选项接口
 interface SortOption {
@@ -469,28 +470,28 @@ export struct SongListView {
     .backgroundColor(DesignTokens.pageBg(this.theme))
   }
 
+  /** 排序选项 -> 通用分段控件数据 */
+  private sortSegments(): SegmentOption[] {
+    const segments: SegmentOption[] = [];
+    for (const option of this.sortOptions) {
+      segments.push({ id: option.tid, label: option.name });
+    }
+    return segments;
+  }
+
   @Builder
   FilterBar() {
     Scroll() {
       Row() {
-        // 排序：UISegmentedControl 式轨道 + 浮起选中块
-        Row() {
-          ForEach(this.sortOptions, (option: SortOption) => {
-            Text(option.name)
-              .fontSize(13)
-              .fontColor(this.selectedSort === option.tid ? DesignTokens.labelPrimary(this.theme) : DesignTokens.labelSecondary(this.theme))
-              .fontWeight(this.selectedSort === option.tid ? FontWeight.Medium : FontWeight.Normal)
-              .padding({ left: 14, right: 14, top: 5, bottom: 5 })
-              .backgroundColor(this.selectedSort === option.tid ? DesignTokens.segmentedThumb(this.theme) : Color.Transparent)
-              .borderRadius(DesignTokens.radiusSearch())
-              .onClick(() => {
-                this.onSortChange(option.tid);
-              })
-          })
-        }
-        .padding(2)
-        .backgroundColor(DesignTokens.segmentedTrack(this.theme))
-        .borderRadius(DesignTokens.radiusSearch())
+        // 排序：统一分段控件（轨道 + 浮起选中块）
+        SegmentedBar({
+          options: this.sortSegments(),
+          activeId: this.selectedSort,
+          fillWidth: false,
+          onSelect: (id: string): void => {
+            this.onSortChange(id);
+          },
+        })
 
         if (this.tagOptions.length > 1) {
           Column()

@@ -88,6 +88,11 @@ CHECKS = [
  ('触感反馈接入交互点', 'components/player/PlayerBar.ets', r'hapticService\.'),
  ('触感反馈设置项', 'pages/Home/Setting/BasicSection.ets', r'hapticFeedback'),
  ('触感反馈权限声明', '../module.json5', r'ohos\.permission\.VIBRATE'),
+ ('统一分段控件组件', 'components/ui/SegmentedBar.ets', r'export struct SegmentedBar'),
+ ('下载页用统一分段控件', 'pages/DownloadPage.ets', r'SegmentedBar\('),
+ ('运行日志用统一分段控件', 'pages/LogPage.ets', r'SegmentedBar\('),
+ ('播放页用统一分段控件', 'pages/PlayDetailPage.ets', r'SegmentedBar\('),
+ ('歌单排序用统一分段控件', 'pages/Home/SongListView.ets', r'SegmentedBar\('),
 ]
 
 fails = []
