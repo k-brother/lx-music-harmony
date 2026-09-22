@@ -72,7 +72,7 @@ export struct MoreActionsSheet {
     BottomSheet({
       visible: $visible,
       title: this.title,
-      maxHeightPercent: '72%',
+      sheetSize: 'large',
       content: (): void => {
         this.Content();
       },

@@ -15,23 +15,13 @@ import { SelectSheet } from './SelectSheet';
 import { InputSheet } from './InputSheet';
 import type { SettingOption, SettingSectionItem } from './SettingsTypes';
 import { hapticService } from '../../service/HapticService';
+import { sheetService, type SheetOption } from '../../service/SheetService';
 
 @Component
 export struct SettingsSection {
   @StorageProp('theme') theme: string = 'light';
   @Prop title: string = '';
   @Prop items: SettingSectionItem[] = [];
-
-  // select / input 的弹层状态（分组组件无需感知）
-  @State showSelect: boolean = false;
-  @State selectTitle: string = '';
-  @State selectOptions: SettingOption[] = [];
-  @State selectValue: string = '';
-  @State showInput: boolean = false;
-  @State inputTitle: string = '';
-  @State inputValue: string = '';
-  @State inputNumberOnly: boolean = false;
-  private pendingChange: ((value: string) => void) | null = null;
 
   @Styles
   pressed() {
@@ -51,26 +41,35 @@ export struct SettingsSection {
   }
 
   private openSelect(item: SettingSectionItem): void {
-    if (!item.options || item.options.length === 0 || !item.onChange) {
+    const options = item.options;
+    const onChange = item.onChange;
+    if (!options || options.length === 0 || !onChange) {
       return;
     }
-    this.pendingChange = item.onChange;
-    this.selectTitle = item.title;
-    this.selectOptions = item.options;
-    this.selectValue = item.value as string;
-    this.showSelect = true;
+    // 走全局面板：设置分组在 Scroll 内，自己挂浮层会被 BottomSheet 定位裁剪
+    const sheetOptions: SheetOption[] = options.map((option: SettingOption): SheetOption => {
+      const mapped: SheetOption = { label: option.label, value: option.value };
+      return mapped;
+    });
+    sheetService.select(item.title, sheetOptions, item.value as string).then((value: string): void => {
+      if (value.length > 0) {
+        onChange(value);
+      }
+    });
   }
 
   private openInput(item: SettingSectionItem): void {
-    if (!item.onChange) {
+    const onChange = item.onChange;
+    if (!onChange) {
       return;
     }
-    this.pendingChange = item.onChange;
-    this.inputTitle = item.title;
-    this.inputValue = item.value as string;
     // 数字类设置（并发数、历史条数、字号…）用数字键盘
-    this.inputNumberOnly = this.isNumericValue(item.value);
-    this.showInput = true;
+    const numberOnly = this.isNumericValue(item.value);
+    sheetService.input(item.title, item.value as string, item.title, numberOnly).then((value: string): void => {
+      if (value.length > 0) {
+        onChange(value);
+      }
+    });
   }
 
   private isNumericValue(value: string | boolean | undefined): boolean {
@@ -177,34 +176,6 @@ export struct SettingsSection {
       }
       .width('100%')
 
-      if (this.showSelect) {
-        SelectSheet({
-          visible: $showSelect,
-          title: this.selectTitle,
-          options: this.selectOptions,
-          value: this.selectValue,
-          onPick: (value: string): void => {
-            if (this.pendingChange) {
-              this.pendingChange(value);
-            }
-          },
-        })
-      }
-
-      if (this.showInput) {
-        InputSheet({
-          visible: $showInput,
-          title: this.inputTitle,
-          placeholder: this.inputTitle,
-          value: this.inputValue,
-          numberOnly: this.inputNumberOnly,
-          onSubmit: (value: string): void => {
-            if (this.pendingChange) {
-              this.pendingChange(value);
-            }
-          },
-        })
-      }
     }
     .width('100%')
   }

@@ -74,9 +74,6 @@ CHECKS = [
  ('酷我歌词 zlib 解压(原生)', 'core/napi/napi_inflate.ets', r'zlibInflate'),
  ('二进制 HTTP 请求入口', 'core/network/http/HttpClient.ets', r'httpRequestBinary'),
  ('下载页多选批量栏已挂载', 'pages/DownloadPage.ets', r'this\.buildToolbar\(\)'),
- # 面板必须「条件渲染 + 绝对定位」，否则放进页面 Column 会把正文挤扁（历史缺陷）
- ('底部面板条件渲染', 'components/ui/BottomSheet.ets', r'if \(this\.visible\)'),
- ('底部面板绝对定位', 'components/ui/BottomSheet.ets', r'position\(\{ x: 0, y: 0 \}\)'),
  ('系统歌词:会话就绪后接管', 'service/BackgroundRunningManager.ets',
   r'pendingSystemDesktopLyric|notifySessionReady'),
  ('系统歌词:显式置为可见', 'service/BackgroundRunningManager.ets', r'setDesktopLyricVisible\(enable\)'),
@@ -106,6 +103,11 @@ CHECKS = [
  ('系统符号用 SymbolGlyph 渲染', 'components/ui/StateView.ets', r'SymbolGlyph\('),
  ('底部 Tab 图标用 SymbolGlyph', 'pages/Home/Home/HomeBottomTabBar.ets', r'SymbolGlyph\(tab\.icon\)'),
  ('空态图标用 SymbolGlyph', 'components/common/EmptyView.ets', r'SymbolGlyph\(this\.iconRes\)'),
+ ('底部面板用系统 bindSheet', 'components/ui/BottomSheet.ets', r'bindSheet\(\$\$this\.visible'),
+ ('全局面板宿主', 'components/ui/SheetHost.ets', r'export struct SheetHost'),
+ ('全局面板服务', 'service/SheetService.ets', r'export const sheetService'),
+ ('面板宿主挂在根节点', 'pages/NavIndex.ets', r'SheetHost\(\)'),
+ ('设置项走全局面板', 'components/ui/SettingsSection.ets', r'sheetService\.(select|input)'),
 ]
 
 fails = []

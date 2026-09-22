@@ -18,6 +18,15 @@ export struct InputSheet {
   /** 键盘类型：普通文本 / 数字（下载并发数等） */
   @Prop numberOnly: boolean = false;
   onSubmit?: (value: string) => void;
+  /** 关闭（点遮罩/取消） */
+  onCancel?: () => void;
+
+  private cancel(): void {
+    this.visible = false;
+    if (this.onCancel) {
+      this.onCancel();
+    }
+  }
 
   @State draft: string = '';
 
@@ -29,6 +38,9 @@ export struct InputSheet {
     BottomSheet({
       visible: $visible,
       title: this.title,
+      onDismiss: (): void => {
+        this.cancel();
+      },
       content: (): void => {
         this.Form();
       },
@@ -61,7 +73,7 @@ export struct InputSheet {
           .fontColor(DesignTokens.labelSecondary(this.theme))
           .backgroundColor(DesignTokens.mutedFill(this.theme))
           .onClick(() => {
-            this.visible = false;
+            this.cancel();
           })
         Button(t('confirm'))
           .type(ButtonType.Capsule)

@@ -96,7 +96,7 @@ export struct SourceSwitchSheet {
     BottomSheet({
       visible: $visible,
       title: t('switch_source'),
-      maxHeightPercent: '70%',
+      sheetSize: 'large',
       content: (): void => {
         this.Content();
       },

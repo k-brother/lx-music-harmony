@@ -1,15 +1,13 @@
 /**
  * 统一底部面板（Bottom Sheet）
  *
- * 取代各页面手写的「Stack + 半透明遮罩 + 圆角 Column + onClick 空实现」：
- * - 遮罩点击关闭、面板内点击不冒泡
- * - 圆角、拖拽把手、安全区底部内边距统一
- * - 出现/消失带统一动效（translate + opacity），符合商业化 App 的手感
+ * 取代各页面手写的「Stack + 半透明遮罩 + 圆角 Column」。
  *
- * 布局约定：面板必须「脱离文档流」覆盖在页面上。
- * 早期版本无论 visible 真假都渲染一个满屏 Stack，调用方把它放进页面 Column 后
- * 会把正文挤扁、面板本身也被顶到屏幕外（歌单排序面板点开无反应就是这个原因），
- * 因此这里用 `visible` 条件渲染 + `position({x:0,y:0})` 固定为浮层。
+ * 实现要点：底层用系统 `bindSheet`，把面板交给窗口级浮层渲染。
+ * 早期版本自己画满屏 Stack，挂在页面 Column 里会把正文挤扁；
+ * 改成 `position({x:0,y:0})` 后又会被 Scroll 容器裁剪（设置页点选项没反应就是这个原因）。
+ * `bindSheet` 由系统承载，挂在任何位置都不会被裁剪，并自带遮罩、圆角、
+ * 下拉关闭与安全区处理，与系统应用的手感一致。
  */
 import { DesignTokens } from '../../theme/DesignTokens';
 
@@ -20,58 +18,50 @@ export struct BottomSheet {
   @Link visible: boolean;
   /** 面板内容 */
   @BuilderParam content: () => void;
-  /** 标题（可空；为空时不显示标题行和把手） */
+  /** 标题（可空） */
   @Prop title: string = '';
-  /** 面板最大高度占比（字符串百分比，默认 70%） */
-  @Prop maxHeightPercent: string = '70%';
+  /** 展开高度档位：medium（半屏，默认）/ large（接近全屏） */
+  @Prop sheetSize: string = 'medium';
+  /** 被关闭（点遮罩/下拉）时的回调，用于区分「取消」与「完成」 */
+  onDismiss?: () => void;
+
+  @Builder
+  SheetContent() {
+    Column() {
+      if (this.title.length > 0) {
+        Text(this.title)
+          .fontSize(17)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(DesignTokens.labelPrimary(this.theme))
+          .width('100%')
+          .textAlign(TextAlign.Center)
+          .padding({ bottom: 10 })
+      }
+
+      this.content()
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 4, bottom: 16 })
+  }
 
   build() {
-    if (this.visible) {
-      Stack({ alignContent: Alignment.Bottom }) {
-        Column()
-          .width('100%')
-          .height('100%')
-          .backgroundColor('rgba(0, 0, 0, 0.42)')
-          .onClick(() => {
-            this.visible = false;
-          })
-
-        Column() {
-          // 拖拽把手（视觉暗示可下拉关闭）
-          Row()
-            .width(36)
-            .height(4)
-            .borderRadius(2)
-            .backgroundColor(DesignTokens.mutedFill(this.theme))
-            .margin({ top: 8, bottom: 6 })
-
-          if (this.title.length > 0) {
-            Text(this.title)
-              .fontSize(17)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(DesignTokens.labelPrimary(this.theme))
-              .width('100%')
-              .textAlign(TextAlign.Center)
-              .padding({ bottom: 8 })
+    // 锚点：真正的面板由 bindSheet 渲染在窗口浮层上。
+    // 锚点需要是有效尺寸的节点，否则 bindSheet 不会挂载（这里是 1×1 的透明占位）。
+    Column()
+      .width(1)
+      .height(1)
+      .opacity(0)
+      .bindSheet($$this.visible, this.SheetContent(), {
+        height: this.sheetSize === 'large' ? SheetSize.LARGE : SheetSize.MEDIUM,
+        dragBar: true,
+        showClose: false,
+        backgroundColor: DesignTokens.card(this.theme),
+        maskColor: 'rgba(0, 0, 0, 0.42)',
+        onDisappear: (): void => {
+          if (this.onDismiss) {
+            this.onDismiss();
           }
-
-          this.content()
-        }
-        .width('100%')
-        .constraintSize({ maxHeight: this.maxHeightPercent })
-        .padding({ left: 16, right: 16, bottom: 16 })
-        .backgroundColor(DesignTokens.card(this.theme))
-        .borderRadius({ topLeft: DesignTokens.radiusSheet(), topRight: DesignTokens.radiusSheet() })
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
-        .onClick(() => {
-        })
-        .transition(TransitionEffect.OPACITY.animation({ duration: DesignTokens.motionNormal() })
-          .combine(TransitionEffect.translate({ y: 40 }).animation({ duration: DesignTokens.motionNormal(), curve: Curve.EaseOut })))
-      }
-      .width('100%')
-      .height('100%')
-      .position({ x: 0, y: 0 })
-      .zIndex(100)
-    }
+        },
+      })
   }
 }

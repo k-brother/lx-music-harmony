@@ -17,11 +17,23 @@ export struct SelectSheet {
   @Prop options: SettingOption[] = [];
   @Prop value: string = '';
   onPick?: (value: string) => void;
+  /** 关闭（点遮罩/取消）：调用方据此按「未修改」处理 */
+  onCancel?: () => void;
+
+  private cancel(): void {
+    this.visible = false;
+    if (this.onCancel) {
+      this.onCancel();
+    }
+  }
 
   build() {
     BottomSheet({
       visible: $visible,
       title: this.title,
+      onDismiss: (): void => {
+        this.cancel();
+      },
       content: (): void => {
         this.Options();
       },
@@ -74,7 +86,7 @@ export struct SelectSheet {
       .backgroundColor(DesignTokens.mutedFill(this.theme))
       .margin({ top: 12 })
       .onClick(() => {
-        this.visible = false;
+        this.cancel();
       })
   }
 }

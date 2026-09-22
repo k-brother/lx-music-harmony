@@ -87,7 +87,7 @@ export struct QueueSheet {
     BottomSheet({
       visible: $visible,
       title: tf('play_queue_count', [this.queue.length.toString()]),
-      maxHeightPercent: '72%',
+      sheetSize: 'large',
       content: (): void => {
         this.Content();
       },

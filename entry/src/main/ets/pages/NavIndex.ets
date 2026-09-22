@@ -22,6 +22,7 @@ import { setAppUiContext } from '../service/UiContext';
 import { settingsService } from '../service/SettingsService';
 import { on, EventTypes } from '../service/EventBus';
 import { playerService } from '../service/PlayerService';
+import { SheetHost } from '../components/ui/SheetHost';
 
 
 @Component
@@ -93,6 +94,9 @@ export struct NavIndex {
       }
       .hideTitleBar(true)
       .navDestination(this.buildRouteMap)
+
+      // 全局面板宿主：命令式面板（设置项选择/输入等）统一挂在这里，避免被 Scroll 裁剪
+      SheetHost()
 
       // 首次启动：未同意许可协议前全屏拦截（对齐安卓版 PactModal）
       if (this.showPact) {
