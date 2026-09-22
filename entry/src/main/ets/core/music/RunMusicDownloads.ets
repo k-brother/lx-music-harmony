@@ -612,7 +612,7 @@ async function startActualDownload(task: DownloadTask, onProgress?: DownloadProg
 export async function startDownload(params: StartDownloadParams): Promise<string> {
   const musicInfo: MusicInfo = params.musicInfo;
   // 未显式指定音质时，跟随"高品质音乐"设置
-  const quality: Quality = params.quality ?? (settingsService.get().highQuality ? 'flac24bit' : '128k');
+  const quality: Quality = params.quality ?? settingsService.get().playQuality;
   const taskId: string = generateTaskId(musicInfo);
   const originalOnProgress: DownloadProgressCallback | undefined = params.onProgress;
 

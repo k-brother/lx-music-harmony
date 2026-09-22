@@ -2,7 +2,10 @@
 // 顶部音乐源 Tab；全局搜歌仅在「歌单」Tab 内容区上方（与排行榜页内搜索条样式一致）
 
 import hilog from '@ohos.hilog';
-import { EmptyView } from '../components/common/EmptyView';
+import { SourceTabBar } from './Home/Home/SourceTabBar';
+import { HomeBottomTabBar, type HomeTabItem } from './Home/Home/HomeBottomTabBar';
+import { SearchMusicResultList, SearchSonglistResultList } from './Home/Home/SearchResultLists';
+import { StateView } from '../components/ui/StateView';
 import { searchMusic, getHotSearch, HotSearchItem, Source } from '../core/search/search';
 
 // 导入播放器栏组件
@@ -20,7 +23,7 @@ import { formatPlayTime } from '../utils/CommonUtils';
 import { playerService, SongInfo } from '../service/PlayerService';
 import { DesignTokens } from '../theme/DesignTokens';
 import { SearchStripActions } from '../components/common/SearchStrip';
-import { t } from '../service/LocalizationService';
+import { t, sourceLabel } from '../service/LocalizationService';
 import { settingsService } from '../service/SettingsService';
 import {
   addHistoryWord,
@@ -97,6 +100,8 @@ export struct HomePage {
   @State songlistResults: SonglistSearchResult[] = [];
   @State searchHistory: string[] = [];
   @State showHotSearchSetting: boolean = true;
+  /** 是否显示搜索历史（设置 → 搜索设置） */
+  @State showSearchHistorySetting: boolean = false;
 
   // 当前音乐源（默认值来自「设置 -> 搜索设置 -> 默认搜索源」）
   @State currentSource: string = 'kw';
@@ -109,6 +114,7 @@ export struct HomePage {
   private onPlayerMusicInfoChanged: ((data: string) => void) | null = null;
   private desktopLyricUnsub: (() => void) | null = null;
   private settingsUnsub: (() => void) | null = null;
+  private searchRequestUnsub: (() => void) | null = null;
 
   // 搜索请求版本控制，防止竞态
   private searchEpoch: number = 0;
@@ -123,12 +129,13 @@ export struct HomePage {
 
   // 音乐源选项（getter 保证每次调用重新执行 t()）
   private getSourceOptions(): SourceOption[] {
+    // 名称统一走 sourceLabel：跟随「设置 → 源名显示」（别名/原名）
     return [
-      { id: 'kw', name: t('source_kw_short') },
-      { id: 'tx', name: t('source_tx') },
-      { id: 'wy', name: t('source_wy_short') },
-      { id: 'kg', name: t('source_kg_short') },
-      { id: 'mg', name: t('source_mg_short') },
+      { id: 'kw', name: sourceLabel('kw') },
+      { id: 'tx', name: sourceLabel('tx') },
+      { id: 'wy', name: sourceLabel('wy') },
+      { id: 'kg', name: sourceLabel('kg') },
+      { id: 'mg', name: sourceLabel('mg') },
     ];
   }
 
@@ -164,6 +171,26 @@ export struct HomePage {
     this.settingsUnsub = on(EventTypes.SETTING_CHANGED, (): void => {
       this.applySearchSettings();
     });
+    // 其他页面（如歌单详情「查看歌手/专辑」）请求首页发起搜索
+    this.searchRequestUnsub = on(EventTypes.SEARCH_REQUEST, (data?: Object): void => {
+      this.applyExternalSearchRequest(data);
+    });
+  }
+
+  /** 外部搜索请求：切到搜索页并用关键词发起一次搜索 */
+  private applyExternalSearchRequest(data?: Object): void {
+    if (!data) {
+      return;
+    }
+    const keyword = (data as Record<string, Object>)['keyword'];
+    if (typeof keyword !== 'string' || keyword.trim().length === 0) {
+      return;
+    }
+    this.searchType = 'music';
+    this.searchText = keyword.trim();
+    this.openSearch();
+    this.searchViewState = SearchViewState.RESULT;
+    void this.doSearch();
   }
 
   /** 读取搜索设置：默认搜索源与热搜开关 */
@@ -175,6 +202,7 @@ export struct HomePage {
       this.currentSource = savedSource;
     }
     this.showHotSearchSetting = settings.showHotSearch;
+    this.showSearchHistorySetting = settings.showSearchHistory;
   }
 
   private async loadSearchHistory(): Promise<void> {
@@ -212,6 +240,10 @@ export struct HomePage {
     if (this.settingsUnsub) {
       this.settingsUnsub();
       this.settingsUnsub = null;
+    }
+    if (this.searchRequestUnsub) {
+      this.searchRequestUnsub();
+      this.searchRequestUnsub = null;
     }
   }
 
@@ -426,34 +458,14 @@ export struct HomePage {
     Column() {
       Row() {
         if (this.currentTab === 0 || this.currentTab === 1) {
-          Row() {
-            ForEach(this.getSourceOptions(), (source: SourceOption) => {
-              Text(source.name)
-                .layoutWeight(1)
-                .textAlign(TextAlign.Center)
-                .fontSize(16)
-                .fontColor(this.currentSource === source.id ? DesignTokens.accent() : DesignTokens.labelSecondary(this.theme))
-                .fontWeight(this.currentSource === source.id ? FontWeight.Medium : FontWeight.Normal)
-                .padding({ top: 8, bottom: 8 })
-                .onClick(() => {
-                  if (this.currentSource === source.id || this.sourceSwitchLocked) {
-                    return;
-                  }
-                  this.sourceSwitchLocked = true;
-                  this.sourceContentEpoch++;
-                  this.currentSource = source.id;
-                  setTimeout((): void => {
-                    this.sourceSwitchLocked = false;
-                  }, 180);
-                  if (this.searchViewState === SearchViewState.INPUT) {
-                    void this.loadHotSearch();
-                  }
-                })
-            })
-          }
-          .layoutWeight(1)
-          .padding({ left: DesignTokens.spaceGutter() - 4, right: DesignTokens.spaceGutter() - 4 })
-          .alignItems(VerticalAlign.Center)
+          // 音源切换：横向滚动标签 + 选中下划线（组件化）
+          SourceTabBar({
+            options: this.getSourceOptions(),
+            activeId: this.currentSource,
+            onSelect: (id: string): void => {
+              this.onSourceSelected(id);
+            },
+          })
         } else if (this.currentTab === 2) {
           Column() {
             Text(t('download_title'))
@@ -476,7 +488,7 @@ export struct HomePage {
               .fontSize(24)
               .fontWeight(FontWeight.Bold)
               .fontColor(DesignTokens.labelPrimary(this.theme))
-            .layoutWeight(1)
+              .layoutWeight(1)
               .padding({ left: DesignTokens.spaceGutter() })
 
             Text(t('settings_title'))
@@ -484,10 +496,10 @@ export struct HomePage {
               .fontWeight(FontWeight.Medium)
               .fontColor(DesignTokens.accent())
               .padding({ left: 8, right: 4, top: 6, bottom: 6 })
-            .margin({ right: DesignTokens.spaceGutter() })
-            .onClick(() => {
-              navigationService.navigateTo(RouteName.SETTINGS);
-            })
+              .margin({ right: DesignTokens.spaceGutter() })
+              .onClick(() => {
+                navigationService.navigateTo(RouteName.SETTINGS);
+              })
           }
           .width('100%')
           .layoutWeight(1)
@@ -502,6 +514,22 @@ export struct HomePage {
     .width('100%')
     .backgroundColor(DesignTokens.chromeBar(this.theme))
     .border({ width: { bottom: 0.33 }, color: DesignTokens.hairlineSeparator(this.theme) })
+  }
+
+  /** 切换音源：加锁避免连点导致内容区反复重建 */
+  private onSourceSelected(id: string): void {
+    if (this.currentSource === id || this.sourceSwitchLocked) {
+      return;
+    }
+    this.sourceSwitchLocked = true;
+    this.sourceContentEpoch++;
+    this.currentSource = id;
+    setTimeout((): void => {
+      this.sourceSwitchLocked = false;
+    }, 180);
+    if (this.searchViewState === SearchViewState.INPUT) {
+      void this.loadHotSearch();
+    }
   }
 
   // 搜索面板（覆盖在内容区上方）
@@ -569,8 +597,8 @@ export struct HomePage {
   @Builder
   SearchInputContent() {
     Column() {
-      // 搜索历史（条数由「设置 -> 搜索设置 -> 搜索历史数量」决定）
-      if (this.searchHistory.length > 0) {
+      // 搜索历史：显示开关与条数分别由「设置 → 搜索设置」决定（对齐安卓版 search.isShowHistorySearch）
+      if (this.showSearchHistorySetting && this.searchHistory.length > 0) {
         Row() {
           Text(t('search_history'))
             .fontSize(13)
@@ -690,78 +718,19 @@ export struct HomePage {
   }
 
   /** 歌单搜索结果列表 */
+  /** 歌单结果列表（组件化，空态统一） */
   @Builder
   SonglistResultList() {
-    if (this.songlistResults.length === 0) {
-      EmptyView({ icon: '🔍', message: t('search_no_result') })
-        .width('100%')
-        .layoutWeight(1)
-    } else {
-      List() {
-        ForEach(this.songlistResults, (item: SonglistSearchResult) => {
-          ListItem() {
-            Row() {
-              Image(item.pic)
-                .width(56)
-                .height(56)
-                .borderRadius(8)
-                .objectFit(ImageFit.Cover)
-                .backgroundColor(DesignTokens.mutedFill(this.theme))
-
-              Column() {
-                Text(item.name)
-                  .fontSize(15)
-                  .fontColor(DesignTokens.labelPrimary(this.theme))
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  .width('100%')
-                  .textAlign(TextAlign.Start)
-                Text(`${item.author}${item.playCount > 0 ? ' · ' + this.formatPlayCount(item.playCount) : ''}`)
-                  .fontSize(12)
-                  .fontColor(DesignTokens.labelTertiary(this.theme))
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  .width('100%')
-                  .textAlign(TextAlign.Start)
-                  .margin({ top: 4 })
-              }
-              .layoutWeight(1)
-              .alignItems(HorizontalAlign.Start)
-              .margin({ left: 12 })
-
-              Image($r('sys.symbol.chevron_right'))
-                .width(14)
-                .height(14)
-                .fillColor(DesignTokens.labelTertiary(this.theme))
-            }
-            .width('100%')
-            .padding({
-              left: DesignTokens.spaceGutter(),
-              right: DesignTokens.spaceGutter(),
-              top: 10,
-              bottom: 10,
-            })
-            .onClick(() => {
-              this.openSonglist(item);
-            })
-          }
-        }, (item: SonglistSearchResult) => `${item.source}_${item.id}`)
-      }
-      .width('100%')
-      .layoutWeight(1)
-    }
+    SearchSonglistResultList({
+      results: this.songlistResults,
+      onOpen: (index: number): void => {
+        if (index >= 0 && index < this.songlistResults.length) {
+          this.openSonglist(this.songlistResults[index]);
+        }
+      },
+    })
   }
 
-  /** 播放次数格式化（列表用） */
-  private formatPlayCount(count: number): string {
-    if (count >= 100000000) {
-      return `${(count / 100000000).toFixed(1)}${t('billion_unit')}`;
-    }
-    if (count >= 10000) {
-      return `${(count / 10000).toFixed(1)}${t('ten_thousand_unit')}`;
-    }
-    return count.toString();
-  }
 
   // 搜索结果界面
   @Builder
@@ -776,70 +745,20 @@ export struct HomePage {
       .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter(), top: 4, bottom: 8 })
 
       if (this.isSearching) {
-        Column() {
-          LoadingProgress()
-            .width(32)
-            .height(32)
-            .color(DesignTokens.accent())
-          Text(t('loading'))
-            .fontSize(15)
-            .fontColor(DesignTokens.labelSecondary(this.theme))
-            .margin({ top: 12 })
-        }
-        .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-      } else if (this.searchType === 'songlist') {
-        this.SonglistResultList()
-      } else if (this.searchResults.length === 0) {
-        EmptyView({ icon: '🔍', message: t('search_no_result') })
+        StateView({ state: 'loading' })
           .width('100%')
           .layoutWeight(1)
+      } else if (this.searchType === 'songlist') {
+        this.SonglistResultList()
       } else {
-        List() {
-          ForEach(this.searchResults, (item: SearchResultItem) => {
-            ListItem() {
-              Row() {
-                Column() {
-                  Text(item.name)
-                    .fontSize(16)
-                    .fontWeight(FontWeight.Medium)
-                    .fontColor(DesignTokens.labelPrimary(this.theme))
-                    .maxLines(1)
-                  Text(item.singer + ' · ' + item.album)
-                    .fontSize(14)
-                    .fontColor(DesignTokens.labelSecondary(this.theme))
-                    .maxLines(1)
-                    .margin({ top: 4 })
-                }
-                .alignItems(HorizontalAlign.Start)
-                .layoutWeight(1)
-
-                Text(this.getSourceName(item.source))
-                  .fontSize(12)
-                  .fontWeight(FontWeight.Medium)
-                  .fontColor(DesignTokens.accent())
-                  .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-                  .backgroundColor(DesignTokens.accentSoft(this.theme))
-                  .borderRadius(DesignTokens.radiusSearch())
-              }
-              .width('100%')
-              .padding({
-                left: DesignTokens.spaceGutter(),
-                right: DesignTokens.spaceGutter(),
-                top: 12,
-                bottom: 12,
-              })
-              .border({ width: { bottom: 0.33 }, color: DesignTokens.hairlineSeparator(this.theme) })
+        SearchMusicResultList({
+          results: this.searchResults,
+          onPlay: (index: number): void => {
+            if (index >= 0 && index < this.searchResults.length) {
+              void this.playSearchResult(this.searchResults[index]);
             }
-            .onClick(() => {
-              void this.playSearchResult(item);
-            })
-          })
-        }
-        .width('100%')
-        .layoutWeight(1)
-        .backgroundColor(DesignTokens.pageBg(this.theme))
+          },
+        })
       }
     }
     .width('100%')
@@ -847,17 +766,42 @@ export struct HomePage {
   }
 
   getSourceName(sourceId: string): string {
-    if (sourceId === 'kw') return t('source_kw_short');
-    if (sourceId === 'tx') return t('source_tx');
-    if (sourceId === 'wy') return t('source_wy_short');
-    if (sourceId === 'kg') return t('source_kg_short');
-    if (sourceId === 'mg') return t('source_mg_short');
-    return sourceId;
+    // 与源切换器保持一致：别名/原名随设置变化
+    return sourceId === 'all' ? sourceLabel('all') : sourceLabel(sourceId);
   }
 
   /** 搜索overlay内：点击搜索结果行播放 */
   async playSearchResult(item: SearchResultItem): Promise<void> {
     try {
+      // 队列 = 当前搜索结果列表（临时队列，不写入用户列表）
+      // 这样「下一首/上一首」可以在结果里连续播放，且不会静默改动用户数据
+      if (this.searchResults.length > 1) {
+        const queue: SongInfo[] = [];
+        let startIndex = 0;
+        for (let i = 0; i < this.searchResults.length; i++) {
+          const r = this.searchResults[i];
+          if (r.id === item.id && r.source === item.source) {
+            startIndex = i;
+          }
+          queue.push({
+            id: r.id,
+            songmid: r.songmid || r.id,
+            url: '',
+            title: r.name,
+            artist: r.singer,
+            album: r.album,
+            artwork: r.pic || null,
+            duration: r.duration > 0 ? r.duration : 0,
+            source: r.source,
+            hash: r.hash,
+            strMediaMid: r.strMediaMid,
+            songId: r.songId,
+            albumId: r.albumId,
+            copyrightId: r.copyrightId,
+          });
+        }
+        playerService.setPlayList(queue, startIndex);
+      }
       const src = item.source as MusicSource;
       const musicInfo: MusicInfo = {
         id: item.id,
@@ -917,56 +861,26 @@ export struct HomePage {
     }
   }
 
-  @Builder
-  MainTabItem(index: number, icon: Resource, label: string) {
-    Column() {
-      Image(icon)
-        .width(DesignTokens.iconMd())
-        .height(DesignTokens.iconMd())
-        .fillColor(this.currentTab === index ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
-      Text(label)
-        .fontSize(14)
-        .fontColor(this.currentTab === index ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
-        .fontWeight(this.currentTab === index ? FontWeight.Medium : FontWeight.Normal)
-        .margin({ top: 2 })
-    }
-    .layoutWeight(1)
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
-    .onClick(() => {
-      this.currentTab = index;
-    })
+  /** 底部 Tab 数据（getter 保证每次渲染重新取 t()） */
+  private getBottomTabs(): HomeTabItem[] {
+    return [
+      { idx: 0, icon: $r('sys.symbol.music_note_list'), label: t('songlist_title') },
+      { idx: 1, icon: $r('sys.symbol.list_number'), label: t('tab_leaderboard') },
+      { idx: 2, icon: $r('sys.symbol.arrow_down_circle'), label: t('download_title') },
+      { idx: 3, icon: $r('sys.symbol.person'), label: t('tab_my') },
+    ];
   }
 
-  // 底部 TabBar：用 getter 确保每次渲染重新执行 t()
-  private getBottomTabs(): BottomTabItem[] {
-    const item0: BottomTabItem = { idx: 0, icon: $r('sys.symbol.music_note_list'), label: t('songlist_title') };
-    const item1: BottomTabItem = { idx: 1, icon: $r('sys.symbol.list_number'), label: t('tab_leaderboard') };
-    const item2: BottomTabItem = { idx: 2, icon: $r('sys.symbol.arrow_down_circle'), label: t('download_title') };
-    const item3: BottomTabItem = { idx: 3, icon: $r('sys.symbol.person'), label: t('tab_my') };
-    return [item0, item1, item2, item3];
-  }
-
+  /** 底部 Tab 栏（组件化，选中态带放大动效） */
   @Builder
   BottomTabBar() {
-    Column() {
-      Row() {
-        ForEach(this.getBottomTabs(), (tab: BottomTabItem) => {
-          this.MainTabItem(tab.idx, tab.icon, tab.label)
-        }, (tab: BottomTabItem) => tab.idx.toString())
-      }
-      .width('100%')
-      .height(44)
-      .padding({ top: 4, bottom: 4 })
-      .border({ width: { top: 0.33 }, color: DesignTokens.hairlineSeparator(this.theme) })
-
-      Blank()
-        .width('100%')
-        .height(6)
-    }
-    .width('100%')
-    .backgroundColor(DesignTokens.tabBarBg(this.theme))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    HomeBottomTabBar({
+      tabs: this.getBottomTabs(),
+      activeIndex: this.currentTab,
+      onSelect: (index: number): void => {
+        this.currentTab = index;
+      },
+    })
   }
 
   // 内容区域

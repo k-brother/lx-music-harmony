@@ -6,7 +6,6 @@ import fs from '@ohos.file.fs';
 import filePicker from '@ohos.file.picker';
 import { common } from '@kit.AbilityKit';
 import preferences from '@ohos.data.preferences';
-import cryptoFramework from '@ohos.security.cryptoFramework';
 import { utf8Encode, utf8Decode } from '../utils/TextCodec';
 import {
   getUserList,
@@ -239,7 +238,7 @@ export class BackupService {
       
       // 5. 生成文件名
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const fileName = `lxmusic-backup-${dataType}-${timestamp}.json${this.config.encryptBackup ? '.enc' : ''}`;
+      const fileName = this.generateBackupFileName(dataType, timestamp);
       const filePath = `${this.config.backupLocation}/${fileName}`;
       
       // 6. 保存文件（使用同步接口）
@@ -582,9 +581,11 @@ export class BackupService {
     }
   }
 
-  // 生成备份文件名
-  private generateBackupFileName(dataType: BackupDataType): string {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  /**
+   * 生成备份文件名（唯一的文件名拼装处，避免创建/恢复两处规则漂移）
+   * @param timestamp 调用方已算好的时间戳，保证同一次备份的名字一致
+   */
+  private generateBackupFileName(dataType: BackupDataType, timestamp: string): string {
     const extension = this.config.encryptBackup ? '.enc' : '.json';
     return `lxmusic-backup-${dataType}-${timestamp}${extension}`;
   }

@@ -6,6 +6,11 @@ import hilog from '@ohos.hilog';
 import { navigationService } from '../../service/NavigationService';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { NavBackButton } from '../../components/common/NavBackButton';
+import { showAppToast, TOAST_DURATION_DEFAULT } from '../../utils/Toast';
+import { tf } from '../../service/LocalizationService';
+import { stateEvent, type VersionInfo } from '../../event/StateEvent';
+import { checkVersionNow, compareVersion, getLastVersionInfo, APP_VERSION } from '../../service/VersionCheckService';
+import type { common } from '@kit.AbilityKit';
 
 const TAG = 'About';
 const DOMAIN = 0x0001;
@@ -16,8 +21,104 @@ export struct AboutView {
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
 
+  /** 版本检查状态：idle / checking / latest / newer / failed */
+  @State versionStatus: string = 'idle';
+  @State remoteVersion: string = '';
+  @State remoteDesc: string = '';
+  private versionUnsub: (() => void) | null = null;
+
   aboutToAppear() {
     hilog.info(DOMAIN, TAG, 'AboutView appearing');
+    // 启动时的延迟检查结果也会推到这里；进入页面先展示上次结果
+    const cached = getLastVersionInfo();
+    if (cached) {
+      this.applyVersionInfo(cached);
+    }
+    stateEvent.on('versionInfoUpdated', this.onVersionInfoUpdated);
+    this.versionUnsub = (): void => {
+      stateEvent.off('versionInfoUpdated', this.onVersionInfoUpdated);
+    };
+  }
+
+  aboutToDisappear() {
+    if (this.versionUnsub) {
+      this.versionUnsub();
+      this.versionUnsub = null;
+    }
+  }
+
+  private onVersionInfoUpdated = (data: string): void => {
+    try {
+      const info = JSON.parse(data) as VersionInfo | null;
+      if (info) {
+        this.applyVersionInfo(info);
+      }
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'onVersionInfoUpdated parse failed: %{public}s', JSON.stringify(err));
+    }
+  };
+
+  /** 比对远端版本与当前版本，得出展示状态 */
+  private applyVersionInfo(info: VersionInfo): void {
+    this.remoteVersion = info.version;
+    this.remoteDesc = info.desc ?? '';
+    this.versionStatus = compareVersion(info.version, APP_VERSION) > 0 ? 'newer' : 'latest';
+  }
+
+  /** 手动检查更新 */
+  private async runVersionCheck(): Promise<void> {
+    if (this.versionStatus === 'checking') {
+      return;
+    }
+    this.versionStatus = 'checking';
+    const info = await checkVersionNow();
+    if (!info) {
+      this.versionStatus = 'failed';
+      this.toast(t('version_check_failed'));
+      return;
+    }
+    this.applyVersionInfo(info);
+    this.toast(this.versionStatus === 'newer'
+      ? tf('version_new_available', [info.version])
+      : t('version_latest'));
+  }
+
+  private toast(message: string): void {
+    showAppToast(this.getUIContext(), message, TOAST_DURATION_DEFAULT);
+  }
+
+  /** 版本状态行文案 */
+  private versionTip(): string {
+    if (this.versionStatus === 'checking') {
+      return t('version_checking');
+    }
+    if (this.versionStatus === 'newer') {
+      return tf('version_new_available', [this.remoteVersion]);
+    }
+    if (this.versionStatus === 'latest') {
+      return t('version_latest');
+    }
+    if (this.versionStatus === 'failed') {
+      return t('version_check_failed');
+    }
+    return t('version_tip_unknown');
+  }
+
+  /** 用系统浏览器打开链接 */
+  private openUrl(url: string): void {
+    try {
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      context.startAbility({
+        action: 'ohos.want.action.viewData',
+        uri: url,
+      }).catch((err: Error) => {
+        hilog.warn(DOMAIN, TAG, 'openUrl failed: %{public}s', err.message);
+        this.toast(t('toast_operation_failed'));
+      });
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'openUrl failed: %{public}s', JSON.stringify(err));
+      this.toast(t('toast_operation_failed'));
+    }
   }
 
   build() {
@@ -37,17 +138,17 @@ export struct AboutView {
                 .fontColor('#E63946')
                 .margin({ bottom: 8 })
 
-              Text('一个简洁的音乐播放器')
+              Text(t('about_slogan'))
                 .fontSize(14)
                 .fontColor(DesignTokens.labelSecondary(this.theme))
                 .margin({ bottom: 4 })
 
-              Text('版本 1.0.0')
+              Text(t('about_version_value'))
                 .fontSize(12)
                 .fontColor(DesignTokens.labelSecondary(this.theme))
                 .margin({ bottom: 16 })
 
-              Text('LX Music 是一个开源的音乐播放器，支持多音乐源搜索、在线播放、歌词同步等功能。本项目为 HarmonyOS 移植版本，致力于为用户提供流畅的音乐体验。')
+              Text(t('about_app_desc'))
                 .fontSize(14)
                 .fontColor(this.theme === 'dark' ? '#CCCCCC' : '#555555')
                 .lineHeight(22)
@@ -59,11 +160,88 @@ export struct AboutView {
           }
         }
 
+        // 版本信息（对齐安卓版 Version.tsx：当前版本 / 检查更新 / 结果提示）
+        ListItemGroup({ header: this.buildGroupHeader(t('settings_version')) }) {
+          ListItem() {
+            Row() {
+              Text(t('version_current'))
+                .fontSize(15)
+              Blank()
+              Text(`v${APP_VERSION}`)
+                .fontSize(14)
+                .fontColor(DesignTokens.labelSecondary(this.theme))
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+          }
+
+          ListItem() {
+            Column() {
+              Row() {
+                Text(t('version_check'))
+                  .fontSize(15)
+                Blank()
+                if (this.versionStatus === 'checking') {
+                  LoadingProgress()
+                    .width(16)
+                    .height(16)
+                    .color(DesignTokens.accent())
+                } else {
+                  Image($r('sys.symbol.arrow_clockwise'))
+                    .width(16)
+                    .height(16)
+                    .fillColor(DesignTokens.accent())
+                }
+              }
+              .width('100%')
+
+              Text(this.versionTip())
+                .fontSize(12)
+                .fontColor(this.versionStatus === 'newer' ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
+                .margin({ top: 4 })
+                .width('100%')
+
+              if (this.versionStatus === 'newer' && this.remoteDesc.length > 0) {
+                Text(this.remoteDesc)
+                  .fontSize(12)
+                  .fontColor(DesignTokens.labelSecondary(this.theme))
+                  .margin({ top: 4 })
+                  .width('100%')
+              }
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+            .onClick(() => {
+              void this.runVersionCheck();
+            })
+          }
+
+          if (this.versionStatus === 'newer') {
+            ListItem() {
+              Row() {
+                Text(t('version_open_release'))
+                  .fontSize(15)
+                  .fontColor(DesignTokens.accent())
+                Blank()
+                Image($r('sys.symbol.chevron_right'))
+                  .width(16)
+                  .height(16)
+                  .fillColor(DesignTokens.labelSecondary(this.theme))
+              }
+              .width('100%')
+              .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+              .onClick(() => {
+                this.openUrl('https://github.com/lyswhut/lx-music-mobile/releases');
+              })
+            }
+          }
+        }
+
         // 开源信息
         ListItemGroup({ header: this.buildGroupHeader(t('about_opensource')) }) {
           ListItem() {
             Row() {
-              Text('GitHub 仓库')
+              Text(t('ui_github_repo'))
                 .fontSize(15)
               Blank()
               Image($r('sys.symbol.chevron_right'))
@@ -74,13 +252,13 @@ export struct AboutView {
             .width('100%')
             .padding({ left: 16, right: 16, top: 12, bottom: 12 })
             .onClick(() => {
-              hilog.info(DOMAIN, TAG, 'Open GitHub link');
+              this.openUrl('https://github.com/lyswhut/lx-music-mobile');
             })
           }
 
           ListItem() {
             Row() {
-              Text('开源许可证')
+              Text(t('about_license'))
                 .fontSize(15)
               Blank()
               Text('MIT')
@@ -101,7 +279,7 @@ export struct AboutView {
         ListItemGroup({ header: this.buildGroupHeader(t('about_thanks')) }) {
           ListItem() {
             Column() {
-              Text('感谢所有为 LX Music 做出贡献的开发者。')
+              Text(t('about_thanks_detail'))
                 .fontSize(14)
                 .fontColor(this.theme === 'dark' ? '#CCCCCC' : '#555555')
                 .lineHeight(22)

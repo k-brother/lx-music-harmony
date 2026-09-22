@@ -25,6 +25,8 @@ export enum RouteName {
   LOVE_LIST = 'lovelist',
   /** 本地音乐 */
   LOCAL_MUSIC = 'localmusic',
+  /** 运行日志 */
+  LOGS = 'logs',
 }
 
 // 导航参数类型

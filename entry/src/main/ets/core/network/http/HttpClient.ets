@@ -4,7 +4,8 @@
  */
 import { http, connection } from '@kit.NetworkKit';
 import type { BusinessError } from '@kit.BasicServicesKit';
-import hilog from '@ohos.hilog';
+// 日志经由应用日志门面，既输出 hilog 也进入「设置 → 运行日志」
+import { appLog as hilog } from '../../log/AppLogger';
 import { flattenHeaders, withQuery, parseHttpBodyJson } from './HttpShared';
 import { utf8Decode } from '../../../utils/TextCodec';
 

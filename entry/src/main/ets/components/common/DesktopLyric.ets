@@ -71,12 +71,14 @@ class DesktopLyricController {
     if (!state.hasLyric) {
       AppStorage.setOrCreate('desktopLyricText', '');
       AppStorage.setOrCreate('desktopLyricNextText', '');
+      AppStorage.setOrCreate('desktopLyricNext2Text', '');
       return;
     }
     if (state.current.length > 0) {
       AppStorage.setOrCreate('desktopLyricText', state.current);
     }
     AppStorage.setOrCreate('desktopLyricNextText', state.next);
+    AppStorage.setOrCreate('desktopLyricNext2Text', state.next2);
   }
 }
 
@@ -91,7 +93,10 @@ class DesktopLyricWindow {
 
   /** 依据当前外观设置计算窗口高度（px） */
   private static calcWindowHeight(settings: AppSettings, density: number): number {
-    const lineCount: number = settings.desktopLyricShowNext ? 2 : 1;
+    // 单行模式只展示当前句，窗口高度按 1 行算（安卓版 desktopLyric.isSingleLine）
+    const lineCount: number = settings.desktopLyricSingleLine
+      ? 1
+      : Math.max(1, settings.desktopLyricMaxLines);
     const contentVp: number = settings.desktopLyricFontSize * LINE_HEIGHT_RATIO * lineCount
       + VERTICAL_PADDING_VP * 2;
     return Math.ceil(contentVp * density);
@@ -139,9 +144,11 @@ class DesktopLyricWindow {
 
       const displayInfo = display.getDefaultDisplaySync();
       const density: number = displayInfo.densityPixels;
-      const winWidth: number = displayInfo.width;
+      const winWidth: number = Math.round(displayInfo.width * settings.desktopLyricWidth / 100);
       const winHeight: number = DesktopLyricWindow.calcWindowHeight(settings, density);
-      const winX: number = DesktopLyricWindow.calcWindowX(settings);
+      const winX: number = settings.desktopLyricPosition === 'custom' && settings.desktopLyricX >= 0
+        ? settings.desktopLyricX
+        : Math.round((displayInfo.width - winWidth) / 2);
       const winY: number = DesktopLyricWindow.calcWindowY(settings, winHeight, displayInfo.height, density);
 
       await win.moveWindowTo(winX, winY);
@@ -181,7 +188,7 @@ class DesktopLyricWindow {
       const winX: number = settings.desktopLyricPosition === 'custom'
         ? DesktopLyricWindow.currentX
         : DesktopLyricWindow.calcWindowX(settings);
-      await win.resize(displayInfo.width, winHeight);
+      await win.resize(Math.round(displayInfo.width * settings.desktopLyricWidth / 100), winHeight);
       await win.moveWindowTo(winX, winY);
       DesktopLyricWindow.currentX = winX;
       DesktopLyricWindow.currentY = winY;

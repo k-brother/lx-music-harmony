@@ -2,7 +2,8 @@
 
 import { media } from '@kit.MediaKit';
 import { BusinessError } from '@kit.BasicServicesKit';
-import hilog from '@ohos.hilog';
+// 日志经由应用日志门面，既输出 hilog 也进入「设置 → 运行日志」
+import { appLog as hilog } from '../log/AppLogger';
 import { playerState } from '../../store/PlayerStoreState';
 import { stateEvent } from '../../event/StateEvent';
 import { appEvent } from '../../event/AppEvent';

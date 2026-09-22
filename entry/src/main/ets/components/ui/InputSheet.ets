@@ -1,0 +1,85 @@
+/**
+ * 输入面板（单行文本）
+ *
+ * 取代设置页里手写的「居中弹窗 + TextInput + 两个按钮 + 回调透传」。
+ */
+import { DesignTokens } from '../../theme/DesignTokens';
+import { t } from '../../service/LocalizationService';
+import { BottomSheet } from './BottomSheet';
+
+@Component
+export struct InputSheet {
+  @StorageProp('theme') theme: string = 'light';
+  @Link visible: boolean;
+  @Prop title: string = '';
+  @Prop placeholder: string = '';
+  /** 初始值（面板打开时由调用方写入） */
+  @Prop value: string = '';
+  /** 键盘类型：普通文本 / 数字（下载并发数等） */
+  @Prop numberOnly: boolean = false;
+  onSubmit?: (value: string) => void;
+
+  @State draft: string = '';
+
+  aboutToAppear() {
+    this.draft = this.value;
+  }
+
+  build() {
+    BottomSheet({
+      visible: $visible,
+      title: this.title,
+      content: (): void => {
+        this.Form();
+      },
+    })
+  }
+
+  @Builder
+  Form() {
+    Column() {
+      TextInput({ placeholder: this.placeholder, text: this.draft })
+        .type(this.numberOnly ? InputType.Number : InputType.Normal)
+        .height(DesignTokens.touchTarget())
+        .width('100%')
+        .backgroundColor(DesignTokens.mutedFill(this.theme))
+        .borderRadius(12)
+        .padding({ left: 14, right: 14 })
+        .fontSize(16)
+        .fontColor(DesignTokens.labelPrimary(this.theme))
+        .placeholderColor(DesignTokens.labelTertiary(this.theme))
+        .onChange((value: string) => {
+          this.draft = value;
+        })
+
+      Row({ space: 12 }) {
+        Button(t('cancel'))
+          .type(ButtonType.Capsule)
+          .layoutWeight(1)
+          .height(DesignTokens.touchTarget())
+          .fontSize(16)
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+          .backgroundColor(DesignTokens.mutedFill(this.theme))
+          .onClick(() => {
+            this.visible = false;
+          })
+        Button(t('confirm'))
+          .type(ButtonType.Capsule)
+          .layoutWeight(1)
+          .height(DesignTokens.touchTarget())
+          .fontSize(16)
+          .fontColor('#FFFFFF')
+          .backgroundColor(DesignTokens.accent())
+          .onClick(() => {
+            this.visible = false;
+            if (this.onSubmit) {
+              this.onSubmit(this.draft);
+            }
+          })
+      }
+      .width('100%')
+      .margin({ top: 16 })
+    }
+    .width('100%')
+  }
+}

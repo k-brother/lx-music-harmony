@@ -54,6 +54,10 @@ export class BackgroundRunningManager {
   private pendingPositionMs: number = 0;
   private pendingSpeed: number = 1.0;
   private hasPendingPlaybackState: boolean = false;
+  /** 播控中心/锁屏显示封面（设置项 player.isShowNotificationImage 对齐） */
+  private showNotificationImage: boolean = true;
+  /** 蓝牙/车机歌词：是否把整段 LRC 写入 AVSession 元数据 */
+  private showBluetoothLyric: boolean = false;
 
   private static instance: BackgroundRunningManager | null = null;
 
@@ -68,6 +72,28 @@ export class BackgroundRunningManager {
   init(context: common.UIAbilityContext): void {
     this.context = context;
     hilog.info(DOMAIN, TAG, 'BackgroundRunningManager initialized');
+  }
+
+  /**
+   * 同步「播控封面 / 蓝牙歌词」两个开关。
+   * 由 PlayerService 在初始化与设置变化时调用；
+   * 关闭蓝牙歌词时不再下发整段 LRC（当前句仍会下发，锁屏单行歌词不受影响）。
+   */
+  setMetadataOptions(showNotificationImage: boolean, showBluetoothLyric: boolean): void {
+    const changed = this.showNotificationImage !== showNotificationImage
+      || this.showBluetoothLyric !== showBluetoothLyric;
+    this.showNotificationImage = showNotificationImage;
+    this.showBluetoothLyric = showBluetoothLyric;
+    if (!changed) {
+      return;
+    }
+    // 立刻用缓存元数据重放一次，开关切换无需等下一首歌
+    const pending = this.pendingMetadata;
+    if (pending && this.session) {
+      this.setAvMetadata(pending).catch((err: Error) => {
+        hilog.warn(DOMAIN, TAG, 're-apply metadata options failed: %{public}s', err.message);
+      });
+    }
   }
 
   /**
@@ -343,10 +369,12 @@ export class BackgroundRunningManager {
       if (metadata.album) {
         avMetadata.album = metadata.album;
       }
-      if (metadata.mediaImage) {
+      // 播控封面可关（安卓版 player.isShowNotificationImage）；关闭时只发文本元数据，减少抖动
+      if (metadata.mediaImage && this.showNotificationImage) {
         avMetadata.mediaImage = metadata.mediaImage;
       }
-      if (metadata.lyric) {
+      // 整段 LRC 仅在「蓝牙/车机歌词」开启时下发；当前句始终下发，保证锁屏/播控单行歌词
+      if (metadata.lyric && this.showBluetoothLyric) {
         avMetadata.lyric = metadata.lyric;
       }
       if (metadata.singleLyricText) {

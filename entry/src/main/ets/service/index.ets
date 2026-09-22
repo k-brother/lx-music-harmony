@@ -8,6 +8,7 @@
 import { initStorage } from './StorageService';
 import { initTheme } from './ThemeService';
 import { initListService } from './ListService';
+import { migrateLegacyCollections } from './UserListSyncService';
 import { playerService } from './PlayerService';
 import { initDownloadService } from '../core/music/MusicFeatureEntry';
 import { imageCacheService } from '../utils/ImageCache';
@@ -63,6 +64,8 @@ export async function initAllServices(): Promise<void> {
 
   // 初始化列表
   await initListService();
+  // 旧版本「收藏歌单」只是标记，这里一次性迁移成绑定的自建歌单（可在我的列表里同步）
+  await migrateLegacyCollections();
 
   // 初始化下载服务（加载下载历史）
   await initDownloadService();

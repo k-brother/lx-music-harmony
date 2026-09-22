@@ -1,12 +1,21 @@
-// 我喜欢的歌曲列表页面
+/**
+ * 我喜欢的歌曲
+ *
+ * 重构后：NavBar + ListRow + StateView + DialogService 统一交互；
+ * 行尾用 ⋮ 菜单（播放 / 取消收藏），避免原先"隐形图标"的可发现性问题。
+ */
 import hilog from '@ohos.hilog';
-import { navigationService } from '../service/NavigationService';
 import { DesignTokens } from '../theme/DesignTokens';
-import { NavBackButton } from '../components/common/NavBackButton';
-import { EmptyView } from '../components/common/EmptyView';
 import { getLoveList, toggleLoveList, type MusicItem } from '../service/ListService';
 import { playerService, SongInfo } from '../service/PlayerService';
-import { t , tf } from '../service/LocalizationService';
+import { t, tf } from '../service/LocalizationService';
+import { appActionMenu, appToast } from '../service/DialogService';
+import { NavBar } from '../components/ui/NavBar';
+import { ListRow } from '../components/ui/ListRow';
+import { StateView } from '../components/ui/StateView';
+
+const DOMAIN = 0x0001;
+const TAG = 'LoveListPage';
 
 interface SongRow {
   id: string;
@@ -21,19 +30,19 @@ interface SongRow {
 @Component
 export struct LoveListPage {
   @StorageProp('theme') theme: string = 'light';
-  @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
-  @State renderKey: number = Date.now();
   @State songs: SongRow[] = [];
   @State isLoading: boolean = true;
+  /** 正在播放的曲目 id（高亮行） */
+  @State playingId: string = '';
 
   aboutToAppear() {
-    void this.loadSongs();
+    this.loadSongs();
   }
 
-  private loadSongs() {
+  private loadSongs(): void {
+    this.isLoading = true;
     try {
-      this.isLoading = true;
       const loveList: MusicItem[] = getLoveList();
       const rows: SongRow[] = [];
       for (let i = 0; i < loveList.length; i++) {
@@ -50,21 +59,17 @@ export struct LoveListPage {
       }
       this.songs = rows;
     } catch (err) {
-      hilog.error(0x0001, 'LoveListPage', 'Failed to load: %{public}s', JSON.stringify(err));
+      hilog.error(DOMAIN, TAG, 'Failed to load: %{public}s', JSON.stringify(err));
+      this.songs = [];
     } finally {
       this.isLoading = false;
     }
   }
 
-  private showToast(msg: string) {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: msg, duration: 2000 });
-    } catch (_e) { /* ignore */ }
-  }
-
-  private async playSong(index: number) {
+  /** 播放：队列 = 我喜欢列表（next/prev 可在喜欢列表里连续播放） */
+  private async playSong(index: number): Promise<void> {
     if (this.songs.length === 0) {
-      this.showToast(t('list_empty'));
+      appToast(t('list_empty'));
       return;
     }
     try {
@@ -83,14 +88,15 @@ export struct LoveListPage {
         });
       }
       playerService.setPlayList(songInfos, index);
-      // 由播放器按索引取播放地址（受"自动播放"设置控制）
+      this.playingId = this.songs[index]?.id ?? '';
       await playerService.playSelectedFromPlayList(index);
-    } catch (e) {
-      this.showToast(t('toast_play_failed'));
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'playSong failed: %{public}s', JSON.stringify(err));
+      appToast(t('toast_play_failed'));
     }
   }
 
-  private async removeFromLove(song: SongRow) {
+  private async removeFromLove(song: SongRow): Promise<void> {
     try {
       const musicItem: MusicItem = {
         id: song.id,
@@ -104,126 +110,109 @@ export struct LoveListPage {
         lrc: null,
       };
       await toggleLoveList(musicItem);
-      this.songs = this.songs.filter(s => s.id !== song.id);
-      this.showToast(t('toast_unloved'));
-    } catch (e) {
-      this.showToast(t('toast_operation_failed'));
+      this.songs = this.songs.filter((item: SongRow) => item.id !== song.id);
+      appToast(t('toast_unloved'));
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'removeFromLove failed: %{public}s', JSON.stringify(err));
+      appToast(t('toast_operation_failed'));
+    }
+  }
+
+  /** 行菜单（⋮）：播放 / 下一首播放 / 取消收藏 */
+  private async openSongMenu(song: SongRow, index: number): Promise<void> {
+    const index0 = await appActionMenu(song.name, [
+      t('play'),
+      t('play_later'),
+      t('player_unlove'),
+    ], { dangerIndexes: [2] });
+    if (index0 === 0) {
+      void this.playSong(index);
+    } else if (index0 === 1) {
+      playerService.insertNext({
+        id: song.id,
+        url: '',
+        title: song.name,
+        artist: song.singer,
+        album: song.album,
+        artwork: song.pic || null,
+        duration: song.duration,
+        source: song.source,
+      });
+      appToast(tf('toast_play_later_added', [song.name]));
+    } else if (index0 === 2) {
+      void this.removeFromLove(song);
     }
   }
 
   @Builder
-  SongRowItem(song: SongRow, index: number) {
-    Row() {
-      Text((index + 1).toString())
-        .fontSize(12)
-        .fontColor(DesignTokens.labelTertiary(this.theme))
-        .width(28)
-        .textAlign(TextAlign.Center)
-
-      Column() {
-        Text(song.name)
-          .fontSize(15)
-          .fontColor(DesignTokens.labelPrimary(this.theme))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(song.singer)
-          .fontSize(12)
-          .fontColor(DesignTokens.labelTertiary(this.theme))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .margin({ top: 4 })
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-      .margin({ left: 8 })
-
-      Image($r('app.media.ic_common_download'))
-        .width(20)
-        .height(20)
-        .fillColor(DesignTokens.labelTertiary(this.theme))
-        .margin({ right: 12 })
-        .opacity(0)
+  private rowTrailing(song: SongRow, index: number) {
+    Stack() {
+      Circle({ width: 30, height: 30 })
+        .fill(DesignTokens.mutedFill(this.theme))
+      Image($r('app.media.ic_pd_more'))
+        .width(14)
+        .height(14)
+        .fillColor(DesignTokens.labelSecondary(this.theme))
     }
-    .width('100%')
-    .padding({ left: 8, right: 8, top: 12, bottom: 12 })
-    .alignItems(VerticalAlign.Center)
+    .width(DesignTokens.touchTarget())
+    .height(DesignTokens.touchTarget())
     .onClick(() => {
-      void this.playSong(index);
+      void this.openSongMenu(song, index);
     })
   }
 
   build() {
-    Stack() {
-      Column() {
-        // 顶部导航栏
-        Row() {
-          NavBackButton()
-            .onClick(() => { navigationService.back(); })
-
-          Text(t('love_title'))
-            .fontSize(18)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-            .layoutWeight(1)
-            .textAlign(TextAlign.Center)
-
+    Column() {
+      NavBar({
+        title: t('love_title'),
+        largeTitle: true,
+        trailing: (): void => {
           Text(tf('count_songs_short', [this.songs.length.toString()]))
-            .fontSize(13)
+            .fontSize(DesignTokens.fontCaption())
             .fontColor(DesignTokens.labelTertiary(this.theme))
-            .padding({ right: 16 })
-        }
-        .width('100%')
-        .padding({ left: 8, right: 8, top: 8, bottom: 8 })
-        .alignItems(VerticalAlign.Center)
+            .padding({ right: 6 })
+        },
+      })
 
-        if (this.isLoading) {
-          Column() {
-            LoadingProgress()
-              .width(36)
-              .height(36)
-          }
-          .width('100%')
+      if (this.isLoading) {
+        StateView({ state: 'loading' })
           .layoutWeight(1)
-          .justifyContent(FlexAlign.Center)
-        } else if (this.songs.length === 0) {
-          Column() {
-            EmptyView({ icon: '❤️', message: t('love_empty') })
-            Text(t('no_data'))
-              .fontSize(13)
-              .fontColor(DesignTokens.labelTertiary(this.theme))
-              .margin({ top: 6 })
-          }
           .width('100%')
+      } else if (this.songs.length === 0) {
+        StateView({ state: 'empty', iconRes: $r('sys.symbol.heart'), message: t('love_empty_hint') })
           .layoutWeight(1)
-          .justifyContent(FlexAlign.Center)
-        } else {
-          Scroll() {
-            Column({ space: 0 }) {
-              ForEach(this.songs, (song: SongRow, index: number) => {
-                Column() {
-                  this.SongRowItem(song, index)
-                  Divider()
-                    .strokeWidth(0.5)
-                    .color(DesignTokens.cardBorder(this.theme))
-                    .margin({ left: 28 })
-                }
-              }, (song: SongRow, _index: number) => song.id)
+          .width('100%')
+      } else {
+        List() {
+          ForEach(this.songs, (song: SongRow, index: number) => {
+            ListItem() {
+              ListRow({
+                index: index + 1,
+                title: song.name,
+                subtitle: song.album ? `${song.singer} · ${song.album}` : song.singer,
+                active: song.id === this.playingId,
+                divider: index < this.songs.length - 1,
+                onTap: (): void => {
+                  void this.playSong(index);
+                },
+                onLongPress: (): void => {
+                  void this.openSongMenu(song, index);
+                },
+                trailing: (): void => {
+                  this.rowTrailing(song, index);
+                },
+              })
             }
-            .width('100%')
-          }
-          .align(Alignment.TopStart)
-          .width('100%')
-          .layoutWeight(1)
-          .scrollBar(BarState.Auto)
-          .edgeEffect(EdgeEffect.Spring)
+            .padding({ left: 16, right: 8 })
+          }, (song: SongRow, index: number) => `${song.id}_${index}`)
         }
+        .layoutWeight(1)
+        .width('100%')
+        .scrollBar(BarState.Off)
       }
-      .width('100%')
-      .height('100%')
-      .backgroundColor(DesignTokens.pageBg(this.theme))
     }
     .width('100%')
     .height('100%')
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .backgroundColor(DesignTokens.pageBg(this.theme))
   }
 }

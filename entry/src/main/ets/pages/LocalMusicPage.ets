@@ -3,13 +3,16 @@
  * 导入（系统文件选择器）→ 扫描元数据 → 列表展示 → 播放（file:// 直接播，无需网络）
  */
 import hilog from '@ohos.hilog';
+import { showAppToast, TOAST_DURATION_SHORT } from '../utils/Toast';
+import filePicker from '@ohos.file.picker';
+import { common } from '@kit.AbilityKit';
 import { NavBackButton } from '../components/common/NavBackButton';
 import { PlayerBar } from '../components/player/PlayerBar';
 import { DesignTokens } from '../theme/DesignTokens';
 import { t, tf } from '../service/LocalizationService';
 import { localMusicService } from '../service/LocalMusicService';
 import { playerService, type SongInfo } from '../service/PlayerService';
-import { getLocalPicUrl, type LocalMusicInfo } from '../core/music/ResolvePlayback';
+import { getLocalPicUrl, type LocalMusicInfo } from '../core/music/local/LocalPlayback';
 import { EmptyView } from '../components/common/EmptyView';
 
 const DOMAIN: number = 0x0001;
@@ -36,6 +39,12 @@ export struct LocalMusicPage {
   @State tracks: LocalMusicInfo[] = [];
   @State isLoading: boolean = false;
   @State playingId: string = '';
+  /** 元数据编辑弹窗 */
+  @State showEditDialog: boolean = false;
+  @State editName: string = '';
+  @State editSinger: string = '';
+  @State editAlbum: string = '';
+  private editingTrack: LocalMusicInfo | null = null;
   private coverLoaded: Set<string> = new Set();
 
   aboutToAppear(): void {
@@ -135,6 +144,8 @@ export struct LocalMusicPage {
       title: track.name,
       buttons: [
         { text: t('play'), color: primary },
+        { text: t('edit_metadata'), color: primary },
+        { text: t('pick_cover'), color: primary },
         { text: t('local_remove_title'), color: DesignTokens.danger() },
         { text: t('cancel'), color: DesignTokens.labelTertiary(this.theme) },
       ],
@@ -145,9 +156,65 @@ export struct LocalMusicPage {
       if (data.index === 0) {
         void this.playTrack(this.tracks.indexOf(track));
       } else if (data.index === 1) {
+        this.openEditDialog(track);
+      } else if (data.index === 2) {
+        void this.pickCover(track);
+      } else if (data.index === 3) {
         void this.removeTrack(track);
       }
     });
+  }
+
+  /** 打开元数据编辑弹窗 */
+  private openEditDialog(track: LocalMusicInfo): void {
+    this.editingTrack = track;
+    this.editName = track.name;
+    this.editSinger = track.singer;
+    this.editAlbum = track.album;
+    this.showEditDialog = true;
+  }
+
+  /** 保存元数据 */
+  private async saveMetadata(): Promise<void> {
+    const track = this.editingTrack;
+    if (!track) {
+      return;
+    }
+    const ok = await localMusicService.updateMetadata(track.id, this.editName, this.editSinger, this.editAlbum);
+    if (ok) {
+      this.showEditDialog = false;
+      this.editingTrack = null;
+      await this.loadLibrary();
+      this.showToast(t('metadata_saved'));
+    } else {
+      this.showToast(t('metadata_name_required'));
+    }
+  }
+
+  /** 选择并保存自定义封面 */
+  private async pickCover(track: LocalMusicInfo): Promise<void> {
+    try {
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const picker = new filePicker.PhotoViewPicker(context);
+      const options = new filePicker.PhotoSelectOptions();
+      options.MIMEType = filePicker.PhotoViewMIMETypes.IMAGE_TYPE;
+      options.maxSelectNumber = 1;
+      const result: filePicker.PhotoSelectResult = await picker.select(options);
+      if (!result || !result.photoUris || result.photoUris.length === 0) {
+        return;
+      }
+      const ok = await localMusicService.setCustomCover(track.id, result.photoUris[0]);
+      if (ok) {
+        this.coverLoaded.delete(track.id);
+        await this.loadLibrary();
+        this.showToast(t('cover_saved'));
+      } else {
+        this.showToast(t('cover_save_failed'));
+      }
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'pickCover failed: %{public}s', JSON.stringify(err));
+      this.showToast(t('cover_save_failed'));
+    }
   }
 
   private async removeTrack(track: LocalMusicInfo): Promise<void> {
@@ -157,11 +224,7 @@ export struct LocalMusicPage {
   }
 
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: message, duration: 1800 });
-    } catch (err) {
-      hilog.info(DOMAIN, TAG, 'toast: %{public}s', message);
-    }
+    showAppToast(this.getUIContext(), message, TOAST_DURATION_SHORT);
   }
 
 
@@ -207,9 +270,131 @@ export struct LocalMusicPage {
   }
 
   @Builder
+  EditMetadataDialog() {
+    Stack() {
+      Column()
+        .width('100%')
+        .height('100%')
+        .backgroundColor('rgba(0, 0, 0, 0.35)')
+        .onClick(() => {
+          this.showEditDialog = false;
+          this.editingTrack = null;
+        })
+
+      Column({ space: 10 }) {
+        Text(t('edit_metadata'))
+          .fontSize(17)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(DesignTokens.labelPrimary(this.theme))
+          .width('100%')
+          .textAlign(TextAlign.Start)
+
+        // 三个字段内联书写：@Builder 传函数回调在 ArkTS V1 里支持不稳定
+        Column() {
+          Text(t('metadata_name'))
+            .fontSize(12)
+            .fontColor(DesignTokens.labelTertiary(this.theme))
+            .width('100%')
+            .textAlign(TextAlign.Start)
+          TextInput({ text: this.editName })
+            .width('100%')
+            .height(40)
+            .fontSize(15)
+            .fontColor(DesignTokens.labelPrimary(this.theme))
+            .backgroundColor(DesignTokens.mutedFill(this.theme))
+            .borderRadius(10)
+            .padding({ left: 12, right: 12 })
+            .margin({ top: 6 })
+            .onChange((text: string) => {
+              this.editName = text;
+            })
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+
+        Column() {
+          Text(t('metadata_singer'))
+            .fontSize(12)
+            .fontColor(DesignTokens.labelTertiary(this.theme))
+            .width('100%')
+            .textAlign(TextAlign.Start)
+          TextInput({ text: this.editSinger })
+            .width('100%')
+            .height(40)
+            .fontSize(15)
+            .fontColor(DesignTokens.labelPrimary(this.theme))
+            .backgroundColor(DesignTokens.mutedFill(this.theme))
+            .borderRadius(10)
+            .padding({ left: 12, right: 12 })
+            .margin({ top: 6 })
+            .onChange((text: string) => {
+              this.editSinger = text;
+            })
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+
+        Column() {
+          Text(t('metadata_album'))
+            .fontSize(12)
+            .fontColor(DesignTokens.labelTertiary(this.theme))
+            .width('100%')
+            .textAlign(TextAlign.Start)
+          TextInput({ text: this.editAlbum })
+            .width('100%')
+            .height(40)
+            .fontSize(15)
+            .fontColor(DesignTokens.labelPrimary(this.theme))
+            .backgroundColor(DesignTokens.mutedFill(this.theme))
+            .borderRadius(10)
+            .padding({ left: 12, right: 12 })
+            .margin({ top: 6 })
+            .onChange((text: string) => {
+              this.editAlbum = text;
+            })
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+
+        Row({ space: 10 }) {
+          Button(t('cancel'))
+            .fontSize(15)
+            .fontColor(DesignTokens.labelPrimary(this.theme))
+            .backgroundColor(DesignTokens.mutedFill(this.theme))
+            .borderRadius(18)
+            .layoutWeight(1)
+            .onClick(() => {
+              this.showEditDialog = false;
+              this.editingTrack = null;
+            })
+          Button(t('confirm'))
+            .fontSize(15)
+            .fontColor(DesignTokens.onAccent())
+            .backgroundColor(DesignTokens.accent())
+            .borderRadius(18)
+            .layoutWeight(1)
+            .onClick(() => {
+              void this.saveMetadata();
+            })
+        }
+        .width('100%')
+        .margin({ top: 6 })
+      }
+      .width('86%')
+      .padding(18)
+      .backgroundColor(DesignTokens.card(this.theme))
+      .borderRadius(20)
+      .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
+      .onClick(() => {})
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  @Builder
   EmptyState() {
     Column() {
-      EmptyView({ icon: '🎧', message: t('local_empty_hint') })
+      EmptyView({ iconRes: $r('sys.symbol.music_note_list'), message: t('local_empty_hint') })
       Button(t('local_import'))
         .fontSize(15)
         .backgroundColor(DesignTokens.accent())
@@ -317,6 +502,10 @@ export struct LocalMusicPage {
       }
 
       PlayerBar()
+
+      if (this.showEditDialog) {
+        this.EditMetadataDialog()
+      }
     }
     .width('100%')
     .height('100%')

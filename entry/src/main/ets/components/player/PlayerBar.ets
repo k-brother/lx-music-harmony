@@ -18,7 +18,6 @@ export struct PlayerBar {
   @StorageProp('theme') theme: string = 'light';
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
-  @StorageProp('primaryColor') primaryColor: string = '#E63946';
   @StorageProp('showAnimation') showAnimation: boolean = true;
 
   /** 统一的按压缩放反馈（卡片/按钮通用） */

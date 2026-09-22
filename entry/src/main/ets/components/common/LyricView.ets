@@ -5,12 +5,23 @@
 import { t } from '../../service/LocalizationService';
 import { DesignTokens } from '../../theme/DesignTokens';
 
+/** 动态背景/封面背景下的文字阴影（半径小、偏移 0，等效"描边感"） */
+const LYRIC_TEXT_SHADOW: ShadowOptions = { radius: 8, color: 'rgba(0,0,0,0.55)', offsetX: 0, offsetY: 0 };
+
 @Component
 export struct LyricView {
   @StorageProp('theme') theme: string = 'light';
   @StorageProp('showAnimation') showAnimation: boolean = true;
+  @StorageProp('showLyricTranslation') showLyricTranslation: boolean = true;
+  @StorageProp('showLyricRoma') showLyricRoma: boolean = true;
+  @StorageProp('lyricFontSize') lyricFontSize: number = 16;
+  @StorageProp('lyricAlign') lyricAlign: string = 'center';
+  /** 字体阴影（设置 → 外观）：动态背景上提升可读性 */
+  @StorageProp('fontShadow') fontShadow: boolean = false;
   @Prop lyricLines: string[] = [];
   @Prop secondaryLyricLines: string[] = [];
+  /** 罗马音（拼音）行，与 lyricLines 一一对应 */
+  @Prop romaLines: string[] = [];
   @Prop @Watch('onCurrentLyricIndexChanged') currentLyricIndex: number = -1;
   private lyricScroller: Scroller = new Scroller();
   private lineHeight: number = 62;
@@ -56,6 +67,17 @@ export struct LyricView {
     }, 60);
   }
 
+  /** 设置里的对齐方式 → ArkUI 对齐枚举 */
+  private alignMode(): TextAlign {
+    if (this.lyricAlign === 'left') {
+      return TextAlign.Start;
+    }
+    if (this.lyricAlign === 'right') {
+      return TextAlign.End;
+    }
+    return TextAlign.Center;
+  }
+
   /** 当前行取主题强调色，保证跟随主题/深浅色 */
   private accentColor(): string {
     return DesignTokens.accent();
@@ -95,17 +117,30 @@ export struct LyricView {
           ForEach(this.lyricLines, (line: string, index: number) => {
             Column({ space: 2 }) {
               Text(line)
-                // 当前行放大加粗、非当前行降对比，是最主流的歌词视觉层次
-                .fontSize(index === this.currentLyricIndex ? 20 : 15)
+                // 当前行放大加粗、非当前行降对比，是最主流的歌词视觉层次；
+                // 基准字号与对齐方式来自「歌词显示」设置
+                .fontSize(index === this.currentLyricIndex ? this.lyricFontSize + 4 : this.lyricFontSize)
                 .fontColor(index === this.currentLyricIndex
                   ? this.accentColor()
                   : (this.theme === 'dark' ? '#8A8A93' : '#8E8E93'))
                 .fontWeight(index === this.currentLyricIndex ? FontWeight.Bold : FontWeight.Normal)
                 .opacity(this.lineOpacity(index))
-                .textAlign(TextAlign.Center)
+                .textAlign(this.alignMode())
                 .width('100%')
                 .maxLines(1)
-              if (index < this.secondaryLyricLines.length && this.secondaryLyricLines[index] && this.secondaryLyricLines[index].length > 0) {
+                .textShadow(this.fontShadow ? LYRIC_TEXT_SHADOW : undefined)
+              if (this.showLyricRoma && index < this.romaLines.length && this.romaLines[index] && this.romaLines[index].length > 0) {
+                Text(this.romaLines[index])
+                  .fontSize(index === this.currentLyricIndex ? 12 : 10)
+                  .fontColor(index === this.currentLyricIndex
+                    ? (this.theme === 'dark' ? '#9E9EA6' : '#8E8E93')
+                    : (this.theme === 'dark' ? '#6E6E78' : '#B0B0B6'))
+                  .opacity(this.lineOpacity(index))
+                  .textAlign(this.alignMode())
+                  .width('100%')
+                  .maxLines(1)
+              }
+              if (this.showLyricTranslation && index < this.secondaryLyricLines.length && this.secondaryLyricLines[index] && this.secondaryLyricLines[index].length > 0) {
                 Text(this.secondaryLyricLines[index])
                   .fontSize(index === this.currentLyricIndex ? 13 : 11)
                   .fontColor(index === this.currentLyricIndex

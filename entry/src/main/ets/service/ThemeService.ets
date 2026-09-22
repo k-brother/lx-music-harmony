@@ -7,6 +7,7 @@ import StorageService from './StorageService';
 import { getDefaultThemes, getThemeById, DEFAULT_THEME_ID } from '../core/theme/themes';
 import { ActiveTheme } from '../types/ThemeTypes';
 import type { ThemeItem } from '../types/ThemeTypes';
+import { settingsService } from './SettingsService';
 
 const TAG = 'ThemeService';
 const DOMAIN = 0x0004;
@@ -156,8 +157,10 @@ export async function initTheme(): Promise<void> {
 
 /**
  * 根据 id 应用主题
+ * @param persist 是否把该 id 记为「用户手动选择的主题」；自动跟随系统深浅色时传 false，
+ *                避免系统切换把用户手动选的主题覆盖掉
  */
-export async function applyThemeById(themeId: string): Promise<void> {
+export async function applyThemeById(themeId: string, persist: boolean = true): Promise<void> {
   const theme = getThemeById(themeId);
   if (!theme) {
     hilog.warn(DOMAIN, TAG, 'Theme not found: %{public}s, using default', themeId);
@@ -172,11 +175,56 @@ export async function applyThemeById(themeId: string): Promise<void> {
   // 更新 StorageProp 的 theme 值
   AppStorage.setOrCreate('theme', theme.isDark ? 'dark' : 'light');
 
-  // 保存设置
-  await StorageService.setString(StorageService.StorageKeys.THEME_ID, themeId);
+  // 保存设置（自动模式下不覆盖用户手动选择的主题）
+  if (persist) {
+    await StorageService.setString(StorageService.StorageKeys.THEME_ID, themeId);
+  }
 
   // 通知所有监听器
   notifyListeners();
+}
+
+// ==================== 自动跟随系统深浅色（安卓版 common.isAutoTheme） ====================
+
+/** 系统当前是否深色（由 EntryAbility 在启动与系统配置变化时推送） */
+let systemDarkMode: boolean = false;
+
+export function isSystemDarkMode(): boolean {
+  return systemDarkMode;
+}
+
+/**
+ * 系统深浅色变化时调用（EntryAbility.onConfigurationUpdate / 启动时一次）
+ * 仅在「自动跟随系统」开启时立即切换主题
+ */
+export function setSystemDarkMode(isDark: boolean): void {
+  if (systemDarkMode === isDark) {
+    return;
+  }
+  systemDarkMode = isDark;
+  if (settingsService.get().autoTheme) {
+    applyAutoTheme().catch((err: Error) => {
+      hilog.warn(DOMAIN, TAG, 'applyAutoTheme failed: %{public}s', err.message);
+    });
+  }
+}
+
+/**
+ * 按系统深浅色应用对应的浅色/深色主题。
+ * 设置页切换「自动跟随系统」开关后也应调用一次。
+ */
+export async function applyAutoTheme(): Promise<void> {
+  const settings = settingsService.get();
+  if (!settings.autoTheme) {
+    return;
+  }
+  const targetId = systemDarkMode ? settings.themeDarkId : settings.themeLightId;
+  if (themeState.currentThemeId === targetId) {
+    return;
+  }
+  await applyThemeById(targetId, false);
+  hilog.info(DOMAIN, TAG, 'Auto theme applied: %{public}s (systemDark=%{public}s)',
+    targetId, String(systemDarkMode));
 }
 
 /**

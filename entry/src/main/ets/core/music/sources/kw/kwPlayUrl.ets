@@ -5,7 +5,8 @@
 import type { MusicInfo } from '../../../../types/MusicTypes';
 import { httpGet, checkNetworkConnection } from '../../../../core/network/http';
 import type { MusicUrlResult } from '../MusicSdkContracts';
-import hilog from '@ohos.hilog';
+// 日志经由应用日志门面，既输出 hilog 也进入「设置 → 运行日志」
+import { appLog as hilog } from '../../../log/AppLogger';
 
 const TAG = 'KwPlayUrl';
 const DOMAIN = 0x0001;

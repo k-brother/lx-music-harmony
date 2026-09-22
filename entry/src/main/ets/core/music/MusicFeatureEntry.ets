@@ -310,12 +310,20 @@ export async function findMusic(params: FindMusicParams): Promise<SearchResultIt
 export { musicSdk } from './MusicSdkAggregate';
 
 // 导出本地音乐模块
+export { getOtherSource } from './ResolvePlayback';
+
+// 本地音乐能力在 core/music/local/LocalPlayback.ets（与在线解析分离）
 export {
   scanLocalMusic,
   getLocalMusicUrl,
   getLocalPicUrl,
   getLocalLyricInfo,
-} from './ResolvePlayback';
+  localToOnlineMusicInfo,
+  getSupportedAudioFormats,
+  getMusicFileMetadata,
+  formatFileSize,
+} from './local/LocalPlayback';
+export type { LocalMusicInfo } from './local/LocalPlayback';
 
 // 导出下载模块
 export {
@@ -360,7 +368,7 @@ export type { MusicInfo, LyricInfo } from '../../types/MusicTypes';
 
 // 导出子模块供高级用法
 export { online } from './ResolvePlayback';
-export { local } from './ResolvePlayback';
+export { local } from './local/LocalPlayback';
 export { download } from './RunMusicDownloads';
 export { utils } from './MusicParsingUtils';
 
@@ -373,6 +381,7 @@ export {
   isUsingCustomSource,
   getCurrentSource,
   loadCustomSource,
+  restoreEnabledCustomSource,
   unloadCustomSource,
   getPluginInfo,
   getMusicUrlByPlugin,

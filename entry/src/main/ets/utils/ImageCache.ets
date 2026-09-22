@@ -200,6 +200,16 @@ class ImageCacheService {
     }
   }
 
+  /** 当前索引中的缓存条目数量（供缓存管理页展示） */
+  getEntryCount(): number {
+    return this.cacheIndex.size;
+  }
+
+  /** 当前缓存占用字节数（供缓存管理页展示） */
+  getSizeBytes(): number {
+    return this.totalSize;
+  }
+
   // 逐层创建目录（HarmonyOS fs.mkdir 无 recursive 参数）
   private async ensureDirExists(dirPath: string): Promise<void> {
     if (await this.fileExists(dirPath)) {

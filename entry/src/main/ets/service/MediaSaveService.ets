@@ -1,7 +1,8 @@
 // 媒体保存服务
 // 用于保存歌词和封面图片到本地
 
-import hilog from '@ohos.hilog';
+// 日志经由应用日志门面，既输出 hilog 也进入「设置 → 运行日志」
+import { appLog as hilog } from '../core/log/AppLogger';
 import fs from '@ohos.file.fs';
 import { http } from '@kit.NetworkKit';
 import { common } from '@kit.AbilityKit';
@@ -62,7 +63,7 @@ export class MediaSaveService {
       }
 
       // 创建文件名
-      const fileName = this.sanitizeFileName(`${musicInfo.singer} - ${musicInfo.name}.lrc`);
+      const fileName = this.sanitizeFileName(`${musicInfo.name} - ${musicInfo.singer}.lrc`);
       const saveDir = `${this.getContext().filesDir}/LxMusic/Lyrics`;
       const filePath = `${saveDir}/${fileName}`;
 
@@ -120,7 +121,7 @@ export class MediaSaveService {
 
       // 创建文件名
       const fileExtension = this.getImageExtension(imageUrl);
-      const fileName = this.sanitizeFileName(`${musicInfo.singer} - ${musicInfo.name}.${fileExtension}`);
+      const fileName = this.sanitizeFileName(`${musicInfo.name} - ${musicInfo.singer}.${fileExtension}`);
       const saveDir = `${this.getContext().filesDir}/LxMusic/Covers`;
       const filePath = `${saveDir}/${fileName}`;
 

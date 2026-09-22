@@ -13,13 +13,16 @@ export struct EmptyView {
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
   @Prop message: string = '';
-  @Prop icon: string = '🎵';
+  /** 图标用系统符号，避免 emoji 在不同字体/系统上观感不一致 */
+  @Prop iconRes: Resource = $r('sys.symbol.music_note_list');
   @Prop iconSize: number = 56;
 
   build() {
     Column() {
-      Text(this.icon)
-        .fontSize(this.iconSize)
+      Image(this.iconRes)
+        .width(this.iconSize)
+        .height(this.iconSize)
+        .fillColor(DesignTokens.labelTertiary(this.theme))
         .opacity(0.55)
 
       Text(this.message.length > 0 ? this.message : t('no_data'))

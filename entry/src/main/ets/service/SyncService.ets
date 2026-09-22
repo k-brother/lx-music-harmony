@@ -1,10 +1,10 @@
 // 同步服务
 // 对应安卓版的同步功能
 
-import hilog from '@ohos.hilog';
+// 日志经由应用日志门面，既输出 hilog 也进入「设置 → 运行日志」
+import { appLog as hilog } from '../core/log/AppLogger';
 import { common } from '@kit.AbilityKit';
 import cryptoFramework from '@ohos.security.cryptoFramework';
-import util from '@ohos.util';
 import {
   getUserList,
   getDefaultList,
@@ -20,9 +20,18 @@ import { httpRequest } from '../core/network/http';
 import { createLxWebSocket, decodeWsPayload } from '../core/network/websocket';
 import { webSocket } from '@kit.NetworkKit';
 import { settingsService, type SettingsPatch } from './SettingsService';
+import { getStorageService } from '../core/interfaces/IStorageService';
 import { t } from './LocalizationService';
 
 const DOMAIN: number = 0x0001;
+/** 同步服务器历史存储键 */
+const SYNC_HISTORY_KEY = 'sync.serverHistory';
+
+/** 一条同步服务器历史 */
+export interface SyncHistoryItem {
+  serverUrl: string;
+  lastUsed: number;
+}
 const TAG: string = 'SyncService';
 
 // 同步状态
@@ -191,6 +200,62 @@ export class SyncService {
     }
   }
 
+  // ==================== 同步历史（对齐安卓版 Sync/History） ====================
+
+  /** 读取连接过的同步服务器历史（最近使用在前） */
+  async getServerHistory(): Promise<SyncHistoryItem[]> {
+    try {
+      const raw = await getStorageService().getString(SYNC_HISTORY_KEY, '');
+      if (raw.length === 0) {
+        return [];
+      }
+      const parsed = JSON.parse(raw) as SyncHistoryItem[];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'getServerHistory failed: %{public}s', JSON.stringify(err));
+      return [];
+    }
+  }
+
+  /** 记录一次使用过的服务器地址（同地址合并并更新时间） */
+  async rememberServer(serverUrl: string): Promise<void> {
+    const url = serverUrl.trim();
+    if (url.length === 0) {
+      return;
+    }
+    try {
+      const list = await this.getServerHistory();
+      const next: SyncHistoryItem[] = [
+        { serverUrl: url, lastUsed: Date.now() },
+      ];
+      for (let i = 0; i < list.length; i++) {
+        if (list[i].serverUrl !== url) {
+          next.push(list[i]);
+        }
+      }
+      // 只保留最近 10 条
+      await getStorageService().setString(SYNC_HISTORY_KEY, JSON.stringify(next.slice(0, 10)));
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'rememberServer failed: %{public}s', JSON.stringify(err));
+    }
+  }
+
+  /** 删除一条历史 */
+  async removeServerHistory(serverUrl: string): Promise<void> {
+    try {
+      const list = await this.getServerHistory();
+      const next = list.filter((item: SyncHistoryItem) => item.serverUrl !== serverUrl);
+      await getStorageService().setString(SYNC_HISTORY_KEY, JSON.stringify(next));
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'removeServerHistory failed: %{public}s', JSON.stringify(err));
+    }
+  }
+
+  /** 选中历史里的某个地址作为当前同步服务器 */
+  async applyHistoryServer(serverUrl: string): Promise<void> {
+    await this.updateConfig({ serverUrl });
+  }
+
   // 获取配置
   getConfig(): SyncConfig {
     const result: SyncConfig = {
@@ -216,6 +281,10 @@ export class SyncService {
     };
     this.config = updated;
     await this.saveConfig();
+    // 记录使用过的服务器地址（同步历史，对齐安卓版 getSyncHostHistory）
+    if (newConfig.serverUrl !== undefined) {
+      await this.rememberServer(this.config.serverUrl);
+    }
     
     // 重新启动自动同步
     if (this.syncTimer) {
@@ -1068,14 +1137,6 @@ export class SyncService {
         hilog.error(DOMAIN, TAG, 'Status listener error: %{public}s', errorMsg);
       }
     }
-  }
-
-  // 获取上下文
-  private getUIContext(): common.UIAbilityContext {
-    if (!this.uiContext) {
-      throw new Error('UIContext not set. Call setUIContext first.');
-    }
-    return this.uiContext;
   }
 
   // 设置上下文

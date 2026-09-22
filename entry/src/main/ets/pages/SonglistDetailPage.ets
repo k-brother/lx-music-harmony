@@ -2,41 +2,67 @@
 // 显示歌单信息和歌曲列表
 
 import hilog from '@ohos.hilog';
+import { showAppToast, TOAST_DURATION_SHORT } from '../utils/Toast';
 import { PlayerBar } from '../components/player/PlayerBar';
 import { getSongListDetail, getMusicUrl, setDownloadContext, download, type SongListDetailResult } from '../core/music/MusicFeatureEntry';
 import { NavigationParams } from '../service/NavigationService';
 import { playerService, SongInfo } from '../service/PlayerService';
 import { navigationService } from '../service/NavigationService';
 import { common } from '@kit.AbilityKit';
-import storageService, { StorageKeys } from '../service/StorageService';
 import { addMusicToList, getUserList, getUserListMusic, LIST_IDS, MusicItem, ListInfo } from '../service/ListService';
+import { createUserList, removeMusicsFromList, replaceUserListMusic } from '../service/ListService';
+import type { BusinessError } from '@kit.BasicServicesKit';
+import { emitSearchRequest } from '../service/EventBus';
+import { buildShareText, getMusicDetailPageUrl } from '../core/music/MusicDetailUrl';
+import { shareText } from '../service/ShareService';
+import {
+  collectOnlineSonglist,
+  uncollectOnlineSonglist,
+  syncUserListFromOnline,
+  isOnlineSonglistCollected,
+} from '../service/UserListSyncService';
+import { findUserListByBinding } from '../service/ListService';
+import { fetchAllOnlineSongs } from '../service/UserListSyncService';
+import { dislikeList } from '../core/dislike/DislikeList';
+import { showSongItemMenu, showSonglistMoreMenu } from './SonglistDetail/SonglistMenus';
+import { songRowToListItem, songRowToMusicInfo, songRowToQueueItem } from '../core/list/SongMappers';
+import { appActionMenu } from '../service/DialogService';
+import { ListRow } from '../components/ui/ListRow';
+import { NavBar } from '../components/ui/NavBar';
+import type { SongItem, SonglistInfo } from './SonglistDetail/SonglistTypes';
+import { SonglistDetailHeader } from './SonglistDetail/SonglistDetailHeader';
+import { SonglistBatchBar } from './SonglistDetail/SonglistBatchBar';
+import { SonglistSortSheet } from './SonglistDetail/SonglistSortSheet';
 import type { MusicInfo, MusicSource } from '../types/MusicTypes';
 import { DesignTokens } from '../theme/DesignTokens';
-import { NavBackButton } from '../components/common/NavBackButton';
-import pasteboard from '@ohos.pasteboard';
+import { formatPlayTime } from '../utils/CommonUtils';
+import { getStorageService } from '../core/interfaces/IStorageService';
 import { SkeletonListItem } from '../components/common/SkeletonView';
 import { ErrorView } from '../components/common/ErrorView';
 import { t, tf, sourceLabel } from '../service/LocalizationService';
+import { sortSongs, dedupeSongs, countDuplicateGroups, type SortField, type SortOrder } from '../utils/ListTools';
+
+interface PromptActionResult {
+  index: number;
+}
 
 interface MenuActionItem {
   label: string;
   action: () => void;
 }
 
-interface SonglistCollectionEntry {
-  id: string;
-  source: string;
-  name: string;
-  creator: string;
-  pic: string;
-  desc: string;
-  playCount: number;
-  collectTime: number;
-}
-
 @Component
 export struct SonglistDetailPage {
   @StorageProp('theme') theme: string = 'light';
+  // 列表显示项（设置 → 列表设置）
+  @StorageProp('showListSource') showListSource: boolean = true;
+  @StorageProp('showListAlbum') showListAlbum: boolean = true;
+  @StorageProp('showListDuration') showListDuration: boolean = true;
+  @StorageProp('rememberScrollPosition') rememberScrollPosition: boolean = true;
+  /** 收藏/同步进行中（避免重复触发） */
+  private collectBusy: boolean = false;
+  /** 点击列表项：播放整个列表 / 只播这一首（设置 → 列表） */
+  @StorageProp('listClickPlay') listClickPlay: boolean = false;
 
   /** 按压反馈：列表行/按钮变淡 */
   @Styles
@@ -46,16 +72,25 @@ export struct SonglistDetailPage {
 
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
-  @State renderKey: number = Date.now();
-  @State listName: string = t('songlist_title');
   @State creator: string = t('unknown');
-  @State description: string = '';
   @State playCount: string = '0';
   @State songList: SongItem[] = [];
   @State isLoading: boolean = true;
   @State hasError: boolean = false;
   @State headerCompact: boolean = false;
   @State listCoverLoadFailed: boolean = false;
+
+  // ===== 列表能力：多选 / 排序 / 去重（对齐安卓版歌单菜单）=====
+  /** 多选模式：行点击变为勾选，底部出现批量操作栏 */
+  @State selectMode: boolean = false;
+  /** 已选下标（用下标而非 id，重复歌曲也能精确删掉某一首） */
+  @State selectedIndexes: number[] = [];
+  /** 排序设置面板 */
+  @State showSortSheet: boolean = false;
+  @State sortField: string = 'name';
+  @State sortOrder: string = 'up';
+  /** 去重时是否忽略 Live/伴奏等版本后缀 */
+  @State dedupeFilterVariant: boolean = true;
 
   // 歌单信息
   @State listInfo: SonglistInfo = {
@@ -83,6 +118,76 @@ export struct SonglistDetailPage {
     void this.loadSonglistDetail(this.lastSourceId, this.lastListId);
   }
 
+  /** 列表副标题：歌手 [· 专辑] [· 音源]，按设置裁剪 */
+  private buildSubtitle(song: SongItem): string {
+    const parts: string[] = [];
+    if (song.singer && song.singer.length > 0) {
+      parts.push(song.singer);
+    }
+    if (this.showListAlbum && song.album && song.album.length > 0) {
+      parts.push(song.album);
+    }
+    if (this.showListSource && song.source && song.source.length > 0) {
+      parts.push(sourceLabel(song.source));
+    }
+    return parts.join(' · ');
+  }
+
+  /** 行尾时长（无时长信息时不显示占位） */
+  private formatSongDuration(song: SongItem): string {
+    if (!song.duration || song.duration <= 0) {
+      return '';
+    }
+    return formatPlayTime(song.duration);
+  }
+
+  /** 滚动位置记忆的存储键（按歌单区分） */
+  private scrollKey(): string {
+    return `list.scroll.${this.lastSourceId}.${this.lastListId}`;
+  }
+
+  /** 退出页面时记住滚动位置 */
+  private saveScrollPosition(): void {
+    if (!this.rememberScrollPosition || !this.detailLoaded || this.lastListId.length === 0) {
+      return;
+    }
+    try {
+      const y = this.getSongListOffsetY();
+      if (y <= 0) {
+        return;
+      }
+      getStorageService().setNumber(this.scrollKey(), Math.floor(y)).catch((err: Error) => {
+        hilog.warn(0x0001, 'SonglistDetail', 'save scroll failed: %{public}s', err.message);
+      });
+    } catch (err) {
+      hilog.warn(0x0001, 'SonglistDetail', 'saveScrollPosition failed: %{public}s', JSON.stringify(err));
+    }
+  }
+
+  /** 列表渲染后恢复上次滚动位置 */
+  private async restoreScrollPosition(): Promise<void> {
+    if (!this.rememberScrollPosition || this.lastListId.length === 0) {
+      return;
+    }
+    try {
+      const y = await getStorageService().getNumber(this.scrollKey(), 0);
+      if (y <= 0) {
+        return;
+      }
+      // 等一帧让列表完成布局，否则 scrollTo 会被忽略
+      setTimeout(() => {
+        try {
+          this.songListScroller.scrollTo({ xOffset: 0, yOffset: y, animation: false });
+          hilog.info(0x0001, 'SonglistDetail', 'Scroll restored to %{public}d', y);
+        } catch (err) {
+          hilog.warn(0x0001, 'SonglistDetail', 'scrollTo failed: %{public}s', JSON.stringify(err));
+        }
+      }, 120);
+    } catch (err) {
+      hilog.warn(0x0001, 'SonglistDetail', 'restoreScrollPosition failed: %{public}s', JSON.stringify(err));
+    }
+  }
+
   private getSongListOffsetY(): number {
     try {
       const y = this.songListScroller.currentOffset().yOffset;
@@ -103,10 +208,6 @@ export struct SonglistDetailPage {
     return src.toUpperCase();
   }
 
-  private canRenderCover(url: string): boolean {
-    const value = (url ?? '').trim();
-    return value.startsWith('http://') || value.startsWith('https://') || value.startsWith('//');
-  }
 
   aboutToAppear() {
     hilog.info(0x0001, 'SonglistDetail', 'SonglistDetailPage appearing');
@@ -131,189 +232,34 @@ export struct SonglistDetailPage {
     }
   }
 
+  aboutToDisappear(): void {
+    this.saveScrollPosition();
+  }
+
   onBackPressed(): boolean {
     navigationService.back();
     return true;
   }
 
+  /** 头部：交给 SonglistDetailHeader（展开/收缩两态） */
   @Builder
   Header() {
-    Column() {
-      if (!this.headerCompact) {
-        Row() {
-          Column({ space: 6 }) {
-            Stack() {
-              if (!this.listCoverLoadFailed && this.canRenderCover(this.listInfo.pic)) {
-                Image(this.listInfo.pic)
-                  .width(106)
-                  .height(106)
-                  .borderRadius(12)
-                  .objectFit(ImageFit.Cover)
-                  .onError(() => {
-                    this.listCoverLoadFailed = true;
-                  })
-              } else {
-                Image($r('app.media.ic_player_cover_placeholder'))
-                .width(106)
-                .height(106)
-                .borderRadius(12)
-                .objectFit(ImageFit.Cover)
-              }
-
-              Text(this.getSourceLabel())
-                .fontSize(10)
-                .fontColor(DesignTokens.onAccent())
-                .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-                .backgroundColor(DesignTokens.accent())
-                .borderRadius(9)
-                .margin({ right: 4, bottom: 4 })
-            }
-            .width(106)
-            .height(106)
-            .align(Alignment.BottomEnd)
-          }
-
-          Column({ space: 8 }) {
-            Text(this.listInfo.name)
-              .fontSize(DesignTokens.fontTitle())
-              .fontColor(DesignTokens.labelPrimary(this.theme))
-              .fontWeight(FontWeight.Medium)
-              .maxLines(2)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-            Row() {
-              Text(t('songlist_creator') + ': ' + (this.listInfo.creator || t('unknown')))
-                .fontSize(DesignTokens.fontCaption())
-                .fontColor(DesignTokens.labelSecondary(this.theme))
-                .maxLines(1)
-                .layoutWeight(1)
-            }
-            .width('100%')
-            .alignItems(VerticalAlign.Center)
-
-            Row() {
-              Text(tf('count_play', [this.formatPlayCountDisplay(this.listInfo.playCount)]))
-                .fontSize(DesignTokens.fontCaption())
-                .fontColor(DesignTokens.labelSecondary(this.theme))
-                .maxLines(1)
-              Text(tf('count_songs', [this.songList.length.toString()]))
-                .fontSize(DesignTokens.fontCaption())
-                .fontColor(DesignTokens.labelSecondary(this.theme))
-                .margin({ left: 8 })
-            }
-            .width('100%')
-            .alignItems(VerticalAlign.Center)
-          }
-          .alignItems(HorizontalAlign.Start)
-          .layoutWeight(1)
-          .margin({ left: 14, right: 10 })
-
-          Column({ space: 8 }) {
-            Row({ space: 5 }) {
-              Image($r('app.media.ic_pd_play'))
-                .width(14)
-                .height(14)
-                .fillColor(DesignTokens.onAccent())
-              Text('播放全部')
-                .fontSize(DesignTokens.fontCaption())
-                .fontColor(DesignTokens.onAccent())
-                .fontWeight(FontWeight.Medium)
-            }
-            .height(34)
-            .width(112)
-            .backgroundColor(DesignTokens.accent())
-            .borderRadius(17)
-            .justifyContent(FlexAlign.Center)
-            .onClick(() => void this.playAll())
-
-            Row({ space: 5 }) {
-              Image($r('app.media.ic_common_heart'))
-                .width(14)
-                .height(14)
-                .fillColor(DesignTokens.labelPrimary(this.theme))
-              Text('收藏')
-                .fontSize(DesignTokens.fontCaption())
-                .fontColor(DesignTokens.labelPrimary(this.theme))
-            }
-            .height(34)
-            .width(112)
-            .backgroundColor(DesignTokens.mutedFill(this.theme))
-            .borderRadius(17)
-            .justifyContent(FlexAlign.Center)
-            .onClick(() => void this.toggleCollect())
-
-          }
-          .alignItems(HorizontalAlign.End)
-        }
-        .width('100%')
-      } else {
-        Row() {
-          Row({ space: 8 }) {
-            Row({ space: 5 }) {
-              Image($r('app.media.ic_pd_play'))
-                .width(14)
-                .height(14)
-                .fillColor(DesignTokens.onAccent())
-              Text('播放全部')
-                .fontSize(DesignTokens.fontCaption())
-                .fontColor(DesignTokens.onAccent())
-                .fontWeight(FontWeight.Medium)
-            }
-            .height(34)
-            .width(112)
-            .backgroundColor(DesignTokens.accent())
-            .borderRadius(17)
-            .justifyContent(FlexAlign.Center)
-            .onClick(() => void this.playAll())
-
-            Row({ space: 5 }) {
-              Image($r('app.media.ic_common_heart'))
-                .width(14)
-                .height(14)
-                .fillColor(DesignTokens.labelPrimary(this.theme))
-              Text('收藏')
-                .fontSize(DesignTokens.fontCaption())
-                .fontColor(DesignTokens.labelPrimary(this.theme))
-            }
-            .height(34)
-            .width(112)
-            .backgroundColor(DesignTokens.mutedFill(this.theme))
-            .borderRadius(17)
-            .justifyContent(FlexAlign.Center)
-            .onClick(() => void this.toggleCollect())
-
-            Text(this.getSourceLabel())
-              .fontSize(10)
-              .fontColor(DesignTokens.onAccent())
-              .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-              .backgroundColor(DesignTokens.accent())
-              .borderRadius(9)
-          }
-
-          Text(tf('count_songs', [this.songList.length.toString()]))
-            .fontSize(DesignTokens.fontCaption())
-            .fontColor(DesignTokens.labelSecondary(this.theme))
-        }
-        .width('100%')
-        .margin({ top: 4 })
-        .justifyContent(FlexAlign.SpaceBetween)
-        .alignItems(VerticalAlign.Center)
-      }
-
-      if (this.listInfo.desc) {
-        Text(this.listInfo.desc)
-          .fontSize(DesignTokens.fontCaption())
-          .fontColor(DesignTokens.labelSecondary(this.theme))
-          .maxLines(2)
-          .margin({ top: this.headerCompact ? 6 : 10 })
-      }
-    }
-    .width('100%')
-    .padding(16)
-    .backgroundColor(DesignTokens.card(this.theme))
-    .borderRadius(14)
-    .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
-    .margin({ left: 12, right: 12, top: 8, bottom: 10 })
+    SonglistDetailHeader({
+      listName: this.listInfo.name,
+      creator: this.listInfo.creator,
+      description: this.listInfo.desc,
+      cover: this.listInfo.pic,
+      sourceLabel: this.getSourceLabel(),
+      songCount: this.songList.length,
+      playCount: this.listInfo.playCount,
+      compact: this.headerCompact,
+      onPlayAll: (): void => {
+        void this.playAll();
+      },
+      onCollect: (): void => {
+        void this.toggleCollect();
+      },
+    })
   }
 
   @Builder
@@ -321,50 +267,32 @@ export struct SonglistDetailPage {
     List({ space: 8, scroller: this.songListScroller }) {
       ForEach(this.songList, (song: SongItem, index: number) => {
         ListItem() {
-          Row() {
-            Text((index + 1).toString())
-              .fontSize(DesignTokens.fontCaption())
-              .fontColor(song.isPlaying ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
-              .width(28)
-              .textAlign(TextAlign.Center)
-
-            Column({ space: 2 }) {
-              Text(song.name)
-                .fontSize(DesignTokens.fontBody())
-                .fontColor(song.isPlaying ? DesignTokens.accent() : DesignTokens.labelPrimary(this.theme))
-                .maxLines(1)
-              Text(song.singer + ' - ' + song.album)
-                .fontSize(DesignTokens.fontCaption())
-                .fontColor(DesignTokens.labelSecondary(this.theme))
-                .maxLines(1)
-            }
-            .alignItems(HorizontalAlign.Start)
-            .layoutWeight(1)
-            .margin({ left: 10, right: 10 })
-
-            Stack() {
-              Circle({ width: 28, height: 28 })
-                .fill(DesignTokens.mutedFill(this.theme))
-              Image($r('app.media.ic_common_download'))
-                .width(14)
-                .height(14)
-                .fillColor(DesignTokens.labelSecondary(this.theme))
-            }
-            .onClick(() => {
-              void this.downloadSongFromMenu(song);
-            })
-          }
-          .width('100%')
-          .padding({ left: 10, right: 10, top: 12, bottom: 12 })
-          .backgroundColor(DesignTokens.card(this.theme))
-          .borderRadius(12)
-          .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
+          ListRow({
+            index: index + 1,
+            title: song.name,
+            subtitle: this.buildSubtitle(song),
+            trailingText: this.showListDuration ? this.formatSongDuration(song) : '',
+            active: song.isPlaying,
+            divider: false,
+            onTap: (): void => {
+              if (this.selectMode) {
+                this.toggleSelect(index);
+              } else {
+                void this.playSong(index);
+              }
+            },
+            onLongPress: (): void => {
+              if (!this.selectMode) {
+                void this.openSongMenu(song);
+              }
+            },
+            trailing: (): void => {
+              this.SongRowTrailing(song, index);
+            },
+          })
         }
         .stateStyles({ pressed: this.pressDim })
-        .onClick(() => {
-          void this.playSong(index);
-        })
-      })
+      }, (song: SongItem, index: number) => `${song.id}_${song.source}_${index}`)
     }
     .width('100%')
     .layoutWeight(1)
@@ -378,6 +306,42 @@ export struct SonglistDetailPage {
         this.headerCompact = false;
       }
     })
+  }
+
+  /** 行尾：多选态给勾选圆点，普通态给 ⋮ 菜单 */
+  @Builder
+  SongRowTrailing(song: SongItem, index: number) {
+    if (this.selectMode) {
+      Stack() {
+        if (this.isSelected(index)) {
+          Image($r('sys.symbol.checkmark_circle_fill'))
+            .width(22)
+            .height(22)
+            .fillColor(DesignTokens.accent())
+        } else {
+          Circle({ width: 22, height: 22 })
+            .fill(Color.Transparent)
+            .stroke(DesignTokens.labelTertiary(this.theme))
+            .strokeWidth(1.5)
+        }
+      }
+      .width(DesignTokens.touchTarget())
+      .height(DesignTokens.touchTarget())
+    } else {
+      Stack() {
+        Circle({ width: 28, height: 28 })
+          .fill(DesignTokens.mutedFill(this.theme))
+        Image($r('app.media.ic_pd_more'))
+          .width(14)
+          .height(14)
+          .fillColor(DesignTokens.labelSecondary(this.theme))
+      }
+      .width(DesignTokens.touchTarget())
+      .height(DesignTokens.touchTarget())
+      .onClick(() => {
+        void this.openSongMenu(song);
+      })
+    }
   }
 
   // NavDestination onReady callback
@@ -462,6 +426,7 @@ export struct SonglistDetailPage {
       hilog.info(0x0001, 'SonglistDetail', 'Parsed %{public}s songs to display', items.length.toString());
       this.songList = items;
       this.detailLoaded = true;
+      void this.restoreScrollPosition();
     } catch (err) {
       hilog.error(0x0001, 'SonglistDetail', 'Failed to load song list detail: %{public}s', JSON.stringify(err));
       this.hasError = true;
@@ -631,15 +596,57 @@ export struct SonglistDetailPage {
       // 更新songInfo的URL
       songInfos[index].url = url;
       
-      // 设置播放列表（现在URL已经可用）
+      // 队列语义对齐安卓版：点击行都用「整张歌单」入队并立即播放
+      // - listClickPlay=true：直接用当前已加载的列表（安卓 onPlayList）
+      // - listClickPlay=false（默认）：先播已加载页，随后后台补全全部页替换队列（安卓渐进式 temp list）
       playerService.setPlayList(songInfos, index);
-      hilog.info(0x0001, 'SonglistDetail', 'PlayList set with %{public}d songs, starting from index %{public}d', songInfos.length, index);
+      hilog.info(0x0001, 'SonglistDetail', 'PlayList set with %{public}d songs, starting from index %{public}d',
+        songInfos.length, index);
+      if (!this.listClickPlay) {
+        void this.fillQueueWithAllPages(song);
+      }
 
       hilog.info(0x0001, 'SonglistDetail', 'Got music URL, setting source and playing...');
       await playerService.playFromSelection(songInfos[index], url, song.duration);
       hilog.info(0x0001, 'SonglistDetail', 'Song playback started successfully');
     } catch (error) {
       hilog.error(0x0001, 'SonglistDetail', 'Play song failed: %{public}s', JSON.stringify(error));
+    }
+  }
+
+  /**
+   * 后台拉取歌单全部页并补全队列（安卓 handlePlay 里 getListDetailAll 的等价实现）
+   * 只补齐当前仍在播放的那首歌所属的队列，避免切歌后覆盖
+   */
+  private async fillQueueWithAllPages(anchorSong: SongItem): Promise<void> {
+    if (!this.listInfo.source || this.listInfo.source === 'local' || this.listInfo.id.length === 0) {
+      return;
+    }
+    try {
+      const all: MusicItem[] = await fetchAllOnlineSongs(this.listInfo.source, this.listInfo.id);
+      if (all.length <= this.songList.length) {
+        return;
+      }
+      // 队列补全（保持当前曲目）
+      const queue: SongInfo[] = [];
+      for (let i = 0; i < all.length; i++) {
+        queue.push({
+          id: all[i].id,
+          songmid: all[i].id,
+          url: '',
+          title: all[i].name,
+          artist: all[i].singer,
+          album: all[i].album,
+          artwork: all[i].pic || this.listInfo.pic || null,
+          duration: all[i].duration,
+          source: all[i].source,
+        });
+      }
+      playerService.refineQueueWithFullList(queue);
+      hilog.info(0x0001, 'SonglistDetail', 'Queue filled with all pages: %{public}d songs (anchor=%{public}s)',
+        all.length, anchorSong.name);
+    } catch (err) {
+      hilog.warn(0x0001, 'SonglistDetail', 'fillQueueWithAllPages failed: %{public}s', JSON.stringify(err));
     }
   }
 
@@ -718,109 +725,105 @@ export struct SonglistDetailPage {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
 
-  // 收藏歌单
+  /**
+   * 收藏歌单（对齐安卓版 handleCollect）
+   * - 未收藏：创建绑定在线歌单的自建歌单（全量拉取歌曲），在「我的列表」可见
+   * - 已收藏：弹菜单，可「更新歌单内容」（列表级同步）或「取消收藏」
+   */
   async toggleCollect(): Promise<void> {
+    if (this.listInfo.source === 'local') {
+      this.showToast(t('toast_local_list_no_collect'));
+      return;
+    }
+    if (this.collectBusy) {
+      return;
+    }
     try {
       hilog.info(0x0001, 'SonglistDetail', 'Collect songlist: %{public}s', this.listInfo.name);
-      
-      // 检查是否已收藏
-      const isCollected = await this.isSonglistCollected();
-      
-      if (isCollected) {
-        // 取消收藏
-        await this.removeFromCollections();
-        this.showToast(tf('toast_uncollected', [this.listInfo.name]));
-      } else {
-        // 添加收藏
-        await this.addToCollections();
-        this.showToast(tf('toast_collected', [this.listInfo.name]));
+      const collected = isOnlineSonglistCollected(this.listInfo.source, this.listInfo.id);
+      if (collected) {
+        this.openCollectedMenu();
+        return;
       }
-      
+      // 未收藏：全量拉取并创建绑定列表（耗时操作，期间禁止重复触发）
+      this.collectBusy = true;
+      this.showToast(t('toast_collecting'));
+      const result = await collectOnlineSonglist(
+        this.listInfo.source, this.listInfo.id, this.listInfo.name, this.listInfo.pic);
+      this.showToast(tf('toast_collected_count', [String(result.localCount ?? 0)]));
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
       hilog.error(0x0001, 'SonglistDetail', 'Failed to toggle collect: %{public}s', errorMsg);
-      this.showToast('操作失败: ' + errorMsg);
+      this.showToast(t('toast_operation_failed') + ': ' + errorMsg);
+    } finally {
+      this.collectBusy = false;
     }
   }
 
-  /** 读取收藏的歌单列表（统一走 StorageService 的同一份存储） */
-  private async loadCollections(): Promise<SonglistCollectionEntry[]> {
-    const json = await storageService.getString(StorageKeys.COLLECTION_SONGLISTS, '[]');
-    if (!json || json.length === 0) {
-      return [];
-    }
-    try {
-      return JSON.parse(json) as SonglistCollectionEntry[];
-    } catch (err) {
-      hilog.warn(0x0001, 'SonglistDetail', 'Parse collections failed: %{public}s', JSON.stringify(err));
-      return [];
-    }
-  }
-
-  private async saveCollections(collections: SonglistCollectionEntry[]): Promise<void> {
-    await storageService.setString(StorageKeys.COLLECTION_SONGLISTS, JSON.stringify(collections));
-  }
-
-  private isSameSonglist(item: SonglistCollectionEntry): boolean {
-    return item.id === this.listInfo.id && item.source === this.listInfo.source;
-  }
-
-  // 检查歌单是否已收藏
-  private async isSonglistCollected(): Promise<boolean> {
-    try {
-      const collections = await this.loadCollections();
-      return collections.some((item: SonglistCollectionEntry) => this.isSameSonglist(item));
-    } catch (err) {
-      hilog.error(0x0001, 'SonglistDetail', 'Failed to check collection status: %{public}s', JSON.stringify(err));
-      return false;
-    }
-  }
-
-  // 添加到收藏
-  private async addToCollections(): Promise<void> {
-    try {
-      const collections = await this.loadCollections();
-      if (collections.some((item: SonglistCollectionEntry) => this.isSameSonglist(item))) {
+  /** 已收藏时的菜单：更新内容 / 取消收藏 */
+  private openCollectedMenu(): void {
+    const primary = DesignTokens.labelPrimary(this.theme);
+    const tertiary = DesignTokens.labelTertiary(this.theme);
+    this.getUIContext().getPromptAction().showActionMenu({
+      title: this.listInfo.name,
+      buttons: [
+        { text: t('list_sync_content'), color: primary },
+        { text: t('toast_uncollected_action'), color: DesignTokens.danger() },
+        { text: t('cancel'), color: tertiary },
+      ],
+    }, (err: BusinessError, data: PromptActionResult) => {
+      if (err) {
         return;
       }
-      collections.push({
-        id: this.listInfo.id,
-        source: this.listInfo.source,
-        name: this.listInfo.name,
-        creator: this.listInfo.creator,
-        pic: this.listInfo.pic,
-        desc: this.listInfo.desc,
-        playCount: this.listInfo.playCount,
-        collectTime: Date.now()
-      });
-      await this.saveCollections(collections);
-      hilog.info(0x0001, 'SonglistDetail', 'Added to collections: %{public}s', this.listInfo.name);
+      if (data.index === 0) {
+        void this.syncBoundList();
+      } else if (data.index === 1) {
+        void this.uncollect();
+      }
+    });
+  }
+
+  /** 更新歌单内容（列表级同步） */
+  private async syncBoundList(): Promise<void> {
+    const info = findUserListByBinding(this.listInfo.source, this.listInfo.id);
+    if (!info) {
+      this.showToast(t('toast_operation_failed'));
+      return;
+    }
+    try {
+      this.showToast(t('toast_syncing'));
+      const result = await syncUserListFromOnline(info.id);
+      if (result.ok) {
+        this.showToast(tf('toast_sync_done_count', [String(result.count)]));
+      } else {
+        this.showToast(t('toast_sync_local_failed'));
+      }
     } catch (err) {
-      hilog.error(0x0001, 'SonglistDetail', 'Failed to add to collections: %{public}s', JSON.stringify(err));
-      throw new Error(err instanceof Error ? err.message : JSON.stringify(err));
+      hilog.warn(0x0001, 'SonglistDetail', 'syncBoundList failed: %{public}s', JSON.stringify(err));
+      this.showToast(t('toast_sync_local_failed'));
     }
   }
 
-  // 从收藏中移除
-  private async removeFromCollections(): Promise<void> {
+  /** 取消收藏（删除对应自建歌单） */
+  private async uncollect(): Promise<void> {
     try {
-      const collections = await this.loadCollections();
-      const remaining = collections.filter((item: SonglistCollectionEntry) => !this.isSameSonglist(item));
-      await this.saveCollections(remaining);
-      hilog.info(0x0001, 'SonglistDetail', 'Removed from collections: %{public}s', this.listInfo.name);
+      const confirmed = await this.showConfirmDialog(
+        t('toast_uncollected_action'),
+        tf('confirm_uncollect', [this.listInfo.name]));
+      if (!confirmed) {
+        return;
+      }
+      await uncollectOnlineSonglist(this.listInfo.source, this.listInfo.id);
+      this.showToast(tf('toast_uncollected', [this.listInfo.name]));
     } catch (err) {
-      hilog.error(0x0001, 'SonglistDetail', 'Failed to remove from collections: %{public}s', JSON.stringify(err));
-      throw new Error(err instanceof Error ? err.message : JSON.stringify(err));
+      hilog.warn(0x0001, 'SonglistDetail', 'uncollect failed: %{public}s', JSON.stringify(err));
+      this.showToast(t('toast_operation_failed'));
     }
   }
 
   // 显示提示
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message, duration: 1800 });
-    } catch (_e) {
-      hilog.info(0x0001, 'SonglistDetail', 'Toast: %{public}s', message);
-    }
+    showAppToast(this.getUIContext(), message, TOAST_DURATION_SHORT);
   }
 
   // 下载歌单
@@ -873,46 +876,16 @@ export struct SonglistDetailPage {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
       hilog.error(0x0001, 'SonglistDetail', 'Failed to download songlist: %{public}s', errorMsg);
-      this.showToast('下载失败: ' + errorMsg);
+      this.showToast(t('toast_download_failed') + ': ' + errorMsg);
     }
   }
 
-  private formatDurationForMusicInfo(seconds: number): string {
-    const s = Math.max(0, Math.floor(seconds));
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
-  }
 
-  private buildMusicInfoForDownload(song: SongItem): MusicInfo {
-    const src = song.source as MusicSource;
-    const sid = song.songmid || song.id;
-    return {
-      id: sid,
-      name: song.name,
-      singer: song.singer,
-      source: src,
-      interval: this.formatDurationForMusicInfo(song.duration),
-      img: song.pic || null,
-      lrc: null,
-      songmid: sid,
-      strMediaMid: src === 'tx' && song.strMediaMid && song.strMediaMid.length > 0 ? song.strMediaMid : undefined,
-      copyrightId: song.copyrightId && song.copyrightId.length > 0 ? song.copyrightId : undefined,
-      album: song.album,
-      albumName: song.album,
-      albumId: song.albumId ?? '',
-      hash: song.hash ?? '',
-      types: [],
-      _types: new Map(),
-      typeUrl: new Map(),
-      otherSource: null,
-    };
-  }
 
   // 下载单首歌曲
   private async downloadSong(song: SongItem): Promise<void> {
     try {
-      const musicInfo: MusicInfo = this.buildMusicInfoForDownload(song);
+      const musicInfo: MusicInfo = songRowToMusicInfo(song);
       // 使用真实的下载服务
       const taskId = await download.startDownload({
         musicInfo: musicInfo,
@@ -926,48 +899,400 @@ export struct SonglistDetailPage {
     }
   }
 
-  // 显示确认对话框（模拟实现）
-  private async showConfirmDialog(title: string, message: string): Promise<boolean> {
-    // 在实际应用中，这里应该显示一个确认对话框
-    // 暂时返回true（用户确认）
-    hilog.info(0x0001, 'SonglistDetail', 'Confirm dialog: %{public}s - %{public}s', title, message);
-    return true;
+  /** 系统确认对话框（Promise 化，取消返回 false） */
+  private showConfirmDialog(title: string, message: string): Promise<boolean> {
+    return new Promise<boolean>((resolve: (value: boolean) => void) => {
+      try {
+        this.getUIContext().getPromptAction().showDialog({
+          title,
+          message,
+          buttons: [
+            { text: t('cancel'), color: DesignTokens.labelSecondary(this.theme) },
+            { text: t('confirm'), color: DesignTokens.accent() },
+          ],
+        }, (err: object, data: PromptActionResult) => {
+          resolve(!err && data.index === 1);
+        });
+      } catch (err) {
+        hilog.warn(0x0001, 'SonglistDetail', 'showConfirmDialog failed: %{public}s', JSON.stringify(err));
+        resolve(false);
+      }
+    });
   }
 
-  showSongMenu(song: SongItem): void {
-    try {
-      hilog.info(0x0001, 'SonglistDetail', 'Show menu for: %{public}s', song.name);
-      
-      // 显示操作菜单
-      this.showActionMenu(song);
-      
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
-      hilog.error(0x0001, 'SonglistDetail', 'Failed to show song menu: %{public}s', errorMsg);
-    }
-  }
 
   // 显示操作菜单
-  private showActionMenu(song: SongItem): void {
-    // 在实际应用中，这里应该显示一个操作菜单
-    // 暂时使用日志输出并执行默认操作
-    
-    const actions: MenuActionItem[] = [
-      { label: t('player_add_to_list'), action: (): void => { this.addToPlaylist(song); } },
-      { label: t('player_download'), action: (): void => { this.downloadSongFromMenu(song); } },
-      { label: t('player_share'), action: (): void => { void this.shareSong(song); } },
-      { label: t('player_view_artist'), action: (): void => { this.viewArtist(song); } },
-      { label: t('player_view_album'), action: (): void => { this.viewAlbum(song); } }
-    ];
-    
-    hilog.info(0x0001, 'SonglistDetail', 'Action menu for %{public}s:', song.name);
-    for (const action of actions) {
-      hilog.info(0x0001, 'SonglistDetail', '  - %{public}s', action.label);
+
+  /** 二级菜单：多选 / 不喜欢 / 来源详情 / 查看歌手 / 查看专辑 */
+
+  /** 下一首播放（插到当前曲目之后） */
+
+  /** 打开该歌曲在对应平台的详情页 */
+
+  /** 打开外部链接 */
+
+  /** 不喜欢：按 歌曲 / 歌手 / 歌名 三种粒度屏蔽（与播放页一致） */
+
+  /** 写入屏蔽规则（与播放页 addDislike 行为一致） */
+
+  /** SongItem -> MusicInfo（分享/详情页链接用） */
+
+  // ===== 多选批量操作 =====
+
+  /** 进入多选模式，并把触发的那首歌默认选中 */
+  private enterSelectMode(song?: SongItem): void {
+    this.selectMode = true;
+    if (song) {
+      const index = this.indexOfSong(song);
+      this.selectedIndexes = index >= 0 ? [index] : [];
+    } else {
+      this.selectedIndexes = [];
     }
-    
-    // 默认执行第一个操作：添加到歌单
-    this.addToPlaylist(song);
   }
+
+  private exitSelectMode(): void {
+    this.selectMode = false;
+    this.selectedIndexes = [];
+  }
+
+  private indexOfSong(song: SongItem): number {
+    for (let i = 0; i < this.songList.length; i++) {
+      if (this.songList[i] === song) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  private isSelected(index: number): boolean {
+    return this.selectedIndexes.indexOf(index) >= 0;
+  }
+
+  private toggleSelect(index: number): void {
+    const next = this.selectedIndexes.slice();
+    const at = next.indexOf(index);
+    if (at >= 0) {
+      next.splice(at, 1);
+    } else {
+      next.push(index);
+    }
+    this.selectedIndexes = next;
+  }
+
+  private selectAllSongs(): void {
+    if (this.selectedIndexes.length === this.songList.length) {
+      this.selectedIndexes = [];
+      return;
+    }
+    const all: number[] = [];
+    for (let i = 0; i < this.songList.length; i++) {
+      all.push(i);
+    }
+    this.selectedIndexes = all;
+  }
+
+  private selectedSongs(): SongItem[] {
+    const result: SongItem[] = [];
+    for (let i = 0; i < this.selectedIndexes.length; i++) {
+      const song = this.songList[this.selectedIndexes[i]];
+      if (song) {
+        result.push(song);
+      }
+    }
+    return result;
+  }
+
+  /** 批量添加到自建歌单（默认列表） */
+  private async batchAddToPlaylist(): Promise<void> {
+    const songs = this.selectedSongs();
+    if (songs.length === 0) {
+      this.showToast(t('toast_no_selection'));
+      return;
+    }
+    let added = 0;
+    for (let i = 0; i < songs.length; i++) {
+      try {
+        await addMusicToList(LIST_IDS.DEFAULT, songRowToListItem(songs[i]));
+        added++;
+      } catch (err) {
+        hilog.warn(0x0001, 'SonglistDetail', 'batch add failed: %{public}s', JSON.stringify(err));
+      }
+    }
+    this.showToast(tf('toast_batch_added', [added.toString()]));
+    this.exitSelectMode();
+  }
+
+  /** 批量下载 */
+  private async batchDownload(): Promise<void> {
+    const songs = this.selectedSongs();
+    if (songs.length === 0) {
+      this.showToast(t('toast_no_selection'));
+      return;
+    }
+    const confirmed = await this.showConfirmDialog(
+      t('player_download'),
+      tf('confirm_download_songs', [songs.length.toString()]));
+    if (!confirmed) {
+      return;
+    }
+    let done = 0;
+    for (let i = 0; i < songs.length; i++) {
+      try {
+        await this.downloadSong(songs[i]);
+        done++;
+        this.showToast(tf('toast_downloading_progress', [(i + 1).toString(), songs.length.toString()]));
+      } catch (err) {
+        hilog.warn(0x0001, 'SonglistDetail', 'batch download failed: %{public}s', JSON.stringify(err));
+      }
+    }
+    this.showToast(tf('toast_batch_downloaded', [done.toString()]));
+    this.exitSelectMode();
+  }
+
+  /** 批量移出本地歌单（在线歌单不支持，避免用户误以为云端被改） */
+  private async batchRemove(): Promise<void> {
+    const songs = this.selectedSongs();
+    if (songs.length === 0) {
+      this.showToast(t('toast_no_selection'));
+      return;
+    }
+    if (this.listInfo.source !== 'local') {
+      this.showToast(t('toast_online_list_readonly'));
+      return;
+    }
+    const confirmed = await this.showConfirmDialog(
+      t('list_remove_songs'),
+      tf('confirm_remove_songs', [songs.length.toString()]));
+    if (!confirmed) {
+      return;
+    }
+    const ids: string[] = [];
+    for (let i = 0; i < songs.length; i++) {
+      ids.push(songs[i].id);
+    }
+    const removed = await removeMusicsFromList(this.listInfo.id, ids);
+    this.songList = this.songList.filter((song: SongItem) => !this.containsSong(songs, song));
+    this.exitSelectMode();
+    this.showToast(tf('toast_removed_count', [removed.toString()]));
+  }
+
+  private containsSong(songs: SongItem[], target: SongItem): boolean {
+    for (let i = 0; i < songs.length; i++) {
+      if (songs[i] === target) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // ===== 排序 =====
+
+
+
+  private applySort(): void {
+    const field = this.sortField as SortField;
+    const order = this.sortOrder as SortOrder;
+    const locale = this.language.replace('_', '-');
+    this.songList = sortSongs(this.songList, field, order, locale);
+    this.showSortSheet = false;
+    this.showToast(tf('toast_sorted_count', [this.songList.length.toString()]));
+  }
+
+  // ===== 去重 =====
+
+  private async runDedupe(): Promise<void> {
+    if (this.songList.length < 2) {
+      this.showToast(t('list_dedupe_none'));
+      return;
+    }
+    const duplicateGroups = countDuplicateGroups(this.songList, this.dedupeFilterVariant);
+    if (duplicateGroups === 0) {
+      this.showToast(t('list_dedupe_none'));
+      return;
+    }
+    const confirmed = await this.showConfirmDialog(
+      t('list_dedupe'),
+      tf('confirm_dedupe_songs', [duplicateGroups.toString()]));
+    if (!confirmed) {
+      return;
+    }
+    const before = this.songList.length;
+    const deduped = dedupeSongs(this.songList, this.dedupeFilterVariant);
+    const removed = before - deduped.length;
+    this.songList = deduped;
+    // 本地歌单：同步把重复项从存储里删掉，避免下次进来又出现
+    if (this.listInfo.source === 'local') {
+      await this.persistLocalOrder();
+    }
+    this.exitSelectMode();
+    this.showToast(tf('toast_dedupe_done', [removed.toString()]));
+  }
+
+  /** 把当前顺序写回本地歌单（排序/去重后调用） */
+  private async persistLocalOrder(): Promise<void> {
+    if (this.listInfo.source !== 'local') {
+      return;
+    }
+    try {
+      const existing = getUserListMusic(this.listInfo.id);
+      const byId = new Map<string, MusicItem>();
+      for (let i = 0; i < existing.length; i++) {
+        byId.set(existing[i].id, existing[i]);
+      }
+      for (let i = 0; i < this.songList.length; i++) {
+        const song = this.songList[i];
+        if (!byId.has(song.id)) {
+          byId.set(song.id, songRowToListItem(song));
+        }
+      }
+      const keep: MusicItem[] = [];
+      for (let i = 0; i < this.songList.length; i++) {
+        const item = byId.get(this.songList[i].id);
+        if (item && keep.indexOf(item) < 0) {
+          keep.push(item);
+        }
+      }
+      await replaceUserListMusic(this.listInfo.id, keep);
+    } catch (err) {
+      hilog.warn(0x0001, 'SonglistDetail', 'persistLocalOrder failed: %{public}s', JSON.stringify(err));
+    }
+  }
+
+  /** 把在线歌单同步成本地自建歌单（同名则覆盖更新） */
+  private async syncToLocalList(): Promise<void> {
+    if (this.songList.length === 0) {
+      this.showToast(t('toast_songlist_empty'));
+      return;
+    }
+    const name = this.listInfo.name || t('songlist_title');
+    const confirmed = await this.showConfirmDialog(
+      t('list_sync_local'),
+      tf('confirm_sync_local', [name, this.songList.length.toString()]));
+    if (!confirmed) {
+      return;
+    }
+    try {
+      const existing = getUserList().find((item: ListInfo) => item.name === name);
+      let listId = existing ? existing.id : '';
+      if (!listId) {
+        const created = await createUserList(name);
+        listId = created.id;
+      }
+      const items: MusicItem[] = [];
+      for (let i = 0; i < this.songList.length; i++) {
+        items.push(songRowToListItem(this.songList[i]));
+      }
+      await replaceUserListMusic(listId, items);
+      this.showToast(tf('toast_sync_local_done', [name, items.length.toString()]));
+    } catch (err) {
+      hilog.error(0x0001, 'SonglistDetail', 'syncToLocalList failed: %{public}s', JSON.stringify(err));
+      this.showToast(t('toast_sync_local_failed'));
+    }
+  }
+
+  /** 打开单曲菜单（长按行 / 行尾 ⋮）：动作集合见 SonglistMenus */
+  private async openSongMenu(song: SongItem): Promise<void> {
+    await showSongItemMenu(song, {
+      onPlayLater: (target: SongItem): void => {
+        playerService.insertNext(songRowToQueueItem(target));
+        this.showToast(tf('toast_play_later_added', [target.name]));
+      },
+      onAddToList: (target: SongItem): void => {
+        void this.addToPlaylist(target);
+      },
+      onDownload: (target: SongItem): void => {
+        void this.downloadSongFromMenu(target);
+      },
+      onShare: (target: SongItem): void => {
+        void this.shareSong(target);
+      },
+      onSelectMode: (target: SongItem): void => {
+        this.enterSelectMode(target);
+      },
+      onDislike: (target: SongItem): void => {
+        void this.showDislikeMenu(target);
+      },
+      onSourceDetail: (target: SongItem): void => {
+        this.openSourceDetail(target);
+      },
+      onViewArtist: (target: SongItem): void => {
+        this.viewArtist(target);
+      },
+      onViewAlbum: (target: SongItem): void => {
+        this.viewAlbum(target);
+      },
+    });
+  }
+
+  /** 打开该歌曲在对应平台的详情页（外部浏览器） */
+  private openSourceDetail(song: SongItem): void {
+    const url = getMusicDetailPageUrl(songRowToMusicInfo(song));
+    if (url.length === 0) {
+      this.showToast(t('toast_operation_failed'));
+      return;
+    }
+    this.openUrl(url);
+  }
+
+  /** 用系统浏览器打开链接 */
+  private openUrl(url: string): void {
+    try {
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      context.startAbility({ action: 'ohos.want.action.viewData', uri: url })
+        .catch((err: Error) => {
+          hilog.warn(0x0001, 'SonglistDetail', 'openUrl failed: %{public}s', err.message);
+          this.showToast(t('toast_operation_failed'));
+        });
+    } catch (err) {
+      hilog.warn(0x0001, 'SonglistDetail', 'openUrl failed: %{public}s', JSON.stringify(err));
+      this.showToast(t('toast_operation_failed'));
+    }
+  }
+
+  /** 不喜欢：歌曲 / 歌手 / 歌名三种粒度（与播放页同一套规则） */
+  private async showDislikeMenu(song: SongItem): Promise<void> {
+    const picked = await appActionMenu(t('dislike_title'), [
+      t('dislike_song'),
+      t('dislike_singer'),
+      t('dislike_name'),
+    ]);
+    if (picked < 0) {
+      return;
+    }
+    try {
+      await dislikeList.load();
+      if (picked === 0) {
+        await dislikeList.add(song.name, song.singer);
+      } else if (picked === 1) {
+        await dislikeList.add('', song.singer);
+      } else {
+        await dislikeList.add(song.name, '');
+      }
+      this.showToast(tf('dislike_added', [dislikeList.count().toString()]));
+    } catch (err) {
+      hilog.warn(0x0001, 'SonglistDetail', 'addDislike failed: %{public}s', JSON.stringify(err));
+      this.showToast(t('toast_operation_failed'));
+    }
+  }
+
+  /** 顶部「更多」菜单：排序 / 去重 / 多选 / 同步到本地歌单（动作集合见 SonglistMenus） */
+  private async openMoreMenu(): Promise<void> {
+    await showSonglistMoreMenu(this.listInfo.name, {
+      onSort: (): void => {
+        this.showSortSheet = true;
+      },
+      onDedupe: (): void => {
+        void this.runDedupe();
+      },
+      onSelectMode: (): void => {
+        this.enterSelectMode();
+      },
+      onSyncLocal: (): void => {
+        void this.syncToLocalList();
+      },
+    });
+  }
+
 
   // 添加到歌单
   private async addToPlaylist(song: SongItem): Promise<void> {
@@ -992,7 +1317,7 @@ export struct SonglistDetailPage {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
       hilog.error(0x0001, 'SonglistDetail', 'Failed to add to playlist: %{public}s', errorMsg);
-      this.showToast('添加到歌单失败: ' + errorMsg);
+      this.showToast(t('toast_add_to_list_failed') + ': ' + errorMsg);
     }
   }
 
@@ -1004,18 +1329,37 @@ export struct SonglistDetailPage {
       this.showToast(tf('toast_download_start_song', [song.name]));
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
-      this.showToast('下载失败: ' + errorMsg);
+      this.showToast(t('toast_download_failed') + ': ' + errorMsg);
     }
   }
 
   // 分享歌曲
   private async shareSong(song: SongItem): Promise<void> {
-    // 与播放页封面长按的"分享"保持一致：写入系统剪贴板（本 SDK 无系统分享面板）
-    const text = `[${sourceLabel(song.source)}] ${song.name} - ${song.singer}${song.album ? ' · ' + song.album : ''}`;
+    // 与播放页分享一致：按「设置 → 分享方式」走系统分享，失败回退剪贴板
+    const musicInfo: MusicInfo = {
+      id: song.id,
+      name: song.name,
+      singer: song.singer,
+      source: song.source as MusicSource,
+      songmid: song.songmid || song.id,
+      hash: song.hash || '',
+      copyrightId: song.copyrightId || '',
+      albumId: song.albumId || '',
+      albumName: song.album,
+      album: song.album,
+      interval: this.formatPlayTime(song.duration),
+      img: song.pic || null,
+      lrc: null,
+    };
+    const text = `[${sourceLabel(song.source)}] ${buildShareText(musicInfo)}`;
     try {
-      const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, text);
-      await pasteboard.getSystemPasteboard().setData(data);
-      this.showToast(t('toast_share_copy'));
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const result = await shareText(context, text, song.name, getMusicDetailPageUrl(musicInfo));
+      if (result === 'clipboard') {
+        this.showToast(t('toast_share_copy'));
+      } else if (result === 'failed') {
+        this.showToast(t('toast_operation_failed'));
+      }
     } catch (err) {
       hilog.warn(0x0001, 'SonglistDetail', 'shareSong failed: %{public}s', JSON.stringify(err));
       this.showToast(t('toast_operation_failed'));
@@ -1024,35 +1368,33 @@ export struct SonglistDetailPage {
 
   // 查看歌手
   private viewArtist(song: SongItem): void {
-    // 在实际应用中，这里应该跳转到歌手页面
-    hilog.info(0x0001, 'SonglistDetail', 'Viewing artist: %{public}s', song.singer);
-    this.showToast(tf('toast_view_artist', [song.singer]));
+    if (!song.singer || song.singer.length === 0) {
+      this.showToast(t('toast_operation_failed'));
+      return;
+    }
+    // 返回首页并由首页发起一次按歌手名的搜索
+    emitSearchRequest(song.singer);
+    navigationService.back();
   }
 
   // 查看专辑
   private viewAlbum(song: SongItem): void {
-    // 在实际应用中，这里应该跳转到专辑页面
-    hilog.info(0x0001, 'SonglistDetail', 'Viewing album: %{public}s', song.album);
-    this.showToast(tf('toast_view_album', [song.album]));
+    if (!song.album || song.album.length === 0) {
+      this.showToast(t('toast_operation_failed'));
+      return;
+    }
+    emitSearchRequest(song.album);
+    navigationService.back();
   }
 
   build() {
     Column() {
-      Row() {
-        NavBackButton()
-
-        Text('歌单详情')
-          .fontSize(DesignTokens.fontTitle())
-          .fontColor(DesignTokens.labelPrimary(this.theme))
-          .fontWeight(FontWeight.Medium)
-          .margin({ left: 12 })
-
-        Blank()
-      }
-      .width('100%')
-      .height(60)
-      .padding({ left: 14, right: 14, top: 8, bottom: 6 })
-      .backgroundColor(DesignTokens.chromeBar(this.theme))
+      NavBar({
+        title: t('songlist_title'),
+        trailing: (): void => {
+          this.NavTrailingAction();
+        },
+      })
 
       if (this.isLoading) {
         // 加载中：用骨架列表代替转圈，避免整屏白等
@@ -1085,7 +1427,7 @@ export struct SonglistDetailPage {
       } else if (this.songList.length === 0) {
         // 空状态
         Column() {
-          Text('暂无歌曲')
+          Text(t('songlist_empty'))
             .fontSize(14)
             .fontColor(DesignTokens.labelSecondary(this.theme))
         }
@@ -1098,6 +1440,11 @@ export struct SonglistDetailPage {
 
         // 歌曲列表
         this.SongList()
+
+        // 多选批量操作栏
+        if (this.selectMode) {
+          this.BatchBar()
+        }
       }
 
       // 播放器栏（组件内部处理底部沉浸）
@@ -1108,52 +1455,69 @@ export struct SonglistDetailPage {
     .backgroundColor(DesignTokens.pageBg(this.theme))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
-}
 
-// 歌曲项类型
-interface SongItem {
-  id: string;
-  name: string;
-  singer: string;
-  album: string;
-  duration: number;
-  isPlaying: boolean;
-  source: string;
-  pic: string;
-  albumId?: string;
-  songmid?: string;
-  /** QQ 源文件 mid，取链与 vkey 必需；与 song mid 可能不同 */
-  strMediaMid?: string;
-  hash?: string;
-  /** 咪咕取播放链必需 */
-  copyrightId?: string;
-}
+  /** 顶栏右侧：普通态给「更多」，多选态给「完成」 */
+  @Builder
+  NavTrailingAction() {
+    if (this.selectMode) {
+      Text(t('list_select_done'))
+        .fontSize(14)
+        .fontColor(DesignTokens.accent())
+        .padding({ left: 10, right: 4, top: 6, bottom: 6 })
+        .onClick(() => {
+          this.exitSelectMode();
+        })
+    } else {
+      Stack() {
+        Circle({ width: 34, height: 34 })
+          .fill(DesignTokens.mutedFill(this.theme))
+        Image($r('app.media.ic_pd_more'))
+          .width(16)
+          .height(16)
+          .fillColor(DesignTokens.labelPrimary(this.theme))
+      }
+      .width(DesignTokens.touchTarget())
+      .height(DesignTokens.touchTarget())
+      .onClick(() => {
+        this.openMoreMenu();
+      })
+    }
+  }
 
-// 歌单信息类型
-interface SonglistInfo {
-  source: string;
-  id: string;
-  name: string;
-  creator: string;
-  pic: string;
-  desc: string;
-  playCount: number;
-}
+  /** 多选批量操作栏（组件化） */
+  @Builder
+  BatchBar() {
+    SonglistBatchBar({
+      selectedCount: this.selectedIndexes.length,
+      totalCount: this.songList.length,
+      removable: this.listInfo.source === 'local',
+      onToggleSelectAll: (): void => {
+        this.selectAllSongs();
+      },
+      onAddToList: (): void => {
+        void this.batchAddToPlaylist();
+      },
+      onDownload: (): void => {
+        void this.batchDownload();
+      },
+      onRemove: (): void => {
+        void this.batchRemove();
+      },
+    })
+  }
 
-// 下载任务状态
-type DownloadTaskStatus = 'pending' | 'downloading' | 'completed' | 'failed' | 'paused';
-
-// 下载任务类型
-interface DownloadTask {
-  id: string;
-  songId: string;
-  songName: string;
-  singer: string;
-  album: string;
-  source: string;
-  url: string;
-  quality: string;
-  status: DownloadTaskStatus;
-  progress: number;
-  createTime: number;
+  /** 排序面板（组件化，含字段 + 方式选择） */
+  @Builder
+  SortSheet() {
+    SonglistSortSheet({
+      visible: $showSortSheet,
+      field: this.sortField,
+      order: this.sortOrder,
+      onApply: (field: string, order: string): void => {
+        this.sortField = field;
+        this.sortOrder = order;
+        this.applySort();
+      },
+    })
+  }
 }

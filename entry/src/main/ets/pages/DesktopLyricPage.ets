@@ -22,11 +22,22 @@ const DRAG_COMMIT_INTERVAL_MS: number = 60;
 struct DesktopLyricPage {
   @StorageLink('desktopLyricText') lyricText: string = '';
   @StorageLink('desktopLyricNextText') nextText: string = '';
+  @StorageLink('desktopLyricNext2Text') next2Text: string = '';
+  /** 未播放行颜色（安卓版 desktopLyric.style.lyricUnplayColor） */
   @StorageLink('desktopLyricColor') lyricColor: string = '#FFFFFF';
+  /** 当前行颜色（安卓版 desktopLyric.style.lyricPlayedColor） */
+  @StorageLink('desktopLyricPlayedColor') playedColor: string = '#07C556';
   @StorageLink('desktopLyricBgAlpha') lyricBgAlpha: number = 0;
   @StorageLink('desktopLyricFontSize') lyricFontSize: number = 18;
-  @StorageLink('desktopLyricShowNext') showNext: boolean = true;
   @StorageLink('desktopLyricLocked') locked: boolean = false;
+  @StorageLink('desktopLyricMaxLines') maxLines: number = 2;
+  @StorageLink('desktopLyricSingleLine') singleLine: boolean = false;
+  @StorageLink('desktopLyricTextPositionX') textPosX: string = 'left';
+  @StorageLink('desktopLyricTextPositionY') textPosY: string = 'top';
+  /** 歌词文字不透明度 0-100（安卓版 desktopLyric.style.opacity） */
+  @StorageLink('desktopLyricTextOpacity') textOpacity: number = 100;
+  @StorageLink('desktopLyricAnim') animEnabled: boolean = true;
+  @StorageLink('desktopLyricShadowColor') shadowColor: string = '#99000000';
 
   private windowX: number = 0;
   private windowY: number = 0;
@@ -90,33 +101,50 @@ struct DesktopLyricPage {
       Text(this.lyricText.length > 0 ? this.lyricText : t('music_playing'))
         .fontSize(this.lyricFontSize)
         .fontWeight(FontWeight.Medium)
-        .fontColor(this.lyricColor)
+        // 当前句用「已播放颜色」，其余行用「未播放颜色」
+        .fontColor(this.playedColor)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .textAlign(TextAlign.Center)
+        .textAlign(this.textAlignMode())
         .width('100%')
+        .opacity(this.textOpacity / 100)
         // 透明背景下用描边/阴影保证可读性
-        .textShadow({ radius: 4, color: '#99000000', offsetX: 0, offsetY: 1 })
+        .textShadow({ radius: 4, color: this.shadowColor, offsetX: 0, offsetY: 1 })
 
-      if (this.showNext && this.nextText.length > 0) {
+      if (!this.singleLine && this.maxLines >= 2 && this.nextText.length > 0) {
         Text(this.nextText)
           .fontSize(Math.max(12, this.lyricFontSize * 0.78))
-          .fontColor(this.nextLyricColor())
+          .fontColor(this.unplayColor('B0'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .textAlign(TextAlign.Center)
+          .textAlign(this.textAlignMode())
           .width('100%')
           .margin({ top: 2 })
-          .textShadow({ radius: 3, color: '#88000000', offsetX: 0, offsetY: 1 })
+          .opacity(this.textOpacity / 100)
+          .textShadow({ radius: 3, color: this.shadowColor, offsetX: 0, offsetY: 1 })
+      }
+
+      if (!this.singleLine && this.maxLines >= 3 && this.next2Text.length > 0) {
+        Text(this.next2Text)
+          .fontSize(Math.max(11, this.lyricFontSize * 0.7))
+          .fontColor(this.unplayColor('66'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .textAlign(this.textAlignMode())
+          .width('100%')
+          .margin({ top: 2 })
+          .opacity(this.textOpacity / 100)
+          .textShadow({ radius: 3, color: this.shadowColor, offsetX: 0, offsetY: 1 })
       }
     }
     .width('100%')
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
+    .justifyContent(this.verticalAlignMode())
+    .alignItems(this.horizontalAlignMode())
+    .animation({ duration: this.animEnabled ? 220 : 0, curve: Curve.EaseOut })
   }
 
-  /** 给 '#RRGGBB' 颜色加透明度，输出 ArkUI 的 '#AARRGGBB' */
-  private withAlpha(alphaHex: string): string {
+  /** 给 '#RRGGBB' 的未播放颜色加透明度，输出 ArkUI 的 '#AARRGGBB' */
+  private unplayColor(alphaHex: string): string {
     const color: string = this.lyricColor;
     if (color.length === 7 && color.charAt(0) === '#') {
       return `#${alphaHex}${color.substring(1)}`;
@@ -124,9 +152,36 @@ struct DesktopLyricPage {
     return `#${alphaHex}FFFFFF`;
   }
 
-  /** 下一句用当前颜色的半透明版本，形成层次 */
-  private nextLyricColor(): string {
-    return this.withAlpha('B0');
+  /** 文字水平位置设置 -> TextAlign（安卓版 desktopLyric.textPosition.x） */
+  private textAlignMode(): TextAlign {
+    if (this.textPosX === 'left') {
+      return TextAlign.Start;
+    }
+    if (this.textPosX === 'right') {
+      return TextAlign.End;
+    }
+    return TextAlign.Center;
+  }
+
+  private horizontalAlignMode(): HorizontalAlign {
+    if (this.textPosX === 'left') {
+      return HorizontalAlign.Start;
+    }
+    if (this.textPosX === 'right') {
+      return HorizontalAlign.End;
+    }
+    return HorizontalAlign.Center;
+  }
+
+  /** 文字垂直位置设置 -> FlexAlign（安卓版 desktopLyric.textPosition.y） */
+  private verticalAlignMode(): FlexAlign {
+    if (this.textPosY === 'top') {
+      return FlexAlign.Start;
+    }
+    if (this.textPosY === 'bottom') {
+      return FlexAlign.End;
+    }
+    return FlexAlign.Center;
   }
 
   build() {

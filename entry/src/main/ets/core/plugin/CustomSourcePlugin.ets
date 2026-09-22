@@ -2,7 +2,8 @@
  * 自定义源插件实现
  * 基于 QuickJS 原生引擎执行插件 JS 代码
  */
-import hilog from '@ohos.hilog';
+// 日志经由应用日志门面，既输出 hilog 也进入「设置 → 运行日志」
+import { appLog as hilog } from '../log/AppLogger';
 import { initQuickJS as initNativeQuickJS, loadPluginScript, callPluginAction, destroyQuickJS as destroyNativeQuickJS, loadPreloadScript } from '../napi/napi_quickjs';
 import { httpRequest } from '../network/http';
 import type { Plugin, PluginSongInfo, PluginLyricInfo, PluginSearchResult, PluginSongListResult, PluginBoard, PluginBoardDetail, PluginHotSearch } from './PluginManager';

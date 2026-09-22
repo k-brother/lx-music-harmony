@@ -2,6 +2,8 @@
 // 负责应用初始化和窗口管理
 
 import UIAbility from '@ohos.app.ability.UIAbility';
+import type { Configuration } from '@ohos.app.ability.Configuration';
+import { ConfigurationConstant } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import hilog from '@ohos.hilog';
 import window from '@ohos.window';
@@ -18,6 +20,8 @@ import { setQuickJSContext } from '../../core/napi/napi_quickjs';
 import { backgroundRunningManager } from '../../service/BackgroundRunningManager';
 import { mediaSaveService } from '../../service/MediaSaveService';
 import { localMusicService } from '../../service/LocalMusicService';
+import { logService } from '../../service/LogService';
+import { setSystemDarkMode, applyAutoTheme } from '../../service/ThemeService';
 
 const TAG = 'EntryAbility';
 const DOMAIN = 0x0001;
@@ -70,10 +74,22 @@ export default class EntryAbility extends UIAbility {
 
   onDestroy(): void {
     hilog.info(DOMAIN, TAG, 'EntryAbility onDestroy');
+    // 退出前落盘进度
+    playerService.saveProgress();
     // 销毁播放器
     playerService.destroy();
     // 清理后台任务资源
     void backgroundRunningManager.destroy();
+  }
+
+  /**
+   * 系统配置变化（深浅色/语言/字体等）：
+   * 开启「自动跟随系统深浅色」时同步切换主题（安卓版 common.isAutoTheme）
+   */
+  onConfigurationUpdate(newConfig: Configuration): void {
+    const isDark = newConfig.colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
+    hilog.info(DOMAIN, TAG, 'onConfigurationUpdate colorMode=%{public}d', newConfig.colorMode ?? -1);
+    setSystemDarkMode(isDark);
   }
 
   async onWindowStageCreate(windowStage: window.WindowStage): Promise<void> {
@@ -184,6 +200,9 @@ export default class EntryAbility extends UIAbility {
       settingsService.setContext(this.context);
       setQuickJSContext(this.context);
 
+      // 运行日志：尽可能早地装好，才能覆盖启动阶段的失败信息
+      await logService.init(this.context);
+
       // 设置 PlayerService 上下文（用于读取偏好设置）
       playerService.setContext(this.context);
 
@@ -192,6 +211,14 @@ export default class EntryAbility extends UIAbility {
 
       // 初始化所有服务（存储、主题、列表、播放器）
       await initAllServices();
+
+      // 自动跟随系统深浅色：设置已加载，按当前系统色彩模式应用一次
+      // （config.colorMode 为 COLOR_MODE_DARK 表示系统深色）
+      setSystemDarkMode(this.context.config.colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK);
+      await applyAutoTheme();
+
+      // 设置已加载，同步「记录详细日志」开关（init 时设置尚未就绪，只能读默认值）
+      logService.setVerbose(settingsService.get().enableVerboseLog);
 
       // 语言依赖已加载的设置快照，必须放在 initAllServices 之后
       initLocalization();
@@ -222,6 +249,9 @@ export default class EntryAbility extends UIAbility {
 
           // 设置播放速率
           await playerService.setPlaybackRate(1.0);
+
+          // 恢复上次播放的歌曲与进度（续播；不自动播放）
+          await playerService.restoreLastPlayback();
 
           // 更新全局状态
           lx.playerStatus.isInitialized = true;

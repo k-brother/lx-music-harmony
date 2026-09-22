@@ -1,7 +1,8 @@
 // 评论服务
 // 对应安卓版的评论功能
 
-import hilog from '@ohos.hilog';
+// 日志经由应用日志门面，既输出 hilog 也进入「设置 → 运行日志」
+import { appLog as hilog } from '../core/log/AppLogger';
 import { http } from '@kit.NetworkKit';
 import { MusicInfo } from '../types/MusicTypes';
 
@@ -22,6 +23,12 @@ export interface Comment {
   isLiked: boolean;
   isHot: boolean;
   source: string;
+  /** 评论图片（可能多张），点击可查看大图 */
+  images: string[];
+  /** IP 归属地（部分源返回） */
+  location: string;
+  /** 楼层回复（子评论），按源是否返回子评论决定 */
+  replies: Comment[];
 }
 
 // 评论响应
@@ -49,10 +56,15 @@ interface KwCommentItem {
   msg?: string;
   u_name?: string;
   u_pic?: string;
+  u_id?: string;
   time?: string | number;
   like_num?: string;
   reply_num?: string;
   is_hot?: string;
+  /** 评论图片（URL 编码） */
+  mpic?: string;
+  /** 楼层回复 */
+  child_comments?: KwCommentItem[];
 }
 
 // 评论服务类
@@ -312,6 +324,25 @@ export class CommentService {
     const out: Comment[] = [];
     for (let i = 0; i < txComments.length; i++) {
       const comment = txComments[i] as JsonObject;
+      // QQ 音乐的楼层回复：SubComments（旧版 middlecommentcontent 已并入正文）
+      const replies: Comment[] = [];
+      const subComments = comment['SubComments'];
+      if (Array.isArray(subComments)) {
+        for (let j = 0; j < subComments.length; j++) {
+          const sub = subComments[j] as JsonObject;
+          const rawNick = String(sub['replynick'] ?? '');
+          replies.push(this.buildReply(
+            String(sub['subcommentid'] ?? `tx_reply_${j}`),
+            String(sub['replycontent'] ?? ''),
+            rawNick.startsWith('@') ? rawNick.substring(1) : (rawNick.length > 0 ? rawNick : '匿名用户'),
+            String(sub['avatarurl'] ?? ''),
+            this.formatTime(this.asTimeInput(sub['time'] ?? sub['pubtime'])),
+            parseInt(String(sub['praisenum'] ?? '0')) || 0,
+            'tx',
+            this.extractImages(sub['Pic'])
+          ));
+        }
+      }
       const commentObj: Comment = {
         id: String(comment['commentid'] ?? `tx_${Date.now()}_${Math.random()}`),
         content: String(comment['rootcommentcontent'] ?? comment['content'] ?? ''),
@@ -322,7 +353,10 @@ export class CommentService {
         replyCount: parseInt(String(comment['replynum'] ?? '0')) || 0,
         isLiked: false,
         isHot: comment['ismanlike'] === 1 || comment['is_hot'] === 1,
-        source: 'tx'
+        source: 'tx',
+        images: this.extractImages(comment['Pic']),
+        location: String(comment['Location'] ?? ''),
+        replies
       };
       out.push(commentObj);
     }
@@ -427,6 +461,23 @@ export class CommentService {
       const comment = wyComments[i] as JsonObject;
       const user = comment['user'] as JsonObject | undefined;
       const nick = user !== undefined && user !== null ? user['nickname'] : undefined;
+      // 网易云的楼层回复只有被回复的那一条（beReplied[0]），与安卓版一致
+      const replies: Comment[] = [];
+      const beReplied = comment['beReplied'];
+      if (Array.isArray(beReplied) && beReplied.length > 0) {
+        const reply = beReplied[0] as JsonObject;
+        const replyUser = reply['user'] as JsonObject | undefined;
+        replies.push(this.buildReply(
+          String(reply['beRepliedCommentId'] ?? `wy_reply_${i}`),
+          String(reply['content'] ?? ''),
+          replyUser !== undefined && replyUser !== null ? String(replyUser['nickname'] ?? '匿名用户') : '匿名用户',
+          replyUser !== undefined && replyUser !== null ? String(replyUser['avatarUrl'] ?? '') : '',
+          this.formatTime(this.asTimeInput(reply['time'])),
+          0,
+          'wy',
+          []
+        ));
+      }
       const commentObj: Comment = {
         id: String(comment['commentId'] ?? `wy_${Date.now()}_${Math.random()}`),
         content: String(comment['content'] ?? ''),
@@ -437,7 +488,10 @@ export class CommentService {
         replyCount: Number(comment['replyCount'] ?? 0),
         isLiked: Boolean(comment['liked']),
         isHot: Boolean(comment['hot']),
-        source: 'wy'
+        source: 'wy',
+        images: [],
+        location: this.extractIpLocation(comment['ipLocation']),
+        replies
       };
       out.push(commentObj);
     }
@@ -555,7 +609,10 @@ export class CommentService {
         replyCount: Number(comment['reply_num'] ?? 0),
         isLiked: comment['is_like'] === 1,
         isHot: comment['is_hot'] === 1,
-        source: 'kg'
+        source: 'kg',
+        images: this.extractImages(comment['images']),
+        location: String(comment['location'] ?? ''),
+        replies: []
       };
       out.push(commentObj);
     }
@@ -663,6 +720,27 @@ export class CommentService {
       const comment = mgComments[i] as JsonObject;
       const user = comment['user'] as JsonObject | undefined;
       const nick = user !== undefined && user !== null ? user['nickName'] : undefined;
+      // 咪咕：replyComments 就是楼层回复
+      const replies: Comment[] = [];
+      const replyComments = comment['replyComments'];
+      if (Array.isArray(replyComments)) {
+        for (let j = 0; j < replyComments.length; j++) {
+          const reply = replyComments[j] as JsonObject;
+          const replyUser = reply['user'] as JsonObject | undefined;
+          replies.push(this.buildReply(
+            String(reply['replyId'] ?? `mg_reply_${j}`),
+            String(reply['replyInfo'] ?? ''),
+            replyUser !== undefined && replyUser !== null ? String(replyUser['nickName'] ?? '匿名用户') : '匿名用户',
+            replyUser !== undefined && replyUser !== null
+              ? String(replyUser['middleIcon'] ?? replyUser['bigIcon'] ?? replyUser['smallIcon'] ?? '')
+              : '',
+            this.formatTime(this.asTimeInput(reply['replyTime'])),
+            0,
+            'mg',
+            []
+          ));
+        }
+      }
       const commentObj: Comment = {
         id: String(comment['commentId'] ?? `mg_${Date.now()}_${Math.random()}`),
         content: String(comment['content'] ?? ''),
@@ -673,7 +751,10 @@ export class CommentService {
         replyCount: Number(comment['replyCount'] ?? 0),
         isLiked: Boolean(comment['isLiked']),
         isHot: Boolean(comment['isHot']),
-        source: 'mg'
+        source: 'mg',
+        images: [],
+        location: '',
+        replies
       };
       out.push(commentObj);
     }
@@ -717,7 +798,25 @@ export class CommentService {
     return kwComments.map((comment: KwCommentItem) => {
       // 解析时间戳 - 确保类型安全
       const time = this.formatTime(comment.time ?? undefined);
-      
+
+      const replies: Comment[] = [];
+      const children = comment.child_comments;
+      if (children) {
+        for (let i = 0; i < children.length; i++) {
+          const child = children[i];
+          replies.push(this.buildReply(
+            String(child.cid ?? `kw_reply_${i}`),
+            child.msg || '',
+            child.u_name || '匿名用户',
+            child.u_pic || '',
+            this.formatTime(child.time ?? undefined),
+            parseInt(child.like_num || '0') || 0,
+            'kw',
+            this.parseKwImages(child.mpic)
+          ));
+        }
+      }
+
       const commentObj: Comment = {
         id: comment.cid || `kw_${Date.now()}_${Math.random()}`,
         content: comment.msg || '',
@@ -728,10 +827,89 @@ export class CommentService {
         replyCount: parseInt(comment.reply_num || '0') || 0,
         isLiked: false,
         isHot: comment.is_hot === '1',
-        source: 'kw'
+        source: 'kw',
+        images: this.parseKwImages(comment.mpic),
+        location: '',
+        replies
       };
       return commentObj;
     });
+  }
+
+  /** 酷我评论图片是 URL 编码的单个地址 */
+  private parseKwImages(mpic: string | undefined): string[] {
+    if (!mpic || mpic.length === 0) {
+      return [];
+    }
+    try {
+      return [decodeURIComponent(mpic)];
+    } catch (err) {
+      return [mpic];
+    }
+  }
+
+  /** 统一构造楼层回复，避免各源重复字段拼装 */
+  private buildReply(
+    id: string,
+    content: string,
+    userName: string,
+    avatar: string,
+    time: string,
+    likeCount: number,
+    source: string,
+    images: string[]
+  ): Comment {
+    return {
+      id,
+      content,
+      userName,
+      userAvatar: avatar,
+      time,
+      likeCount,
+      replyCount: 0,
+      isLiked: false,
+      isHot: false,
+      source,
+      images,
+      location: '',
+      replies: [],
+    };
+  }
+
+  /** 归一化图片字段：支持 string / string[] / {url}[] 三种形态 */
+  private extractImages(value: Object | undefined | null): string[] {
+    if (value === undefined || value === null) {
+      return [];
+    }
+    if (typeof value === 'string') {
+      return value.length > 0 ? [value] : [];
+    }
+    if (Array.isArray(value)) {
+      const list: Object[] = value as Object[];
+      const result: string[] = [];
+      for (let i = 0; i < list.length; i++) {
+        const item: Object = list[i];
+        if (typeof item === 'string' && item.length > 0) {
+          result.push(item as string);
+        } else if (item !== null && typeof item === 'object') {
+          const url = (item as JsonObject)['url'];
+          if (typeof url === 'string' && url.length > 0) {
+            result.push(url);
+          }
+        }
+      }
+      return result;
+    }
+    return [];
+  }
+
+  /** 网易云：ipLocation.location */
+  private extractIpLocation(value: Object | undefined | null): string {
+    if (value === undefined || value === null || typeof value !== 'object') {
+      return '';
+    }
+    const location = (value as JsonObject)['location'];
+    return typeof location === 'string' ? location : '';
   }
 
   private asTimeInput(v: Object | undefined | null): string | number | undefined {

@@ -16,6 +16,7 @@ interface EventTypesInterface {
   SEARCH_STARTED: string;
   SEARCH_COMPLETED: string;
   SEARCH_CLEARED: string;
+  SEARCH_REQUEST: string;
   LIST_UPDATED: string;
   LIST_MUSIC_ADDED: string;
   LIST_MUSIC_REMOVED: string;
@@ -38,6 +39,8 @@ export const EventTypes: EventTypesInterface = {
   SEARCH_STARTED: 'search:started',
   SEARCH_COMPLETED: 'search:completed',
   SEARCH_CLEARED: 'search:cleared',
+  /** 其他页面请求首页发起搜索（如歌单里的「查看歌手/专辑」） */
+  SEARCH_REQUEST: 'search:request',
 
   // 列表事件
   LIST_UPDATED: 'list:updated',
@@ -261,6 +264,16 @@ export function emitSearchStarted(keyword: string): void {
 export function emitSearchCompleted(results: Object[]): void {
   const data: SearchCompletedData = { results: results };
   emit(EventTypes.SEARCH_COMPLETED, data);
+}
+
+/** 请求首页发起搜索（其他页面「查看歌手/专辑」用） */
+export interface SearchRequestData {
+  keyword: string;
+}
+
+export function emitSearchRequest(keyword: string): void {
+  const data: SearchRequestData = { keyword: keyword };
+  emit(EventTypes.SEARCH_REQUEST, data);
 }
 
 /**

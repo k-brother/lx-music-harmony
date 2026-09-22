@@ -1,10 +1,13 @@
-import { t , tf } from '../service/LocalizationService';
-import { EmptyView } from '../components/common/EmptyView';
+import { t, tf, sourceLabel } from '../service/LocalizationService';
+import { syncUserListFromOnline } from '../service/UserListSyncService';
+import { appActionMenu, appConfirm, appToast } from '../service/DialogService';
 // 自建歌单管理页面
 import hilog from '@ohos.hilog';
 import { navigationService, RouteName } from '../service/NavigationService';
 import { DesignTokens } from '../theme/DesignTokens';
-import { NavBackButton } from '../components/common/NavBackButton';
+import { NavBar } from '../components/ui/NavBar';
+import { BottomSheet } from '../components/ui/BottomSheet';
+import { StateView } from '../components/ui/StateView';
 import {
   getUserList,
   getUserListMusic,
@@ -24,6 +27,9 @@ interface UserListRow {
   name: string;
   count: number;
   pic: string | null;
+  /** 绑定在线歌单时非空（可同步） */
+  bindingSource: string;
+  bindingListId: string;
 }
 
 @Component
@@ -31,12 +37,13 @@ export struct UserListsPage {
   @StorageProp('theme') theme: string = 'light';
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
-  @State renderKey: number = Date.now();
   @State userLists: UserListRow[] = [];
   @State isLoading: boolean = true;
   @State showCreateSheet: boolean = false;
   @State newListName: string = '';
   @State editingList: UserListRow | null = null;
+  /** 重命名面板可见性（与 editingList 同时使用，便于 BottomSheet 双向绑定） */
+  @State showRenameSheet: boolean = false;
   @State editName: string = '';
 
   aboutToAppear() {
@@ -56,6 +63,8 @@ export struct UserListsPage {
           name: list.name,
           count: music.length,
           pic: list.pic && list.pic.length > 0 ? list.pic : null,
+          bindingSource: list.bindingSource ?? '',
+          bindingListId: list.bindingListId ?? '',
         });
       }
       this.userLists = rows;
@@ -66,10 +75,59 @@ export struct UserListsPage {
     }
   }
 
-  private showToast(msg: string) {
+  private showToast(message: string): void {
+    appToast(message);
+  }
+
+  /** 列表级同步：重新拉取绑定的在线歌单内容（安卓 syncSourceList） */
+  private async syncList(list: UserListRow): Promise<void> {
+    if (list.bindingListId.length === 0) {
+      return;
+    }
+    this.showToast(t('toast_syncing'));
     try {
-      this.getUIContext().getPromptAction().showToast({ message: msg, duration: 2000 });
-    } catch (_e) { /* ignore */ }
+      const result = await syncUserListFromOnline(list.id);
+      if (result.ok) {
+        this.showToast(tf('toast_sync_done_count', [String(result.count)]));
+      } else {
+        this.showToast(t('toast_sync_local_failed'));
+      }
+      await this.loadUserLists();
+    } catch (err) {
+      hilog.warn(0x0001, 'UserListsPage', 'syncList failed: %{public}s', JSON.stringify(err));
+      this.showToast(t('toast_sync_local_failed'));
+    }
+  }
+
+  /** 歌单行菜单：打开 / 更新内容 / 重命名 / 删除 */
+  private async openListMenu(list: UserListRow): Promise<void> {
+    const hasBinding = list.bindingListId.length > 0;
+    const items: string[] = [t('open_list')];
+    if (hasBinding) {
+      items.push(t('list_sync_content'));
+    }
+    items.push(t('list_rename_title'));
+    items.push(t('delete'));
+    const picked = await appActionMenu(list.name, items, { dangerIndexes: [items.length - 1] });
+    if (picked < 0) {
+      return;
+    }
+    const action = items[picked];
+    if (action === t('open_list')) {
+      navigationService.navigateTo(RouteName.SONGLIST_DETAIL, {
+        songListId: list.id,
+        songListName: list.name,
+        songListSource: 'local',
+      });
+    } else if (action === t('list_sync_content')) {
+      void this.syncList(list);
+    } else if (action === t('list_rename_title')) {
+      this.editingList = list;
+      this.editName = list.name;
+      this.showRenameSheet = true;
+    } else if (action === t('delete')) {
+      void this.deleteList(list);
+    }
   }
 
   private async submitNewList(): Promise<void> {
@@ -99,6 +157,7 @@ export struct UserListsPage {
     try {
       await renameUserList(this.editingList.id, name);
       this.editingList = null;
+      this.showRenameSheet = false;
       this.editName = '';
       await this.loadUserLists();
       this.showToast(t('toast_playlist_renamed'));
@@ -109,18 +168,10 @@ export struct UserListsPage {
 
   private async deleteList(list: UserListRow): Promise<void> {
     try {
-      const confirmed = await new Promise<boolean>((resolve) => {
-        this.getUIContext().getPromptAction().showDialog({
-          title: t('confirm_delete_title'),
-          message: tf('confirm_delete_quoted', [list.name]),
-          buttons: [
-            { text: t('cancel'), color: DesignTokens.labelSecondary(this.theme) },
-            { text: t('delete'), color: DesignTokens.danger() },
-          ],
-        }, (_err: object, data: PromptActionResult) => {
-          resolve(data.index === 1);
-        });
-      });
+      const confirmed = await appConfirm(
+        t('confirm_delete_title'),
+        tf('confirm_delete_quoted', [list.name]),
+        { danger: true, confirmText: t('delete') });
       if (!confirmed) return;
       await deleteUserList(list.id);
       await this.loadUserLists();
@@ -162,31 +213,50 @@ export struct UserListsPage {
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(tf('count_songs_unit', [list.count.toString()]))
-          .fontSize(13)
-          .fontColor(DesignTokens.labelTertiary(this.theme))
-          .margin({ top: 6 })
+        Row() {
+          Text(tf('count_songs_unit', [list.count.toString()]))
+            .fontSize(13)
+            .fontColor(DesignTokens.labelTertiary(this.theme))
+          if (list.bindingListId.length > 0) {
+            Text(tf('list_bound_online', [sourceLabel(list.bindingSource)]))
+              .fontSize(11)
+              .fontColor(DesignTokens.accent())
+              .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+              .borderRadius(8)
+              .border({ width: 1, color: DesignTokens.accent() })
+              .margin({ left: 8 })
+          }
+        }
+        .margin({ top: 6 })
       }
       .layoutWeight(1)
       .padding({ left: 14 })
       .alignItems(HorizontalAlign.Start)
 
-      Text('编辑')
-        .fontSize(13)
-        .fontColor(DesignTokens.accent())
-        .padding({ left: 10, right: 10, top: 6, bottom: 6 })
-        .onClick(() => {
-          this.editingList = list;
-          this.editName = list.name;
-        })
+      if (list.bindingListId.length > 0) {
+        Text(t('list_sync_content'))
+          .fontSize(13)
+          .fontColor(DesignTokens.accent())
+          .padding({ left: 10, right: 10, top: 6, bottom: 6 })
+          .onClick(() => {
+            void this.syncList(list);
+          })
+      }
 
-      Text(t('delete'))
-        .fontSize(13)
-        .fontColor(DesignTokens.danger())
-        .padding({ left: 10, right: 10, top: 6, bottom: 6 })
-        .onClick(() => {
-          void this.deleteList(list);
-        })
+      // 行尾 ⋮ 菜单：打开 / 更新歌单内容（绑定在线歌单时）/ 重命名 / 删除
+      Stack() {
+        Circle({ width: 30, height: 30 })
+          .fill(DesignTokens.mutedFill(this.theme))
+        Image($r('app.media.ic_pd_more'))
+          .width(14)
+          .height(14)
+          .fillColor(DesignTokens.labelSecondary(this.theme))
+      }
+      .width(DesignTokens.touchTarget())
+      .height(DesignTokens.touchTarget())
+      .onClick(() => {
+        void this.openListMenu(list);
+      })
     }
     .width('100%')
     .padding(16)
@@ -203,202 +273,131 @@ export struct UserListsPage {
   }
 
   @Builder
-  CreateSheetOverlay() {
-    if (this.showCreateSheet) {
-      Stack() {
-        Column()
-          .width('100%')
-          .height('100%')
-          .backgroundColor('rgba(0,0,0,0.45)')
+  NavCreateAction() {
+    Button({ type: ButtonType.Capsule }) {
+      Row({ space: 4 }) {
+        Image($r('app.media.ic_common_create'))
+          .width(14)
+          .height(14)
+          .fillColor(Color.White)
+        Text(t('list_create_short'))
+          .fontSize(13)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(Color.White)
+      }
+    }
+    .height(32)
+    .padding({ left: 12, right: 12 })
+    .backgroundColor(DesignTokens.accent())
+    .onClick(() => {
+      this.newListName = '';
+      this.showCreateSheet = true;
+    })
+  }
+
+  /** 新建歌单面板（BottomSheet 统一容器） */
+  @Builder
+  CreateSheetContent() {
+    Column() {
+      TextInput({ placeholder: t('input_playlist_name'), text: this.newListName })
+        .height(DesignTokens.touchTarget())
+        .width('100%')
+        .backgroundColor(DesignTokens.mutedFill(this.theme))
+        .borderRadius(12)
+        .padding({ left: 14, right: 14 })
+        .fontSize(16)
+        .fontColor(DesignTokens.labelPrimary(this.theme))
+        .placeholderColor(DesignTokens.labelTertiary(this.theme))
+        .onChange((value: string) => {
+          this.newListName = value;
+        })
+
+      Row({ space: 12 }) {
+        Button(t('cancel'))
+          .type(ButtonType.Capsule)
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+          .backgroundColor(DesignTokens.mutedFill(this.theme))
+          .layoutWeight(1)
           .onClick(() => {
             this.showCreateSheet = false;
             this.newListName = '';
           })
-
-        Column() {
-          Text('新建歌单')
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-            .width('100%')
-            .margin({ bottom: 16 })
-
-          TextInput({ placeholder: t('input_playlist_name'), text: this.newListName })
-            .height(44)
-            .width('100%')
-            .backgroundColor(DesignTokens.mutedFill(this.theme))
-            .borderRadius(12)
-            .padding({ left: 14, right: 14 })
-            .fontSize(16)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-            .placeholderColor(DesignTokens.labelTertiary(this.theme))
-            .onChange((v: string) => {
-              this.newListName = v;
-            })
-
-          Row() {
-            Button(t('cancel'))
-              .type(ButtonType.Capsule)
-              .fontColor(DesignTokens.labelSecondary(this.theme))
-              .backgroundColor(DesignTokens.mutedFill(this.theme))
-              .layoutWeight(1)
-              .onClick(() => {
-                this.showCreateSheet = false;
-                this.newListName = '';
-              })
-            Button(t('create_list_btn'))
-              .type(ButtonType.Capsule)
-              .fontColor(Color.White)
-              .backgroundColor(DesignTokens.accent())
-              .layoutWeight(1)
-              .margin({ left: 12 })
-              .onClick(() => {
-                void this.submitNewList();
-              })
-          }
-          .width('100%')
-          .margin({ top: 20 })
-        }
-        .width('86%')
-        .padding(20)
-        .backgroundColor(DesignTokens.card(this.theme))
-        .borderRadius(DesignTokens.radiusCard())
-        .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
-        .alignSelf(ItemAlign.Center)
+        Button(t('create_list_btn'))
+          .type(ButtonType.Capsule)
+          .fontColor(Color.White)
+          .backgroundColor(DesignTokens.accent())
+          .layoutWeight(1)
+          .onClick(() => {
+            void this.submitNewList();
+          })
       }
       .width('100%')
-      .height('100%')
+      .margin({ top: 16 })
     }
+    .width('100%')
   }
 
+  /** 重命名面板（BottomSheet 统一容器） */
   @Builder
-  RenameSheetOverlay() {
-    if (this.editingList) {
-      Stack() {
-        Column()
-          .width('100%')
-          .height('100%')
-          .backgroundColor('rgba(0,0,0,0.45)')
+  RenameSheetContent() {
+    Column() {
+      TextInput({ placeholder: t('input_playlist_name'), text: this.editName })
+        .height(DesignTokens.touchTarget())
+        .width('100%')
+        .backgroundColor(DesignTokens.mutedFill(this.theme))
+        .borderRadius(12)
+        .padding({ left: 14, right: 14 })
+        .fontSize(16)
+        .fontColor(DesignTokens.labelPrimary(this.theme))
+        .placeholderColor(DesignTokens.labelTertiary(this.theme))
+        .onChange((value: string) => {
+          this.editName = value;
+        })
+
+      Row({ space: 12 }) {
+        Button(t('cancel'))
+          .type(ButtonType.Capsule)
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+          .backgroundColor(DesignTokens.mutedFill(this.theme))
+          .layoutWeight(1)
           .onClick(() => {
             this.editingList = null;
             this.editName = '';
           })
-
-        Column() {
-          Text('重命名歌单')
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-            .width('100%')
-            .margin({ bottom: 16 })
-
-          TextInput({ placeholder: t('input_playlist_name'), text: this.editName })
-            .height(44)
-            .width('100%')
-            .backgroundColor(DesignTokens.mutedFill(this.theme))
-            .borderRadius(12)
-            .padding({ left: 14, right: 14 })
-            .fontSize(16)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-            .placeholderColor(DesignTokens.labelTertiary(this.theme))
-            .onChange((v: string) => {
-              this.editName = v;
-            })
-
-          Row() {
-            Button(t('cancel'))
-              .type(ButtonType.Capsule)
-              .fontColor(DesignTokens.labelSecondary(this.theme))
-              .backgroundColor(DesignTokens.mutedFill(this.theme))
-              .layoutWeight(1)
-              .onClick(() => {
-                this.editingList = null;
-                this.editName = '';
-              })
-            Button(t('save'))
-              .type(ButtonType.Capsule)
-              .fontColor(Color.White)
-              .backgroundColor(DesignTokens.accent())
-              .layoutWeight(1)
-              .margin({ left: 12 })
-              .onClick(() => {
-                void this.submitRename();
-              })
-          }
-          .width('100%')
-          .margin({ top: 20 })
-        }
-        .width('86%')
-        .padding(20)
-        .backgroundColor(DesignTokens.card(this.theme))
-        .borderRadius(DesignTokens.radiusCard())
-        .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
-        .alignSelf(ItemAlign.Center)
+        Button(t('save'))
+          .type(ButtonType.Capsule)
+          .fontColor(Color.White)
+          .backgroundColor(DesignTokens.accent())
+          .layoutWeight(1)
+          .onClick(() => {
+            void this.submitRename();
+          })
       }
       .width('100%')
-      .height('100%')
+      .margin({ top: 16 })
     }
+    .width('100%')
   }
 
   build() {
     Stack() {
       Column() {
-        // 顶部导航栏
-        Row() {
-          NavBackButton()
-            .onClick(() => { navigationService.back(); })
-
-          Text('自建歌单')
-            .fontSize(18)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-            .layoutWeight(1)
-            .textAlign(TextAlign.Center)
-
-          Button({ type: ButtonType.Capsule }) {
-            Row({ space: 4 }) {
-              Image($r('app.media.ic_common_create'))
-                .width(14)
-                .height(14)
-                .fillColor(Color.White)
-              Text('新建')
-                .fontSize(13)
-                .fontWeight(FontWeight.Medium)
-                .fontColor(Color.White)
-            }
-          }
-          .height(30)
-          .padding({ left: 10, right: 10 })
-          .backgroundColor(DesignTokens.accent())
-          .onClick(() => {
-            this.newListName = '';
-            this.showCreateSheet = true;
-          })
-        }
-        .width('100%')
-        .padding({ left: 8, right: 16, top: 8, bottom: 8 })
-        .alignItems(VerticalAlign.Center)
+        NavBar({
+          title: t('mylist_user_lists'),
+          largeTitle: true,
+          trailing: (): void => {
+            this.NavCreateAction();
+          },
+        })
 
         if (this.isLoading) {
-          Column() {
-            LoadingProgress()
-              .width(36)
-              .height(36)
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .justifyContent(FlexAlign.Center)
+          StateView({ state: 'loading' })
+            .width('100%')
+            .layoutWeight(1)
         } else if (this.userLists.length === 0) {
-          Column() {
-            EmptyView({ icon: '📁', message: t('no_data') })
-            Text(t('user_lists_empty_hint'))
-              .fontSize(13)
-              .fontColor(DesignTokens.labelTertiary(this.theme))
-              .margin({ top: 6 })
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .justifyContent(FlexAlign.Center)
+          StateView({ state: 'empty', iconRes: $r('sys.symbol.folder'), message: t('user_lists_empty_hint') })
+            .width('100%')
+            .layoutWeight(1)
         } else {
           Scroll() {
             Column({ space: 10 }) {
@@ -420,8 +419,25 @@ export struct UserListsPage {
       .height('100%')
       .backgroundColor(DesignTokens.pageBg(this.theme))
 
-      this.CreateSheetOverlay()
-      this.RenameSheetOverlay()
+      if (this.showCreateSheet) {
+        BottomSheet({
+          visible: $showCreateSheet,
+          title: t('list_create_title'),
+          content: (): void => {
+            this.CreateSheetContent();
+          },
+        })
+      }
+
+      if (this.editingList !== null) {
+        BottomSheet({
+          visible: $showRenameSheet,
+          title: t('list_rename_title'),
+          content: (): void => {
+            this.RenameSheetContent();
+          },
+        })
+      }
     }
     .width('100%')
     .height('100%')

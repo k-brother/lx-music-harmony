@@ -172,4 +172,71 @@ export class DesignTokens {
   static ctrlLg(): number {
     return 64;
   }
+
+  // ==================== 列表行度量（所有列表页统一，避免各页各写一套） ====================
+
+  /** 带封面/序号的行高 */
+  static rowHeight(): number {
+    return 56;
+  }
+
+  /** 双行文案（标题 + 副标题）的行高 */
+  static rowHeightTwoLine(): number {
+    return 64;
+  }
+
+  /** 列表行内缩进（与封面/序号对齐，分割线使用） */
+  static rowInset(): number {
+    return 60;
+  }
+
+  /** 列表行内封面尺寸 */
+  static rowCover(): number {
+    return 44;
+  }
+
+  /** 最小可点区域（HarmonyOS/iOS 人因规范：≥ 44vp） */
+  static touchTarget(): number {
+    return 44;
+  }
+
+  /** 顶部栏高度 */
+  static navBarHeight(): number {
+    return 56;
+  }
+
+  /** 底部面板圆角（商业化 App 常见的 20-24） */
+  static radiusSheet(): number {
+    return 22;
+  }
+
+  // ==================== 动效（统一时长与曲线，避免每页写 220/260/300 混杂） ====================
+
+  /** 状态切换（按压、选中、明暗） */
+  static motionFast(): number {
+    return 160;
+  }
+
+  /** 常规过渡（页面内容、面板出现） */
+  static motionNormal(): number {
+    return 240;
+  }
+
+  /** 强调过渡（封面缩放、Tab 切换） */
+  static motionSlow(): number {
+    return 320;
+  }
+
+  /** 按压反馈不透明度（全应用统一） */
+  static pressedOpacity(): number {
+    return 0.65;
+  }
+
+  /** 卡片阴影：浅色模式给一点层次，深色模式靠描边 */
+  static cardShadow(theme: string): ShadowOptions | undefined {
+    if (theme === 'dark') {
+      return undefined;
+    }
+    return { radius: 12, color: 'rgba(0,0,0,0.06)', offsetX: 0, offsetY: 2 };
+  }
 }

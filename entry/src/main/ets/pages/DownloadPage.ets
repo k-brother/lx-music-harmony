@@ -2,6 +2,7 @@
 // 对应安卓版的下载管理功能
 
 import hilog from '@ohos.hilog';
+import { showAppToast, TOAST_DURATION_LONG } from '../utils/Toast';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { DownloadTask, DownloadStatus, download, setDownloadContext } from '../core/music/MusicFeatureEntry';
 import { common } from '@kit.AbilityKit';
@@ -578,7 +579,7 @@ export struct DownloadPage {
         .fontColor(DesignTokens.labelSecondary(this.theme))
         .margin({ bottom: 8 })
 
-      Text('在歌单、排行榜或搜索结果中发起下载后，将显示在此处')
+      Text(t('download_empty_hint'))
         .fontSize(13)
         .fontColor(DesignTokens.labelSecondary(this.theme))
         .textAlign(TextAlign.Center)
@@ -822,13 +823,6 @@ export struct DownloadPage {
   }
 
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({
-        message: message,
-        duration: 2200,
-      });
-    } catch (_e) {
-      hilog.info(DOMAIN, TAG, 'Toast fallback: %{public}s', message);
-    }
+    showAppToast(this.getUIContext(), message, TOAST_DURATION_LONG);
   }
 }

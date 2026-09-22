@@ -1,6 +1,8 @@
 // 我的 — 资料库式布局：入口卡片 + 自建歌单列表 + 新建歌单（弹层闭环）
 
 import { t, tf } from '../../service/LocalizationService';
+import { syncUserListFromOnline } from '../../service/UserListSyncService';
+import { showAppToast, TOAST_DURATION_DEFAULT } from '../../utils/Toast';
 import { navigationService, RouteName } from '../../service/NavigationService';
 import { playerService, SongInfo } from '../../service/PlayerService';
 import { getMusicUrl } from '../../core/music/MusicFeatureEntry';
@@ -16,28 +18,16 @@ import { MusicInfo as AppMusicInfo, MusicSource } from '../../types/MusicTypes';
 import hilog from '@ohos.hilog';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { EventTypes, on } from '../../service/EventBus';
-import { getPlayHistory, clearPlayHistory, PlayHistoryItem } from '../../service/PlayHistoryService';
-
-interface UserListRow {
-  id: string;
-  name: string;
-  pic: string;
-  count: number;
-  musicList: MyListSongRow[];
-}
-
-interface MyListSongRow {
-  id: string;
-  name: string;
-  singer: string;
-  album?: string;
-  pic?: string;
-  duration: number;
-  source: string;
-  songmid?: string;
-  albumId?: string;
-  hash?: string;
-}
+import { getPlayHistory, PlayHistoryItem } from '../../service/PlayHistoryService';
+import { BottomSheet } from '../../components/ui/BottomSheet';
+import { StateView } from '../../components/ui/StateView';
+import { MylistQuickCard } from './Mylist/MylistQuickCard';
+import { MylistEntryRow } from './Mylist/MylistEntryRow';
+import { MylistSectionHeader } from './Mylist/MylistSectionHeader';
+import { UserPlaylistCard } from './Mylist/UserPlaylistCard';
+import { SongRowList } from './Mylist/SongRowList';
+import type { MylistSongRow as MyListSongRow } from './Mylist/MylistTypes';
+import type { UserListRow } from './Mylist/MylistTypes';
 
 interface PromptActionResult {
   index: number;
@@ -93,6 +83,8 @@ export struct MylistView {
         pic: '',
         count: loveMusic.length,
         musicList: this.convertToSongRows(loveMusic),
+        bindingSource: '',
+        bindingListId: '',
       };
 
       const userListInfo: ListInfo[] = getUserList();
@@ -106,6 +98,8 @@ export struct MylistView {
           pic: listInfo.pic || '',
           count: listMusic.length,
           musicList: this.convertToSongRows(listMusic),
+          bindingSource: listInfo.bindingSource ?? '',
+          bindingListId: listInfo.bindingListId ?? '',
         });
       }
       this.userLists = rows;
@@ -154,39 +148,10 @@ export struct MylistView {
     return rows;
   }
 
-  private toast(msg: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message: msg, duration: 2000 });
-    } catch (_e) {
-      hilog.info(0x0001, 'MylistView', '%{public}s', msg);
-    }
+  private toast(message: string): void {
+    showAppToast(this.getUIContext(), message, TOAST_DURATION_DEFAULT);
   }
 
-  private async clearHistoryWithConfirm(): Promise<void> {
-    try {
-      const confirmed = await new Promise<boolean>((resolve) => {
-        this.getUIContext().getPromptAction().showDialog({
-          title: t('confirm_clear_history'),
-          message: t('confirm_clear_history_msg'),
-          buttons: [
-            { text: t('cancel'), color: DesignTokens.labelSecondary(this.theme) },
-            { text: t('confirm'), color: DesignTokens.accent() },
-          ],
-        }, (_err: object, data: PromptActionResult) => {
-          resolve(data.index === 1);
-        });
-      });
-      if (!confirmed) {
-        return;
-      }
-      await clearPlayHistory();
-      this.playHistory = [];
-      this.toast(t('toast_history_cleared'));
-    } catch (e) {
-      hilog.warn(0x0001, 'MylistView', 'clear history failed: %{public}s', JSON.stringify(e));
-      this.toast(t('toast_clear_failed'));
-    }
-  }
 
   private async submitNewList(): Promise<void> {
     const name = this.newListName.trim();
@@ -207,555 +172,218 @@ export struct MylistView {
     }
   }
 
-  @Builder
-  CreateSheetOverlay() {
-    if (this.showCreateSheet) {
-      Stack() {
-        Column()
+
+
+
+
+
+
+
+
+
+  build() {
+    Stack() {
+      if (this.isLoading) {
+        StateView({ state: 'loading' })
           .width('100%')
           .height('100%')
-          .backgroundColor('rgba(0,0,0,0.45)')
+      } else {
+        Scroll() {
+          Column() {
+            // 快捷入口：我喜欢 / 播放历史
+            Row({ space: 10 }) {
+              MylistQuickCard({
+                title: t('my_love'),
+                subtitle: `${this.loveList?.count ?? 0} ${t('songlist_total')}`,
+                icon: $r('sys.symbol.heart_fill'),
+                iconColor: DesignTokens.accent(),
+                onTap: (): void => {
+                  navigationService.navigateTo(RouteName.LOVE_LIST);
+                },
+              })
+              MylistQuickCard({
+                title: t('my_history'),
+                subtitle: `${this.playHistory.length} ${t('songlist_total')}`,
+                icon: $r('sys.symbol.music_note_list'),
+                iconColor: DesignTokens.labelSecondary(this.theme),
+                onTap: (): void => {
+                  navigationService.navigateTo(RouteName.HISTORY_LIST);
+                },
+              })
+            }
+            .width('100%')
+            .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter(), top: 12, bottom: 6 })
+
+            // 本地音乐入口
+            MylistEntryRow({
+              icon: $r('sys.symbol.folder'),
+              title: t('local_music'),
+              subtitle: t('local_music_desc'),
+              onTap: (): void => {
+                navigationService.navigateTo(RouteName.LOCAL_MUSIC);
+              },
+            })
+              .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter() })
+
+            // 我喜欢
+            MylistSectionHeader({
+              title: t('my_love'),
+              subtitle: t('mylist_loved_songs'),
+              actionText: this.loveList && this.loveList.musicList.length > 0 ? t('view_all') : '',
+              onAction: (): void => {
+                navigationService.navigateTo(RouteName.LOVE_LIST);
+              },
+            })
+            if (!this.loveList || this.loveList.musicList.length === 0) {
+              StateView({ state: 'empty', iconRes: $r('sys.symbol.heart'), message: t('love_empty_hint') })
+                .width('100%')
+                .height(140)
+            } else {
+              SongRowList({
+                songs: this.loveList.musicList.slice(0, 6),
+                onPlay: (song: MyListSongRow): void => {
+                  void this.playHistorySong(song);
+                },
+              })
+            }
+
+            // 播放历史
+            MylistSectionHeader({
+              title: t('my_history'),
+              subtitle: t('history_empty_hint'),
+              actionText: this.playHistory.length > 0 ? t('view_all') : '',
+              topPadding: 12,
+              onAction: (): void => {
+                navigationService.navigateTo(RouteName.HISTORY_LIST);
+              },
+            })
+            if (this.playHistory.length === 0) {
+              StateView({ state: 'empty', iconRes: $r('sys.symbol.arrow_clockwise'), message: t('history_empty_hint') })
+                .width('100%')
+                .height(140)
+            } else {
+              SongRowList({
+                songs: this.playHistory.slice(0, 6),
+                onPlay: (song: MyListSongRow): void => {
+                  void this.playHistorySong(song);
+                },
+              })
+            }
+
+            // 自建歌单
+            MylistSectionHeader({
+              title: t('songlist_title'),
+              subtitle: t('mylist_local_hint'),
+              actionText: t('view_all'),
+              showPrimaryAction: true,
+              primaryText: t('my_create_list'),
+              topPadding: 12,
+              onAction: (): void => {
+                navigationService.navigateTo(RouteName.USER_LISTS);
+              },
+              onPrimaryAction: (): void => {
+                this.newListName = '';
+                this.showCreateSheet = true;
+              },
+            })
+            if (this.userLists.length === 0) {
+              StateView({ state: 'empty', iconRes: $r('sys.symbol.folder'), message: t('mylist_empty_hint') })
+                .width('100%')
+                .height(180)
+            } else {
+              Column({ space: 10 }) {
+                ForEach(this.userLists, (list: UserListRow) => {
+                  UserPlaylistCard({
+                    name: list.name,
+                    count: list.count,
+                    pic: list.pic,
+                    bindingSource: list.bindingSource,
+                    bindingListId: list.bindingListId,
+                    onOpen: (): void => {
+                      this.navigateToList(list.id, list.name, 'local');
+                    },
+                    onPlay: (): void => {
+                      void this.playList(list);
+                    },
+                    onSync: (): void => {
+                      void this.syncList(list);
+                    },
+                  })
+                    .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter() })
+                }, (list: UserListRow) => list.id)
+              }
+              .width('100%')
+              .padding({ bottom: 32 })
+            }
+          }
+          .width('100%')
+        }
+        .width('100%')
+        .height('100%')
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+      }
+
+      // 新建歌单面板（底部面板，替代居中弹窗）
+      if (this.showCreateSheet) {
+        BottomSheet({
+          visible: $showCreateSheet,
+          title: t('my_create_list'),
+          content: (): void => {
+            this.CreateListForm();
+          },
+        })
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor(DesignTokens.pageBg(this.theme))
+  }
+
+  /** 新建歌单表单 */
+  @Builder
+  CreateListForm() {
+    Column() {
+      TextInput({ placeholder: t('input_playlist_name'), text: this.newListName })
+        .height(DesignTokens.touchTarget())
+        .width('100%')
+        .backgroundColor(DesignTokens.mutedFill(this.theme))
+        .borderRadius(12)
+        .padding({ left: 14, right: 14 })
+        .fontSize(16)
+        .fontColor(DesignTokens.labelPrimary(this.theme))
+        .placeholderColor(DesignTokens.labelTertiary(this.theme))
+        .onChange((value: string) => {
+          this.newListName = value;
+        })
+
+      Row({ space: 12 }) {
+        Button(t('cancel'))
+          .type(ButtonType.Capsule)
+          .layoutWeight(1)
+          .height(DesignTokens.touchTarget())
+          .fontSize(16)
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+          .backgroundColor(DesignTokens.mutedFill(this.theme))
           .onClick(() => {
             this.showCreateSheet = false;
             this.newListName = '';
           })
-
-        Column() {
-          Text(t('my_create_list'))
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-            .width('100%')
-            .margin({ bottom: 16 })
-
-          TextInput({ placeholder: t('input_playlist_name'), text: this.newListName })
-            .height(44)
-            .width('100%')
-            .backgroundColor(DesignTokens.mutedFill(this.theme))
-            .borderRadius(12)
-            .padding({ left: 14, right: 14 })
-            .fontSize(16)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-            .placeholderColor(DesignTokens.labelTertiary(this.theme))
-            .onChange((v: string) => {
-              this.newListName = v;
-            })
-
-          Row() {
-            Button(t('cancel'))
-              .type(ButtonType.Capsule)
-              .fontColor(DesignTokens.labelSecondary(this.theme))
-              .backgroundColor(DesignTokens.mutedFill(this.theme))
-              .layoutWeight(1)
-              .onClick(() => {
-                this.showCreateSheet = false;
-                this.newListName = '';
-              })
-            Button(t('create_list_btn'))
-              .type(ButtonType.Capsule)
-              .fontColor(Color.White)
-              .backgroundColor(DesignTokens.accent())
-              .layoutWeight(1)
-              .margin({ left: 12 })
-              .onClick(() => {
-                void this.submitNewList();
-              })
-          }
-          .width('100%')
-          .margin({ top: 20 })
-        }
-        .width('86%')
-        .padding(20)
-        .backgroundColor(DesignTokens.card(this.theme))
-        .borderRadius(DesignTokens.radiusCard())
-        .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
-        .alignSelf(ItemAlign.Center)
-      }
-      .width('100%')
-      .height('100%')
-    }
-  }
-
-  private openHistoryList(): void {
-    navigationService.navigateTo(RouteName.HISTORY_LIST);
-  }
-
-  @Builder
-  LibraryHero() {
-    Row({ space: 10 }) {
-      this.LibraryQuickCard(
-        t('my_love'),
-        `${this.loveList?.count ?? 0} ${t('songlist_total')}`,
-        $r('sys.symbol.heart_fill'),
-        DesignTokens.accent(),
-        () => {
-          navigationService.navigateTo(RouteName.LOVE_LIST);
-        }
-      )
-      this.LibraryQuickCard(
-        t('my_history'),
-        `${this.playHistory.length} ${t('songlist_total')}`,
-        $r('sys.symbol.music_note_list'),
-        DesignTokens.labelSecondary(this.theme),
-        () => {
-          this.openHistoryList();
-        }
-      )
-    }
-    .width('100%')
-    .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter(), top: 12, bottom: 8 })
-
-    // 本地音乐：导入并播放设备里的音频文件
-    Row() {
-      Row({ space: 10 }) {
-        Image($r('sys.symbol.folder'))
-          .width(20)
-          .height(20)
-          .fillColor(DesignTokens.labelSecondary(this.theme))
-        Column() {
-          Text(t('local_music'))
-            .fontSize(15)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-          Text(t('local_music_desc'))
-            .fontSize(12)
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-            .margin({ top: 2 })
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-        Image($r('sys.symbol.chevron_right'))
-          .width(14)
-          .height(14)
-          .fillColor(DesignTokens.labelTertiary(this.theme))
-      }
-      .width('100%')
-      .padding({ left: 14, right: 14, top: 13, bottom: 13 })
-      .backgroundColor(DesignTokens.card(this.theme))
-      .borderRadius(DesignTokens.radiusCard())
-      .shadow({ radius: 10, color: 'rgba(0,0,0,0.06)', offsetX: 0, offsetY: 3 })
-      .onClick(() => {
-        navigationService.navigateTo(RouteName.LOCAL_MUSIC);
-      })
-    }
-    .width('100%')
-    .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter(), bottom: 8 })
-  }
-
-  @Builder
-  private LibraryQuickCard(
-    title: string,
-    subtitle: string,
-    icon: Resource,
-    iconColor: ResourceColor,
-    onClick: () => void
-  ) {
-    Column() {
-      Text(title)
-        .fontSize(14)
-        .fontWeight(FontWeight.Medium)
-        .fontColor(DesignTokens.labelPrimary(this.theme))
-      Text(subtitle)
-        .fontSize(12)
-        .fontColor(DesignTokens.labelTertiary(this.theme))
-        .margin({ top: 6 })
-      Image(icon)
-        .width(24)
-        .height(24)
-        .fillColor(iconColor)
-        .margin({ top: 12 })
-    }
-    .layoutWeight(1)
-    .height(122)
-    .padding(14)
-    .alignItems(HorizontalAlign.Start)
-    .justifyContent(FlexAlign.Center)
-    .backgroundColor(DesignTokens.card(this.theme))
-    .borderRadius(DesignTokens.radiusCard())
-    .shadow({ radius: 10, color: 'rgba(0,0,0,0.06)', offsetX: 0, offsetY: 3 })
-    .stateStyles({ pressed: this.pressDim })
-    .onClick(onClick)
-  }
-
-  @Builder
-  LoveListSection() {
-    Column() {
-      Row() {
-        Column() {
-          Text(t('my_love'))
-            .fontSize(20)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-          Text('收藏的歌曲')
-            .fontSize(12)
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-            .margin({ top: 4 })
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-
-        if (this.loveList && this.loveList.musicList.length > 0) {
-          Row({ space: 2 }) {
-            Text('查看全部')
-              .fontSize(13)
-              .fontColor(DesignTokens.accent())
-              .fontWeight(FontWeight.Medium)
-              .padding({ left: 10, right: 10, top: 6, bottom: 6 })
-              .onClick(() => {
-                navigationService.navigateTo(RouteName.LOVE_LIST);
-              })
-          }
-        }
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-
-      if (!this.loveList || this.loveList.musicList.length === 0) {
-        Column() {
-          Text(t('no_data'))
-            .fontSize(14)
-            .fontColor(DesignTokens.labelSecondary(this.theme))
-          Text('播放时点击心形按钮收藏')
-            .fontSize(12)
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-            .margin({ top: 6 })
-        }
-        .width('100%')
-        .padding({ top: 20, bottom: 18 })
-        .alignItems(HorizontalAlign.Center)
-      } else {
-        Column({ space: 0 }) {
-          ForEach(this.loveList.musicList.slice(0, 6), (song: MyListSongRow, index: number) => {
-            this.HistorySongRow(song, index)
-          }, (song: MyListSongRow, index: number) => `${song.id}_${song.source}_${index}`)
-        }
-        .width('100%')
-        .margin({ top: 10 })
-      }
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-  }
-
-  @Builder
-  HistorySection() {
-    Column() {
-      Row() {
-        Column() {
-          Text(t('my_history'))
-            .fontSize(20)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-          Text(t('my_history'))
-            .fontSize(12)
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-            .margin({ top: 4 })
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-
-        if (this.playHistory.length > 0) {
-          Row({ space: 2 }) {
-            Text('查看全部')
-              .fontSize(13)
-              .fontColor(DesignTokens.accent())
-              .fontWeight(FontWeight.Medium)
-              .padding({ left: 10, right: 10, top: 6, bottom: 6 })
-              .onClick(() => {
-                this.openHistoryList();
-              })
-            Text('清空')
-              .fontSize(13)
-              .fontColor(DesignTokens.labelTertiary(this.theme))
-              .padding({ left: 10, right: 4, top: 6, bottom: 6 })
-              .onClick(() => {
-                void this.clearHistoryWithConfirm();
-              })
-          }
-        }
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-
-      if (this.playHistory.length === 0) {
-        Column() {
-          Text(t('no_data'))
-            .fontSize(14)
-            .fontColor(DesignTokens.labelSecondary(this.theme))
-          Text('播放过的歌曲会出现在这里')
-            .fontSize(12)
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-            .margin({ top: 6 })
-        }
-        .width('100%')
-        .padding({ top: 20, bottom: 18 })
-        .alignItems(HorizontalAlign.Center)
-      } else {
-        Column({ space: 0 }) {
-          ForEach(this.playHistory.slice(0, 6), (song: MyListSongRow, index: number) => {
-            this.HistorySongRow(song, index)
-          }, (song: MyListSongRow, index: number) => `${song.id}_${song.source}_${index}`)
-        }
-        .width('100%')
-        .margin({ top: 10 })
-      }
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-  }
-
-  @Builder
-  private HistorySongRow(song: MyListSongRow, index: number) {
-    Column() {
-      Row() {
-        Text((index + 1).toString())
-          .fontSize(12)
-          .fontColor(DesignTokens.labelTertiary(this.theme))
-          .width(24)
-          .textAlign(TextAlign.Center)
-
-        Column() {
-          Text(song.name)
-            .fontSize(15)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(song.singer)
-            .fontSize(12)
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .margin({ top: 4 })
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
-        .margin({ left: 8, right: 8 })
-
-        Stack() {
-          Circle({ width: 28, height: 28 })
-            .fill(DesignTokens.mutedFill(this.theme))
-          Image($r('app.media.ic_pd_play'))
-            .width(12)
-            .height(12)
-            .fillColor(DesignTokens.accent())
-            .margin({ left: 1 })
-        }
-      }
-      .width('100%')
-      .padding({ left: 8, right: 8, top: 10, bottom: 10 })
-      .alignItems(VerticalAlign.Center)
-      .onClick(() => {
-        void this.playHistorySong(song);
-      })
-
-      Divider()
-        .strokeWidth(0.5)
-        .color(DesignTokens.cardBorder(this.theme))
-        .margin({ left: 8, right: 8 })
-    }
-    .width('100%')
-    .backgroundColor(DesignTokens.card(this.theme))
-    .borderRadius(12)
-    .clip(true)
-  }
-
-  @Builder
-  SectionHeader() {
-    Row() {
-      Column() {
-        Text(t('songlist_title'))
-          .fontSize(20)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(DesignTokens.labelPrimary(this.theme))
-        Text('本地保存的播放列表')
-          .fontSize(12)
-          .fontColor(DesignTokens.labelTertiary(this.theme))
-          .margin({ top: 4 })
-      }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
-
-      Row({ space: 8 }) {
-        Text('查看全部')
-          .fontSize(13)
-          .fontColor(DesignTokens.accent())
-          .fontWeight(FontWeight.Medium)
-          .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-          .onClick(() => {
-            navigationService.navigateTo(RouteName.USER_LISTS);
-          })
-        Button({ type: ButtonType.Capsule }) {
-          Row({ space: 4 }) {
-            Image($r('app.media.ic_common_create'))
-              .width(14)
-              .height(14)
-              .fillColor(Color.White)
-            Text(t('my_create_list'))
-              .fontSize(13)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(Color.White)
-          }
-        }
-        .height(30)
-        .padding({ left: 10, right: 10 })
-        .backgroundColor(DesignTokens.accent())
-        .onClick(() => {
-          this.newListName = '';
-          this.showCreateSheet = true;
-        })
-      }
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 16, bottom: 8 })
-    .alignItems(VerticalAlign.Center)
-  }
-
-  @Builder
-  UserPlaylistCard(list: UserListRow) {
-    Row() {
-      Stack() {
-        if (list.pic) {
-          Image(list.pic)
-            .width(56)
-            .height(56)
-            .borderRadius(10)
-            .objectFit(ImageFit.Cover)
-        } else {
-          Column() {
-            Image($r('sys.symbol.music_note_list'))
-              .width(26)
-              .height(26)
-              .fillColor(DesignTokens.labelTertiary(this.theme))
-          }
-          .width(56)
-          .height(56)
-          .borderRadius(10)
-          .backgroundColor(DesignTokens.mutedFill(this.theme))
-          .justifyContent(FlexAlign.Center)
-        }
-      }
-
-      Column() {
-        Text(list.name)
+        Button(t('create_list_btn'))
+          .type(ButtonType.Capsule)
+          .layoutWeight(1)
+          .height(DesignTokens.touchTarget())
           .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(DesignTokens.labelPrimary(this.theme))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(`${list.count} ${t('songlist_total')}`)
-          .fontSize(13)
-          .fontColor(DesignTokens.labelTertiary(this.theme))
-          .margin({ top: 6 })
-      }
-      .layoutWeight(1)
-      .padding({ left: 14 })
-      .alignItems(HorizontalAlign.Start)
-
-      Image($r('sys.symbol.play_circle'))
-        .width(30)
-        .height(30)
-        .fillColor(DesignTokens.accent())
-        .onClick(() => {
-          void this.playList(list);
-        })
-
-      Image($r('sys.symbol.chevron_right'))
-        .width(14)
-        .height(14)
-        .fillColor(DesignTokens.labelTertiary(this.theme))
-        .margin({ left: 8 })
-    }
-    .width('100%')
-    .padding(16)
-    .backgroundColor(DesignTokens.card(this.theme))
-    .borderRadius(DesignTokens.radiusCard())
-    .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
-    .onClick(() => {
-      navigationService.navigateTo(RouteName.SONGLIST_DETAIL, {
-        songListId: list.id,
-        songListName: list.name,
-        songListSource: 'local',
-      });
-    })
-  }
-
-  build() {
-    Stack() {
-      Column() {
-        if (this.isLoading) {
-          Column() {
-            LoadingProgress()
-              .width(36)
-              .height(36)
-              .color(DesignTokens.accent())
-            Text(t('loading'))
-              .fontSize(14)
-              .fontColor(DesignTokens.labelSecondary(this.theme))
-              .margin({ top: 14 })
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .justifyContent(FlexAlign.Center)
-        } else {
-          Scroll() {
-            Column() {
-              if (this.loveList) {
-                this.LibraryHero()
-              }
-              this.LoveListSection()
-              this.HistorySection()
-              this.SectionHeader()
-
-              if (this.userLists.length === 0) {
-                Column() {
-                  Image($r('sys.symbol.folder'))
-                    .width(56)
-                    .height(56)
-                    .fillColor(DesignTokens.labelTertiary(this.theme))
-                    .margin({ bottom: 12 })
-                  Text(t('no_data'))
-                    .fontSize(16)
-                    .fontWeight(FontWeight.Medium)
-                    .fontColor(DesignTokens.labelSecondary(this.theme))
-                  Text('点击右上角「新建」创建第一个歌单，或在播放页将歌曲加入歌单')
-                    .fontSize(13)
-                    .fontColor(DesignTokens.labelTertiary(this.theme))
-                    .textAlign(TextAlign.Center)
-                    .lineHeight(20)
-                    .margin({ top: 10, left: 28, right: 28 })
-                }
-                .width('100%')
-                .padding({ top: 36, bottom: 48 })
-                .justifyContent(FlexAlign.Center)
-                .alignItems(HorizontalAlign.Center)
-              } else {
-                Column({ space: 10 }) {
-                  ForEach(this.userLists, (list: UserListRow) => {
-                    Column() {
-                      this.UserPlaylistCard(list)
-                    }
-                    .padding({ left: 16, right: 16 })
-                  }, (list: UserListRow) => list.id)
-                }
-                .width('100%')
-                .padding({ bottom: 32 })
-              }
-            }
-            .width('100%')
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .scrollBar(BarState.Off)
-          .edgeEffect(EdgeEffect.Spring)
-        }
+          .fontColor(Color.White)
+          .backgroundColor(DesignTokens.accent())
+          .onClick(() => {
+            void this.submitNewList();
+          })
       }
       .width('100%')
-      .height('100%')
-      .backgroundColor(DesignTokens.pageBg(this.theme))
-
-      this.CreateSheetOverlay()
+      .margin({ top: 16 })
     }
     .width('100%')
-    .height('100%')
   }
 
   async playHistorySong(song: MyListSongRow): Promise<void> {
@@ -869,6 +497,22 @@ export struct MylistView {
       songListName: listName,
       songListSource: source,
     });
+  }
+  /** 列表级同步：拉取绑定在线歌单的最新内容 */
+  private async syncList(list: UserListRow): Promise<void> {
+    this.toast(t('toast_syncing'));
+    try {
+      const result = await syncUserListFromOnline(list.id);
+      if (result.ok) {
+        this.toast(tf('toast_sync_done_count', [String(result.count)]));
+      } else {
+        this.toast(t('toast_sync_local_failed'));
+      }
+      await this.loadMyLists();
+    } catch (err) {
+      hilog.warn(0x0001, 'MylistView', 'syncList failed: %{public}s', JSON.stringify(err));
+      this.toast(t('toast_sync_local_failed'));
+    }
   }
 
   private formatPlayTime(time: number): string {

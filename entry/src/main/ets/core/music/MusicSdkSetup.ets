@@ -497,6 +497,11 @@ export async function loadCustomSource(url: string): Promise<boolean> {
   return await pluginManager.loadCustomSource(url);
 }
 
+/** 启动时恢复「上次启用的自定义源」（含多源列表） */
+export async function restoreEnabledCustomSource(): Promise<boolean> {
+  return await pluginManager.restoreEnabledSource();
+}
+
 /**
  * 卸载自定义源插件
  */
@@ -549,4 +554,3 @@ export async function getMusicUrlByPlugin(songInfo: SongInfo, quality: string): 
   }
   return '';
 }
-

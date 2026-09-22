@@ -8,6 +8,16 @@ import { getStorageService } from '../interfaces/IStorageService';
 import { CustomSourcePlugin } from './CustomSourcePlugin';
 import fs from '@ohos.file.fs';
 import { utf8Decode } from '../../utils/TextCodec';
+import {
+  loadStoredSources,
+  upsertStoredSource,
+  removeStoredSource,
+  setEnabledSource,
+  findEnabledSource,
+  type StoredCustomSource
+} from './PluginStore';
+
+export type { StoredCustomSource };
 
 const TAG = 'PluginManager';
 const DOMAIN = 0x0001;
@@ -217,10 +227,12 @@ class PluginManagerImpl {
 
       // 保存URL
       await this.saveCustomSourceUrl(url);
+      // 记入自定义源列表（可多源管理：启用/停用/更新/删除）
+      await this.persistLoadedSource(pluginId, url, scriptContent, this.pluginMeta);
 
       hilog.info(DOMAIN, TAG, 'Custom source loaded: %{public}s', this.pluginMeta.name);
       this.pluginLoading = false;
-      this.pluginLoaded = true;
+    this.pluginLoaded = true;
       return true;
 
     } catch (error) {
@@ -370,6 +382,178 @@ class PluginManagerImpl {
   private async saveCustomSourceUrl(url: string): Promise<void> {
     await getStorageService().setString('plugin.customSourceUrl', url);
     await getStorageService().setString('plugin.currentSource', 'custom');
+  }
+
+  /** 把刚加载成功的自定义源写入持久化列表，并把它设为唯一启用项 */
+  private async persistLoadedSource(
+    pluginId: string,
+    url: string,
+    script: string,
+    meta: PluginMeta | null
+  ): Promise<void> {
+    try {
+      await setEnabledSource(null);
+      const record: StoredCustomSource = {
+        id: pluginId,
+        url,
+        name: meta?.name ?? url,
+        version: meta?.version ?? '',
+        author: meta?.author ?? '',
+        description: meta?.description ?? '',
+        homepage: meta?.homepage ?? '',
+        script,
+        enabled: true,
+        addedAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      await upsertStoredSource(record);
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'persistLoadedSource failed: %{public}s', JSON.stringify(err));
+    }
+  }
+
+  // ==================== 自定义源列表（多源管理） ====================
+
+  /** 读取全部已保存的自定义源 */
+  async getStoredSources(): Promise<StoredCustomSource[]> {
+    return await loadStoredSources();
+  }
+
+  /**
+   * 启用/停用某个自定义源
+   * - 启用：用保存的脚本重新实例化并激活（脚本缺失时按 url 重新下载）
+   * - 停用：若它是当前激活源则卸载
+   */
+  async setSourceEnabled(id: string, enabled: boolean): Promise<boolean> {
+    const list = await loadStoredSources();
+    const target = list.find((item: StoredCustomSource) => item.id === id);
+    if (!target) {
+      return false;
+    }
+    if (!enabled) {
+      await setEnabledSource(null);
+      if (this.activePluginId === id) {
+        this.unloadPlugin();
+      }
+      await getStorageService().setString('plugin.currentSource', 'kw');
+      return true;
+    }
+
+    let script = target.script;
+    if (script.length === 0) {
+      script = await this.loadCustomSourceScript(target.url);
+    }
+    if (script.length === 0) {
+      return false;
+    }
+    const ok = await this.activateFromScript(id, script);
+    if (!ok) {
+      return false;
+    }
+    // 只保留一个启用项
+    await setEnabledSource(null);
+    target.script = script;
+    target.enabled = true;
+    target.updatedAt = Date.now();
+    await upsertStoredSource(target);
+    await this.saveCustomSourceUrl(target.url);
+    return true;
+  }
+
+  /** 重新下载脚本并刷新元信息（「更新」按钮） */
+  async updateSource(id: string): Promise<boolean> {
+    const list = await loadStoredSources();
+    const target = list.find((item: StoredCustomSource) => item.id === id);
+    if (!target) {
+      return false;
+    }
+    const script = await this.loadCustomSourceScript(target.url);
+    if (script.length === 0) {
+      return false;
+    }
+    const meta = this.parsePluginMeta(script);
+    target.script = script;
+    target.name = meta.name;
+    target.version = meta.version;
+    target.author = meta.author;
+    target.description = meta.description;
+    target.homepage = meta.homepage;
+    target.updatedAt = Date.now();
+    await upsertStoredSource(target);
+    // 若是当前启用的源，需要重新实例化才能生效
+    if (target.enabled) {
+      return await this.activateFromScript(target.id, script);
+    }
+    return true;
+  }
+
+  /** 删除某个自定义源 */
+  async removeSource(id: string): Promise<void> {
+    const wasActive = this.activePluginId === id;
+    if (wasActive) {
+      this.unloadPlugin();
+      await getStorageService().setString('plugin.currentSource', 'kw');
+    }
+    await removeStoredSource(id);
+  }
+
+  /** 用脚本正文实例化并激活插件（供启用/更新/启动恢复复用） */
+  private async activateFromScript(pluginId: string, script: string): Promise<boolean> {
+    try {
+      const meta = this.parsePluginMeta(script);
+      const plugin: Plugin = new CustomSourcePlugin(
+        pluginId,
+        meta.name,
+        meta.description,
+        meta.version,
+        meta.author,
+        meta.homepage,
+        script
+      );
+      const inited = await plugin.onInit();
+      if (!inited) {
+        return false;
+      }
+      if (this.plugins.has(pluginId)) {
+        this.unregister(pluginId);
+      }
+      const previousActive = this.activePluginId;
+      if (previousActive && previousActive !== pluginId && this.plugins.has(previousActive)) {
+        this.unregister(previousActive);
+      }
+      this.register(plugin);
+      this.setActivePlugin(pluginId);
+      this.pluginMeta = meta;
+      this.apiSourceUrl = meta.homepage;
+      this.pluginLoaded = true;
+      this.pluginError = null;
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : JSON.stringify(err);
+      hilog.error(DOMAIN, TAG, 'activateFromScript failed: %{public}s', msg);
+      this.pluginError = msg;
+      return false;
+    }
+  }
+
+  /**
+   * 启动时恢复上次启用的自定义源（由 AppBootstrap 延迟调用）
+   * 脚本缺失时回落到按 url 下载，保证老数据也能恢复
+   */
+  async restoreEnabledSource(): Promise<boolean> {
+    const list = await loadStoredSources();
+    const enabledSource = findEnabledSource(list);
+    if (!enabledSource) {
+      return false;
+    }
+    if (enabledSource.script.length > 0) {
+      const ok = await this.activateFromScript(enabledSource.id, enabledSource.script);
+      if (ok) {
+        await getStorageService().setString('plugin.currentSource', 'custom');
+      }
+      return ok;
+    }
+    return await this.loadCustomSource(enabledSource.url);
   }
 
   /** 卸载插件 */

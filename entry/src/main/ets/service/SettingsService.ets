@@ -16,6 +16,10 @@ import type { common } from '@kit.AbilityKit';
 import { getStorageService } from '../core/interfaces/IStorageService';
 import { emitSettingChanged } from './EventBus';
 import { StorageKeys } from './StorageService';
+import type { S2TMode } from '../core/lyric/ChineseConvert';
+import type { Quality } from '../types/MusicTypes';
+
+export type { S2TMode };
 
 const TAG = 'SettingsService';
 const DOMAIN = 0x0005;
@@ -32,8 +36,16 @@ export type StartupPage = 'home' | 'playdetail';
 export type AddMusicLocation = 'top' | 'bottom';
 /** 桌面歌词位置（custom = 用户拖动后的自由位置） */
 export type DesktopLyricPosition = 'top' | 'middle' | 'bottom' | 'custom';
+/** 桌面歌词文字在窗口内的水平位置 */
+export type DesktopLyricTextPositionX = 'left' | 'center' | 'right';
+/** 桌面歌词文字在窗口内的垂直位置 */
+export type DesktopLyricTextPositionY = 'top' | 'middle' | 'bottom';
 /** 同步模式 */
 export type SyncMode = 'client' | 'server';
+/** 音源名称显示方式：别名（小蜗音乐…） / 原名（酷我音乐…） */
+export type SourceNameType = 'alias' | 'real';
+/** 分享方式：系统分享 / 复制文本（安卓版 common.shareType） */
+export type ShareType = 'system' | 'clipboard';
 
 /** 设置快照（读取时使用，全部为已解析的强类型值） */
 export interface AppSettings {
@@ -43,24 +55,103 @@ export interface AppSettings {
   showExitDialog: boolean;
   themeMode: ThemeMode;
   themeId: string;
+  /** 自动跟随系统深浅色（安卓版 common.isAutoTheme） */
+  autoTheme: boolean;
+  /** 自动模式下的浅色主题 id */
+  themeLightId: string;
+  /** 自动模式下的深色主题 id */
+  themeDarkId: string;
+  /** 动态背景：用当前歌曲封面作为播放页背景（安卓版 theme.dynamicBg） */
+  dynamicBg: boolean;
+  /** 字体阴影：提升封面背景上的文字可读性（安卓版 theme.fontShadow） */
+  fontShadow: boolean;
+  /** 深色主题下隐藏背景图（安卓版 theme.hideBgDark） */
+  hideBgDark: boolean;
 
   // 播放
   autoPlay: boolean;
   highQuality: boolean;
+  /** 播放音质：128k / 320k / flac / flac24bit（安卓版 player.playQuality，默认 128k） */
+  playQuality: Quality;
   playMode: PlayMode;
   /** 播放倍速（0.5 - 2.0） */
   playRate: number;
+  /** 是否处理音频焦点（来电/其他应用播放时自动暂停） */
+  audioFocus: boolean;
+  /** 是否启用 AudioOffload（低功耗硬解，部分设备/格式不支持） */
+  audioOffload: boolean;
+  /** 播放缓存上限（MB） */
+  playerCacheSizeMb: number;
+  /** 是否保存播放进度（重启续播） */
+  savePlayTime: boolean;
+  /** 播控中心/锁屏是否显示封面（安卓版 player.isShowNotificationImage） */
+  showNotificationImage: boolean;
+  /**
+   * 蓝牙/车机歌词：把整段 LRC 写入 AVSession 元数据
+   * （安卓版 player.isShowBluetoothLyric；关闭时只推送当前句，播控/锁屏仍正常）
+   */
+  showBluetoothLyric: boolean;
+  /** 歌词是否显示翻译 */
+  showLyricTranslation: boolean;
+  /** 歌词是否显示罗马音（拼音） */
+  showLyricRoma: boolean;
+  /** 歌词字号（14-24） */
+  lyricFontSize: number;
+  /** 歌词对齐：center | left | right */
+  lyricAlign: string;
+  /** 歌词页是否显示播放进度 */
+  showLyricProgress: boolean;
+  /** 桌面歌词宽度（屏宽百分比 40-100） */
+  desktopLyricWidth: number;
+  /** 桌面歌词最大显示行数（1-3） */
+  desktopLyricMaxLines: number;
+  /** 桌面歌词行切换动画 */
+  desktopLyricAnim: boolean;
+  /** 桌面歌词阴影/描边色 */
+  desktopLyricShadowColor: string;
+  /** 列表是否显示音源 */
+  showListSource: boolean;
+  /** 列表是否显示专辑名 */
+  showListAlbum: boolean;
+  /** 列表是否显示时长 */
+  showListDuration: boolean;
+  /** 是否记住列表滚动位置 */
+  rememberScrollPosition: boolean;
+  /** 是否记录详细日志（DEBUG/INFO 级），用于「设置 → 运行日志」排查问题 */
+  enableVerboseLog: boolean;
+  /** 歌词简繁转换模式（off / s2t / t2s） */
+  s2tMode: S2TMode;
+  /** 音源名称显示：align with 安卓版 common.sourceNameType */
+  sourceNameType: SourceNameType;
+  /** 分享方式：系统分享 / 复制文本（安卓版 common.shareType，默认系统分享） */
+  shareType: ShareType;
+  /** 是否已同意许可协议（安卓版 common.isAgreePact），首次启动必须同意 */
+  agreedPact: boolean;
+  /** 是否允许拖动播放进度条（关闭后不可拖动，防误触） */
+  allowProgressBarSeek: boolean;
   /** 歌词偏移（秒）：正值=歌词提前出现 */
   lyricOffset: number;
   /** 0-100 */
   volume: number;
   sleepTimerEnabled: boolean;
   sleepTimerMinutes: number;
+  /** 定时退出时是否等待当前歌曲播放完（安卓版 player.timeoutExitPlayed） */
+  sleepTimerWaitTrackEnd: boolean;
   showDesktopLyric: boolean;
   desktopLyricPosition: DesktopLyricPosition;
   desktopLyricColor: string;
   /** 歌词窗口背景不透明度 0-100（0 = 全透明） */
   desktopLyricBgAlpha: number;
+  /** 单行模式：只显示当前句（安卓版 desktopLyric.isSingleLine） */
+  desktopLyricSingleLine: boolean;
+  /** 当前句（已播放行）颜色（安卓版 desktopLyric.style.lyricPlayedColor） */
+  desktopLyricPlayedColor: string;
+  /** 歌词文字在窗口内的水平位置 left | center | right */
+  desktopLyricTextPositionX: DesktopLyricTextPositionX;
+  /** 歌词文字在窗口内的垂直位置 top | middle | bottom */
+  desktopLyricTextPositionY: DesktopLyricTextPositionY;
+  /** 歌词文字不透明度 0-100（安卓版 desktopLyric.style.opacity，默认 100） */
+  desktopLyricTextOpacity: number;
   /** 歌词字号 14-32 */
   desktopLyricFontSize: number;
   /** 是否显示下一句 */
@@ -74,11 +165,15 @@ export interface AppSettings {
   // 搜索
   searchSource: string;
   showHotSearch: boolean;
+  /** 搜索面板是否显示搜索历史（安卓版 search.isShowHistorySearch） */
+  showSearchHistory: boolean;
   searchHistoryCount: number;
 
   // 列表
   addMusicLocation: AddMusicLocation;
   autoCleanPlayedList: boolean;
+  /** 点击列表项时是否整列表播放（安卓版 list.isClickPlayList） */
+  listClickPlay: boolean;
 
   // 下载
   downloadPath: string;
@@ -105,15 +200,53 @@ export interface SettingsPatch {
   showExitDialog?: boolean;
   themeMode?: ThemeMode;
   themeId?: string;
+  autoTheme?: boolean;
+  themeLightId?: string;
+  themeDarkId?: string;
+  dynamicBg?: boolean;
+  fontShadow?: boolean;
+  hideBgDark?: boolean;
 
   autoPlay?: boolean;
   highQuality?: boolean;
+  playQuality?: Quality;
   playMode?: PlayMode;
   playRate?: number;
+  audioFocus?: boolean;
+  audioOffload?: boolean;
+  playerCacheSizeMb?: number;
+  savePlayTime?: boolean;
+  showNotificationImage?: boolean;
+  showBluetoothLyric?: boolean;
+  showLyricTranslation?: boolean;
+  showLyricRoma?: boolean;
+  lyricFontSize?: number;
+  lyricAlign?: string;
+  showLyricProgress?: boolean;
+  desktopLyricWidth?: number;
+  desktopLyricMaxLines?: number;
+  desktopLyricSingleLine?: boolean;
+  desktopLyricPlayedColor?: string;
+  desktopLyricTextPositionX?: DesktopLyricTextPositionX;
+  desktopLyricTextPositionY?: DesktopLyricTextPositionY;
+  desktopLyricTextOpacity?: number;
+  desktopLyricAnim?: boolean;
+  desktopLyricShadowColor?: string;
+  showListSource?: boolean;
+  showListAlbum?: boolean;
+  showListDuration?: boolean;
+  rememberScrollPosition?: boolean;
+  enableVerboseLog?: boolean;
+  s2tMode?: S2TMode;
+  sourceNameType?: SourceNameType;
+  shareType?: ShareType;
+  agreedPact?: boolean;
+  allowProgressBarSeek?: boolean;
   lyricOffset?: number;
   volume?: number;
   sleepTimerEnabled?: boolean;
   sleepTimerMinutes?: number;
+  sleepTimerWaitTrackEnd?: boolean;
   showDesktopLyric?: boolean;
   desktopLyricPosition?: DesktopLyricPosition;
   desktopLyricColor?: string;
@@ -126,10 +259,12 @@ export interface SettingsPatch {
 
   searchSource?: string;
   showHotSearch?: boolean;
+  showSearchHistory?: boolean;
   searchHistoryCount?: number;
 
   addMusicLocation?: AddMusicLocation;
   autoCleanPlayedList?: boolean;
+  listClickPlay?: boolean;
 
   downloadPath?: string;
   autoStartDownload?: boolean;
@@ -154,15 +289,53 @@ function createDefaultSettings(): AppSettings {
     showExitDialog: true,
     themeMode: 'light',
     themeId: 'green',
+    autoTheme: false,
+    themeLightId: 'green',
+    themeDarkId: 'black',
+    dynamicBg: false,
+    fontShadow: false,
+    hideBgDark: false,
 
     autoPlay: true,
     highQuality: true,
+    playQuality: '128k',
     playMode: 'listLoop',
     playRate: 1.0,
+    audioFocus: true,
+    audioOffload: false,
+    playerCacheSizeMb: 4,
+    savePlayTime: true,
+    showNotificationImage: true,
+    showBluetoothLyric: false,
+    showLyricTranslation: true,
+    showLyricRoma: false,
+    lyricFontSize: 16,
+    lyricAlign: 'center',
+    showLyricProgress: false,
+    desktopLyricWidth: 100,
+    desktopLyricMaxLines: 2,
+    desktopLyricSingleLine: false,
+    desktopLyricPlayedColor: '#07C556',
+    desktopLyricTextPositionX: 'left',
+    desktopLyricTextPositionY: 'top',
+    desktopLyricTextOpacity: 100,
+    desktopLyricAnim: true,
+    desktopLyricShadowColor: '#99000000',
+    showListSource: true,
+    showListAlbum: true,
+    showListDuration: true,
+    rememberScrollPosition: true,
+    enableVerboseLog: false,
+    s2tMode: 'off',
+    sourceNameType: 'alias',
+    shareType: 'system',
+    agreedPact: false,
+    allowProgressBarSeek: true,
     lyricOffset: 0,
     volume: 80,
     sleepTimerEnabled: false,
     sleepTimerMinutes: 30,
+    sleepTimerWaitTrackEnd: true,
     showDesktopLyric: false,
     desktopLyricPosition: 'top',
     desktopLyricColor: '#FFFFFF',
@@ -175,10 +348,12 @@ function createDefaultSettings(): AppSettings {
 
     searchSource: 'kw',
     showHotSearch: true,
+    showSearchHistory: false,
     searchHistoryCount: 20,
 
     addMusicLocation: 'top',
     autoCleanPlayedList: false,
+    listClickPlay: false,
 
     downloadPath: '',
     autoStartDownload: true,
@@ -224,6 +399,48 @@ function toDesktopLyricPosition(value: string, fallback: DesktopLyricPosition): 
     return value;
   }
   return fallback;
+}
+
+/** 简繁转换模式容错（历史数据/非法值一律回到 off） */
+function normalizeS2TMode(value: string): S2TMode {
+  if (value === 's2t' || value === 't2s') {
+    return value;
+  }
+  return 'off';
+}
+
+/** 音源名称显示方式容错（默认别名） */
+function toSourceNameType(value: string): SourceNameType {
+  return value === 'real' ? 'real' : 'alias';
+}
+
+/** 分享方式容错（默认系统分享，与安卓版一致） */
+function toShareType(value: string): ShareType {
+  return value === 'clipboard' ? 'clipboard' : 'system';
+}
+
+/** 音质容错（非法值回落到 128k） */
+function toQuality(value: string, fallback: Quality): Quality {
+  if (value === '320k' || value === 'flac' || value === 'flac24bit' || value === '128k') {
+    return value;
+  }
+  return fallback;
+}
+
+/** 桌面歌词文字水平位置容错 */
+function toDlTextPosX(value: string): DesktopLyricTextPositionX {
+  if (value === 'left' || value === 'right') {
+    return value;
+  }
+  return 'center';
+}
+
+/** 桌面歌词文字垂直位置容错 */
+function toDlTextPosY(value: string): DesktopLyricTextPositionY {
+  if (value === 'top' || value === 'bottom') {
+    return value;
+  }
+  return 'middle';
 }
 
 function clampNumber(value: number, min: number, max: number, fallback: number): number {
@@ -405,13 +622,80 @@ class SettingsServiceImpl {
     this.values.themeMode = toThemeMode(
       await storage.getString(StorageKeys.THEME_MODE, defaults.themeMode), defaults.themeMode);
     this.values.themeId = await storage.getString(StorageKeys.THEME_ID, defaults.themeId);
+    this.values.autoTheme = await storage.getBoolean(StorageKeys.COMMON_AUTO_THEME, defaults.autoTheme);
+    this.values.themeLightId = await storage.getString(StorageKeys.THEME_LIGHT_ID, defaults.themeLightId);
+    this.values.themeDarkId = await storage.getString(StorageKeys.THEME_DARK_ID, defaults.themeDarkId);
+    this.values.dynamicBg = await storage.getBoolean(StorageKeys.THEME_DYNAMIC_BG, defaults.dynamicBg);
+    this.values.fontShadow = await storage.getBoolean(StorageKeys.THEME_FONT_SHADOW, defaults.fontShadow);
+    this.values.hideBgDark = await storage.getBoolean(StorageKeys.THEME_HIDE_BG_DARK, defaults.hideBgDark);
 
     this.values.autoPlay = await storage.getBoolean(StorageKeys.PLAY_AUTO_PLAY, defaults.autoPlay);
     this.values.highQuality = await storage.getBoolean(StorageKeys.PLAY_HIGH_QUALITY, defaults.highQuality);
+    // 音质：旧版本只有「高品质」开关，首次读不到 playQuality 时按开关值迁移
+    const legacyQualityKey = await storage.getString(StorageKeys.PLAY_QUALITY, '');
+    this.values.playQuality = legacyQualityKey.length > 0
+      ? toQuality(legacyQualityKey, defaults.playQuality)
+      : (this.values.highQuality ? 'flac24bit' : defaults.playQuality);
     this.values.playMode = toPlayMode(
       await storage.getString(StorageKeys.PLAY_MODE, defaults.playMode), defaults.playMode);
     this.values.playRate = clampNumber(
       await storage.getNumber(StorageKeys.PLAY_RATE, defaults.playRate), 0.5, 2.0, defaults.playRate);
+    this.values.savePlayTime = await storage.getBoolean(StorageKeys.PLAY_SAVE_TIME, defaults.savePlayTime);
+    this.values.showNotificationImage = await storage.getBoolean(
+      StorageKeys.PLAY_NOTIFICATION_IMAGE, defaults.showNotificationImage);
+    this.values.showBluetoothLyric = await storage.getBoolean(
+      StorageKeys.PLAY_BLUETOOTH_LYRIC, defaults.showBluetoothLyric);
+    this.values.showLyricTranslation = await storage.getBoolean(
+      StorageKeys.LYRIC_SHOW_TRANSLATION, defaults.showLyricTranslation);
+    this.values.showLyricRoma = await storage.getBoolean(StorageKeys.LYRIC_SHOW_ROMA, defaults.showLyricRoma);
+    this.values.lyricFontSize = clampNumber(
+      await storage.getNumber(StorageKeys.LYRIC_FONT_SIZE, defaults.lyricFontSize), 14, 24, defaults.lyricFontSize);
+    this.values.lyricAlign = await storage.getString(StorageKeys.LYRIC_ALIGN, defaults.lyricAlign);
+    this.values.showLyricProgress = await storage.getBoolean(StorageKeys.LYRIC_SHOW_PROGRESS, defaults.showLyricProgress);
+    this.values.desktopLyricWidth = clampNumber(
+      await storage.getNumber(StorageKeys.PLAY_DL_WIDTH, defaults.desktopLyricWidth), 40, 100, defaults.desktopLyricWidth);
+    this.values.desktopLyricMaxLines = clampNumber(
+      await storage.getNumber(StorageKeys.PLAY_DL_MAX_LINES, defaults.desktopLyricMaxLines), 1, 3,
+      defaults.desktopLyricMaxLines);
+    this.values.desktopLyricSingleLine = await storage.getBoolean(
+      StorageKeys.PLAY_DL_SINGLE_LINE, defaults.desktopLyricSingleLine);
+    this.values.desktopLyricPlayedColor = await storage.getString(
+      StorageKeys.PLAY_DL_PLAYED_COLOR, defaults.desktopLyricPlayedColor);
+    this.values.desktopLyricTextPositionX = toDlTextPosX(
+      await storage.getString(StorageKeys.PLAY_DL_TEXT_POS_X, defaults.desktopLyricTextPositionX));
+    this.values.desktopLyricTextPositionY = toDlTextPosY(
+      await storage.getString(StorageKeys.PLAY_DL_TEXT_POS_Y, defaults.desktopLyricTextPositionY));
+    this.values.desktopLyricTextOpacity = clampNumber(
+      await storage.getNumber(StorageKeys.PLAY_DL_TEXT_OPACITY, defaults.desktopLyricTextOpacity), 20, 100,
+      defaults.desktopLyricTextOpacity);
+    this.values.desktopLyricAnim = await storage.getBoolean(StorageKeys.PLAY_DL_ANIM, defaults.desktopLyricAnim);
+    this.values.desktopLyricShadowColor = await storage.getString(
+      StorageKeys.PLAY_DL_SHADOW_COLOR, defaults.desktopLyricShadowColor);
+    this.values.showListSource = await storage.getBoolean(StorageKeys.LIST_SHOW_SOURCE, defaults.showListSource);
+    this.values.showListAlbum = await storage.getBoolean(StorageKeys.LIST_SHOW_ALBUM, defaults.showListAlbum);
+    this.values.showListDuration = await storage.getBoolean(StorageKeys.LIST_SHOW_DURATION, defaults.showListDuration);
+    this.values.rememberScrollPosition = await storage.getBoolean(
+      StorageKeys.LIST_REMEMBER_SCROLL, defaults.rememberScrollPosition);
+    this.values.enableVerboseLog = await storage.getBoolean(
+      StorageKeys.LOG_VERBOSE, defaults.enableVerboseLog);
+    this.values.s2tMode = normalizeS2TMode(
+      await storage.getString(StorageKeys.LYRIC_S2T_MODE, defaults.s2tMode));
+    this.values.sourceNameType = toSourceNameType(
+      await storage.getString(StorageKeys.COMMON_SOURCE_NAME_TYPE, defaults.sourceNameType));
+    this.values.shareType = toShareType(
+      await storage.getString(StorageKeys.COMMON_SHARE_TYPE, defaults.shareType));
+    this.values.agreedPact = await storage.getBoolean(StorageKeys.COMMON_AGREE_PACT, defaults.agreedPact);
+    this.values.allowProgressBarSeek = await storage.getBoolean(
+      StorageKeys.COMMON_ALLOW_PROGRESS_SEEK, defaults.allowProgressBarSeek);
+    this.values.showSearchHistory = await storage.getBoolean(
+      StorageKeys.SEARCH_SHOW_HISTORY, defaults.showSearchHistory);
+    this.values.listClickPlay = await storage.getBoolean(
+      StorageKeys.LIST_CLICK_PLAY, defaults.listClickPlay);
+    this.values.audioFocus = await storage.getBoolean(StorageKeys.PLAY_AUDIO_FOCUS, defaults.audioFocus);
+    this.values.audioOffload = await storage.getBoolean(StorageKeys.PLAY_AUDIO_OFFLOAD, defaults.audioOffload);
+    this.values.playerCacheSizeMb = clampNumber(
+      await storage.getNumber(StorageKeys.PLAY_CACHE_SIZE_MB, defaults.playerCacheSizeMb), 1, 64,
+      defaults.playerCacheSizeMb);
     this.values.lyricOffset = clampNumber(
       await storage.getNumber(StorageKeys.LYRIC_OFFSET, defaults.lyricOffset), -5, 5, defaults.lyricOffset);
     this.values.volume = clampNumber(
@@ -421,6 +705,8 @@ class SettingsServiceImpl {
     this.values.sleepTimerMinutes = clampNumber(
       await storage.getNumber(StorageKeys.PLAY_SLEEP_MINUTES, defaults.sleepTimerMinutes), 1, 600,
       defaults.sleepTimerMinutes);
+    this.values.sleepTimerWaitTrackEnd = await storage.getBoolean(
+      StorageKeys.PLAY_SLEEP_WAIT_TRACK_END, defaults.sleepTimerWaitTrackEnd);
     this.values.showDesktopLyric = await storage.getBoolean(
       StorageKeys.PLAY_DESKTOP_LYRIC, defaults.showDesktopLyric);
     this.values.desktopLyricPosition = toDesktopLyricPosition(
@@ -487,14 +773,52 @@ class SettingsServiceImpl {
     copy.showExitDialog = source.showExitDialog;
     copy.themeMode = source.themeMode;
     copy.themeId = source.themeId;
+    copy.autoTheme = source.autoTheme;
+    copy.themeLightId = source.themeLightId;
+    copy.themeDarkId = source.themeDarkId;
+    copy.dynamicBg = source.dynamicBg;
+    copy.fontShadow = source.fontShadow;
+    copy.hideBgDark = source.hideBgDark;
     copy.autoPlay = source.autoPlay;
     copy.highQuality = source.highQuality;
+    copy.playQuality = source.playQuality;
     copy.playMode = source.playMode;
     copy.playRate = source.playRate;
+    copy.savePlayTime = source.savePlayTime;
+    copy.showNotificationImage = source.showNotificationImage;
+    copy.showBluetoothLyric = source.showBluetoothLyric;
+    copy.showLyricTranslation = source.showLyricTranslation;
+    copy.showLyricRoma = source.showLyricRoma;
+    copy.lyricFontSize = source.lyricFontSize;
+    copy.lyricAlign = source.lyricAlign;
+    copy.showLyricProgress = source.showLyricProgress;
+    copy.desktopLyricWidth = source.desktopLyricWidth;
+    copy.desktopLyricMaxLines = source.desktopLyricMaxLines;
+    copy.desktopLyricSingleLine = source.desktopLyricSingleLine;
+    copy.desktopLyricPlayedColor = source.desktopLyricPlayedColor;
+    copy.desktopLyricTextPositionX = source.desktopLyricTextPositionX;
+    copy.desktopLyricTextPositionY = source.desktopLyricTextPositionY;
+    copy.desktopLyricTextOpacity = source.desktopLyricTextOpacity;
+    copy.desktopLyricAnim = source.desktopLyricAnim;
+    copy.desktopLyricShadowColor = source.desktopLyricShadowColor;
+    copy.showListSource = source.showListSource;
+    copy.showListAlbum = source.showListAlbum;
+    copy.showListDuration = source.showListDuration;
+    copy.rememberScrollPosition = source.rememberScrollPosition;
+    copy.enableVerboseLog = source.enableVerboseLog;
+    copy.s2tMode = source.s2tMode;
+    copy.sourceNameType = source.sourceNameType;
+    copy.shareType = source.shareType;
+    copy.agreedPact = source.agreedPact;
+    copy.allowProgressBarSeek = source.allowProgressBarSeek;
+    copy.audioFocus = source.audioFocus;
+    copy.audioOffload = source.audioOffload;
+    copy.playerCacheSizeMb = source.playerCacheSizeMb;
     copy.lyricOffset = source.lyricOffset;
     copy.volume = source.volume;
     copy.sleepTimerEnabled = source.sleepTimerEnabled;
     copy.sleepTimerMinutes = source.sleepTimerMinutes;
+    copy.sleepTimerWaitTrackEnd = source.sleepTimerWaitTrackEnd;
     copy.showDesktopLyric = source.showDesktopLyric;
     copy.desktopLyricPosition = source.desktopLyricPosition;
     copy.desktopLyricColor = source.desktopLyricColor;
@@ -506,9 +830,11 @@ class SettingsServiceImpl {
     copy.desktopLyricY = source.desktopLyricY;
     copy.searchSource = source.searchSource;
     copy.showHotSearch = source.showHotSearch;
+    copy.showSearchHistory = source.showSearchHistory;
     copy.searchHistoryCount = source.searchHistoryCount;
     copy.addMusicLocation = source.addMusicLocation;
     copy.autoCleanPlayedList = source.autoCleanPlayedList;
+    copy.listClickPlay = source.listClickPlay;
     copy.downloadPath = source.downloadPath;
     copy.autoStartDownload = source.autoStartDownload;
     copy.maxConcurrentDownloads = source.maxConcurrentDownloads;
@@ -557,6 +883,36 @@ class SettingsServiceImpl {
       await storage.setString(StorageKeys.THEME_ID, patch.themeId);
       changed.push('themeId');
     }
+    if (patch.autoTheme !== undefined && patch.autoTheme !== this.values.autoTheme) {
+      this.values.autoTheme = patch.autoTheme;
+      await storage.setBoolean(StorageKeys.COMMON_AUTO_THEME, patch.autoTheme);
+      changed.push('autoTheme');
+    }
+    if (patch.themeLightId !== undefined && patch.themeLightId !== this.values.themeLightId) {
+      this.values.themeLightId = patch.themeLightId;
+      await storage.setString(StorageKeys.THEME_LIGHT_ID, patch.themeLightId);
+      changed.push('themeLightId');
+    }
+    if (patch.themeDarkId !== undefined && patch.themeDarkId !== this.values.themeDarkId) {
+      this.values.themeDarkId = patch.themeDarkId;
+      await storage.setString(StorageKeys.THEME_DARK_ID, patch.themeDarkId);
+      changed.push('themeDarkId');
+    }
+    if (patch.dynamicBg !== undefined && patch.dynamicBg !== this.values.dynamicBg) {
+      this.values.dynamicBg = patch.dynamicBg;
+      await storage.setBoolean(StorageKeys.THEME_DYNAMIC_BG, patch.dynamicBg);
+      changed.push('dynamicBg');
+    }
+    if (patch.fontShadow !== undefined && patch.fontShadow !== this.values.fontShadow) {
+      this.values.fontShadow = patch.fontShadow;
+      await storage.setBoolean(StorageKeys.THEME_FONT_SHADOW, patch.fontShadow);
+      changed.push('fontShadow');
+    }
+    if (patch.hideBgDark !== undefined && patch.hideBgDark !== this.values.hideBgDark) {
+      this.values.hideBgDark = patch.hideBgDark;
+      await storage.setBoolean(StorageKeys.THEME_HIDE_BG_DARK, patch.hideBgDark);
+      changed.push('hideBgDark');
+    }
 
     if (patch.autoPlay !== undefined && patch.autoPlay !== this.values.autoPlay) {
       this.values.autoPlay = patch.autoPlay;
@@ -567,6 +923,18 @@ class SettingsServiceImpl {
       this.values.highQuality = patch.highQuality;
       await storage.setBoolean(StorageKeys.PLAY_HIGH_QUALITY, patch.highQuality);
       changed.push('highQuality');
+    }
+    if (patch.playQuality !== undefined) {
+      const next = toQuality(patch.playQuality, this.values.playQuality);
+      if (next !== this.values.playQuality) {
+        this.values.playQuality = next;
+        await storage.setString(StorageKeys.PLAY_QUALITY, next);
+        // 与旧的「高品质」开关保持同步，避免两处读到不同音质
+        this.values.highQuality = next !== '128k';
+        await storage.setBoolean(StorageKeys.PLAY_HIGH_QUALITY, this.values.highQuality);
+        changed.push('playQuality');
+        changed.push('highQuality');
+      }
     }
     if (patch.playMode !== undefined && patch.playMode !== this.values.playMode) {
       this.values.playMode = patch.playMode;
@@ -579,6 +947,165 @@ class SettingsServiceImpl {
         this.values.playRate = next;
         await storage.setNumber(StorageKeys.PLAY_RATE, next);
         changed.push('playRate');
+      }
+    }
+    if (patch.desktopLyricWidth !== undefined) {
+      const nextW = clampNumber(patch.desktopLyricWidth, 40, 100, this.values.desktopLyricWidth);
+      if (nextW !== this.values.desktopLyricWidth) {
+        this.values.desktopLyricWidth = nextW;
+        await storage.setNumber(StorageKeys.PLAY_DL_WIDTH, nextW);
+        changed.push('desktopLyricWidth');
+      }
+    }
+    if (patch.desktopLyricMaxLines !== undefined) {
+      const nextL = clampNumber(patch.desktopLyricMaxLines, 1, 3, this.values.desktopLyricMaxLines);
+      if (nextL !== this.values.desktopLyricMaxLines) {
+        this.values.desktopLyricMaxLines = nextL;
+        await storage.setNumber(StorageKeys.PLAY_DL_MAX_LINES, nextL);
+        changed.push('desktopLyricMaxLines');
+      }
+    }
+    if (patch.desktopLyricAnim !== undefined && patch.desktopLyricAnim !== this.values.desktopLyricAnim) {
+      this.values.desktopLyricAnim = patch.desktopLyricAnim;
+      await storage.setBoolean(StorageKeys.PLAY_DL_ANIM, patch.desktopLyricAnim);
+      changed.push('desktopLyricAnim');
+    }
+    if (patch.desktopLyricShadowColor !== undefined && patch.desktopLyricShadowColor !== this.values.desktopLyricShadowColor) {
+      this.values.desktopLyricShadowColor = patch.desktopLyricShadowColor;
+      await storage.setString(StorageKeys.PLAY_DL_SHADOW_COLOR, patch.desktopLyricShadowColor);
+      changed.push('desktopLyricShadowColor');
+    }
+    if (patch.lyricFontSize !== undefined) {
+      const nextSize = clampNumber(patch.lyricFontSize, 14, 24, this.values.lyricFontSize);
+      if (nextSize !== this.values.lyricFontSize) {
+        this.values.lyricFontSize = nextSize;
+        await storage.setNumber(StorageKeys.LYRIC_FONT_SIZE, nextSize);
+        changed.push('lyricFontSize');
+      }
+    }
+    if (patch.lyricAlign !== undefined && patch.lyricAlign !== this.values.lyricAlign) {
+      this.values.lyricAlign = patch.lyricAlign;
+      await storage.setString(StorageKeys.LYRIC_ALIGN, patch.lyricAlign);
+      changed.push('lyricAlign');
+    }
+    if (patch.showLyricProgress !== undefined && patch.showLyricProgress !== this.values.showLyricProgress) {
+      this.values.showLyricProgress = patch.showLyricProgress;
+      await storage.setBoolean(StorageKeys.LYRIC_SHOW_PROGRESS, patch.showLyricProgress);
+      changed.push('showLyricProgress');
+    }
+    if (patch.showListSource !== undefined && patch.showListSource !== this.values.showListSource) {
+      this.values.showListSource = patch.showListSource;
+      await storage.setBoolean(StorageKeys.LIST_SHOW_SOURCE, patch.showListSource);
+      changed.push('showListSource');
+    }
+    if (patch.showListAlbum !== undefined && patch.showListAlbum !== this.values.showListAlbum) {
+      this.values.showListAlbum = patch.showListAlbum;
+      await storage.setBoolean(StorageKeys.LIST_SHOW_ALBUM, patch.showListAlbum);
+      changed.push('showListAlbum');
+    }
+    if (patch.showListDuration !== undefined && patch.showListDuration !== this.values.showListDuration) {
+      this.values.showListDuration = patch.showListDuration;
+      await storage.setBoolean(StorageKeys.LIST_SHOW_DURATION, patch.showListDuration);
+      changed.push('showListDuration');
+    }
+    if (patch.rememberScrollPosition !== undefined && patch.rememberScrollPosition !== this.values.rememberScrollPosition) {
+      this.values.rememberScrollPosition = patch.rememberScrollPosition;
+      await storage.setBoolean(StorageKeys.LIST_REMEMBER_SCROLL, patch.rememberScrollPosition);
+      changed.push('rememberScrollPosition');
+    }
+    if (patch.enableVerboseLog !== undefined && patch.enableVerboseLog !== this.values.enableVerboseLog) {
+      this.values.enableVerboseLog = patch.enableVerboseLog;
+      await storage.setBoolean(StorageKeys.LOG_VERBOSE, patch.enableVerboseLog);
+      changed.push('enableVerboseLog');
+    }
+    if (patch.s2tMode !== undefined) {
+      const mode = normalizeS2TMode(patch.s2tMode);
+      if (mode !== this.values.s2tMode) {
+        this.values.s2tMode = mode;
+        await storage.setString(StorageKeys.LYRIC_S2T_MODE, mode);
+        changed.push('s2tMode');
+      }
+    }
+    if (patch.sourceNameType !== undefined) {
+      const next = toSourceNameType(patch.sourceNameType);
+      if (next !== this.values.sourceNameType) {
+        this.values.sourceNameType = next;
+        await storage.setString(StorageKeys.COMMON_SOURCE_NAME_TYPE, next);
+        changed.push('sourceNameType');
+      }
+    }
+    if (patch.shareType !== undefined) {
+      const next = toShareType(patch.shareType);
+      if (next !== this.values.shareType) {
+        this.values.shareType = next;
+        await storage.setString(StorageKeys.COMMON_SHARE_TYPE, next);
+        changed.push('shareType');
+      }
+    }
+    if (patch.agreedPact !== undefined && patch.agreedPact !== this.values.agreedPact) {
+      this.values.agreedPact = patch.agreedPact;
+      await storage.setBoolean(StorageKeys.COMMON_AGREE_PACT, patch.agreedPact);
+      changed.push('agreedPact');
+    }
+    if (patch.allowProgressBarSeek !== undefined
+      && patch.allowProgressBarSeek !== this.values.allowProgressBarSeek) {
+      this.values.allowProgressBarSeek = patch.allowProgressBarSeek;
+      await storage.setBoolean(StorageKeys.COMMON_ALLOW_PROGRESS_SEEK, patch.allowProgressBarSeek);
+      changed.push('allowProgressBarSeek');
+    }
+    if (patch.showSearchHistory !== undefined
+      && patch.showSearchHistory !== this.values.showSearchHistory) {
+      this.values.showSearchHistory = patch.showSearchHistory;
+      await storage.setBoolean(StorageKeys.SEARCH_SHOW_HISTORY, patch.showSearchHistory);
+      changed.push('showSearchHistory');
+    }
+    if (patch.listClickPlay !== undefined && patch.listClickPlay !== this.values.listClickPlay) {
+      this.values.listClickPlay = patch.listClickPlay;
+      await storage.setBoolean(StorageKeys.LIST_CLICK_PLAY, patch.listClickPlay);
+      changed.push('listClickPlay');
+    }
+    if (patch.showLyricTranslation !== undefined && patch.showLyricTranslation !== this.values.showLyricTranslation) {
+      this.values.showLyricTranslation = patch.showLyricTranslation;
+      await storage.setBoolean(StorageKeys.LYRIC_SHOW_TRANSLATION, patch.showLyricTranslation);
+      changed.push('showLyricTranslation');
+    }
+    if (patch.showLyricRoma !== undefined && patch.showLyricRoma !== this.values.showLyricRoma) {
+      this.values.showLyricRoma = patch.showLyricRoma;
+      await storage.setBoolean(StorageKeys.LYRIC_SHOW_ROMA, patch.showLyricRoma);
+      changed.push('showLyricRoma');
+    }
+    if (patch.savePlayTime !== undefined && patch.savePlayTime !== this.values.savePlayTime) {
+      this.values.savePlayTime = patch.savePlayTime;
+      await storage.setBoolean(StorageKeys.PLAY_SAVE_TIME, patch.savePlayTime);
+      changed.push('savePlayTime');
+    }
+    if (patch.showNotificationImage !== undefined
+      && patch.showNotificationImage !== this.values.showNotificationImage) {
+      this.values.showNotificationImage = patch.showNotificationImage;
+      await storage.setBoolean(StorageKeys.PLAY_NOTIFICATION_IMAGE, patch.showNotificationImage);
+      changed.push('showNotificationImage');
+    }
+    if (patch.showBluetoothLyric !== undefined && patch.showBluetoothLyric !== this.values.showBluetoothLyric) {
+      this.values.showBluetoothLyric = patch.showBluetoothLyric;
+      await storage.setBoolean(StorageKeys.PLAY_BLUETOOTH_LYRIC, patch.showBluetoothLyric);
+      changed.push('showBluetoothLyric');
+    }
+    if (patch.audioFocus !== undefined && patch.audioFocus !== this.values.audioFocus) {
+      this.values.audioFocus = patch.audioFocus;
+      await storage.setBoolean(StorageKeys.PLAY_AUDIO_FOCUS, patch.audioFocus);
+      changed.push('audioFocus');
+    }
+    if (patch.audioOffload !== undefined && patch.audioOffload !== this.values.audioOffload) {
+      this.values.audioOffload = patch.audioOffload;
+      await storage.setBoolean(StorageKeys.PLAY_AUDIO_OFFLOAD, patch.audioOffload);
+      changed.push('audioOffload');
+    }
+    if (patch.playerCacheSizeMb !== undefined) {
+      const nextCache = clampNumber(patch.playerCacheSizeMb, 1, 64, this.values.playerCacheSizeMb);
+      if (nextCache !== this.values.playerCacheSizeMb) {
+        this.values.playerCacheSizeMb = nextCache;
+        await storage.setNumber(StorageKeys.PLAY_CACHE_SIZE_MB, nextCache);
+        changed.push('playerCacheSizeMb');
       }
     }
     if (patch.lyricOffset !== undefined) {
@@ -608,6 +1135,48 @@ class SettingsServiceImpl {
         this.values.sleepTimerMinutes = next;
         await storage.setNumber(StorageKeys.PLAY_SLEEP_MINUTES, next);
         changed.push('sleepTimerMinutes');
+      }
+    }
+    if (patch.sleepTimerWaitTrackEnd !== undefined
+      && patch.sleepTimerWaitTrackEnd !== this.values.sleepTimerWaitTrackEnd) {
+      this.values.sleepTimerWaitTrackEnd = patch.sleepTimerWaitTrackEnd;
+      await storage.setBoolean(StorageKeys.PLAY_SLEEP_WAIT_TRACK_END, patch.sleepTimerWaitTrackEnd);
+      changed.push('sleepTimerWaitTrackEnd');
+    }
+    if (patch.desktopLyricSingleLine !== undefined
+      && patch.desktopLyricSingleLine !== this.values.desktopLyricSingleLine) {
+      this.values.desktopLyricSingleLine = patch.desktopLyricSingleLine;
+      await storage.setBoolean(StorageKeys.PLAY_DL_SINGLE_LINE, patch.desktopLyricSingleLine);
+      changed.push('desktopLyricSingleLine');
+    }
+    if (patch.desktopLyricPlayedColor !== undefined
+      && patch.desktopLyricPlayedColor !== this.values.desktopLyricPlayedColor) {
+      this.values.desktopLyricPlayedColor = patch.desktopLyricPlayedColor;
+      await storage.setString(StorageKeys.PLAY_DL_PLAYED_COLOR, patch.desktopLyricPlayedColor);
+      changed.push('desktopLyricPlayedColor');
+    }
+    if (patch.desktopLyricTextPositionX !== undefined) {
+      const next = toDlTextPosX(patch.desktopLyricTextPositionX);
+      if (next !== this.values.desktopLyricTextPositionX) {
+        this.values.desktopLyricTextPositionX = next;
+        await storage.setString(StorageKeys.PLAY_DL_TEXT_POS_X, next);
+        changed.push('desktopLyricTextPositionX');
+      }
+    }
+    if (patch.desktopLyricTextPositionY !== undefined) {
+      const next = toDlTextPosY(patch.desktopLyricTextPositionY);
+      if (next !== this.values.desktopLyricTextPositionY) {
+        this.values.desktopLyricTextPositionY = next;
+        await storage.setString(StorageKeys.PLAY_DL_TEXT_POS_Y, next);
+        changed.push('desktopLyricTextPositionY');
+      }
+    }
+    if (patch.desktopLyricTextOpacity !== undefined) {
+      const next = clampNumber(patch.desktopLyricTextOpacity, 20, 100, this.values.desktopLyricTextOpacity);
+      if (next !== this.values.desktopLyricTextOpacity) {
+        this.values.desktopLyricTextOpacity = next;
+        await storage.setNumber(StorageKeys.PLAY_DL_TEXT_OPACITY, next);
+        changed.push('desktopLyricTextOpacity');
       }
     }
     if (patch.showDesktopLyric !== undefined && patch.showDesktopLyric !== this.values.showDesktopLyric) {
@@ -781,14 +1350,55 @@ class SettingsServiceImpl {
       startupPage: defaults.startupPage,
       showExitDialog: defaults.showExitDialog,
       themeMode: defaults.themeMode,
+      themeId: defaults.themeId,
+      autoTheme: defaults.autoTheme,
+      themeLightId: defaults.themeLightId,
+      themeDarkId: defaults.themeDarkId,
+      dynamicBg: defaults.dynamicBg,
+      fontShadow: defaults.fontShadow,
+      hideBgDark: defaults.hideBgDark,
       autoPlay: defaults.autoPlay,
       highQuality: defaults.highQuality,
+      playQuality: defaults.playQuality,
       playMode: defaults.playMode,
       playRate: defaults.playRate,
       lyricOffset: defaults.lyricOffset,
+      savePlayTime: defaults.savePlayTime,
+      showNotificationImage: defaults.showNotificationImage,
+      showBluetoothLyric: defaults.showBluetoothLyric,
+      showLyricTranslation: defaults.showLyricTranslation,
+      showLyricRoma: defaults.showLyricRoma,
+      lyricFontSize: defaults.lyricFontSize,
+      lyricAlign: defaults.lyricAlign,
+      showLyricProgress: defaults.showLyricProgress,
+      desktopLyricWidth: defaults.desktopLyricWidth,
+      desktopLyricMaxLines: defaults.desktopLyricMaxLines,
+      desktopLyricSingleLine: defaults.desktopLyricSingleLine,
+      desktopLyricPlayedColor: defaults.desktopLyricPlayedColor,
+      desktopLyricTextPositionX: defaults.desktopLyricTextPositionX,
+      desktopLyricTextPositionY: defaults.desktopLyricTextPositionY,
+      desktopLyricTextOpacity: defaults.desktopLyricTextOpacity,
+      desktopLyricAnim: defaults.desktopLyricAnim,
+      desktopLyricShadowColor: defaults.desktopLyricShadowColor,
+      showListSource: defaults.showListSource,
+      showListAlbum: defaults.showListAlbum,
+      showListDuration: defaults.showListDuration,
+      rememberScrollPosition: defaults.rememberScrollPosition,
+      enableVerboseLog: defaults.enableVerboseLog,
+      s2tMode: defaults.s2tMode,
+      sourceNameType: defaults.sourceNameType,
+      shareType: defaults.shareType,
+      agreedPact: defaults.agreedPact,
+      allowProgressBarSeek: defaults.allowProgressBarSeek,
+      showSearchHistory: defaults.showSearchHistory,
+      listClickPlay: defaults.listClickPlay,
+      audioFocus: defaults.audioFocus,
+      audioOffload: defaults.audioOffload,
+      playerCacheSizeMb: defaults.playerCacheSizeMb,
       volume: defaults.volume,
       sleepTimerEnabled: defaults.sleepTimerEnabled,
       sleepTimerMinutes: defaults.sleepTimerMinutes,
+      sleepTimerWaitTrackEnd: defaults.sleepTimerWaitTrackEnd,
       showDesktopLyric: defaults.showDesktopLyric,
       desktopLyricPosition: defaults.desktopLyricPosition,
       desktopLyricColor: defaults.desktopLyricColor,
@@ -818,6 +1428,7 @@ class SettingsServiceImpl {
     AppStorage.setOrCreate('startupPage', this.values.startupPage);
     AppStorage.setOrCreate('autoPlay', this.values.autoPlay);
     AppStorage.setOrCreate('highQuality', this.values.highQuality);
+    AppStorage.setOrCreate('playQuality', this.values.playQuality);
     AppStorage.setOrCreate('volume', this.values.volume);
     AppStorage.setOrCreate('defaultSearchSource', this.values.searchSource);
     AppStorage.setOrCreate('showHotSearch', this.values.showHotSearch);
@@ -833,6 +1444,39 @@ class SettingsServiceImpl {
     AppStorage.setOrCreate('desktopLyricLocked', this.values.desktopLyricLocked);
     AppStorage.setOrCreate('appFontSize', this.values.fontSize);
     AppStorage.setOrCreate('showAnimation', this.values.showAnimation);
+    AppStorage.setOrCreate('showLyricTranslation', this.values.showLyricTranslation);
+    AppStorage.setOrCreate('showLyricRoma', this.values.showLyricRoma);
+    AppStorage.setOrCreate('lyricFontSize', this.values.lyricFontSize);
+    AppStorage.setOrCreate('lyricAlign', this.values.lyricAlign);
+    AppStorage.setOrCreate('showLyricProgress', this.values.showLyricProgress);
+    AppStorage.setOrCreate('desktopLyricWidth', this.values.desktopLyricWidth);
+    AppStorage.setOrCreate('desktopLyricMaxLines', this.values.desktopLyricMaxLines);
+    AppStorage.setOrCreate('desktopLyricAnim', this.values.desktopLyricAnim);
+    AppStorage.setOrCreate('desktopLyricShadowColor', this.values.desktopLyricShadowColor);
+    AppStorage.setOrCreate('showListSource', this.values.showListSource);
+    AppStorage.setOrCreate('showListAlbum', this.values.showListAlbum);
+    AppStorage.setOrCreate('showListDuration', this.values.showListDuration);
+    AppStorage.setOrCreate('rememberScrollPosition', this.values.rememberScrollPosition);
+    AppStorage.setOrCreate('enableVerboseLog', this.values.enableVerboseLog);
+    AppStorage.setOrCreate('s2tMode', this.values.s2tMode);
+    AppStorage.setOrCreate('showNotificationImage', this.values.showNotificationImage);
+    AppStorage.setOrCreate('showBluetoothLyric', this.values.showBluetoothLyric);
+    AppStorage.setOrCreate('sleepTimerWaitTrackEnd', this.values.sleepTimerWaitTrackEnd);
+    AppStorage.setOrCreate('sourceNameType', this.values.sourceNameType);
+    AppStorage.setOrCreate('shareType', this.values.shareType);
+    AppStorage.setOrCreate('agreedPact', this.values.agreedPact);
+    AppStorage.setOrCreate('allowProgressBarSeek', this.values.allowProgressBarSeek);
+    AppStorage.setOrCreate('showSearchHistory', this.values.showSearchHistory);
+    AppStorage.setOrCreate('listClickPlay', this.values.listClickPlay);
+    AppStorage.setOrCreate('autoTheme', this.values.autoTheme);
+    AppStorage.setOrCreate('dynamicBg', this.values.dynamicBg);
+    AppStorage.setOrCreate('fontShadow', this.values.fontShadow);
+    AppStorage.setOrCreate('hideBgDark', this.values.hideBgDark);
+    AppStorage.setOrCreate('desktopLyricSingleLine', this.values.desktopLyricSingleLine);
+    AppStorage.setOrCreate('desktopLyricPlayedColor', this.values.desktopLyricPlayedColor);
+    AppStorage.setOrCreate('desktopLyricTextPositionX', this.values.desktopLyricTextPositionX);
+    AppStorage.setOrCreate('desktopLyricTextPositionY', this.values.desktopLyricTextPositionY);
+    AppStorage.setOrCreate('desktopLyricTextOpacity', this.values.desktopLyricTextOpacity);
   }
 
   /** 应用字号缩放（设置 -> 外观 -> 字体大小） */

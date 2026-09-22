@@ -66,9 +66,6 @@ export struct LeaderboardView {
   private readonly minPinCards: number = 2;
   private alive: boolean = false;
   private scrollTopTimer: number = -1;
-  private coverStartupTimer: number = -1;
-  private readonly coverStartupDelayMs: number = 1800;
-  @State allowRemoteCoverRender: boolean = false;
   @State coverInteractionUnlocked: boolean = false;
   private readonly startupPreviewLimit: number = 1;
 
@@ -98,7 +95,6 @@ export struct LeaderboardView {
 
   aboutToAppear() {
     this.alive = true;
-    this.allowRemoteCoverRender = true;
     this.coverInteractionUnlocked = true;
     this.leaderboardSearchActions.onTextChange = (_t: string): void => {};
     this.leaderboardSearchActions.onMagnifierClick = (): void => {
@@ -125,25 +121,8 @@ export struct LeaderboardView {
       clearTimeout(this.scrollTopTimer);
       this.scrollTopTimer = -1;
     }
-    if (this.coverStartupTimer >= 0) {
-      clearTimeout(this.coverStartupTimer);
-      this.coverStartupTimer = -1;
-    }
   }
 
-  private startCoverStartupGate(): void {
-    if (this.coverStartupTimer >= 0) {
-      clearTimeout(this.coverStartupTimer);
-      this.coverStartupTimer = -1;
-    }
-    this.coverStartupTimer = setTimeout(() => {
-      if (!this.alive) {
-        return;
-      }
-      this.allowRemoteCoverRender = true;
-      this.coverStartupTimer = -1;
-    }, this.coverStartupDelayMs);
-  }
 
   // reCreateKey 变化时重新加载（响应音乐源切换）
   // 注意：@Watch 回调参数为被监听属性名 (string)，不是属性新值，请读 this.reCreateKey
@@ -151,7 +130,6 @@ export struct LeaderboardView {
     const epoch = this.reCreateKey;
     hilog.info(0x0001, 'LeaderboardView', 'reCreateKey changed to %{public}d, reloading...', epoch);
     this.isFilterPinned = false;
-    this.allowRemoteCoverRender = true;
     this.coverInteractionUnlocked = true;
     this.scrollToTopSoon();
     void this.loadBoardList();
@@ -968,7 +946,7 @@ export struct LeaderboardView {
                   .fontColor(this.primaryText())
                   .maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
-                Text('排行榜')
+                Text(t('leaderboard_title'))
                   .fontSize(12)
                   .fontColor(this.tertiaryText())
                 Image($r('sys.symbol.chevron_right'))
@@ -1050,7 +1028,7 @@ export struct LeaderboardView {
                 .fontColor(this.tertiaryText())
                 .margin({ top: 8 })
             } else {
-              Text('官方榜')
+              Text(t('leaderboard_official'))
                 .fontSize(12)
                 .fontColor(this.tertiaryText())
                 .margin({ top: 8 })
@@ -1210,7 +1188,7 @@ export struct LeaderboardView {
               this.toggleExpand(index);
             })
           Blank()
-          Text('查看完整榜单')
+          Text(t('view_full_chart'))
             .fontSize(14)
             .fontColor(DesignTokens.accent())
             .fontWeight(FontWeight.Medium)

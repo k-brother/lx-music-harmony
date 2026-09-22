@@ -55,6 +55,12 @@ export interface ListInfo {
   count: number;
   createTime: number;
   updateTime: number;
+  /** 绑定的在线音源（收藏的在线歌单才有），安卓版对应 UserListInfo.source */
+  bindingSource?: string;
+  /** 绑定的在线歌单/排行榜 id，安卓版对应 UserListInfo.sourceListId */
+  bindingListId?: string;
+  /** 最近一次从在线同步的时间 */
+  syncedAt?: number;
 }
 
 // 列表状态
@@ -284,6 +290,52 @@ export async function removeMusicFromList(listId: string, musicId: string): Prom
   }
 }
 
+/**
+ * 批量从列表移除歌曲（多选删除用）
+ * 一次性落库并只广播一次，避免逐首删除造成的多次写盘与多次刷新
+ * @returns 实际移除的数量
+ */
+export async function removeMusicsFromList(listId: string, musicIds: string[]): Promise<number> {
+  if (musicIds.length === 0) {
+    return 0;
+  }
+  let list: MusicItem[];
+  switch (listId) {
+    case LIST_IDS.DEFAULT:
+      list = listState.defaultListMusic;
+      break;
+    case LIST_IDS.LOVE:
+      list = listState.loveListMusic;
+      break;
+    default:
+      list = listState.userListMusic.get(listId) || [];
+  }
+  const idSet = new Set<string>(musicIds);
+  const kept: MusicItem[] = [];
+  for (let i = 0; i < list.length; i++) {
+    if (!idSet.has(list[i].id)) {
+      kept.push(list[i]);
+    }
+  }
+  const removed = list.length - kept.length;
+  if (removed === 0) {
+    return 0;
+  }
+  switch (listId) {
+    case LIST_IDS.DEFAULT:
+      listState.defaultListMusic = kept;
+      break;
+    case LIST_IDS.LOVE:
+      listState.loveListMusic = kept;
+      break;
+    default:
+      listState.userListMusic.set(listId, kept);
+  }
+  await saveList(listId);
+  notifyListeners(listId);
+  return removed;
+}
+
 function findMusicIndex(list: MusicItem[], musicId: string): number {
   for (let i = 0; i < list.length; i++) {
     if (list[i].id === musicId) {
@@ -291,6 +343,22 @@ function findMusicIndex(list: MusicItem[], musicId: string): number {
     }
   }
   return -1;
+}
+
+/**
+ * 整体替换自建歌单内容（排序 / 去重 / 在线歌单同步成本地歌单都用它）
+ *
+ * 直接按传入顺序落库，不做"添加位置"处理，保证与用户看到的顺序一致。
+ */
+export async function replaceUserListMusic(listId: string, items: MusicItem[]): Promise<void> {
+  if (listId === LIST_IDS.DEFAULT || listId === LIST_IDS.LOVE) {
+    // 默认列表/我喜欢列表的排序走各自页面逻辑，这里只服务自建歌单
+    hilog.warn(DOMAIN, TAG, 'replaceUserListMusic ignored for builtin list: %{public}s', listId);
+    return;
+  }
+  listState.userListMusic.set(listId, items.slice());
+  await saveList(listId);
+  notifyListeners(listId);
 }
 
 /**
@@ -346,6 +414,68 @@ export async function createUserList(name: string): Promise<ListInfo> {
 
   notifyListeners(id);
   return info;
+}
+
+/**
+ * 创建「绑定在线歌单」的自建歌单（收藏歌单用，对齐安卓版 createList 的 source/sourceListId）
+ *
+ * @param name 列表名（一般是歌单名）
+ * @param songs 初始歌曲（收藏时全量拉取）
+ * @param bindingSource 在线音源
+ * @param bindingListId 在线歌单 id
+ */
+export async function createUserListWithSongs(
+  name: string,
+  songs: MusicItem[],
+  bindingSource: string,
+  bindingListId: string,
+  pic: string = ''
+): Promise<ListInfo> {
+  const randomPart = Math.random().toString(36).substring(2, 8);
+  const id = `user_${Date.now()}_${randomPart}`;
+  const info = createListInfo(id, name, 'user');
+  info.createTime = Date.now();
+  info.updateTime = Date.now();
+  info.pic = pic;
+  info.bindingSource = bindingSource;
+  info.bindingListId = bindingListId;
+  info.count = songs.length;
+
+  listState.userList.push(info);
+  listState.userListMusic.set(id, songs.slice());
+
+  const data = JSON.stringify({ info: listState.userList });
+  await StorageService.setString(StorageService.StorageKeys.LIST_USER, data);
+  await saveList(id);
+
+  notifyListeners(id);
+  hilog.info(DOMAIN, TAG, 'Bound user list created: %{public}s -> %{public}s/%{public}s',
+    name, bindingSource, bindingListId);
+  return info;
+}
+
+/** 按在线歌单绑定关系查找自建歌单（安卓版 listState.userList.find(l => l.sourceListId == listId)） */
+export function findUserListByBinding(source: string, listId: string): ListInfo | undefined {
+  for (let i = 0; i < listState.userList.length; i++) {
+    const info = listState.userList[i];
+    if (info.bindingSource === source && info.bindingListId === listId) {
+      return info;
+    }
+  }
+  return undefined;
+}
+
+/** 记录一次在线同步的时间（列表菜单里据此显示"已同步"） */
+export async function markUserListSynced(listId: string): Promise<void> {
+  const info = findListInfoById(listState.userList, listId);
+  if (!info) {
+    return;
+  }
+  info.syncedAt = Date.now();
+  info.updateTime = Date.now();
+  const data = JSON.stringify({ info: listState.userList });
+  await StorageService.setString(StorageService.StorageKeys.LIST_USER, data);
+  notifyListeners(listId);
 }
 
 /**

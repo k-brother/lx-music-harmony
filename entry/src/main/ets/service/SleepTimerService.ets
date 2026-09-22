@@ -14,6 +14,8 @@ const DOMAIN = 0x0005;
 export interface SleepTimerState {
   enabled: boolean;
   minutes: number;
+  /** 倒计时已到、正在等待当前歌曲播完 */
+  waitingTrackEnd: boolean;
 }
 
 type SleepTimerListener = (state: SleepTimerState) => void;
@@ -21,6 +23,9 @@ type SleepTimerListener = (state: SleepTimerState) => void;
 class SleepTimerServiceImpl {
   private timerId: number = -1;
   private listeners: SleepTimerListener[] = [];
+  /** 倒计时结束但仍在等当前歌曲播完 */
+  private waitingTrackEnd: boolean = false;
+  private trackEndUnsub: (() => void) | null = null;
 
   /** 应用启动时调用：如果设置里开启了定时退出，则恢复倒计时 */
   restoreFromSettings(): void {
@@ -41,9 +46,7 @@ class SleepTimerServiceImpl {
     this.timerId = setTimeout(() => {
       this.timerId = -1;
       hilog.info(DOMAIN, TAG, 'Sleep timer fired after %{public}d min, pausing playback', safeMinutes);
-      playerService.pause().catch((err: Error) => {
-        hilog.error(DOMAIN, TAG, 'Sleep timer pause failed: %{public}s', err.message);
-      });
+      this.handleTimerFired();
       if (persist) {
         settingsService.update({ sleepTimerEnabled: false }).catch((err: Error) => {
           hilog.warn(DOMAIN, TAG, 'Failed to persist sleep timer stop: %{public}s', err.message);
@@ -59,6 +62,64 @@ class SleepTimerServiceImpl {
         });
     }
     hilog.info(DOMAIN, TAG, 'Sleep timer started: %{public}d min', safeMinutes);
+    this.notify();
+  }
+
+  /**
+   * 倒计时到点时的动作（对齐安卓版 player.timeoutExitPlayed）：
+   * - 开启「播完当前歌曲再退出」且正在播放 → 等整首歌播完再停，界面显示等待状态，可取消；
+   * - 否则立即暂停。
+   */
+  private handleTimerFired(): void {
+    const waitTrackEnd = settingsService.get().sleepTimerWaitTrackEnd;
+    if (waitTrackEnd && playerService.isPlaying()) {
+      this.waitingTrackEnd = true;
+      this.armTrackEndListener();
+      hilog.info(DOMAIN, TAG, 'Sleep timer waiting for current track to finish');
+      this.notify();
+      return;
+    }
+    this.stopPlaybackNow();
+  }
+
+  /** 监听"当前歌曲播放结束"，到点后停止播放并清理等待态 */
+  private armTrackEndListener(): void {
+    this.releaseTrackEndListener();
+    this.trackEndUnsub = playerService.onTrackCompleted((): void => {
+      if (!this.waitingTrackEnd) {
+        return;
+      }
+      this.waitingTrackEnd = false;
+      this.releaseTrackEndListener();
+      hilog.info(DOMAIN, TAG, 'Current track finished, sleep timer stopping playback');
+      this.stopPlaybackNow();
+      this.notify();
+    });
+  }
+
+  private releaseTrackEndListener(): void {
+    if (this.trackEndUnsub) {
+      this.trackEndUnsub();
+      this.trackEndUnsub = null;
+    }
+  }
+
+  private stopPlaybackNow(): void {
+    this.waitingTrackEnd = false;
+    this.releaseTrackEndListener();
+    playerService.pause().catch((err: Error) => {
+      hilog.error(DOMAIN, TAG, 'Sleep timer pause failed: %{public}s', err.message);
+    });
+  }
+
+  /** 取消"等待播放结束后退出"（安卓版的 cancelTimeoutExit） */
+  cancelPendingExit(): void {
+    if (!this.waitingTrackEnd) {
+      return;
+    }
+    this.waitingTrackEnd = false;
+    this.releaseTrackEndListener();
+    hilog.info(DOMAIN, TAG, 'Pending sleep-timer exit cancelled');
     this.notify();
   }
 
@@ -95,6 +156,7 @@ class SleepTimerServiceImpl {
     return {
       enabled: this.isRunning() || settings.sleepTimerEnabled,
       minutes: settings.sleepTimerMinutes,
+      waitingTrackEnd: this.waitingTrackEnd,
     };
   }
 

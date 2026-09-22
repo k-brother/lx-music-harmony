@@ -1,4 +1,5 @@
 import { t , tf } from '../service/LocalizationService';
+import { showAppToast, TOAST_DURATION_SHORT } from '../utils/Toast';
 // 排行榜详情页 - 显示榜单信息和歌曲列表
 // 支持分组展示前几条歌曲作为预览
 
@@ -34,9 +35,9 @@ interface BoardSongItem {
 @Component
 export struct BoardDetailPage {
   @StorageProp('theme') theme: string = 'light';
+
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
-  @State renderKey: number = Date.now();
   @State boardName: string = t('tab_leaderboard');
   @State boardId: string = '';
   @State boardSource: string = 'kw';
@@ -192,6 +193,11 @@ export struct BoardDetailPage {
   }
 
   // 播放歌曲
+  /**
+   * 播放榜单中的某一首
+   * @param index 下标
+   * @param forceWholeList 「播放全部」时强制整列表入队，不受「点击列表项」设置影响
+   */
   async playSong(index: number): Promise<void> {
     const song = this.songList[index];
     if (!song) return;
@@ -248,6 +254,9 @@ export struct BoardDetailPage {
 
       hilog.info(0x0001, 'BoardDetail', 'Setting player source...');
       hilog.info(0x0001, 'BoardDetail', 'Source set, starting playback...');
+
+      // 队列 = 整个榜单（安卓点击榜单行同样是整列表入队，next/prev 可连续播放）
+      playerService.setPlayList(this.buildQueue(), index);
       await playerService.playFromSelection(songInfo, url, song.duration);
       hilog.info(0x0001, 'BoardDetail', 'Playback started successfully');
     } catch (error) {
@@ -255,7 +264,26 @@ export struct BoardDetailPage {
     }
   }
 
-  // 播放全部
+  /** 榜单整列表转换为播放队列（url 留空，由播放器按索引取链） */
+  private buildQueue(): SongInfo[] {
+    const queue: SongInfo[] = [];
+    for (let i = 0; i < this.songList.length; i++) {
+      const s = this.songList[i];
+      queue.push({
+        id: s.id,
+        url: '',
+        title: s.name,
+        artist: s.singer,
+        album: s.album,
+        artwork: s.pic || null,
+        duration: s.duration,
+        source: s.source,
+      });
+    }
+    return queue;
+  }
+
+  // 播放全部：始终按整个榜单入队（从第一首开始）
   async playAll(): Promise<void> {
     if (this.songList.length === 0) return;
     hilog.info(0x0001, 'BoardDetail', 'Play all songs from index 0');
@@ -271,11 +299,7 @@ export struct BoardDetailPage {
   }
 
   private showToast(message: string): void {
-    try {
-      this.getUIContext().getPromptAction().showToast({ message, duration: 1800 });
-    } catch (_e) {
-      hilog.info(0x0001, 'BoardDetail', 'Toast: %{public}s', message);
-    }
+    showAppToast(this.getUIContext(), message, TOAST_DURATION_SHORT);
   }
 
   private buildMusicInfoForDownload(song: BoardSongItem): MusicInfo {

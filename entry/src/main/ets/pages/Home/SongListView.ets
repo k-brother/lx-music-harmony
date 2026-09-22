@@ -71,9 +71,6 @@ export struct SongListView {
   private readonly minPinItems: number = 9;
   private alive: boolean = false;
   private scrollTopTimer: number = -1;
-  private coverStartupTimer: number = -1;
-  private readonly coverStartupDelayMs: number = 1800;
-  @State allowRemoteCoverRender: boolean = false;
   @State coverInteractionUnlocked: boolean = false;
 
   private scrollToTopSoon(): void {
@@ -123,7 +120,6 @@ export struct SongListView {
 
   aboutToAppear() {
     this.alive = true;
-    this.allowRemoteCoverRender = true;
     this.coverInteractionUnlocked = true;
     // 初始化排序选项
     const defaultOption: SortOption = { name: t('sort_default'), tid: 'default' };
@@ -141,25 +137,8 @@ export struct SongListView {
       clearTimeout(this.scrollTopTimer);
       this.scrollTopTimer = -1;
     }
-    if (this.coverStartupTimer >= 0) {
-      clearTimeout(this.coverStartupTimer);
-      this.coverStartupTimer = -1;
-    }
   }
 
-  private startCoverStartupGate(): void {
-    if (this.coverStartupTimer >= 0) {
-      clearTimeout(this.coverStartupTimer);
-      this.coverStartupTimer = -1;
-    }
-    this.coverStartupTimer = setTimeout(() => {
-      if (!this.alive) {
-        return;
-      }
-      this.allowRemoteCoverRender = true;
-      this.coverStartupTimer = -1;
-    }, this.coverStartupDelayMs);
-  }
 
   // reCreateKey 变化时重新加载（响应音乐源切换）
   // 注意：@Watch 回调参数为被监听属性名 (string)，不是属性新值，请读 this.reCreateKey
@@ -168,7 +147,6 @@ export struct SongListView {
     hilog.info(0x0001, 'SongListView', 'reCreateKey changed to %{public}d, reloading...', epoch);
     this.selectedSort = 'default';
     this.selectedTag = '';
-    this.allowRemoteCoverRender = true;
     this.coverInteractionUnlocked = true;
     this.isFilterPinned = false;
     this.scrollToTopSoon();
@@ -430,7 +408,7 @@ export struct SongListView {
         if (this.isLoading && this.songLists.length === 0) {
           this.SkeletonGrid()
         } else if (this.songLists.length === 0) {
-          EmptyView({ icon: '🎧', message: t('no_data') })
+          EmptyView({ iconRes: $r('sys.symbol.music_note_list'), message: t('no_data') })
             .width('100%')
             .layoutWeight(1)
         } else {
@@ -618,7 +596,7 @@ export struct SongListView {
       // 底部完结提示
       if (!this.hasMore && this.songLists.length > 0) {
         GridItem() {
-          Text('— 已加载全部 —')
+          Text(t('list_all_loaded'))
             .fontSize(12)
             .fontColor(DesignTokens.labelTertiary(this.theme))
         }

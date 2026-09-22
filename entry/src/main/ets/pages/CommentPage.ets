@@ -5,6 +5,8 @@ import hilog from '@ohos.hilog';
 import { navigationService } from '../service/NavigationService';
 import { MusicInfo, MusicSource } from '../types/MusicTypes';
 import { commentService } from '../service/CommentService';
+// 评论数据结构由 CommentService 统一定义（含图片 / 楼层 / IP 归属地），避免两处结构漂移
+import type { Comment } from '../service/CommentService';
 import type { NavigationParams } from '../service/NavigationService';
 import { DesignTokens } from '../theme/DesignTokens';
 import { EmptyView } from '../components/common/EmptyView';
@@ -13,19 +15,6 @@ import { t } from '../service/LocalizationService';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'CommentPage';
-
-// 评论类型
-interface Comment {
-  id: string;
-  content: string;
-  userName: string;
-  userAvatar: string;
-  time: string;
-  likeCount: number;
-  replyCount: number;
-  isLiked: boolean;
-  isHot: boolean;
-}
 
 // 评论参数
 interface CommentParams {
@@ -52,7 +41,6 @@ export struct CommentPage {
 
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
-  @State renderKey: number = Date.now();
   @State comments: Comment[] = [];
   @State isLoading: boolean = false;
   @State isRefreshing: boolean = false;
@@ -61,6 +49,8 @@ export struct CommentPage {
   @State totalComments: number = 0;
   @State musicInfo: MusicInfo | null = null;
   @State commentType: string = 'hot';
+  /** 正在预览的大图（非空时显示全屏预览层） */
+  @State previewImage: string = '';
 
   aboutToAppear() {
     // 获取传递的参数
@@ -248,6 +238,7 @@ export struct CommentPage {
     }
     .width('100%')
     .backgroundColor(DesignTokens.card(this.theme))
+    .stateStyles({ pressed: this.pressDim })
   }
 
   @Builder
@@ -282,22 +273,68 @@ export struct CommentPage {
               .fontSize(14)
               .fontColor(DesignTokens.labelPrimary(this.theme))
               .fontWeight(FontWeight.Medium)
-            
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+
             Text(comment.time)
               .fontSize(12)
-              .fontColor(DesignTokens.labelSecondary(this.theme))
+              .fontColor(DesignTokens.labelTertiary(this.theme))
               .margin({ left: 8 })
+
+            // IP 归属地（部分音源返回）
+            if (comment.location.length > 0) {
+              Text(comment.location)
+                .fontSize(11)
+                .fontColor(DesignTokens.labelTertiary(this.theme))
+                .margin({ left: 8 })
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .layoutWeight(1)
+            } else {
+              Blank()
+            }
           }
           .width('100%')
           .margin({ bottom: 4 })
-          
+
           // 评论内容
           Text(comment.content)
             .fontSize(14)
-            .fontColor(this.theme === 'dark' ? DesignTokens.mutedFill(this.theme) : '#444444')
+            .fontColor(DesignTokens.labelPrimary(this.theme))
             .lineHeight(20)
-            .margin({ bottom: 8 })
-          
+
+          // 评论图片：缩略图点击查看大图
+          if (comment.images.length > 0) {
+            Flex({ wrap: FlexWrap.Wrap }) {
+              ForEach(comment.images, (url: string) => {
+                Image(url)
+                  .width(96)
+                  .height(96)
+                  .borderRadius(8)
+                  .objectFit(ImageFit.Cover)
+                  .margin({ top: 8, right: 8 })
+                  .onClick(() => {
+                    this.previewImage = url;
+                  })
+              }, (url: string) => url)
+            }
+            .width('100%')
+          }
+
+          // 楼层回复：整块浅底，与主评论视觉分层
+          if (comment.replies.length > 0) {
+            Column() {
+              ForEach(comment.replies, (reply: Comment) => {
+                this.buildReplyFloor(reply)
+              }, (reply: Comment) => reply.id)
+            }
+            .width('100%')
+            .margin({ top: 10 })
+            .padding({ left: 10, right: 10, top: 8, bottom: 2 })
+            .backgroundColor(DesignTokens.pageBg(this.theme))
+            .borderRadius(8)
+          }
+
           // 点赞和回复信息
           Row() {
             // 点赞按钮
@@ -319,9 +356,10 @@ export struct CommentPage {
             
             // 回复按钮
             Row() {
-              Text('💬')
-                .fontSize(16)
-                .fontColor(DesignTokens.labelSecondary(this.theme))
+              Image($r('sys.symbol.music_note_list'))
+                .width(16)
+                .height(16)
+                .fillColor(DesignTokens.labelSecondary(this.theme))
                 .margin({ left: 16, right: 4 })
               
               Text(comment.replyCount > 0 ? comment.replyCount.toString() : t('comment_new'))
@@ -332,7 +370,7 @@ export struct CommentPage {
             
             // 热门标签
             if (comment.isHot) {
-              Text('热评')
+              Text(t('comment_hot_tag'))
                 .fontSize(10)
                 .fontColor(DesignTokens.accent())
                 .padding({ left: 6, right: 6, top: 2, bottom: 2 })
@@ -342,6 +380,7 @@ export struct CommentPage {
             }
           }
           .width('100%')
+          .margin({ top: 8 })
         }
         .margin({ left: 12 })
         .layoutWeight(1)
@@ -362,9 +401,74 @@ export struct CommentPage {
   }
 
   @Builder
+  buildReplyFloor(reply: Comment) {
+    Column() {
+      Row() {
+        Text(reply.userName)
+          .fontSize(13)
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+          .fontWeight(FontWeight.Medium)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+        Text(reply.time)
+          .fontSize(11)
+          .fontColor(DesignTokens.labelTertiary(this.theme))
+          .margin({ left: 8 })
+          .layoutWeight(1)
+          .maxLines(1)
+      }
+      .width('100%')
+
+      Text(reply.content)
+        .fontSize(13)
+        .fontColor(DesignTokens.labelPrimary(this.theme))
+        .lineHeight(19)
+        .width('100%')
+        .margin({ top: 2, bottom: 8 })
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  /** 全屏图片预览：点击任意处关闭 */
+  @Builder
+  buildImagePreview() {
+    Stack() {
+      Column()
+        .width('100%')
+        .height('100%')
+        .backgroundColor('#000000')
+        .onClick(() => {
+          this.previewImage = '';
+        })
+
+      Image(this.previewImage)
+        .width('100%')
+        .objectFit(ImageFit.Contain)
+
+      Column() {
+        Text(t('comment_image_close'))
+          .fontSize(14)
+          .fontColor('#FFFFFF')
+          .padding({ left: 14, right: 14, top: 8, bottom: 8 })
+          .backgroundColor('#33FFFFFF')
+          .borderRadius(18)
+      }
+      .align(Alignment.TopEnd)
+      .margin({ top: 60, right: 20 })
+      .onClick(() => {
+        this.previewImage = '';
+      })
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  @Builder
   buildEmptyState() {
     Column() {
-      EmptyView({ icon: '💬', message: t('comment_no_data') })
+      EmptyView({ iconRes: $r('sys.symbol.music_note_list'), message: t('comment_no_data') })
     }
     .width('100%')
     .height('100%')
@@ -387,51 +491,58 @@ export struct CommentPage {
   }
 
   build() {
-    Column() {
-      // 头部
-      this.buildHeader()
-      
-      // 评论类型标签
-      this.buildCommentTypeTabs()
-      
-      Scroll() {
-        Column() {
-          if (this.comments.length > 0) {
-            // 评论列表
+    Stack() {
+      Column() {
+        // 头部
+        this.buildHeader()
+
+        // 评论类型标签
+        this.buildCommentTypeTabs()
+
+        if (this.comments.length > 0) {
+          // 用 List + onReachEnd 做分页：滑到底自动加载下一页
+          List() {
             ForEach(this.comments, (comment: Comment, index: number) => {
-              this.buildCommentItem(comment, index)
-            })
-            
-            // 加载更多
+              ListItem() {
+                this.buildCommentItem(comment, index)
+              }
+            }, (comment: Comment) => comment.id)
+
             if (this.hasMore) {
-              this.buildLoadingState()
-            } else if (this.comments.length > 0) {
-              Text(t('comment_no_data'))
-                .fontSize(12)
-                .fontColor(DesignTokens.labelSecondary(this.theme))
-                .textAlign(TextAlign.Center)
-                .width('100%')
-                .padding({ top: 20, bottom: 20 })
+              ListItem() {
+                this.buildLoadingState()
+              }
+            } else {
+              ListItem() {
+                Text(t('comment_no_more'))
+                  .fontSize(12)
+                  .fontColor(DesignTokens.labelSecondary(this.theme))
+                  .textAlign(TextAlign.Center)
+                  .width('100%')
+                  .padding({ top: 20, bottom: 20 })
+              }
             }
-          } else if (this.isLoading || this.isRefreshing) {
-            // 加载中
-            this.buildLoadingState()
-          } else {
-            // 空状态
-            this.buildEmptyState()
           }
+          .layoutWeight(1)
+          .width('100%')
+          .scrollBar(BarState.Off)
+          .onReachEnd(() => {
+            this.onLoadMore();
+          })
+        } else if (this.isLoading || this.isRefreshing) {
+          this.buildLoadingState()
+        } else {
+          this.buildEmptyState()
         }
-        .width('100%')
       }
-      .layoutWeight(1)
+      .width('100%')
+      .height('100%')
       .backgroundColor(DesignTokens.pageBg(this.theme))
-      .onScrollFrameBegin((offset: number) => {
-        // 下拉刷新
-        if (offset > 100 && !this.isRefreshing) {
-          this.onRefresh();
-        }
-        return { offsetRemain: offset };
-      })
+
+      // 全屏图片预览
+      if (this.previewImage.length > 0) {
+        this.buildImagePreview()
+      }
     }
     .width('100%')
     .height('100%')

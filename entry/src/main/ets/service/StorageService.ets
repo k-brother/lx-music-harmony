@@ -260,16 +260,47 @@ interface StorageKeysInterface {
   SHOW_EXIT_DIALOG: string;
   THEME_MODE: string;
   THEME_ID: string;
+  COMMON_AUTO_THEME: string;
+  THEME_LIGHT_ID: string;
+  THEME_DARK_ID: string;
+  THEME_DYNAMIC_BG: string;
+  THEME_FONT_SHADOW: string;
+  THEME_HIDE_BG_DARK: string;
 
   // 播放设置
   PLAY_AUTO_PLAY: string;
   PLAY_HIGH_QUALITY: string;
+  PLAY_QUALITY: string;
   PLAY_MODE: string;
   PLAY_RATE: string;
   LYRIC_OFFSET: string;
+  PLAY_SAVE_TIME: string;
+  PLAY_NOTIFICATION_IMAGE: string;
+  PLAY_BLUETOOTH_LYRIC: string;
+  LYRIC_SHOW_TRANSLATION: string;
+  LYRIC_FONT_SIZE: string;
+  LYRIC_ALIGN: string;
+  LYRIC_SHOW_PROGRESS: string;
+  LIST_SHOW_SOURCE: string;
+  LIST_SHOW_ALBUM: string;
+  LIST_SHOW_DURATION: string;
+  LIST_REMEMBER_SCROLL: string;
+  LYRIC_SHOW_ROMA: string;
+  LOG_VERBOSE: string;
+  LYRIC_S2T_MODE: string;
+  COMMON_SOURCE_NAME_TYPE: string;
+  COMMON_SHARE_TYPE: string;
+  COMMON_AGREE_PACT: string;
+  COMMON_ALLOW_PROGRESS_SEEK: string;
+  SEARCH_SHOW_HISTORY: string;
+  LIST_CLICK_PLAY: string;
+  PLAY_AUDIO_FOCUS: string;
+  PLAY_AUDIO_OFFLOAD: string;
+  PLAY_CACHE_SIZE_MB: string;
   PLAY_VOLUME: string;
   PLAY_SLEEP_ENABLED: string;
   PLAY_SLEEP_MINUTES: string;
+  PLAY_SLEEP_WAIT_TRACK_END: string;
   PLAY_DESKTOP_LYRIC: string;
   PLAY_DESKTOP_LYRIC_POSITION: string;
   PLAY_DESKTOP_LYRIC_COLOR: string;
@@ -278,6 +309,15 @@ interface StorageKeysInterface {
   PLAY_DESKTOP_LYRIC_SHOW_NEXT: string;
   PLAY_DESKTOP_LYRIC_LOCKED: string;
   PLAY_DESKTOP_LYRIC_X: string;
+  PLAY_DL_WIDTH: string;
+  PLAY_DL_MAX_LINES: string;
+  PLAY_DL_SINGLE_LINE: string;
+  PLAY_DL_PLAYED_COLOR: string;
+  PLAY_DL_TEXT_POS_X: string;
+  PLAY_DL_TEXT_POS_Y: string;
+  PLAY_DL_TEXT_OPACITY: string;
+  PLAY_DL_ANIM: string;
+  PLAY_DL_SHADOW_COLOR: string;
   PLAY_DESKTOP_LYRIC_Y: string;
 
   // 搜索设置
@@ -325,16 +365,47 @@ export const StorageKeys: StorageKeysInterface = {
   SHOW_EXIT_DIALOG: 'setting.common.showExitDialog',
   THEME_MODE: 'setting.common.themeMode',
   THEME_ID: 'setting.common.themeId',
+  COMMON_AUTO_THEME: 'setting.common.isAutoTheme',
+  THEME_LIGHT_ID: 'setting.theme.lightId',
+  THEME_DARK_ID: 'setting.theme.darkId',
+  THEME_DYNAMIC_BG: 'setting.theme.dynamicBg',
+  THEME_FONT_SHADOW: 'setting.theme.fontShadow',
+  THEME_HIDE_BG_DARK: 'setting.theme.hideBgDark',
 
   // 播放设置
   PLAY_AUTO_PLAY: 'setting.play.autoPlay',
   PLAY_HIGH_QUALITY: 'setting.play.highQuality',
+  PLAY_QUALITY: 'setting.play.playQuality',
   PLAY_MODE: 'setting.play.playMode',
   PLAY_RATE: 'setting.play.playRate',
   LYRIC_OFFSET: 'setting.play.lyricOffset',
+  PLAY_SAVE_TIME: 'setting.play.savePlayTime',
+  PLAY_NOTIFICATION_IMAGE: 'setting.play.notificationImage',
+  PLAY_BLUETOOTH_LYRIC: 'setting.play.bluetoothLyric',
+  LYRIC_SHOW_TRANSLATION: 'setting.lyric.showTranslation',
+  LYRIC_FONT_SIZE: 'setting.lyric.fontSize',
+  LYRIC_ALIGN: 'setting.lyric.align',
+  LYRIC_SHOW_PROGRESS: 'setting.lyric.showProgress',
+  LIST_SHOW_SOURCE: 'setting.list.showSource',
+  LIST_SHOW_ALBUM: 'setting.list.showAlbum',
+  LIST_SHOW_DURATION: 'setting.list.showDuration',
+  LIST_REMEMBER_SCROLL: 'setting.list.rememberScroll',
+  LYRIC_SHOW_ROMA: 'setting.lyric.showRoma',
+  LOG_VERBOSE: 'setting.log.verbose',
+  LYRIC_S2T_MODE: 'setting.lyric.s2tMode',
+  COMMON_SOURCE_NAME_TYPE: 'setting.common.sourceNameType',
+  COMMON_SHARE_TYPE: 'setting.common.shareType',
+  COMMON_AGREE_PACT: 'setting.common.isAgreePact',
+  COMMON_ALLOW_PROGRESS_SEEK: 'setting.common.allowProgressBarSeek',
+  SEARCH_SHOW_HISTORY: 'setting.search.showHistorySearch',
+  LIST_CLICK_PLAY: 'setting.list.isClickPlayList',
+  PLAY_AUDIO_FOCUS: 'setting.play.audioFocus',
+  PLAY_AUDIO_OFFLOAD: 'setting.play.audioOffload',
+  PLAY_CACHE_SIZE_MB: 'setting.play.cacheSizeMb',
   PLAY_VOLUME: 'setting.play.volume',
   PLAY_SLEEP_ENABLED: 'setting.play.sleepTimerEnabled',
   PLAY_SLEEP_MINUTES: 'setting.play.sleepTimerMinutes',
+  PLAY_SLEEP_WAIT_TRACK_END: 'setting.play.sleepTimerWaitTrackEnd',
   PLAY_DESKTOP_LYRIC: 'setting.play.desktopLyric',
   PLAY_DESKTOP_LYRIC_POSITION: 'setting.play.desktopLyricPosition',
   PLAY_DESKTOP_LYRIC_COLOR: 'setting.play.desktopLyricColor',
@@ -343,6 +414,15 @@ export const StorageKeys: StorageKeysInterface = {
   PLAY_DESKTOP_LYRIC_SHOW_NEXT: 'setting.play.desktopLyricShowNext',
   PLAY_DESKTOP_LYRIC_LOCKED: 'setting.play.desktopLyricLocked',
   PLAY_DESKTOP_LYRIC_X: 'setting.play.desktopLyricX',
+  PLAY_DL_WIDTH: 'setting.play.desktopLyricWidth',
+  PLAY_DL_MAX_LINES: 'setting.play.desktopLyricMaxLines',
+  PLAY_DL_SINGLE_LINE: 'setting.play.desktopLyricSingleLine',
+  PLAY_DL_PLAYED_COLOR: 'setting.play.desktopLyricPlayedColor',
+  PLAY_DL_TEXT_POS_X: 'setting.play.desktopLyricTextPositionX',
+  PLAY_DL_TEXT_POS_Y: 'setting.play.desktopLyricTextPositionY',
+  PLAY_DL_TEXT_OPACITY: 'setting.play.desktopLyricTextOpacity',
+  PLAY_DL_ANIM: 'setting.play.desktopLyricAnim',
+  PLAY_DL_SHADOW_COLOR: 'setting.play.desktopLyricShadowColor',
   PLAY_DESKTOP_LYRIC_Y: 'setting.play.desktopLyricY',
 
   // 搜索设置

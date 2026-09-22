@@ -16,6 +16,9 @@ import { HistoryListPage } from './HistoryListPage';
 import { UserListsPage } from './UserListsPage';
 import { LoveListPage } from './LoveListPage';
 import { LocalMusicPage } from './LocalMusicPage';
+import { LogPage } from './LogPage';
+import { PactDialog } from '../components/common/PactDialog';
+import { setAppUiContext } from '../service/UiContext';
 import { settingsService } from '../service/SettingsService';
 import { on, EventTypes } from '../service/EventBus';
 import { playerService } from '../service/PlayerService';
@@ -23,22 +26,35 @@ import { playerService } from '../service/PlayerService';
 
 @Component
 export struct NavIndex {
-  @StorageProp('theme') theme: string = 'light';
-  @StorageProp('language') language: string = 'zh-CN';
-  @StorageProp('langVersion') langVersion: number = 0;
-  @State navRefreshKey: number = 0;
   private navPathStack: NavPathStack = new NavPathStack();
   private startupPageApplied: boolean = false;
   private settingsUnsub: (() => void) | null = null;
+  /** 首次启动未同意许可协议时全屏拦截 */
+  @State showPact: boolean = false;
 
   aboutToAppear() {
     // 将 NavPathStack 注入到 NavigationService
     navigationService.setNavPathStack(this.navPathStack);
+    // 注入全局 UIContext：DialogService（appConfirm/appActionMenu/appToast）依赖它，
+    // 这样各页面不必逐层传 context
+    setAppUiContext(this.getUIContext());
     // 「设置 -> 启动页面」：设置是异步加载的，加载完成后应用一次
     this.settingsUnsub = on(EventTypes.SETTING_CHANGED, (): void => {
+      this.syncPactState();
       this.applyStartupPageOnce();
     });
+    this.syncPactState();
     this.applyStartupPageOnce();
+  }
+
+  /** 设置就绪后决定是否拦截：未同意协议则显示首启协议弹层 */
+  private syncPactState(): void {
+    if (AppStorage.get<boolean>('settingsReady') !== true) {
+      return;
+    }
+    if (!settingsService.get().agreedPact) {
+      this.showPact = true;
+    }
   }
 
   aboutToDisappear() {
@@ -71,11 +87,33 @@ export struct NavIndex {
   }
 
   build() {
-    Navigation(this.navPathStack) {
-      HomePage()
+    Stack() {
+      Navigation(this.navPathStack) {
+        HomePage()
+      }
+      .hideTitleBar(true)
+      .navDestination(this.buildRouteMap)
+
+      // 首次启动：未同意许可协议前全屏拦截（对齐安卓版 PactModal）
+      if (this.showPact) {
+        Column() {
+          PactDialog({
+            readonlyMode: false,
+            visible: true,
+            onClose: (): void => {
+              this.showPact = false;
+            },
+          })
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+        .backgroundColor('rgba(0,0,0,0.45)')
+      }
     }
-    .hideTitleBar(true)
-    .navDestination(this.buildRouteMap)
+    .width('100%')
+    .height('100%')
   }
 
   @Builder
@@ -188,6 +226,15 @@ export struct NavIndex {
       .onReady((context: NavDestinationContext) => {
         const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
         hilog.info(0x0001, 'NavIndex', 'LoveListPage onReady with params: %{public}s', JSON.stringify(params));
+      })
+    } else if (name === 'logs') {
+      NavDestination() {
+        LogPage()
+      }
+      .hideTitleBar(true)
+      .onReady((context: NavDestinationContext) => {
+        const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
+        hilog.info(0x0001, 'NavIndex', 'LogPage onReady with params: %{public}s', JSON.stringify(params));
       })
     }
   }

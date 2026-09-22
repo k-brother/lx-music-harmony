@@ -77,6 +77,16 @@ export function getPlayQuality(highQuality: Quality, musicInfo: MusicInfo): Qual
 /**
  * 构建歌词信息
  */
+/** 空歌词（"确实没有歌词"时统一用它，避免各处 new 结构） */
+export function createEmptyLyricInfo(): LyricInfo {
+  return {
+    lyric: '',
+    tlyric: null,
+    lxlyric: null,
+    rlyric: null,
+  };
+}
+
 export function buildLyricInfo(lyricInfo: LyricInfo): LyricInfo {
   if (!lyricInfo) {
     return {

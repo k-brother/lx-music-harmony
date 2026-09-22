@@ -8,12 +8,13 @@
  *
  * 播放走 PlayerService：`file://` 路径由播放器直接打开，不依赖网络。
  */
-import hilog from '@ohos.hilog';
+// 日志经由应用日志门面，既输出 hilog 也进入「设置 → 运行日志」
+import { appLog as hilog } from '../core/log/AppLogger';
 import fs from '@ohos.file.fs';
 import filePicker from '@ohos.file.picker';
 import type { common } from '@kit.AbilityKit';
 import storageService, { StorageKeys } from './StorageService';
-import { scanLocalMusic, getLocalPicUrl, type LocalMusicInfo } from '../core/music/ResolvePlayback';
+import { scanLocalMusic, getLocalPicUrl, type LocalMusicInfo } from '../core/music/local/LocalPlayback';
 import type { SongInfo } from './PlayerService';
 import type { MusicInfo } from '../types/MusicTypes';
 
@@ -126,6 +127,66 @@ class LocalMusicServiceImpl {
     this.library = await scanLocalMusic(dir);
     await this.persist();
     return this.library.length;
+  }
+
+  /**
+   * 更新曲目的元数据（歌名/歌手/专辑）。
+   * 只改应用内的曲库记录，不改动音频文件本身的内嵌标签——
+   * 这样既避免破坏原始文件，也让用户能自由整理本地曲库。
+   */
+  async updateMetadata(trackId: string, name: string, singer: string, album: string): Promise<boolean> {
+    const index = this.indexOf(trackId);
+    if (index < 0) {
+      hilog.warn(DOMAIN, TAG, 'updateMetadata: track not found %{public}s', trackId);
+      return false;
+    }
+    const track = this.library[index];
+    const nextName = name.trim();
+    if (nextName.length === 0) {
+      // 歌名不允许为空，否则列表无法辨认
+      return false;
+    }
+    track.name = nextName;
+    track.singer = singer.trim();
+    track.album = album.trim();
+    await this.persist();
+    hilog.info(DOMAIN, TAG, 'Metadata updated: %{public}s', nextName);
+    return true;
+  }
+
+  /**
+   * 设置自定义封面：把选中的图片复制为 `<音频路径>.cover.jpg`，
+   * 与内嵌封面共用同一缓存路径，后续读取无需特殊分支。
+   */
+  async setCustomCover(trackId: string, sourceUri: string): Promise<boolean> {
+    const index = this.indexOf(trackId);
+    if (index < 0) {
+      return false;
+    }
+    const track = this.library[index];
+    const coverPath = `${track.filePath}.cover.jpg`;
+    try {
+      const src: fs.File = fs.openSync(sourceUri, fs.OpenMode.READ_ONLY);
+      try {
+        const dst: fs.File = fs.openSync(coverPath, fs.OpenMode.CREATE | fs.OpenMode.WRITE_ONLY);
+        try {
+          fs.copyFileSync(src.fd, dst.fd);
+          fs.fsyncSync(dst.fd);
+        } finally {
+          fs.closeSync(dst);
+        }
+      } finally {
+        fs.closeSync(src);
+      }
+      track.picUrl = coverPath;
+      await this.persist();
+      hilog.info(DOMAIN, TAG, 'Custom cover saved: %{public}s', coverPath);
+      return true;
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'setCustomCover failed: %{public}s',
+        err instanceof Error ? err.message : JSON.stringify(err));
+      return false;
+    }
   }
 
   async remove(trackId: string): Promise<void> {

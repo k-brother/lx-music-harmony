@@ -12,13 +12,16 @@ export struct ErrorView {
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
   @Prop message: string = '';
-  @Prop icon: string = '⚠️';
+  /** 图标用系统符号（本 SDK 无警告类符号，用 xmark 表达失败） */
+  @Prop iconRes: Resource = $r('sys.symbol.xmark');
 
   build() {
     Column() {
-      Text(this.icon)
-        .fontSize(48)
-        .opacity(0.55)
+      Image(this.iconRes)
+        .width(44)
+        .height(44)
+        .fillColor(DesignTokens.labelTertiary(this.theme))
+        .opacity(0.6)
 
       Text(this.message.length > 0 ? this.message : t('load_failed'))
         .fontSize(14)
