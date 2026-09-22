@@ -12,7 +12,10 @@ CHECKS = [
  ('保存播放进度/续播', 'service/PlayerService.ets', r'restoreLastPlayback|saveProgress'),
  ('歌词简繁转换', 'core/lyric/ChineseConvert.ets', r'convertChinese'),
  ('歌词翻译/罗马音开关', 'pages/PlayDetailPage.ets', r'showLyricTranslation|showLyricRoma|toRoma'),
- ('评论楼层+图片', 'service/CommentService.ets', r'images: string\[\]|replies: Comment\[\]|location: string'),
+ # 评论按源拆分后，楼层/图片/归属地字段定义在 CommentTypes，映射在各源适配器
+ ('评论楼层+图片', 'service/comment/CommentTypes.ets', r'images: string\[\]|replies: Comment\[\]|location: string'),
+ ('评论按源适配器拆分', 'service/comment/CommentSourceAdapter.ets', r'CommentSourceAdapter'),
+ ('评论分发薄层', 'service/CommentService.ets', r'resolveAdapter'),
  ('评论图片预览', 'pages/CommentPage.ets', r'buildImagePreview'),
  ('列表排序/去重工具', 'utils/ListTools.ets', r'sortSongs|dedupeSongs'),
  ('歌单多选批量', 'pages/SonglistDetailPage.ets', r'BatchBar|batchDownload|batchRemove'),

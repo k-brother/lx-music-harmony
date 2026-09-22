@@ -11,8 +11,6 @@
  *   SettingsSection({ title: t('settings_basic'), items: this.buildItems() })
  */
 import { DesignTokens } from '../../theme/DesignTokens';
-import { SelectSheet } from './SelectSheet';
-import { InputSheet } from './InputSheet';
 import type { SettingOption, SettingSectionItem } from './SettingsTypes';
 import { hapticService } from '../../service/HapticService';
 import { sheetService, type SheetOption } from '../../service/SheetService';
