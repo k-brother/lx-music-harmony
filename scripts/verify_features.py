@@ -240,6 +240,11 @@ CHECKS = [
  ('榜单详情用 StateView 展示状态', 'pages/BoardDetailPage.ets', r"StateView\(\{ state: 'loading'"),
  ('日志页用 StateView 展示空态', 'pages/LogPage.ets', r"StateView\(\{ state: 'empty'"),
  ('排行榜空态用 StateView', 'pages/Home/LeaderboardView.ets', r"StateView\(\{"),
+ # 歌单存储层独立：业务层不再直接读写 Preferences
+ ('歌单存储层独立成文件', 'service/list/ListStorage.ets', r'export async function loadListsFromStorage'),
+ ('歌单服务不再直写存储', 'service/ListService.ets', r"from '\./list/ListStorage'",
+  r'StorageService\.setString'),
+ ('歌单 ID 常量独立成文件', 'service/list/ListIds.ets', r'export const LIST_IDS'),
 ]
 
 fails = []

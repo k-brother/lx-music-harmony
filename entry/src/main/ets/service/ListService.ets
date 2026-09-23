@@ -3,10 +3,18 @@
  * 管理播放列表、我喜欢列表、用户列表
  */
 import hilog from '@ohos.hilog';
-import StorageService from './StorageService';
 import { emitListUpdated } from './EventBus';
 import { settingsService } from './SettingsService';
 import type { IMusicItem } from '../core/interfaces/IMusicItem';
+import {
+  createListInfo,
+  loadListsFromStorage,
+  saveListItems,
+  saveUserListIndex,
+  removeUserListItems,
+  type StoredListsSnapshot,
+} from './list/ListStorage';
+import { LIST_IDS, type ListIdsInterface } from './list/ListIds';
 
 // Re-export IMusicItem as MusicItem for consumers
 export type MusicItem = IMusicItem;
@@ -14,24 +22,9 @@ export type MusicItem = IMusicItem;
 const TAG = 'ListService';
 const DOMAIN = 0x0005;
 
-// 列表ID接口
-interface ListIdsInterface {
-  DEFAULT: string;
-  LOVE: string;
-  TEMP: string;
-  DOWNLOAD: string;
-  PLAY_LATER: string | null;
-}
-
-// 列表ID常量
-export const LIST_IDS: ListIdsInterface = {
-  DEFAULT: 'default',
-  LOVE: 'love',
-  TEMP: 'temp',
-  DOWNLOAD: 'download',
-  PLAY_LATER: null,
-};
-
+// 列表 ID 与存储层在 service/list/ 下（这里 re-export，调用方 import 路径不变）
+export { LIST_IDS };
+export type { ListIdsInterface } from './list/ListIds';
 // 用户列表接口
 interface UserList {
   id: string;
@@ -102,91 +95,15 @@ export async function initListService(): Promise<void> {
 /**
  * 加载所有列表
  */
+/** 从存储层读快照并写入内存状态（读写细节在 service/list/ListStorage） */
 async function loadLists(): Promise<void> {
-  // 加载默认列表
-  const defaultListData = await StorageService.getString(StorageService.StorageKeys.LIST_DEFAULT, '');
-  if (defaultListData) {
-    try {
-      const parsed: Object = JSON.parse(defaultListData) as Object;
-      listState.defaultList = (parsed as Record<string, Object>)['info'] as ListInfo;
-      listState.defaultListMusic = ((parsed as Record<string, Object>)['music'] as MusicItem[]) || [];
-    } catch (e) {
-      // 初始化默认列表
-      listState.defaultList = createListInfo(LIST_IDS.DEFAULT, '默认列表', 'default');
-      listState.defaultListMusic = [];
-    }
-  } else {
-    listState.defaultList = createListInfo(LIST_IDS.DEFAULT, '默认列表', 'default');
-    listState.defaultListMusic = [];
-  }
-
-  // 加载我喜欢列表
-  const loveListData = await StorageService.getString(StorageService.StorageKeys.LIST_LOVE, '');
-  if (loveListData) {
-    try {
-      const parsed: Object = JSON.parse(loveListData) as Object;
-      listState.loveList = (parsed as Record<string, Object>)['info'] as ListInfo;
-      listState.loveListMusic = ((parsed as Record<string, Object>)['music'] as MusicItem[]) || [];
-    } catch (e) {
-      listState.loveList = createListInfo(LIST_IDS.LOVE, '我喜欢', 'love');
-      listState.loveListMusic = [];
-    }
-  } else {
-    listState.loveList = createListInfo(LIST_IDS.LOVE, '我喜欢', 'love');
-    listState.loveListMusic = [];
-  }
-
-  // 加载用户列表
-  const userListData = await StorageService.getString(StorageService.StorageKeys.LIST_USER, '');
-  if (userListData) {
-    try {
-      const parsed: Object = JSON.parse(userListData) as Object;
-      listState.userList = ((parsed as Record<string, Object>)['info'] as ListInfo[]) || [];
-      // 加载用户列表音乐
-      for (let i = 0; i < listState.userList.length; i++) {
-        const info = listState.userList[i];
-        const key = `list.user.${info.id}`;
-        const musicData = await StorageService.getString(key, '');
-        if (musicData) {
-          try {
-            const parsed = JSON.parse(musicData) as Object;
-            const asRecord = parsed as Record<string, Object>;
-            if (Array.isArray(parsed)) {
-              listState.userListMusic.set(info.id, parsed as MusicItem[]);
-            } else if (Array.isArray(asRecord['music'])) {
-              listState.userListMusic.set(info.id, asRecord['music'] as MusicItem[]);
-            } else {
-              listState.userListMusic.set(info.id, []);
-            }
-          } catch (_e) {
-            listState.userListMusic.set(info.id, []);
-          }
-        } else {
-          listState.userListMusic.set(info.id, []);
-        }
-      }
-    } catch (e) {
-      listState.userList = [];
-    }
-  } else {
-    listState.userList = [];
-  }
-}
-
-/**
- * 创建列表信息
- */
-function createListInfo(id: string, name: string, type: string): ListInfo {
-  return {
-    id,
-    name,
-    source: type,
-    desc: '',
-    pic: '',
-    count: 0,
-    createTime: Date.now(),
-    updateTime: Date.now(),
-  };
+  const snapshot: StoredListsSnapshot = await loadListsFromStorage();
+  listState.defaultList = snapshot.defaultList;
+  listState.defaultListMusic = snapshot.defaultListMusic;
+  listState.loveList = snapshot.loveList;
+  listState.loveListMusic = snapshot.loveListMusic;
+  listState.userList = snapshot.userList;
+  listState.userListMusic = snapshot.userListMusic;
 }
 
 /**
@@ -386,36 +303,24 @@ export async function replaceUserListMusic(listId: string, items: MusicItem[]): 
  * 字段结构一旦调整要改 5 个地方；这里收成一个入口。
  */
 async function persistUserListIndex(): Promise<void> {
-  await persistUserListIndex();
+  await saveUserListIndex(listState.userList);
 }
 
 async function saveList(listId: string): Promise<void> {
   let info: ListInfo;
   let list: MusicItem[];
-  let key: string;
-
-  switch (listId) {
-    case LIST_IDS.DEFAULT:
-      info = listState.defaultList!;
-      list = listState.defaultListMusic;
-      key = StorageService.StorageKeys.LIST_DEFAULT;
-      break;
-    case LIST_IDS.LOVE:
-      info = listState.loveList!;
-      list = listState.loveListMusic;
-      key = StorageService.StorageKeys.LIST_LOVE;
-      break;
-    default:
-      info = findListInfoById(listState.userList, listId);
-      list = listState.userListMusic.get(listId) || [];
-      key = `list.user.${listId}`;
+  if (listId === LIST_IDS.DEFAULT) {
+    info = listState.defaultList!;
+    list = listState.defaultListMusic;
+  } else if (listId === LIST_IDS.LOVE) {
+    info = listState.loveList!;
+    list = listState.loveListMusic;
+  } else {
+    info = findListInfoById(listState.userList, listId);
+    list = listState.userListMusic.get(listId) || [];
   }
-
-  info.count = list.length;
-  info.updateTime = Date.now();
-
-  const data = JSON.stringify({ info, music: list });
-  await StorageService.setString(key, data);
+  // 落盘细节（键名规则、计数与更新时间）在 service/list/ListStorage
+  await saveListItems(listId, info, list);
 }
 
 /**
@@ -509,7 +414,7 @@ export async function deleteUserList(listId: string): Promise<void> {
 
     // 保存用户列表索引
     await persistUserListIndex();
-    await StorageService.remove(`list.user.${listId}`);
+    await removeUserListItems(listId);
 
     notifyListeners(listId);
   }
@@ -523,8 +428,7 @@ export async function renameUserList(listId: string, newName: string): Promise<v
   if (info) {
     info.name = newName;
     info.updateTime = Date.now();
-    const data = JSON.stringify({ info: listState.userList });
-    await StorageService.setString(StorageService.StorageKeys.LIST_USER, data);
+    await persistUserListIndex();
     notifyListeners(listId);
   }
 }
