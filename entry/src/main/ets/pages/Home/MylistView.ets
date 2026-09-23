@@ -11,9 +11,14 @@ import ListService, {
   getUserList,
   LIST_IDS,
   createUserList,
+  deleteUserList,
+  renameUserList,
   MusicItem,
   ListInfo,
 } from '../../service/ListService';
+import { showPlaylistActionMenu, type PlaylistMenuTarget } from './Mylist/ListMenuActions';
+import { appConfirm } from '../../service/DialogService';
+import { sheetService } from '../../service/SheetService';
 import { MusicInfo as AppMusicInfo, MusicSource } from '../../types/MusicTypes';
 import hilog from '@ohos.hilog';
 import { DesignTokens } from '../../theme/DesignTokens';
@@ -324,6 +329,9 @@ export struct MylistView {
                     onSync: (): void => {
                       void this.syncList(list);
                     },
+                    onMenu: (): void => {
+                      void this.openListMenu(list);
+                    },
                   })
                     .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter() })
                 }, (list: UserListRow) => list.id)
@@ -515,6 +523,66 @@ export struct MylistView {
       songListSource: source,
     });
   }
+  /**
+   * 歌单卡片「更多」菜单：打开 / 更新内容 / 重命名 / 删除
+   * 与「全部歌单」页共用同一份菜单定义（见 Mylist/ListMenuActions）。
+   */
+  private async openListMenu(list: UserListRow): Promise<void> {
+    const target: PlaylistMenuTarget = {
+      name: list.name,
+      bindingListId: list.bindingListId ?? '',
+    };
+    const action = await showPlaylistActionMenu(target);
+    if (action === 'open') {
+      this.navigateToList(list.id, list.name, 'local');
+    } else if (action === 'sync') {
+      void this.syncList(list);
+    } else if (action === 'rename') {
+      await this.renameList(list);
+    } else if (action === 'delete') {
+      await this.deleteList(list);
+    }
+  }
+
+  /** 重命名：走全局面板输入（设置里也用同一个） */
+  private async renameList(list: UserListRow): Promise<void> {
+    const name = await sheetService.input(t('list_rename_title'), list.name);
+    const trimmed = name.trim();
+    hilog.info(0x0001, 'MylistView', 'renameList: id=%{public}s, old=%{public}s, input=%{public}s',
+      list.id, list.name, name);
+    if (trimmed.length === 0 || trimmed === list.name) {
+      return;
+    }
+    try {
+      await renameUserList(list.id, trimmed);
+      await this.loadMyLists();
+      this.toast(t('toast_playlist_renamed'));
+      hilog.info(0x0001, 'MylistView', 'renameList done: %{public}s -> %{public}s', list.id, trimmed);
+    } catch (err) {
+      hilog.error(0x0001, 'MylistView', 'renameList failed: %{public}s', JSON.stringify(err));
+      this.toast(t('toast_operation_failed'));
+    }
+  }
+
+  /** 删除（危险操作，二次确认） */
+  private async deleteList(list: UserListRow): Promise<void> {
+    const confirmed = await appConfirm(
+      t('confirm_delete_title'),
+      tf('confirm_delete_quoted', [list.name]),
+      { danger: true, confirmText: t('delete') });
+    if (!confirmed) {
+      return;
+    }
+    try {
+      await deleteUserList(list.id);
+      await this.loadMyLists();
+      this.toast(t('toast_playlist_deleted'));
+    } catch (err) {
+      hilog.error(0x0001, 'MylistView', 'deleteList failed: %{public}s', JSON.stringify(err));
+      this.toast(t('toast_operation_failed'));
+    }
+  }
+
   /** 列表级同步：拉取绑定在线歌单的最新内容 */
   private async syncList(list: UserListRow): Promise<void> {
     this.toast(t('toast_syncing'));

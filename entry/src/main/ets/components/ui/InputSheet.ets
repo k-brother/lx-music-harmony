@@ -83,10 +83,12 @@ export struct InputSheet {
           .fontColor('#FFFFFF')
           .backgroundColor(DesignTokens.accent())
           .onClick(() => {
-            this.visible = false;
+            // 必须先回调再关闭：bindSheet 关闭会触发 onDismiss（按「取消」处理），
+            // 反过来会先用空值结束请求，用户输入就被吞掉了。
             if (this.onSubmit) {
               this.onSubmit(this.draft);
             }
+            this.visible = false;
           })
       }
       .width('100%')

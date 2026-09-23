@@ -19,6 +19,8 @@ export struct UserPlaylistCard {
   onOpen?: () => void;
   onPlay?: () => void;
   onSync?: () => void;
+  /** 更多操作（重命名 / 删除 / 更新内容），与「全部歌单」页同一套菜单 */
+  onMenu?: () => void;
 
   @Styles
   pressed() {
@@ -101,6 +103,19 @@ export struct UserPlaylistCard {
         .fontSize(17)
         .fontColor([DesignTokens.labelTertiary(this.theme)])
         .margin({ left: 8 })
+
+      // 更多操作：此前卡片只有「播放/同步」，重命名与删除只能去「全部歌单」页操作
+      Image($r('app.media.ic_pd_more'))
+        .width(18)
+        .height(18)
+        .fillColor(DesignTokens.labelSecondary(this.theme))
+        .margin({ left: 6 })
+        .responseRegion(DesignTokens.touchRegion(20))
+        .onClick(() => {
+          if (this.onMenu) {
+            this.onMenu();
+          }
+        })
     }
     .width('100%')
     .padding(16)

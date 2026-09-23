@@ -97,6 +97,11 @@ CHECKS = [
  ('播放公共类型模块', 'service/player/PlaybackTypes.ets', r'export type PlayStatus'),
  ('歌词页可拖拽进度线', 'pages/PlayDetailPage.ets', r'handleSeekChange'),
  ('两处进度控件共用 seek 逻辑', 'pages/PlayDetailPage.ets', r'this\.handleSeekChange\(value, mode\)'),
+ # 我的页歌单卡片菜单（重命名/删除/更新内容），与全部歌单页共用一份定义
+ ('我的卡片歌单菜单', 'pages/Home/MylistView.ets', r'openListMenu'),
+ ('歌单菜单共享定义', 'pages/Home/Mylist/ListMenuActions.ets', r'showPlaylistActionMenu'),
+ ('全部歌单页共用菜单', 'pages/UserListsPage.ets', r'showPlaylistActionMenu'),
+ ('面板先回调再关闭', 'components/ui/InputSheet.ets', r'先回调再关闭'),
  ('酷我歌词双通道+重试', 'core/music/sources/kw/lyric.ets', r'requestNewlyric|requestMobileLyric'),
  ('酷我歌词 zlib 解压(原生)', 'core/napi/napi_inflate.ets', r'zlibInflate'),
  ('二进制 HTTP 请求入口', 'core/network/http/HttpClient.ets', r'httpRequestBinary'),

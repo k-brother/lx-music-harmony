@@ -65,10 +65,11 @@ export struct SelectSheet {
           .alignItems(VerticalAlign.Center)
         }
         .onClick(() => {
-          this.visible = false;
+          // 先回调再关闭（同 InputSheet：关闭事件会把请求按取消处理）
           if (this.onPick) {
             this.onPick(option.value);
           }
+          this.visible = false;
         })
       }, (option: SettingOption) => option.value)
     }

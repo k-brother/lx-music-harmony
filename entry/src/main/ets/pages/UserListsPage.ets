@@ -1,6 +1,7 @@
 import { t, tf, sourceLabel } from '../service/LocalizationService';
 import { syncUserListFromOnline } from '../service/UserListSyncService';
-import { appActionMenu, appConfirm, appToast } from '../service/DialogService';
+import { appConfirm, appToast } from '../service/DialogService';
+import { showPlaylistActionMenu, type PlaylistMenuTarget } from './Home/Mylist/ListMenuActions';
 // 自建歌单管理页面
 import hilog from '@ohos.hilog';
 import { navigationService, RouteName } from '../service/NavigationService';
@@ -99,33 +100,26 @@ export struct UserListsPage {
     }
   }
 
-  /** 歌单行菜单：打开 / 更新内容 / 重命名 / 删除 */
+  /** 歌单行菜单：与「我的」页卡片共用同一份定义（Mylist/ListMenuActions） */
   private async openListMenu(list: UserListRow): Promise<void> {
-    const hasBinding = list.bindingListId.length > 0;
-    const items: string[] = [t('open_list')];
-    if (hasBinding) {
-      items.push(t('list_sync_content'));
-    }
-    items.push(t('list_rename_title'));
-    items.push(t('delete'));
-    const picked = await appActionMenu(list.name, items, { dangerIndexes: [items.length - 1] });
-    if (picked < 0) {
-      return;
-    }
-    const action = items[picked];
-    if (action === t('open_list')) {
+    const target: PlaylistMenuTarget = {
+      name: list.name,
+      bindingListId: list.bindingListId ?? '',
+    };
+    const action = await showPlaylistActionMenu(target);
+    if (action === 'open') {
       navigationService.navigateTo(RouteName.SONGLIST_DETAIL, {
         songListId: list.id,
         songListName: list.name,
         songListSource: 'local',
       });
-    } else if (action === t('list_sync_content')) {
+    } else if (action === 'sync') {
       void this.syncList(list);
-    } else if (action === t('list_rename_title')) {
+    } else if (action === 'rename') {
       this.editingList = list;
       this.editName = list.name;
       this.showRenameSheet = true;
-    } else if (action === t('delete')) {
+    } else if (action === 'delete') {
       void this.deleteList(list);
     }
   }
