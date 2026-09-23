@@ -31,12 +31,15 @@ const PREVIEW_REQUEST_TIMEOUT_MS = 20000;
 const PREVIEW_CONCURRENCY = 2;
 
 /** 单个榜单卡片状态（预览与展开） */
+/** 卡片试听列表的加载态（idle → loading → ready/err） */
+type CardLoadState = 'idle' | 'loading' | 'ready' | 'err';
+
 interface LeaderboardCardState {
   board: BoardItem;
   topSongs: BoardMusicItem[];
   /** 当前展示的预览行（随展开收起从 topSongs 切片，供 ForEach 稳定渲染） */
   displayList: BoardMusicItem[];
-  loadState: 'idle' | 'loading' | 'ready' | 'err';
+  loadState: CardLoadState;
   expanded: boolean;
 }
 
@@ -431,94 +434,96 @@ export struct LeaderboardView {
 
   private async loadPreviewForBoardId(boardId: string): Promise<void> {
     const startedPreviewGen = this.previewGeneration;
-    let idx = this.cardStates.findIndex((c: LeaderboardCardState) => c.board.id === boardId);
-    if (idx < 0) {
-      return;
-    }
-    if (startedPreviewGen !== this.previewGeneration) {
+    const idx = this.indexOfCard(boardId);
+    if (idx < 0 || this.isStalePreview(startedPreviewGen)) {
       return;
     }
     const snapshot = this.cardStates[idx];
     if (snapshot.loadState === 'loading' || snapshot.loadState === 'ready') {
       return;
     }
-    const board = snapshot.board;
-    const loadingSlice = this.cardStates.slice();
-    loadingSlice[idx] = {
-      board,
-      topSongs: snapshot.topSongs,
-      displayList: snapshot.displayList,
-      loadState: 'loading',
-      expanded: snapshot.expanded,
-    };
-    this.cardStates = loadingSlice;
+
+    this.patchCard(idx, snapshot.board, 'loading', snapshot.topSongs, snapshot.displayList, snapshot.expanded);
+
     try {
       // 超时 + 空包重试策略收在 core/leaderboard.getLeaderboardDetailReliable 里
-      const bang = this.unwrapBangFromRowId(board.id);
-      const detail = await getLeaderboardDetailReliable(board.source, bang, 1);
-      if (startedPreviewGen !== this.previewGeneration) {
-        return;
-      }
+      const bang = this.unwrapBangFromRowId(snapshot.board.id);
+      const detail = await getLeaderboardDetailReliable(snapshot.board.source, bang, 1);
       const songs = detail?.list ? detail.list.slice(0, PREVIEW_EXPANDED) : [];
-      idx = this.cardStates.findIndex((c: LeaderboardCardState) => c.board.id === boardId);
-      if (idx < 0) {
-        hilog.warn(0x0001, 'LeaderboardView', 'preview stale: board %{public}s not in list (gen)', boardId);
-        return;
-      }
-      if (startedPreviewGen !== this.previewGeneration) {
-        return;
-      }
-      if (this.cardStates[idx].loadState !== 'loading') {
-        return;
-      }
-      const doneSlice = this.cardStates.slice();
-      const exp = doneSlice[idx].expanded;
-      const vis = exp ? PREVIEW_EXPANDED : PREVIEW_COLLAPSED;
-      const disp: BoardMusicItem[] = [];
-      for (let k = 0; k < Math.min(vis, songs.length); k++) {
-        disp.push(songs[k]);
-      }
-      doneSlice[idx] = {
-        board: doneSlice[idx].board,
-        topSongs: songs,
-        displayList: disp,
-        loadState: 'ready',
-        expanded: exp,
-      };
-      this.cardStates = doneSlice;
-      hilog.info(
-        0x0001,
-        'LeaderboardView',
-        'preview ok %{public}s %{public}s songs=%{public}d gen=%{public}d',
-        board.source,
-        board.name,
-        songs.length,
-        startedPreviewGen,
-      );
+      this.applyPreviewReady(boardId, songs, startedPreviewGen, snapshot.board);
     } catch (e) {
-      if (startedPreviewGen !== this.previewGeneration) {
-        return;
-      }
-      idx = this.cardStates.findIndex((c: LeaderboardCardState) => c.board.id === boardId);
-      if (idx < 0) {
-        return;
-      }
-      if (this.cardStates[idx].loadState !== 'loading') {
-        return;
-      }
-      const errSlice = this.cardStates.slice();
-      errSlice[idx] = {
-        board: errSlice[idx].board,
-        topSongs: [],
-        displayList: [],
-        loadState: 'err',
-        expanded: errSlice[idx].expanded,
-      };
-      this.cardStates = errSlice;
-      const msg = e instanceof Error ? e.message : String(e);
-      hilog.warn(0x0001, 'LeaderboardView', 'preview err %{public}s %{public}s: %{public}s', board.source, board.name, msg);
+      this.applyPreviewError(boardId, startedPreviewGen, snapshot.board);
     }
   }
+
+  /** 榜单在列表中的下标（列表被重建后按 id 重新定位） */
+  private indexOfCard(boardId: string): number {
+    return this.cardStates.findIndex((c: LeaderboardCardState) => c.board.id === boardId);
+  }
+
+  /** 预览请求是否已过期（换源/重建会让 generation 递增） */
+  private isStalePreview(generation: number): boolean {
+    return generation !== this.previewGeneration;
+  }
+
+  /** 按下标替换一张卡片的状态（ArkUI 需要整数组重新赋值才会刷新） */
+  private patchCard(
+    index: number, board: BoardItem, loadState: CardLoadState,
+    topSongs: BoardMusicItem[], displayList: BoardMusicItem[], expanded: boolean
+  ): void {
+    if (index < 0 || index >= this.cardStates.length) {
+      return;
+    }
+    const slice = this.cardStates.slice();
+    slice[index] = {
+      board: board,
+      topSongs: topSongs,
+      displayList: displayList,
+      loadState: loadState,
+      expanded: expanded,
+    };
+    this.cardStates = slice;
+  }
+
+  /** 试听列表拉取成功：写回列表（只展示展开/收起对应的条数） */
+  private applyPreviewReady(
+    boardId: string, songs: BoardMusicItem[], generation: number, board: BoardItem
+  ): void {
+    if (this.isStalePreview(generation)) {
+      return;
+    }
+    const idx = this.indexOfCard(boardId);
+    if (idx < 0) {
+      hilog.warn(0x0001, 'LeaderboardView', 'preview stale: board %{public}s not in list (gen)', boardId);
+      return;
+    }
+    if (this.cardStates[idx].loadState !== 'loading') {
+      return;
+    }
+    const expanded = this.cardStates[idx].expanded;
+    const visible = expanded ? PREVIEW_EXPANDED : PREVIEW_COLLAPSED;
+    const display: BoardMusicItem[] = [];
+    for (let k = 0; k < Math.min(visible, songs.length); k++) {
+      display.push(songs[k]);
+    }
+    this.patchCard(idx, this.cardStates[idx].board, 'ready', songs, display, expanded);
+    hilog.info(0x0001, 'LeaderboardView', 'preview ok %{public}s %{public}s songs=%{public}d gen=%{public}d',
+      board.source, board.name, songs.length, generation);
+  }
+
+  /** 试听列表拉取失败：标记为可重试的错误态 */
+  private applyPreviewError(boardId: string, generation: number, board: BoardItem): void {
+    if (this.isStalePreview(generation)) {
+      return;
+    }
+    const idx = this.indexOfCard(boardId);
+    if (idx < 0 || this.cardStates[idx].loadState !== 'loading') {
+      return;
+    }
+    this.patchCard(idx, this.cardStates[idx].board, 'err', [], [], this.cardStates[idx].expanded);
+    hilog.warn(0x0001, 'LeaderboardView', 'preview err %{public}s %{public}s', board.source, board.name);
+  }
+
 
   /** 列表懒渲染时：项进入可视区域再补一次 idle 预览（与顺序预拉互补） */
   private ensurePreviewAtIndex(index: number): void {
