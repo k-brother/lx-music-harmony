@@ -7,9 +7,9 @@
  * （@Builder 的参数不会随状态刷新，组件 @Prop 会）。
  */
 import { DesignTokens } from '../../theme/DesignTokens';
+import { t } from '../../service/LocalizationService';
 import { NavBackButton } from '../../components/common/NavBackButton';
 import { SegmentedBar } from '../../components/ui/SegmentedBar';
-import { t } from '../../service/LocalizationService';
 
 /** 字体阴影（设置 → 外观 → 字体阴影） */
 
@@ -60,6 +60,7 @@ export struct PlayDetailTopBar {
           .fillColor(DesignTokens.labelSecondary(this.theme))
       }
       .responseRegion(DesignTokens.touchRegion(34))
+      .accessibilityText(t('a11y_more'))
       .onClick(() => {
         if (this.onMore) {
           this.onMore();

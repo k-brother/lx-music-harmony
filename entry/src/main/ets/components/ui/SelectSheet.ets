@@ -61,6 +61,7 @@ export struct SelectSheet {
           .height(DesignTokens.touchTarget())
           .alignItems(VerticalAlign.Center)
         }
+        .accessibilityText(t('a11y_select_all'))
         .onClick(() => {
           // 先回调再关闭（同 InputSheet：关闭事件会把请求按取消处理）
           if (this.onPick) {

@@ -26,6 +26,9 @@ python3 "${SCRIPT_DIR}/check_storage_bindings.py"
 echo "== 权限声明与使用一致性 =="
 python3 "${SCRIPT_DIR}/check_permissions.py"
 
+echo "== 无障碍（纯图标按钮需可朗读）=="
+python3 "${SCRIPT_DIR}/check_accessibility.py"
+
 echo "== i18n 词条对齐 =="
 python3 "${SCRIPT_DIR}/check_i18n.py"
 

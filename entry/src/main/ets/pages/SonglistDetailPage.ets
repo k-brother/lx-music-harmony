@@ -366,6 +366,7 @@ export struct SonglistDetailPage {
       }
       .width(DesignTokens.touchTarget())
       .height(DesignTokens.touchTarget())
+      .accessibilityText(t('a11y_more'))
       .onClick(() => {
         void this.openSongMenu(song);
       })
@@ -936,6 +937,7 @@ export struct SonglistDetailPage {
       }
       .width(DesignTokens.touchTarget())
       .height(DesignTokens.touchTarget())
+      .accessibilityText(t('a11y_more'))
       .onClick(() => {
         this.openMoreMenu();
       })

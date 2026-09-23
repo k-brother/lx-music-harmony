@@ -6,6 +6,7 @@
  * （ArkTS 不允许在 ForEach 的独立函数里用 this，trailing 回调传不进去）。
  */
 import { DesignTokens } from '../../theme/DesignTokens';
+import { t } from '../../service/LocalizationService';
 
 @Component
 export struct BoardSongRow {
@@ -55,6 +56,7 @@ export struct BoardSongRow {
             .fillColor(DesignTokens.labelSecondary(this.theme))
         }
         .responseRegion(DesignTokens.touchRegion(28))
+        .accessibilityText(t('a11y_download'))
         .onClick(() => {
           if (this.onDownload) {
             this.onDownload();

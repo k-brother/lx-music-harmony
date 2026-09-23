@@ -88,6 +88,7 @@ export struct ChartCard {
     }
     .width(72)
     .height(72)
+    .accessibilityText(t('a11y_open_board'))
     .onClick(() => {
       if (this.onOpenBoard) {
         this.onOpenBoard();
@@ -237,6 +238,8 @@ export struct ChartCard {
             .fontColor([DesignTokens.labelSecondary(this.theme)])
             .padding(8)
             .responseRegion(DesignTokens.touchRegion(30))
+            // 展开/收起是同一个按钮，朗读文案跟着状态走
+            .accessibilityText(this.expanded ? t('a11y_collapse') : t('a11y_expand'))
             .onClick(() => {
               if (this.onToggleExpand) {
                 this.onToggleExpand();
@@ -247,6 +250,7 @@ export struct ChartCard {
             .fontColor([DesignTokens.accent()])
             .padding({ left: 4, right: 4, top: 8, bottom: 8 })
             .responseRegion(DesignTokens.touchRegion(30))
+            .accessibilityText(t('a11y_open_board'))
             .onClick(() => {
               if (this.onOpenBoard) {
                 this.onOpenBoard();

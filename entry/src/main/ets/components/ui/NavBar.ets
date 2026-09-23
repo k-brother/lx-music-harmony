@@ -8,6 +8,7 @@
  * - 沉浸式：默认 expandSafeArea 到顶部安全区
  */
 import { DesignTokens } from '../../theme/DesignTokens';
+import { t } from '../../service/LocalizationService';
 import { navigationService } from '../../service/NavigationService';
 
 @Component
@@ -36,6 +37,7 @@ export struct NavBar {
         }
         .width(DesignTokens.touchTarget())
         .height(DesignTokens.touchTarget())
+        .accessibilityText(t('a11y_back'))
         .onClick(() => {
           navigationService.back();
         })

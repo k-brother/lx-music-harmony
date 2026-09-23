@@ -3,6 +3,7 @@
  * 父组件在 aboutToAppear 中向 actions 赋值回调（ArkTS 不宜用函数型 @Prop）
  */
 import { DesignTokens } from '../../theme/DesignTokens';
+import { t } from '../../service/LocalizationService';
 
 /** 父组件持有同一实例并赋值三个回调 */
 export class SearchStripActions {
@@ -31,6 +32,7 @@ export struct SearchStrip {
         .fontSize(20)
         .fontColor([DesignTokens.labelSecondary(this.theme)])
         .margin({ left: 10, right: 6 })
+        .accessibilityText(t('a11y_search'))
         .onClick(() => {
           this.actions.onMagnifierClick();
         })

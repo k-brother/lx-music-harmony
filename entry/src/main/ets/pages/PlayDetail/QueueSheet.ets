@@ -98,6 +98,7 @@ export struct QueueSheet {
       .fontColor([DesignTokens.labelTertiary(this.theme)])
       .responseRegion(DesignTokens.touchRegion(20))
       // 吞掉点击：否则按下手柄松手时，事件会落到整行上触发「切歌」
+      .accessibilityText(t('a11y_drag_handle'))
       .onClick(() => {})
       // 直接用原始触摸事件：手柄嵌在 List 里，PanGesture（含 priorityGesture）
       // 会被列表的滚动识别器抢走/取消，真机上表现为「拖不动、还切了歌」。
@@ -175,6 +176,7 @@ export struct QueueSheet {
     .borderRadius(this.dragFromIndex === index ? 10 : 0)
     .shadow(this.dragFromIndex === index ? DesignTokens.cardShadow(this.theme) : undefined)
     .zIndex(this.dragFromIndex === index ? 1 : 0)
+    .accessibilityText(t('a11y_play'))
     .onClick(() => {
       this.visible = false;
       if (this.onPick) {

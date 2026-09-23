@@ -64,6 +64,7 @@ export struct DownloadSelectionBar {
             .fontColor([DesignTokens.accent()])
             .margin({ left: 12 })
             .responseRegion(DesignTokens.touchRegion(22))
+            .accessibilityText(t('a11y_pause'))
             .onClick(() => {
               if (this.onPauseAll) {
                 this.onPauseAll();
@@ -77,6 +78,7 @@ export struct DownloadSelectionBar {
             .fontColor([DesignTokens.accent()])
             .margin({ left: 12 })
             .responseRegion(DesignTokens.touchRegion(22))
+            .accessibilityText(t('a11y_play'))
             .onClick(() => {
               if (this.onResumeAll) {
                 this.onResumeAll();
@@ -90,6 +92,7 @@ export struct DownloadSelectionBar {
             .fontColor([DesignTokens.danger()])
             .margin({ left: 12 })
             .responseRegion(DesignTokens.touchRegion(22))
+            .accessibilityText(t('a11y_delete'))
             .onClick(() => {
               if (this.onDeleteAll) {
                 this.onDeleteAll();

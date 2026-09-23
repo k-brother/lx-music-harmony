@@ -371,6 +371,7 @@ export struct CustomSourceView {
       .padding({ left: 16, right: 16 })
       .backgroundColor(DesignTokens.card(this.theme))
       .stateStyles({ pressed: this.pressed })
+      .accessibilityText(t('a11y_select_all'))
       .onClick(() => {
         this.selectSource(item.id);
       })
@@ -458,6 +459,7 @@ export struct CustomSourceView {
           .height(56)
           .padding({ left: 16, right: 16 })
           .backgroundColor(DesignTokens.card(this.theme))
+          .accessibilityText(t('a11y_select_all'))
           .onClick(() => {
             this.selectSource('custom');
           })

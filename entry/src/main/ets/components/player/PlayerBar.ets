@@ -1,8 +1,8 @@
-import { t } from '../../service/LocalizationService';
 // 迷你播放器栏组件 - 对应 src/components/player/PlayerBar/index.tsx
 // 显示在首页底部的迷你播放控制栏
 
 import hilog from '@ohos.hilog';
+import { t } from '../../service/LocalizationService';
 import { navigationService, RouteName } from '../../service';
 import { normalizeCoverUrl } from '../../utils/CommonUtils';
 
@@ -197,6 +197,8 @@ export struct PlayerBar {
           .onError(() => {
             this.pic = '';
           })
+          // 无障碍：迷你条封面点进去就是播放页
+          .accessibilityText(t('a11y_play'))
           .onClick(() => {
             this.navigateToPlayDetailSafely();
           })
@@ -207,6 +209,7 @@ export struct PlayerBar {
           .height(48)
           .borderRadius(DesignTokens.radiusCover())
           .objectFit(ImageFit.Cover)
+          .accessibilityText(t('a11y_play'))
           .onClick(() => {
             this.navigateToPlayDetailSafely();
           })
@@ -242,6 +245,7 @@ export struct PlayerBar {
         .scale({ x: 0.95, y: 0.95 })
         .responseRegion({ x: -7, y: -7, width: 44, height: 44 })
         .stateStyles({ pressed: this.pressDim })
+        .accessibilityText(t('a11y_previous'))
         .onClick(() => {
           void this.playPrev();
         })
@@ -265,6 +269,7 @@ export struct PlayerBar {
         .scale({ x: 0.9, y: 0.9 })
         .responseRegion({ x: -4, y: -4, width: 44, height: 44 })
         .stateStyles({ pressed: this.pressDim })
+        .accessibilityText(t('a11y_play'))
         .onClick(() => {
           void this.togglePlay();
         })
@@ -280,6 +285,7 @@ export struct PlayerBar {
         .scale({ x: 0.95, y: 0.95 })
         .responseRegion({ x: -7, y: -7, width: 44, height: 44 })
         .stateStyles({ pressed: this.pressDim })
+        .accessibilityText(t('a11y_next'))
         .onClick(() => {
           void this.playNext();
         })

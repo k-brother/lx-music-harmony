@@ -267,6 +267,7 @@ export struct UserListsPage {
       }
       .width(DesignTokens.touchTarget())
       .height(DesignTokens.touchTarget())
+      .accessibilityText(t('a11y_more'))
       .onClick(() => {
         void this.openListMenu(this.userLists[index]);
       })

@@ -101,6 +101,24 @@ export function buildZhCN(): Map<string, string> {
   m.set('lyric_offset', '歌词偏移');
   m.set('lyric_offset_hint', '正值=歌词提前，负值=歌词延后；拖动即时生效');
   m.set('reset', '重置');
+  // ===== 无障碍（屏幕朗读）：图标按钮必须能被读出来 =====
+  m.set('a11y_back', '返回');
+  m.set('a11y_more', '更多');
+  m.set('a11y_previous', '上一首');
+  m.set('a11y_next', '下一首');
+  m.set('a11y_play', '播放');
+  m.set('a11y_pause', '暂停');
+  m.set('a11y_mute', '静音');
+  m.set('a11y_unmute', '取消静音');
+  m.set('a11y_select_all', '全选');
+  m.set('a11y_refresh', '刷新');
+  m.set('a11y_search', '搜索');
+  m.set('a11y_download', '下载');
+  m.set('a11y_delete', '删除');
+  m.set('a11y_drag_handle', '拖动调整顺序');
+  m.set('a11y_expand', '展开');
+  m.set('a11y_open_board', '查看完整榜单');
+  m.set('a11y_collapse', '收起');
   m.set('toast_restore_running', '正在读取备份…');
   m.set('my_love', '我喜欢');
   m.set('my_history', '播放历史');

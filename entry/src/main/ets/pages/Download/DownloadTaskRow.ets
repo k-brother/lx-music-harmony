@@ -6,6 +6,7 @@
  * 组件只接收「行模型 + 回调」，状态判断与文案在 DownloadView 里，改文案不会碰到布局。
  */
 import { DesignTokens } from '../../theme/DesignTokens';
+import { t } from '../../service/LocalizationService';
 import type { DownloadRowModel } from './DownloadView';
 
 @Component
@@ -50,6 +51,7 @@ export struct DownloadTaskRow {
           .fontSize(26)
           .fontColor([DesignTokens.accent()])
           .responseRegion(DesignTokens.touchRegion(22))
+          .accessibilityText(t('a11y_play'))
           .onClick(() => {
             if (this.row.actionKind === 'play') {
               if (this.onPlay) {
@@ -67,6 +69,7 @@ export struct DownloadTaskRow {
           .fontColor([DesignTokens.danger()])
           .margin({ top: 14 })
           .responseRegion(DesignTokens.touchRegion(22))
+          .accessibilityText(t('a11y_delete'))
           .onClick(() => {
             if (this.onDelete) {
               this.onDelete();

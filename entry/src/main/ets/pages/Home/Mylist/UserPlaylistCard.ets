@@ -5,6 +5,7 @@
  * 行尾动作与歌单详情、自建歌单管理页保持同一套：⋮ 菜单里的「同步」在这里提为直接入口。
  */
 import { DesignTokens } from '../../../theme/DesignTokens';
+import { t } from '../../../service/LocalizationService';
 import { tf, sourceLabel } from '../../../service/LocalizationService';
 
 @Component
@@ -82,6 +83,7 @@ export struct UserPlaylistCard {
           .fontColor([DesignTokens.accent()])
           .padding(10)
           .responseRegion(DesignTokens.touchRegion(40))
+          .accessibilityText(t('a11y_refresh'))
           .onClick(() => {
             if (this.onSync) {
               this.onSync();
@@ -93,6 +95,7 @@ export struct UserPlaylistCard {
         .fontSize(36)
         .fontColor([DesignTokens.accent()])
         .responseRegion(DesignTokens.touchRegion(30))
+        .accessibilityText(t('a11y_play'))
         .onClick(() => {
           if (this.onPlay) {
             this.onPlay();
@@ -111,6 +114,7 @@ export struct UserPlaylistCard {
         .fillColor(DesignTokens.labelSecondary(this.theme))
         .margin({ left: 6 })
         .responseRegion(DesignTokens.touchRegion(20))
+        .accessibilityText(t('a11y_more'))
         .onClick(() => {
           if (this.onMenu) {
             this.onMenu();

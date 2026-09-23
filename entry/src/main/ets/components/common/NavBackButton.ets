@@ -1,4 +1,5 @@
 import { DesignTokens } from '../../theme/DesignTokens';
+import { t } from '../../service/LocalizationService';
 import { navigationService } from '../../service/NavigationService';
 
 @Component
@@ -15,6 +16,7 @@ export struct NavBackButton {
         .fillColor(DesignTokens.labelPrimary(this.theme))
     }
     .responseRegion(DesignTokens.touchRegion(34))
+    .accessibilityText(t('a11y_back'))
     .onClick(() => {
       navigationService.back();
     })

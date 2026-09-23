@@ -2,6 +2,7 @@
  * 本地音乐页 - 顶部两个动作按钮（重新扫描 / 导入）
  */
 import { DesignTokens } from '../../theme/DesignTokens';
+import { t } from '../../service/LocalizationService';
 import { hapticService } from '../../service/HapticService';
 
 @Component
@@ -26,6 +27,7 @@ export struct LocalMusicActions {
     .backgroundColor(background)
     .borderRadius(17)
     .responseRegion(DesignTokens.touchRegion(34))
+    .accessibilityText(t('a11y_more'))
     .onClick(() => {
       hapticService.light();
       action();

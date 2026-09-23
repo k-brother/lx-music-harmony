@@ -128,6 +128,7 @@ export struct CommentRow {
                   .borderRadius(8)
                   .objectFit(ImageFit.Cover)
                   .margin({ top: 8, right: 8 })
+                  .accessibilityText(t('a11y_expand'))
                   .onClick(() => {
                     if (this.onPreviewImage) { this.onPreviewImage(url); }
                   })

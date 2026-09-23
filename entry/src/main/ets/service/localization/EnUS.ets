@@ -91,6 +91,24 @@ export function buildEnUS(): Map<string, string> {
   m.set('lyric_offset', 'Lyric Offset');
   m.set('lyric_offset_hint', 'Positive = lyrics earlier, negative = later; drag to apply instantly');
   m.set('reset', 'Reset');
+  // ===== Accessibility (screen reader): icon-only buttons must be readable =====
+  m.set('a11y_back', 'Back');
+  m.set('a11y_more', 'More');
+  m.set('a11y_previous', 'Previous');
+  m.set('a11y_next', 'Next');
+  m.set('a11y_play', 'Play');
+  m.set('a11y_pause', 'Pause');
+  m.set('a11y_mute', 'Mute');
+  m.set('a11y_unmute', 'Unmute');
+  m.set('a11y_select_all', 'Select all');
+  m.set('a11y_refresh', 'Refresh');
+  m.set('a11y_search', 'Search');
+  m.set('a11y_download', 'Download');
+  m.set('a11y_delete', 'Delete');
+  m.set('a11y_drag_handle', 'Drag to reorder');
+  m.set('a11y_expand', 'Expand');
+  m.set('a11y_open_board', 'View full chart');
+  m.set('a11y_collapse', 'Collapse');
   m.set('toast_restore_running', 'Reading backup…');
   m.set('my_love', 'Favorites');
   m.set('my_history', 'Play History');

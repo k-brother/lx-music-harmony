@@ -33,6 +33,12 @@ export struct VolumeSheet {
         SymbolGlyph(this.volume === 0 ? $r('sys.symbol.xmark') : $r('sys.symbol.arrow_down_circle'))
           .fontSize(20)
           .fontColor([DesignTokens.labelSecondary(this.theme)])
+          .accessibilityText(this.volume === 0 ? t('a11y_unmute') : t('a11y_mute'))
+          .onClick(() => {
+            if (this.onToggleMute) {
+              this.onToggleMute();
+            }
+          })
 
         Slider({
           value: this.volume,
@@ -72,7 +78,7 @@ export struct VolumeSheet {
           .layoutWeight(1)
           .height(DesignTokens.touchTarget())
           .fontSize(15)
-          .fontColor('#FFFFFF')
+          .fontColor(DesignTokens.onAccent())
           .backgroundColor(DesignTokens.accent())
           .onClick(() => {
             this.visible = false;

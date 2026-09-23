@@ -7,6 +7,7 @@
  * 因为那部分要跟播放器交互。
  */
 import { DesignTokens } from '../../theme/DesignTokens';
+import { t } from '../../service/LocalizationService';
 import { appLog as hilog } from '../../core/log/AppLogger';
 
 @Component
@@ -109,6 +110,17 @@ export struct PlayerControls {
     })
   }
 
+  /** 传送键的无障碍文案：播放键随状态在「播放 / 暂停」之间切换 */
+  private transportLabel(kind: string): string {
+    if (kind === 'prev') {
+      return t('a11y_previous');
+    }
+    if (kind === 'next') {
+      return t('a11y_next');
+    }
+    return this.isPlaying ? t('a11y_pause') : t('a11y_play');
+  }
+
   /** 传送键（上一首 / 播放暂停 / 下一首）：图标随播放状态变化，同样在 Builder 内读状态 */
   @Builder
   TransportKey(kind: string, filled: boolean) {
@@ -121,6 +133,8 @@ export struct PlayerControls {
         .fillColor(filled ? DesignTokens.onAccent() : DesignTokens.labelPrimary(this.theme))
         .margin(kind === 'play' && !this.isPlaying ? { left: 1 } : {})
     }
+    // 无障碍：图标按钮必须能被朗读出来，且随播放状态切换「播放/暂停」
+    .accessibilityText(this.transportLabel(kind))
     .onClick(() => {
       this.dispatch(kind);
     })
