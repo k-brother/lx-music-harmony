@@ -13,6 +13,7 @@ import { request } from '@kit.BasicServicesKit';
 import { appLog as hilog } from '../../log/AppLogger';
 import { settingsService } from '../../../service/SettingsService';
 import { httpRequest } from '../../network/http';
+import { t } from '../../../service/LocalizationService';
 import { getMusicUrl, getLyricInfo, getPicUrl } from '../ResolvePlayback';
 import { buildMusicFileStem } from '../MusicTitle';
 import { requireDownloadContext } from './DownloadContext';
@@ -196,13 +197,14 @@ export async function saveSandboxFileToPublicDownload(
   try {
     const saveUris = await picker.save(saveOptions);
     if (!saveUris || saveUris.length === 0) {
-      throw new Error('用户取消保存到公共下载目录');
+      throw new Error(t('download_save_cancelled'));
     }
     const targetUri = saveUris[0];
     try {
       copyFileToUri(sandboxFilePath, targetUri);
     } catch (fileErr) {
-      throw new Error('文件写入失败');
+      // 同上：这条会作为失败原因展示，走 i18n
+      throw new Error(t('media_save_fail'));
     }
     try {
       await removeExistingFile(sandboxFilePath);
@@ -211,7 +213,8 @@ export async function saveSandboxFileToPublicDownload(
     }
     return targetUri;
   } catch (err) {
-    let msg = '文件保存失败';
+    // 这条消息会显示在下载任务的失败原因里，必须走 i18n（英文界面不能出现中文）
+    let msg = t('media_save_fail');
     if (err instanceof Error) {
       msg += ': ' + err.message;
     }

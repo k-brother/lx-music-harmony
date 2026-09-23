@@ -294,6 +294,8 @@ export function buildEnUS(): Map<string, string> {
   // List capabilities: sort / dedupe / multi-select / sync
   m.set('songlist_empty', 'No songs in this playlist');
   m.set('toast_download_failed', 'Download failed');
+  m.set('download_save_cancelled', 'Save to public Downloads folder was cancelled');
+  m.set('error_network_unavailable', 'Network unavailable, please check your connection');
   m.set('toast_add_to_list_failed', 'Failed to add to playlist');
   m.set('list_sort', 'Sort');
   m.set('list_sort_by_field', 'Sort by');

@@ -215,6 +215,9 @@ CHECKS = [
  ('播放量单位按语言切换', 'service/LocalizationService.ets', r'export function playCountUnits'),
  ('英文播放量使用 K/M 量级', 'service/localization/EnUS.ets',
   r"m\.set\('ten_thousand_unit', 'K'\)[\s\S]{0,160}?m\.set\('billion_unit', 'M'\)"),
+ # 下载失败原因会显示在任务行里：必须走词条，不能写死中文
+ ('下载失败原因走词条', 'core/music/download/DownloadFiles.ets', r"t\('media_save_fail'\)"),
+ ('网络不可用提示走词条', 'core/music/sources/kw/kwAlbumPic.ets', r"t\('error_network_unavailable'\)"),
  # 提示/确认框统一出口：页面不再自己 getPromptAction().showDialog 拼按钮与颜色
  ('确认与提示统一走 DialogService', 'service/DialogService.ets', r'export async function appAlert'),
  ('日志页清空走统一确认', 'pages/LogPage.ets', r'appConfirm\(',

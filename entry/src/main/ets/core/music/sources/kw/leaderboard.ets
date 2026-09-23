@@ -2,6 +2,7 @@ import { httpRequest, parseHttpBodyJson } from '../../../../core/network/http';
 import type { MusicInfo, Quality, QualityDetail } from '../../../../types/MusicTypes';
 import { formatPlayTime, decodeHtmlEntities, formatSinger } from '../../../../utils/CommonUtils';
 import hilog from '@ohos.hilog';
+import { t } from '../../../../service/LocalizationService';
 
 // 排行榜项
 interface BoardItem {
@@ -345,7 +346,7 @@ export const leaderboard: LeaderboardInterface = {
           const boardList: BoardItem[] = data.list.map((item: KwBoardItem): BoardItem => {
             const boardItem: BoardItem = {
               id: `kw${item.id}`,
-              name: item.name || '未知榜单',
+              name: item.name || t('unknown'),
               bangid: item.id,
               pic: item.pic || '',
             };

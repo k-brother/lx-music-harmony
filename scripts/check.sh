@@ -44,6 +44,9 @@ python3 "${SCRIPT_DIR}/check_scroll_memory.py"
 echo "== 列表行文案出口 =="
 python3 "${SCRIPT_DIR}/check_row_texts.py"
 
+echo "== 错误文案多语言 =="
+python3 "${SCRIPT_DIR}/check_error_i18n.py"
+
 echo "== 服务初始化调用 =="
 python3 "${SCRIPT_DIR}/check_service_init.py"
 

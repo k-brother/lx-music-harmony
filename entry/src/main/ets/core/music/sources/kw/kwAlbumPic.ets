@@ -7,6 +7,7 @@ import { httpGet, checkNetworkConnection } from '../../../../core/network/http';
 import type { HttpRequestConfig } from '../../../../core/network/http';
 import hilog from '@ohos.hilog';
 import { normalizeCoverUrl } from '../../../../utils/CommonUtils';
+import { t } from '../../../../service/LocalizationService';
 
 const TAG = 'KwAlbumPic';
 const DOMAIN = 0x0001;
@@ -104,7 +105,7 @@ export async function getKwAlbumPic(songInfo: MusicInfo): Promise<string> {
   const isConnected = await checkNetworkConnection();
   if (!isConnected) {
     hilog.error(DOMAIN, TAG, 'Network not available');
-    throw new Error('网络连接不可用，请检查网络设置');
+    throw new Error(t('error_network_unavailable'));
   }
 
   if (musicPicRequestObj) {

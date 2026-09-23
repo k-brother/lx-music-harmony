@@ -297,6 +297,9 @@ export function buildZhCN(): Map<string, string> {
   // 列表能力：排序 / 去重 / 多选 / 同步
   m.set('songlist_empty', '该歌单暂无歌曲');
   m.set('toast_download_failed', '下载失败');
+  // 逻辑层抛出的失败原因（会显示在下载任务行 / 提示里），必须走词条
+  m.set('download_save_cancelled', '用户取消保存到公共下载目录');
+  m.set('error_network_unavailable', '网络连接不可用，请检查网络设置');
   m.set('toast_add_to_list_failed', '添加到歌单失败');
   m.set('list_sort', '排序');
   m.set('list_sort_by_field', '按字段');
