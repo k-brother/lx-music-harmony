@@ -47,11 +47,6 @@ class DislikeListImpl {
     return this.musicNames.size + this.singerNames.size + this.pairs.size;
   }
 
-  /** 原始规则文本（供「管理/导出」展示） */
-  getRulesText(): string {
-    return this.rulesText;
-  }
-
   /** 判断一首歌是否被屏蔽 */
   isDisliked(name: string, singer: string): boolean {
     if (!this.loaded || this.count() === 0) {

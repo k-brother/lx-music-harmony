@@ -3,7 +3,6 @@
 
 import hilog from '@ohos.hilog';
 import { showAppToast, TOAST_DURATION_SHORT } from '../utils/Toast';
-import { formatPlayCount } from '../utils/FormatTools';
 import { PlayerBar } from '../components/player/PlayerBar';
 import { setDownloadContext } from '../core/music/MusicFeatureEntry';
 import { NavigationParams } from '../service/NavigationService';
@@ -410,11 +409,6 @@ export struct SonglistDetailPage {
   }
 
 
-  /** 播放量格式统一在 utils/FormatTools */
-  formatPlayCountDisplay(count: number): string {
-    return formatPlayCount(count, t('ten_thousand_unit'), t('billion_unit'));
-  }
-
   /** 播放单首（点行）：流程在 SonglistDetail/SonglistPlayActions */
   async playSong(index: number): Promise<void> {
     if (this.songList.length === 0) {
@@ -496,11 +490,6 @@ export struct SonglistDetailPage {
 
 
 
-
-  /** 整列表下载：流程在 SonglistDetail/SonglistActions */
-  async downloadAll(): Promise<void> {
-    await downloadWholeList(this.actionTarget(), this.songList, this.confirm(), this.toast());
-  }
 
   private actionTarget(): SonglistTarget {
     return { source: this.listInfo.source, listId: this.listInfo.id, name: this.listInfo.name };
@@ -637,6 +626,11 @@ export struct SonglistDetailPage {
     this.showToast(tf('toast_dedupe_done', [removed.toString()]));
   }
 
+  /** 下载整张歌单：流程在 SonglistDetail/SonglistActions（逐首提交 + 进度汇总） */
+  private async downloadAll(): Promise<void> {
+    await downloadWholeList(this.actionTarget(), this.songList, this.confirm(), this.toast());
+  }
+
   /** 同步成本地自建歌单：流程在 SonglistDetail/SonglistLocalLibrary */
   private async syncToLocalList(): Promise<void> {
     await syncOnlineListToLocal(this.listInfo, this.songList, this.confirm(), this.toast());
@@ -724,6 +718,9 @@ export struct SonglistDetailPage {
       },
       onSelectMode: (): void => {
         this.enterSelectMode();
+      },
+      onDownloadAll: (): void => {
+        void this.downloadAll();
       },
       onSyncLocal: (): void => {
         void this.syncToLocalList();

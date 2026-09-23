@@ -7,7 +7,7 @@
 import { settingsService } from '../../../service/SettingsService';
 import { t, tf } from '../../../service/LocalizationService';
 import { navigationService, RouteName } from '../../../service/NavigationService';
-import { appToast } from '../../../service/DialogService';
+import { appConfirm, appToast } from '../../../service/DialogService';
 import { logService } from '../../../service/LogService';
 import { APP_VERSION } from '../../../service/VersionCheckService';
 import { PactDialog } from '../../../components/common/PactDialog';
@@ -88,7 +88,35 @@ export struct AboutSection {
           appToast(`LX Music v${APP_VERSION}\nHarmonyOS NEXT`);
         },
       },
+      {
+        type: 'button',
+        title: t('settings_reset'),
+        description: t('settings_reset_desc'),
+        danger: true,
+        onClick: (): void => {
+          void this.resetSettings();
+        },
+      },
     ];
+  }
+
+  /**
+   * 恢复默认设置。
+   *
+   * 危险操作：二次确认后整包写回默认值（SettingsService.resetToDefaults）。
+   * 已同意过协议的状态不会被回退，避免用户莫名其妙被重新拦住。
+   */
+  private async resetSettings(): Promise<void> {
+    const confirmed = await appConfirm(
+      t('settings_reset'),
+      t('confirm_reset_settings'),
+      { danger: true });
+    if (!confirmed) {
+      return;
+    }
+    await settingsService.resetToDefaults();
+    appToast(t('toast_settings_reset'));
+    this.loadFromSettings();
   }
 
   build() {

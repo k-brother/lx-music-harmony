@@ -141,16 +141,6 @@ class PluginManagerImpl {
     hilog.info(DOMAIN, TAG, 'Plugin unregistered: %{public}s', pluginId);
   }
 
-  /** 获取插件 */
-  getPlugin(pluginId: string): Plugin | undefined {
-    return this.plugins.get(pluginId);
-  }
-
-  /** 获取所有插件 */
-  getPlugins(): Plugin[] {
-    return Array.from(this.plugins.values());
-  }
-
   /** 设置激活插件 */
   setActivePlugin(pluginId: string): boolean {
     if (this.plugins.has(pluginId)) {
@@ -159,11 +149,6 @@ class PluginManagerImpl {
       return true;
     }
     return false;
-  }
-
-  /** 获取激活插件ID */
-  getActivePluginId(): string | null {
-    return this.activePluginId;
   }
 
   /** 获取激活插件 */
@@ -587,10 +572,6 @@ class PluginManagerImpl {
     return this.pluginMeta;
   }
 
-  /** 获取当前源URL */
-  getApiSourceUrl(): string {
-    return this.apiSourceUrl;
-  }
 }
 
 // 单例

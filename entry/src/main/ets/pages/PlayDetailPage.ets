@@ -555,6 +555,8 @@ export struct PlayDetailPage {
   private applyLyricOffset(value: number): void {
     this.lyricOffsetDraft = value;
     void settingsService.update({ lyricOffset: value });
+    // 拖滑杆时立刻按新偏移重算当前句，不必等下一个进度回调
+    playerService.refreshLyricIndex();
   }
 
   /** 歌词显示设置（翻译 / 罗马音 / 字号 / 对齐 / 进度） */

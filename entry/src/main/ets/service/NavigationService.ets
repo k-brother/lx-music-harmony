@@ -190,10 +190,6 @@ export class NavigationService {
     return false;
   }
 
-  // 获取当前页面名称 (注: NavPathStack 暂无公开 API 获取名称)
-  getCurrentRouteName(): string | null {
-    return null;
-  }
 }
 
 // 导出导航服务实例

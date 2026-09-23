@@ -45,10 +45,6 @@ class LogStoreImpl {
     this.verbose = enable;
   }
 
-  isVerbose(): boolean {
-    return this.verbose;
-  }
-
   /** 安装落盘回调 */
   setSink(sink: LogSink | null): void {
     this.sink = sink;

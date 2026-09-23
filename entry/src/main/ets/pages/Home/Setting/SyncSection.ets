@@ -9,6 +9,7 @@ import { settingsService } from '../../../service/SettingsService';
 import { t, tf } from '../../../service/LocalizationService';
 import { appActionMenu, appToast } from '../../../service/DialogService';
 import { syncService, SyncMode, type SyncHistoryItem } from '../../../service/SyncService';
+import type { SyncStatusInfo } from '../../../service/sync/SyncTypes';
 import { Subscription } from '../../../service/Subscription';
 import { SettingsSection } from '../../../components/ui/SettingsSection';
 import type { SettingOption, SettingSectionItem } from '../../../components/ui/SettingsTypes';
@@ -26,9 +27,19 @@ export struct SyncSection {
   /** 自动同步间隔（分钟）；此前只有默认值 30，界面上改不了 */
   @State syncInterval: number = 30;
   @State historyCount: number = 0;
+  /** 同步状态文案与上次同步时间（来自 SyncService 的状态订阅） */
+  @State syncStatusText: string = '';
+  @State lastSyncText: string = '';
   private history: SyncHistoryItem[] = [];
 
   private settingsWatch: Subscription = new Subscription();
+  /** SyncService 的状态回调需要持有引用才能在 aboutToDisappear 解绑 */
+  private readonly onSyncStatus = (status: SyncStatusInfo): void => {
+    this.syncStatusText = status.message;
+    this.lastSyncText = status.lastSyncTime > 0
+      ? new Date(status.lastSyncTime).toLocaleString()
+      : '';
+  };
 
   aboutToAppear() {
     this.loadFromSettings();
@@ -36,10 +47,13 @@ export struct SyncSection {
     this.settingsWatch.bindSettings((): void => {
       this.loadFromSettings();
     });
+    this.onSyncStatus(syncService.getStatus());
+    syncService.addStatusListener(this.onSyncStatus);
   }
 
   aboutToDisappear() {
     this.settingsWatch.detach();
+    syncService.removeStatusListener(this.onSyncStatus);
   }
 
   /** 从设置服务读取本分组的当前值 */
@@ -62,29 +76,45 @@ export struct SyncSection {
     }
   }
 
-  /** 同步历史：选择即切换服务器；提供清空 */
+  /**
+   * 同步历史：列出连接过的服务器，选中即切换为当前服务器。
+   *
+   * 此前这里弹出的菜单只有「使用历史服务器 / 清空同步历史」两个动作，
+   * 真正的服务器列表算出来后没人用 —— 点「使用历史服务器」什么都不会发生。
+   * 现在直接把历史地址作为菜单项，选中即应用（走 SyncService.applyHistoryServer）。
+   */
   private async openHistory(): Promise<void> {
     await this.refreshHistory();
     if (this.history.length === 0) {
       appToast(t('toast_never_sync'));
       return;
     }
-    const options: SettingOption[] = [];
+    const options: string[] = [];
     for (let i = 0; i < this.history.length; i++) {
-      options.push({ label: this.history[i].serverUrl, value: this.history[i].serverUrl });
+      options.push(this.history[i].serverUrl);
     }
-    const picked = await appActionMenu(t('settings_sync_history'), [
-      t('settings_sync_history_use'),
-      t('settings_sync_history_clear'),
-    ], { dangerIndexes: [1] });
-    if (picked === 1) {
-      for (let i = 0; i < this.history.length; i++) {
-        await syncService.removeServerHistory(this.history[i].serverUrl);
-      }
-      this.history = [];
-      this.historyCount = 0;
-      appToast(t('toast_sync_history_cleared'));
+    const picked = await appActionMenu(t('settings_sync_history_use'), options);
+    if (picked < 0 || picked >= this.history.length) {
+      return;
     }
+    const serverUrl = this.history[picked].serverUrl;
+    await syncService.applyHistoryServer(serverUrl);
+    this.syncServer = serverUrl;
+    appToast(`${t('settings_sync_server')}: ${serverUrl}`);
+  }
+
+  /** 清空同步历史（连接过的服务器地址） */
+  private async clearHistory(): Promise<void> {
+    await this.refreshHistory();
+    if (this.history.length === 0) {
+      appToast(t('toast_never_sync'));
+      return;
+    }
+    for (let i = 0; i < this.history.length; i++) {
+      await syncService.removeServerHistory(this.history[i].serverUrl);
+    }
+    await this.refreshHistory();
+    appToast(t('toast_sync_history_cleared'));
   }
 
   private async syncNow(): Promise<void> {
@@ -111,6 +141,16 @@ export struct SyncSection {
     ];
 
     const items: SettingSectionItem[] = [];
+
+    // 只读状态行：把 SyncService 的连接/同步状态显示出来（此前状态只在服务内部流转）
+    items.push({
+      type: 'info',
+      title: t('settings_sync_status'),
+      description: this.lastSyncText.length > 0
+        ? `${t('settings_sync_last_time')}: ${this.lastSyncText}`
+        : undefined,
+      value: this.syncStatusText,
+    });
 
     items.push({
       type: 'toggle',
@@ -223,6 +263,18 @@ export struct SyncSection {
         void this.openHistory();
       },
     });
+
+    // 清空历史单独成行（此前混在「使用历史服务器」同一个菜单里，语义容易混）
+    if (this.historyCount > 0) {
+      items.push({
+        type: 'button',
+        title: t('settings_sync_history_clear'),
+        danger: true,
+        onClick: (): void => {
+          void this.clearHistory();
+        },
+      });
+    }
 
     return items;
   }

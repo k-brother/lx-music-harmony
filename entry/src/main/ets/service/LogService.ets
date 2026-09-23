@@ -91,11 +91,6 @@ class LogServiceImpl {
     return logStore.revisionNo();
   }
 
-  /** 日志文件路径（导出/分享时展示） */
-  getLogFilePath(): string {
-    return this.logFile;
-  }
-
   /** 把内存中待写入的内容立即落盘 */
   flush(): void {
     if (this.pending.length === 0 || this.logFile.length === 0) {

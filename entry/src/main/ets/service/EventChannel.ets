@@ -32,11 +32,6 @@ export class EventChannel<T> {
     };
   }
 
-  /** 是否有订阅者（避免无谓地构造广播数据） */
-  hasListeners(): boolean {
-    return this.listeners.length > 0;
-  }
-
   /** 广播：订阅者抛错只记日志，不影响其他订阅者 */
   emit(invoke: (listener: T) => void): void {
     if (this.listeners.length === 0) {

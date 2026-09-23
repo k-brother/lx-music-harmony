@@ -39,11 +39,6 @@ class EventClass {
     }
   }
 
-  offAll(eventName: string): void {
-    let targetListeners = this.listeners.get(eventName);
-    if (!targetListeners) return;
-    this.listeners.delete(eventName);
-  }
 }
 
 // 导出单例

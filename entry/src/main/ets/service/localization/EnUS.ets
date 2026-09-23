@@ -112,6 +112,7 @@ export function buildEnUS(): Map<string, string> {
   m.set('download_title', 'Downloads');
   m.set('download_subtitle', 'In progress and completed');
   m.set('download_all', 'All');
+  m.set('download_songlist_all', 'Download whole list');
   m.set('download_active', 'Active');
   m.set('download_pending', 'Waiting');
   m.set('download_paused', 'Paused');
@@ -159,6 +160,17 @@ export function buildEnUS(): Map<string, string> {
   m.set('settings_backup', 'Backup & Restore');
   m.set('settings_backup_data', 'Backup Data');
   m.set('settings_backup_data_desc', 'Backup to file');
+  m.set('settings_backup_list', 'Local backups');
+  m.set('settings_backup_count', '{0} backups');
+  m.set('backup_list_empty', 'No local backup yet');
+  m.set('settings_backup_auto', 'Auto backup');
+  m.set('settings_backup_auto_desc', 'Back up lists and settings to the app directory on a schedule');
+  m.set('settings_backup_interval', 'Backup interval');
+  m.set('settings_backup_interval_desc', 'Days (1-365, applies when auto backup is on)');
+  m.set('settings_backup_restore', 'Restore this backup');
+  m.set('settings_backup_delete', 'Delete this backup');
+  m.set('confirm_delete_backup', 'Delete backup {0}?');
+  m.set('toast_backup_deleted', 'Backup deleted');
   m.set('settings_restore_data', 'Restore Data');
   m.set('settings_restore_data_desc', 'Restore from backup file');
   m.set('settings_export_list', 'Export Playlists');
@@ -372,6 +384,8 @@ export function buildEnUS(): Map<string, string> {
   m.set('settings_theme', 'Theme');
   m.set('settings_sync_auto', 'Auto Sync');
   m.set('settings_sync_interval', 'Sync interval');
+  m.set('settings_sync_status', 'Sync status');
+  m.set('settings_sync_last_time', 'Last sync');
   m.set('settings_sync_interval_desc', 'Minutes (1-1440, applies when auto sync is on)');
   m.set('settings_sync_now', 'Sync Now');
   m.set('settings_sync_history', 'Sync History');
@@ -392,6 +406,10 @@ export function buildEnUS(): Map<string, string> {
   m.set('settings_desktop_lyric', 'Desktop Lyric');
   m.set('settings_custom_source_desc', 'Import JS link or file');
   m.set('settings_about', 'About');
+  m.set('settings_reset', 'Restore defaults');
+  m.set('settings_reset_desc', 'Reset every setting to its initial value (lists and local music are kept)');
+  m.set('confirm_reset_settings', 'Restore default settings?\nTheme, language, playback settings will all be reset.');
+  m.set('toast_settings_reset', 'Default settings restored');
   m.set('settings_about_lx', 'About LX Music');
   m.set('pact_title', 'License Agreement');
   m.set('pact_accept', 'Accept');

@@ -8,8 +8,9 @@ import { common } from '@kit.AbilityKit';
 import filePicker from '@ohos.file.picker';
 import hilog from '@ohos.hilog';
 import { t, tf } from '../../../service/LocalizationService';
-import { appConfirm, appToast } from '../../../service/DialogService';
+import { appActionMenu, appConfirm, appToast } from '../../../service/DialogService';
 import { backupService, BackupDataType } from '../../../service/BackupService';
+import type { BackupFileInfo } from '../../../service/BackupService';
 import { initListService } from '../../../service/ListService';
 import {
   buildPlaylistsExport,
@@ -26,8 +27,31 @@ const TAG = 'BackupSection';
 
 @Component
 export struct BackupSection {
+  /** 自动备份开关与间隔（天） */
+  @State autoBackup: boolean = false;
+  @State backupInterval: number = 7;
+  /** 应用目录里的备份个数（用于「本地备份」行的说明） */
+  @State localBackupCount: number = 0;
+
   private hostContext(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext;
+  }
+
+  aboutToAppear(): void {
+    this.loadConfig();
+    void this.refreshBackupCount();
+  }
+
+  private loadConfig(): void {
+    const config = backupService.getConfig();
+    this.autoBackup = config.autoBackup;
+    this.backupInterval = config.backupInterval;
+  }
+
+  private async refreshBackupCount(): Promise<void> {
+    backupService.setContext(this.hostContext());
+    const list = await backupService.getBackupList();
+    this.localBackupCount = list.length;
   }
 
   /** 整包备份 */
@@ -39,6 +63,7 @@ export struct BackupSection {
       if (file) {
         hilog.info(DOMAIN, TAG, 'Backup created: %{public}s', file.fileName);
         appToast(t('toast_backup_success'));
+        this.localBackupCount++;
       } else {
         appToast(t('toast_backup_fail'));
       }
@@ -126,41 +151,174 @@ export struct BackupSection {
     }
   }
 
+  /**
+   * 本地备份列表：列出应用目录里的备份，选中后可恢复或删除。
+   *
+   * 「备份数据」写的是应用沙箱目录（backupLocation 默认 filesDir），此前没有任何入口
+   * 能看到这些文件 —— 用户备份完就等于找不到了，只能靠系统文件选择器碰运气。
+   */
+  private async openBackupList(): Promise<void> {
+    await this.refreshBackupCount();
+    const list = await backupService.getBackupList();
+    if (list.length === 0) {
+      appToast(t('backup_list_empty'));
+      return;
+    }
+    // 新的排在前面：备份时间倒序
+    list.sort((a: BackupFileInfo, b: BackupFileInfo): number => b.backupTime - a.backupTime);
+    const labels: string[] = [];
+    for (let i = 0; i < list.length; i++) {
+      labels.push(this.describeBackup(list[i]));
+    }
+    const picked = await appActionMenu(t('settings_backup_list'), labels);
+    if (picked < 0 || picked >= list.length) {
+      return;
+    }
+    const target = list[picked];
+    const action = await appActionMenu(target.fileName, [
+      t('settings_backup_restore'),
+      t('settings_backup_delete'),
+    ], { dangerIndexes: [1] });
+    if (action === 0) {
+      await this.restoreFromList(target);
+    } else if (action === 1) {
+      await this.deleteFromList(target);
+    }
+  }
+
+  /** 备份行的展示文案：时间 · 类型 · 大小 */
+  private describeBackup(file: BackupFileInfo): string {
+    const when = new Date(file.backupTime).toLocaleString();
+    const sizeKb = Math.max(1, Math.round(file.fileSize / 1024));
+    return `${when} · ${sizeKb} KB`;
+  }
+
+  private async restoreFromList(file: BackupFileInfo): Promise<void> {
+    const confirmed = await appConfirm(
+      t('restore_confirm_title'),
+      tf('confirm_restore_backup', [file.fileName]),
+      { danger: true });
+    if (!confirmed) {
+      appToast(t('toast_restore_cancel'));
+      return;
+    }
+    const ok = await backupService.restoreBackup(file);
+    if (!ok) {
+      appToast(t('toast_restore_fail'));
+      return;
+    }
+    appToast(t('toast_restore_success'));
+    await initListService();
+  }
+
+  private async deleteFromList(file: BackupFileInfo): Promise<void> {
+    const confirmed = await appConfirm(
+      t('settings_backup_delete'),
+      tf('confirm_delete_backup', [file.fileName]),
+      { danger: true });
+    if (!confirmed) {
+      return;
+    }
+    const ok = await backupService.deleteBackup(file);
+    appToast(ok ? t('toast_backup_deleted') : t('toast_operation_failed'));
+    await this.refreshBackupCount();
+  }
+
+  /** 自动备份开关：写配置并启停计时器 */
+  private toggleAutoBackup(enabled: boolean): void {
+    this.autoBackup = enabled;
+    void backupService.updateConfig({ autoBackup: enabled });
+    if (enabled) {
+      backupService.startAutoBackup();
+    } else {
+      backupService.stopAutoBackup();
+    }
+  }
+
+  /** 备份间隔（天）：写配置后立即重新计时 */
+  private applyBackupInterval(value: string): void {
+    const days = parseInt(value);
+    if (isNaN(days) || days < 1 || days > 365) {
+      appToast(t('settings_backup_interval_desc'));
+      return;
+    }
+    this.backupInterval = days;
+    void backupService.updateConfig({ backupInterval: days }).then((): void => {
+      if (this.autoBackup) {
+        backupService.startAutoBackup();
+      }
+    });
+    appToast(`${t('settings_backup_interval')}: ${days}`);
+  }
+
   private buildItems(): SettingSectionItem[] {
-    return [
-      {
-        type: 'button',
-        title: t('settings_backup_data'),
-        description: t('settings_backup_data_desc'),
-        onClick: (): void => {
-          void this.backupData();
-        },
+    const items: SettingSectionItem[] = [];
+
+    items.push({
+      type: 'button',
+      title: t('settings_backup_data'),
+      description: t('settings_backup_data_desc'),
+      onClick: (): void => {
+        void this.backupData();
       },
-      {
-        type: 'button',
-        title: t('settings_restore_data'),
-        description: t('settings_restore_data_desc'),
-        onClick: (): void => {
-          void this.restoreData();
-        },
+    });
+    items.push({
+      type: 'button',
+      title: t('settings_restore_data'),
+      description: t('settings_restore_data_desc'),
+      onClick: (): void => {
+        void this.restoreData();
       },
-      {
-        type: 'button',
-        title: t('settings_export_list'),
-        description: t('settings_export_list_desc'),
-        onClick: (): void => {
-          void this.exportPlaylists();
-        },
+    });
+    // 应用目录里的备份清单（此前备份出来就再也找不到）
+    items.push({
+      type: 'button',
+      title: t('settings_backup_list'),
+      description: this.localBackupCount > 0
+        ? tf('settings_backup_count', [this.localBackupCount.toString()])
+        : t('backup_list_empty'),
+      onClick: (): void => {
+        void this.openBackupList();
       },
-      {
-        type: 'button',
-        title: t('settings_import_list'),
-        description: t('settings_import_list_desc'),
-        onClick: (): void => {
-          void this.importPlaylists();
-        },
+    });
+    items.push({
+      type: 'toggle',
+      title: t('settings_backup_auto'),
+      description: t('settings_backup_auto_desc'),
+      value: this.autoBackup,
+      onChangeToggle: (value: boolean): void => {
+        this.toggleAutoBackup(value);
       },
-    ];
+    });
+    if (this.autoBackup) {
+      items.push({
+        type: 'input',
+        title: t('settings_backup_interval'),
+        description: t('settings_backup_interval_desc'),
+        value: this.backupInterval.toString(),
+        onChange: (value: string): void => {
+          this.applyBackupInterval(value);
+        },
+      });
+    }
+    items.push({
+      type: 'button',
+      title: t('settings_export_list'),
+      description: t('settings_export_list_desc'),
+      onClick: (): void => {
+        void this.exportPlaylists();
+      },
+    });
+    items.push({
+      type: 'button',
+      title: t('settings_import_list'),
+      description: t('settings_import_list_desc'),
+      onClick: (): void => {
+        void this.importPlaylists();
+      },
+    });
+
+    return items;
   }
 
   build() {

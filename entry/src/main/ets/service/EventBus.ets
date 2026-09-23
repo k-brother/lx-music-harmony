@@ -121,12 +121,6 @@ class EventBusImpl {
     this.listeners.clear();
   }
 
-  /**
-   * 清除特定事件的所有监听器
-   */
-  clearEvent(event: string): void {
-    this.listeners.delete(event);
-  }
 }
 
 // 单例（内部使用）

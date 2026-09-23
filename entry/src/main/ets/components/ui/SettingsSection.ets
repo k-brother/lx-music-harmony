@@ -136,6 +136,16 @@ export struct SettingsSection {
                     .fontSize(14)
                     .fontColor(DesignTokens.labelSecondary(this.theme))
                     .maxLines(1)
+                } else if (item.type === 'info') {
+                  // 只读信息行（同步状态、版本号等）：右侧显示当前值，不可点击
+                  Text(item.value as string)
+                    .fontSize(DesignTokens.fontCaption())
+                    .fontColor(DesignTokens.labelSecondary(this.theme))
+                    .maxLines(2)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                    .textAlign(TextAlign.End)
+                    .constraintSize({ maxWidth: 180 })
+                    .margin({ left: 12 })
                 } else if (item.type === 'button') {
                   SymbolGlyph($r('sys.symbol.chevron_right'))
                     .fontSize(18)

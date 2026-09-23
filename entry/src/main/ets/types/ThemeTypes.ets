@@ -29,19 +29,6 @@ export class ThemeExtInfo {
     this.cBadgeTertiary = cBadgeTertiary;
   }
 
-  // 获取所有值（用于遍历）
-  getAllValues(): string[] {
-    return [
-      this.cAppBackground,
-      this.cMainBackground,
-      this.bgImage,
-      this.bgImagePosition,
-      this.bgImageSize,
-      this.cBadgePrimary,
-      this.cBadgeSecondary,
-      this.cBadgeTertiary,
-    ];
-  }
 }
 
 // 主题配置 - themeColors 用 Map 存储
@@ -83,14 +70,6 @@ export class ActiveTheme {
 
   has(key: string): boolean {
     return this.colors.has(key);
-  }
-
-  getFont(): string {
-    return this.colors.get('c-850') || 'rgb(66,66,66)';
-  }
-
-  getPrimary(): string {
-    return this.colors.get('c-primary') || '#4DAF7C';
   }
 
   getContentBackground(): string {

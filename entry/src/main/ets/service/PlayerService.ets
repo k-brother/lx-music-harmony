@@ -1059,14 +1059,6 @@ export class PlayerService {
     };
   }
 
-  // 获取当前播放位置
-  async getCurrentPosition(): Promise<number> {
-    if (!this.isInitialized) {
-      return playerStateData.progress.nowPlayTime;
-    }
-    return await avGetPosition();
-  }
-
   // 获取总时长
   async getDuration(): Promise<number> {
     if (!this.isInitialized) {

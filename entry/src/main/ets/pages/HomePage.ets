@@ -683,11 +683,6 @@ export struct HomePage {
     .layoutWeight(1)
   }
 
-  getSourceName(sourceId: string): string {
-    // 与源切换器保持一致：别名/原名随设置变化
-    return sourceId === 'all' ? sourceLabel('all') : sourceLabel(sourceId);
-  }
-
   /** 搜索overlay内：点击搜索结果行播放 */
   async playSearchResult(item: SearchResultItem): Promise<void> {
     try {

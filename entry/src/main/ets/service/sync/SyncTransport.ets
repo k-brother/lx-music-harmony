@@ -205,11 +205,4 @@ export class SyncTransport {
     await this.socket.send(JSON.stringify(message));
   }
 
-  /** 取消重连计时（配置变更/停用同步时调用） */
-  cancelReconnect(): void {
-    if (this.reconnectTimerId !== null) {
-      clearTimeout(this.reconnectTimerId);
-      this.reconnectTimerId = null;
-    }
-  }
 }

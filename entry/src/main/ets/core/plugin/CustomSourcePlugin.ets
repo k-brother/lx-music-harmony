@@ -585,11 +585,6 @@ export class CustomSourcePlugin implements Plugin {
     }
   }
 
-  setScriptContent(scriptContent: string): void {
-    this.scriptContent = scriptContent;
-    this.supportedActions = parseSupportedActions(scriptContent);
-  }
-
   async destroy(): Promise<void> {
     hilog.info(DOMAIN, TAG, 'CustomSourcePlugin destroying');
 

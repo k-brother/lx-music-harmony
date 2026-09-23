@@ -122,6 +122,7 @@ export function buildZhCN(): Map<string, string> {
   m.set('download_title', '下载管理');
   m.set('download_subtitle', '进行中的任务与完成记录');
   m.set('download_all', '全部');
+  m.set('download_songlist_all', '下载整张歌单');
   m.set('download_active', '下载中');
   m.set('download_pending', '等待中');
   m.set('download_paused', '已暂停');
@@ -169,6 +170,17 @@ export function buildZhCN(): Map<string, string> {
   m.set('settings_backup', '备份与恢复');
   m.set('settings_backup_data', '备份数据');
   m.set('settings_backup_data_desc', '备份歌单、设置等数据到文件');
+  m.set('settings_backup_list', '本地备份');
+  m.set('settings_backup_count', '共 {0} 个备份');
+  m.set('backup_list_empty', '暂无本地备份');
+  m.set('settings_backup_auto', '自动备份');
+  m.set('settings_backup_auto_desc', '按间隔自动把歌单与设置备份到应用目录');
+  m.set('settings_backup_interval', '备份间隔');
+  m.set('settings_backup_interval_desc', '天 (1-365，仅自动备份开启时生效)');
+  m.set('settings_backup_restore', '恢复该备份');
+  m.set('settings_backup_delete', '删除该备份');
+  m.set('confirm_delete_backup', '确定删除备份 {0} 吗？');
+  m.set('toast_backup_deleted', '备份已删除');
   m.set('settings_restore_data', '恢复数据');
   m.set('settings_restore_data_desc', '从备份文件恢复数据');
   m.set('settings_export_list', '导出歌单');
@@ -375,6 +387,8 @@ export function buildZhCN(): Map<string, string> {
   m.set('settings_theme', '主题');
   m.set('settings_sync_auto', '自动同步');
   m.set('settings_sync_interval', '同步间隔');
+  m.set('settings_sync_status', '同步状态');
+  m.set('settings_sync_last_time', '上次同步');
   m.set('settings_sync_interval_desc', '分钟 (1-1440，仅自动同步开启时生效)');
   m.set('settings_sync_now', '立即同步');
   m.set('settings_sync_history', '同步历史');
@@ -395,6 +409,10 @@ export function buildZhCN(): Map<string, string> {
   m.set('settings_desktop_lyric', '桌面歌词');
   m.set('settings_custom_source_desc', '弹框配置：在线链接导入或本地JS文件导入');
   m.set('settings_about', '关于');
+  m.set('settings_reset', '恢复默认设置');
+  m.set('settings_reset_desc', '把全部设置项还原为初始值（歌单与本地音乐不受影响）');
+  m.set('confirm_reset_settings', '确定恢复默认设置吗？\n主题、语言、播放等设置都会还原。');
+  m.set('toast_settings_reset', '已恢复默认设置');
   m.set('settings_about_lx', '关于 LX Music');
   m.set('pact_title', '许可协议');
   m.set('pact_accept', '接受');

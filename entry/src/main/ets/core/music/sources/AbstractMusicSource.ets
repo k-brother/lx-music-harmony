@@ -29,13 +29,6 @@ export abstract class AbstractMusicSource extends BaseMusicSource implements IMu
     return this.clientConfig;
   }
 
-  applyClientConfig(cfg: MusicSourceClientConfig): void {
-    this.clientConfig = {
-      timeoutMs: cfg.timeoutMs !== undefined ? cfg.timeoutMs : this.clientConfig.timeoutMs,
-      userAgent: cfg.userAgent !== undefined ? cfg.userAgent : this.clientConfig.userAgent,
-    };
-  }
-
   async initialize(): Promise<void> {
     if (this.initDone) {
       return;

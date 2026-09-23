@@ -231,7 +231,15 @@ class SettingsServiceImpl {
     hilog.info(DOMAIN, TAG, 'Settings updated: %{public}s', changed.join(','));
   }
 
-  /** 恢复默认设置 */
+  /**
+   * 恢复默认设置。
+   *
+   * 只还原「外观 / 播放 / 列表 / 搜索 / 下载 / 桌面歌词」等可调项；
+   * 下面四类属于用户身份或凭据，静默清掉会很伤（误触一次就要重新配置），因此保留：
+   * syncEnabled / syncServer / syncKey（同步服务器与密钥）、agreedPact（已同意协议）。
+   * 完整性由 scripts/check_settings_reset.py 守住：AppSettings 新增字段时，
+   * 要么在这里出现，要么显式列进保留名单。
+   */
   async resetToDefaults(): Promise<void> {
     const defaults = createDefaultSettings();
     await this.update({
@@ -268,6 +276,8 @@ class SettingsServiceImpl {
       desktopLyricTextPositionY: defaults.desktopLyricTextPositionY,
       desktopLyricTextOpacity: defaults.desktopLyricTextOpacity,
       desktopLyricAnim: defaults.desktopLyricAnim,
+      desktopLyricX: defaults.desktopLyricX,
+      desktopLyricY: defaults.desktopLyricY,
       desktopLyricShadowColor: defaults.desktopLyricShadowColor,
       showListSource: defaults.showListSource,
       hapticFeedback: defaults.hapticFeedback,
@@ -303,6 +313,9 @@ class SettingsServiceImpl {
       autoCleanPlayedList: defaults.autoCleanPlayedList,
       autoStartDownload: defaults.autoStartDownload,
       maxConcurrentDownloads: defaults.maxConcurrentDownloads,
+      downloadPath: defaults.downloadPath,
+      downloadUseFilePicker: defaults.downloadUseFilePicker,
+      downloadFileName: defaults.downloadFileName,
       syncAutoSync: defaults.syncAutoSync,
       syncInterval: defaults.syncInterval,
       syncMode: defaults.syncMode,

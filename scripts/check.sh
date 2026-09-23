@@ -26,6 +26,9 @@ python3 "${SCRIPT_DIR}/check_symbols.py"
 echo "== 设置快照字段完整性 =="
 python3 "${SCRIPT_DIR}/check_settings_copy.py"
 
+echo "== 恢复默认设置覆盖完整性 =="
+python3 "${SCRIPT_DIR}/check_settings_reset.py"
+
 echo "== 功能对齐清单 =="
 python3 "${SCRIPT_DIR}/verify_features.py"
 

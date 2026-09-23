@@ -133,14 +133,17 @@ export interface SonglistMenuHandlers {
   onDedupe: () => void;
   onSelectMode: () => void;
   onSyncLocal: () => void;
+  /** 下载整张歌单（逐首提交，进度实时反馈） */
+  onDownloadAll: () => void;
 }
 
-/** 歌单级「更多」菜单：排序 / 去重 / 多选 / 同步到本地歌单 */
+/** 歌单级「更多」菜单：排序 / 去重 / 多选 / 下载全部 / 同步到本地歌单 */
 export async function showSonglistMoreMenu(title: string, handlers: SonglistMenuHandlers): Promise<void> {
   const items: string[] = [
     t('list_sort'),
     t('list_dedupe'),
     t('list_select_mode'),
+    t('download_songlist_all'),
     t('list_sync_local'),
   ];
   const picked = await appActionMenu(title, items);
@@ -151,6 +154,8 @@ export async function showSonglistMoreMenu(title: string, handlers: SonglistMenu
   } else if (picked === 2) {
     handlers.onSelectMode();
   } else if (picked === 3) {
+    handlers.onDownloadAll();
+  } else if (picked === 4) {
     handlers.onSyncLocal();
   }
 }

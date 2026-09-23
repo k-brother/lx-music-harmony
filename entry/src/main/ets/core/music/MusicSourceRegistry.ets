@@ -51,20 +51,8 @@ export class MusicSourceFactory {
     return this.getSource(sourceId).toSingleMusicSdkInterface();
   }
 
-  getAllSources(): IMusicSource[] {
-    const out: IMusicSource[] = [];
-    for (let i = 0; i < BUILTIN_ORDER.length; i++) {
-      out.push(this.getSource(BUILTIN_ORDER[i]));
-    }
-    return out;
-  }
-
   getBuiltinIds(): BuiltinSourceId[] {
     return BUILTIN_ORDER.slice();
-  }
-
-  clearInstances(): void {
-    this.instances.clear();
   }
 
   private createSource(sourceId: string): IMusicSource {

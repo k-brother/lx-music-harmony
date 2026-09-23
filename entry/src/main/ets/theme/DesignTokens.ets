@@ -73,14 +73,6 @@ export class DesignTokens {
     return '#E63946';
   }
 
-  static accentSecondary(): string {
-    return '#F1FAEE';
-  }
-
-  static accentTertiary(): string {
-    return '#A8DADC';
-  }
-
   static accentSoft(theme: string): string {
     return theme === 'dark' ? 'rgba(230,57,70,0.22)' : 'rgba(230,57,70,0.10)';
   }
@@ -153,10 +145,6 @@ export class DesignTokens {
 
   static tabBarBg(theme: string): string {
     return theme === 'dark' ? '#121214' : '#FBFBFD';
-  }
-
-  static tabBarBorder(theme: string): string {
-    return theme === 'dark' ? '#2C2D32' : 'rgba(0,0,0,0.08)';
   }
 
   // Typography scale (core surfaces: tab bar / player bar / play detail)
@@ -250,11 +238,6 @@ export class DesignTokens {
   /** 顶部栏高度 */
   static navBarHeight(): number {
     return 56;
-  }
-
-  /** 底部面板圆角（商业化 App 常见的 20-24） */
-  static radiusSheet(): number {
-    return 22;
   }
 
   // ==================== 动效（统一时长与曲线，避免每页写 220/260/300 混杂） ====================

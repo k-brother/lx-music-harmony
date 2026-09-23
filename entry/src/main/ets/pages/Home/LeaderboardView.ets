@@ -142,20 +142,12 @@ export struct LeaderboardView {
     return DesignTokens.pageBg(this.theme);
   }
 
-  cardBg(): string {
-    return DesignTokens.card(this.theme);
-  }
-
   cardBorder(): string {
     return DesignTokens.cardBorder(this.theme);
   }
 
   primaryText(): string {
     return DesignTokens.labelPrimary(this.theme);
-  }
-
-  secondaryText(): string {
-    return DesignTokens.labelSecondary(this.theme);
   }
 
   tertiaryText(): string {
@@ -521,30 +513,6 @@ export struct LeaderboardView {
       this.cardStates = errSlice;
       const msg = e instanceof Error ? e.message : String(e);
       hilog.warn(0x0001, 'LeaderboardView', 'preview err %{public}s %{public}s: %{public}s', board.source, board.name, msg);
-    }
-  }
-
-  /**
-   * 分批并发拉预览：比严格串行更快出首屏；单批内并发有限，降低源站限流概率。
-   */
-  async runPreviewLoadsInBatches(): Promise<void> {
-    const batchGen = this.previewGeneration;
-    let base = 0;
-    while (true) {
-      if (batchGen !== this.previewGeneration) {
-        hilog.info(0x0001, 'LeaderboardView', 'preview batch aborted: list rebuilt gen %{public}d→%{public}d', batchGen, this.previewGeneration);
-        return;
-      }
-      const n = this.cardStates.length;
-      if (base >= n) {
-        break;
-      }
-      const batch: Promise<void>[] = [];
-      for (let k = 0; k < PREVIEW_CONCURRENCY && base + k < n; k++) {
-        batch.push(this.loadPreviewForIndex(base + k));
-      }
-      await Promise.all(batch);
-      base += PREVIEW_CONCURRENCY;
     }
   }
 
