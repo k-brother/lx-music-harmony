@@ -8,7 +8,7 @@
 import { settingsService } from '../../../service/SettingsService';
 import { t, tf } from '../../../service/LocalizationService';
 import { navigationService, RouteName } from '../../../service/NavigationService';
-import { appConfirmSystem, appToast } from '../../../service/DialogService';
+import { appActionMenu, appConfirmSystem, appToast } from '../../../service/DialogService';
 import { logService } from '../../../service/LogService';
 import { APP_VERSION } from '../../../service/VersionCheckService';
 import { PactDialog } from '../../../components/common/PactDialog';
@@ -66,16 +66,6 @@ export struct AboutSection {
       },
       {
         type: 'button',
-        // 许可协议与隐私政策合并成一行：点开弹层里可切换两篇（原来两行平铺）
-        title: t('legal_title'),
-        description: t('legal_title_desc'),
-        onClick: (): void => {
-          this.legalDocument = 'pact';
-          this.showPact = true;
-        },
-      },
-      {
-        type: 'button',
         title: t('settings_reset'),
         description: t('settings_reset_desc'),
         danger: true,
@@ -83,7 +73,31 @@ export struct AboutSection {
           void this.resetSettings();
         },
       },
+      {
+        // 放在最后一行：点开先选要读哪一篇，再弹层展示（不再是两篇平铺）
+        type: 'button',
+        title: t('legal_title'),
+        description: t('legal_title_desc'),
+        onClick: (): void => {
+          void this.openLegalMenu();
+        },
+      },
     ];
+  }
+
+  /** 法律文本入口：先选文档，再弹层展示 */
+  private async openLegalMenu(): Promise<void> {
+    const picked = await appActionMenu(t('legal_title'), [
+      t('pact_title'),
+      t('privacy_title'),
+    ]);
+    if (picked === 0) {
+      this.legalDocument = 'pact';
+      this.showPact = true;
+    } else if (picked === 1) {
+      this.legalDocument = 'privacy';
+      this.showPact = true;
+    }
   }
 
   /** 二级面板：关于页 / 版本信息 / 运行日志 / 详细日志开关 */

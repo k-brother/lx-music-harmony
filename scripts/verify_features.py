@@ -86,6 +86,11 @@ CHECKS = [
  ('自定义源入口合并为菜单', 'pages/Home/Setting/CustomSourceSection.ets', r'openSourceMenu'),
  # 榜单详情头部补齐来源与说明，行与歌单详情统一（ListRow + ⋯ 菜单）
  ('榜单头部展示来源与说明', 'pages/Board/BoardDetailHeader.ets', r"from_source|description"),
+ ('榜单头部有播放全部与收藏两个等宽按钮', 'pages/Board/BoardDetailHeader.ets',
+  r'onCollect|CollectButton', r"\.width\(112\)"),
+ ('榜单卡片封面与歌名对齐', 'pages/Home/Leaderboard/ChartCard.ets', r'HEADER_LEFT_INSET'),
+ ('顶栏无右侧动作时补对称占位', 'components/ui/NavBar.ets', r'等宽的占位'),
+ ('法律文本入口先选再弹层', 'pages/Home/Setting/AboutSection.ets', r'openLegalMenu'),
  ('榜单说明来自源数据', 'core/music/sources/wy/leaderboard.ets', r'description'),
  # 面板统一规则（真机反馈定的）：取消不收成单独一行，一律右上角 ×；高度按内容行数自适应
  ('面板标题行统一（左标题+右上角关闭）', 'components/ui/SheetHeader.ets', r'export struct SheetHeader'),

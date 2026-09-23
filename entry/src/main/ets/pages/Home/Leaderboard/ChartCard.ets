@@ -12,6 +12,12 @@ import { t, tf, playCountUnits } from '../../../service/LocalizationService';
 import { formatPlayCount } from '../../../utils/FormatTools';
 import type { BoardMusicItem } from '../../../store/leaderboard/LeaderboardStoreState';
 
+/** 预览行的行内边距与序号列宽 */
+const PREVIEW_ROW_PADDING: number = 12;
+const PREVIEW_RANK_WIDTH: number = 32;
+/** 头部封面左边界 = 行内边距 + 序号列宽（与下面的歌名对齐） */
+const HEADER_LEFT_INSET: number = PREVIEW_ROW_PADDING + PREVIEW_RANK_WIDTH;
+
 @Component
 export struct ChartCard {
   @StorageProp('theme') theme: string = 'light';
@@ -130,7 +136,7 @@ export struct ChartCard {
             .margin({ left: 12, right: 24 })
         }
         .width('100%')
-        .padding({ left: 12, right: 12, top: 12, bottom: 12 })
+        .padding({ left: PREVIEW_ROW_PADDING, right: 12, top: 12, bottom: 12 })
         .backgroundColor(DesignTokens.mutedFill(this.theme))
         .borderRadius(10)
       })
@@ -172,7 +178,7 @@ export struct ChartCard {
               .fontSize(DesignTokens.fontBody())
               .fontWeight(FontWeight.Medium)
               .fontColor(this.rankColor(si + 1))
-              .width(32)
+              .width(PREVIEW_RANK_WIDTH)
               .textAlign(TextAlign.Center)
             Column({ space: 3 }) {
               Text(song.name.length > 0 ? song.name : '—')
@@ -203,7 +209,7 @@ export struct ChartCard {
             }
           }
           .width('100%')
-          .padding({ left: 12, right: 12, top: 12, bottom: 12 })
+          .padding({ left: PREVIEW_ROW_PADDING, right: 12, top: 12, bottom: 12 })
           .stateStyles({ pressed: this.pressed })
           .onClick(() => {
             if (this.onPlaySong) {
@@ -215,7 +221,7 @@ export struct ChartCard {
             Divider()
               .strokeWidth(0.5)
               .color(DesignTokens.cardBorder(this.theme))
-              .margin({ left: 44, right: 0 })
+              .margin({ left: HEADER_LEFT_INSET, right: 0 })
           }
         }
         .width('100%')
@@ -240,7 +246,11 @@ export struct ChartCard {
     .margin({ top: 12 })
   }
 
-  /** 卡片头部：封面 + 榜单名/播放量 + 展开与进入按钮 */
+  /**
+   * 卡片头部：封面 + 榜单名/播放量 + 展开与进入按钮。
+   * 左侧留出与歌曲行「序号列」等宽的内边距 —— 封面左边界因此与下面的歌名对齐
+   * （真机反馈：封面贴着卡片左边缘，和歌曲列表不在一条竖线上）。
+   */
   @Builder
   CardHeader() {
     Row() {
@@ -302,6 +312,8 @@ export struct ChartCard {
       }
       .alignItems(VerticalAlign.Center)
     }
+    .width('100%')
+    .padding({ left: HEADER_LEFT_INSET, right: 14, top: 4, bottom: 12 })
   }
 
   /** 试听列表区（加载中骨架 / 失败重试 / 空 / 列表） */

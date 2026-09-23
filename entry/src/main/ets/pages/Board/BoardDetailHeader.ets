@@ -28,6 +28,7 @@ export struct BoardDetailHeader {
   /** 滚动收缩态 */
   @Prop compact: boolean = false;
   onPlayAll?: () => void;
+  onCollect?: () => void;
 
   @State coverFailed: boolean = false;
 
@@ -73,6 +74,48 @@ export struct BoardDetailHeader {
         this.onPlayAll();
       }
     })
+  }
+
+  /** 收藏（整个榜单加进「我的列表」）：与歌单详情头部的按钮尺寸、圆角一致 */
+  @Builder
+  CollectButton() {
+    Row({ space: 5 }) {
+      Image($r('app.media.ic_common_heart'))
+        .width(14)
+        .height(14)
+        .fillColor(DesignTokens.labelPrimary(this.theme))
+      Text(t('player_love'))
+        .fontSize(DesignTokens.fontBody())
+        .fontColor(DesignTokens.labelPrimary(this.theme))
+        .fontWeight(FontWeight.Medium)
+    }
+    .height(38)
+    .width('100%')
+    .backgroundColor(DesignTokens.mutedFill(this.theme))
+    .borderRadius(19)
+    .justifyContent(FlexAlign.Center)
+    .onClick(() => {
+      if (this.onCollect) {
+        this.onCollect();
+      }
+    })
+  }
+
+  /** 两个等宽操作按钮（展开态与收缩态共用） */
+  @Builder
+  ActionButtons() {
+    Row({ space: 10 }) {
+      Column() {
+        this.PlayAllButton()
+      }
+      .layoutWeight(1)
+
+      Column() {
+        this.CollectButton()
+      }
+      .layoutWeight(1)
+    }
+    .width('100%')
   }
 
   build() {
@@ -138,12 +181,8 @@ export struct BoardDetailHeader {
         }
         .width('100%')
 
-        // 播放全部整行（与歌单详情一致：按钮不再挤占正文列）
-        Row() {
-          this.PlayAllButton()
-        }
-        .width('100%')
-        .margin({ top: 12 })
+        // 播放全部 / 收藏 两个等宽按钮（与歌单详情完全一致的做法）
+        this.ActionButtons()
 
         // 榜单说明（源提供才显示，最多两行）
         if (this.description.length > 0) {
@@ -158,16 +197,29 @@ export struct BoardDetailHeader {
         }
       }
 
-      // 收缩态：滚动后替代大封面那一行。
-      // 展开/收缩用 if/else 切换（此前两份都渲染、靠 opacity+0 高度藏，滚动时会多出空行）
+      // 收缩态：与歌单详情同款——播放全部 / 收藏 / 来源角标 + 曲目数
       if (this.compact) {
-        Row({ space: 8 }) {
-          this.PlayAllButton()
+        Row({ space: 10 }) {
+          Column() {
+            this.PlayAllButton()
+          }
+          .width(104)
+
+          Column() {
+            this.CollectButton()
+          }
+          .width(104)
+
           this.SourceBadge()
+
+          Blank()
+
+          Text(tf('count_songs', [this.songCount.toString()]))
+            .fontSize(DesignTokens.fontCaption())
+            .fontColor(DesignTokens.labelSecondary(this.theme))
         }
         .width('100%')
         .height(38)
-        .justifyContent(FlexAlign.Start)
         .alignItems(VerticalAlign.Center)
       }
     }

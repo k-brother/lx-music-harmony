@@ -21,6 +21,7 @@ import { scrollerOffsetY } from '../utils/ScrollTools';
 import { parameterizedPageScrollKey, ScrollMemoryHandle } from '../service/ScrollMemoryService';
 import { ListRow } from '../components/ui/ListRow';
 import { showSongItemMenu } from './SonglistDetail/SonglistMenus';
+import { batchAddToDefaultList } from './SonglistDetail/SonglistActions';
 import { songRowToQueueItem } from '../core/list/SongMappers';
 import { addRowToDefaultList, addRowToDislike, openInBrowser, shareSongRow, sourceDetailUrl } from './SonglistDetail/SonglistRowActions';
 import { emitSearchRequest } from '../service/EventBus';
@@ -452,6 +453,23 @@ export struct BoardDetailPage {
     return this.getUIContext().getHostContext() as common.UIAbilityContext;
   }
 
+  /** 收藏整个榜单：加到「我的列表」（默认列表），位置遵循「设置 → 列表 → 添加位置」 */
+  private async collectBoard(): Promise<void> {
+    if (this.songList.length === 0) {
+      this.showToast(t('list_empty'));
+      return;
+    }
+    try {
+      const added: number = await batchAddToDefaultList(this.songList, (message: string): void => {
+        this.showToast(message);
+      });
+      this.showToast(tf('toast_added_to_default', [tf('count_songs', [added.toString()])]));
+    } catch (err) {
+      hilog.warn(0x0001, 'BoardDetail', 'collectBoard failed: %{public}s', JSON.stringify(err));
+      this.showToast(t('toast_add_to_list_failed'));
+    }
+  }
+
   /** 顶栏右侧：曲目总数 */
   @Builder
   NavTrailingCount() {
@@ -503,6 +521,9 @@ export struct BoardDetailPage {
           compact: this.headerCompact,
           onPlayAll: (): void => {
             void this.playAll();
+          },
+          onCollect: (): void => {
+            void this.collectBoard();
           },
         })
         this.SongList()

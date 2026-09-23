@@ -69,6 +69,12 @@ export struct NavBar {
 
       if (this.trailing) {
         this.trailing()
+      } else if (this.showBack && !this.largeTitle && this.titleAlign === 'center') {
+        // 右侧没有动作时补一个与返回按钮等宽的占位：
+        // 否则标题只能在「返回按钮右侧」那一段里居中，视觉上偏右、和左侧按钮不对称
+        Column()
+          .width(DesignTokens.touchTarget())
+          .height(DesignTokens.touchTarget())
       }
     }
     .width('100%')

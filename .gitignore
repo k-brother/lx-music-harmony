@@ -5,6 +5,7 @@
 **/build
 /.hvigor
 .cxx
+.hvigor
 /.clangd
 /.clang-format
 /.clang-tidy
