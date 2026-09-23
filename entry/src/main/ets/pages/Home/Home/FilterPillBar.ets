@@ -42,7 +42,7 @@ export struct FilterPillBar {
   }
 
   private activeFg(): string {
-    return this.isSolid() ? '#FFFFFF' : DesignTokens.accent();
+    return this.isSolid() ? DesignTokens.onAccent() : DesignTokens.accent();
   }
 
   /** 实底胶囊需要更饱满的内边距，浅底胶囊留白略小（对齐两类既有设计） */

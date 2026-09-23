@@ -303,12 +303,7 @@ export struct PlayerBar {
     .backgroundColor(DesignTokens.chromeBar(this.theme))
     .borderRadius(DesignTokens.radiusCard())
     .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
-    .shadow({
-      radius: 16,
-      color: 'rgba(0,0,0,0.08)',
-      offsetX: 0,
-      offsetY: 4,
-    })
+    .shadow(DesignTokens.floatingShadow())
     .alignItems(VerticalAlign.Center)
   }
 

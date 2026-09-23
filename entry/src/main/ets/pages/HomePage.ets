@@ -628,7 +628,7 @@ export struct HomePage {
     Text(label)
       .fontSize(14)
       .fontWeight(this.searchType === type ? FontWeight.Medium : FontWeight.Normal)
-      .fontColor(this.searchType === type ? '#FFFFFF' : DesignTokens.labelSecondary(this.theme))
+      .fontColor(this.searchType === type ? DesignTokens.onAccent() : DesignTokens.labelSecondary(this.theme))
       .backgroundColor(this.searchType === type ? DesignTokens.accent() : DesignTokens.mutedFill(this.theme))
       .borderRadius(15)
       .padding({ left: 16, right: 16, top: 6, bottom: 6 })

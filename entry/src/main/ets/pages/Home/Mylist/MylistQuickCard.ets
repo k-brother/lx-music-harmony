@@ -11,7 +11,7 @@ export struct MylistQuickCard {
   @Prop title: string = '';
   @Prop subtitle: string = '';
   @Prop icon: Resource = $r('sys.symbol.heart_fill');
-  @Prop iconColor: string = '#E63946';
+  @Prop iconColor: string = DesignTokens.accent();
   onTap?: () => void;
 
   @Styles

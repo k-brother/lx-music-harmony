@@ -176,7 +176,7 @@ export struct CustomSourceSection {
           .layoutWeight(1)
           .height(DesignTokens.touchTarget())
           .fontSize(15)
-          .fontColor('#FFFFFF')
+          .fontColor(DesignTokens.onAccent())
           .backgroundColor(DesignTokens.accent())
           .enabled(!this.loading)
           .onClick(() => {

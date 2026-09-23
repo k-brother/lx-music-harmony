@@ -157,15 +157,16 @@ export struct LeaderboardView {
     return DesignTokens.labelTertiary(this.theme);
   }
 
+  /** 前三名配色：与榜单卡片 ChartCard.rankColor 一致（金/银/铜语义走 token） */
   rankColor(rank: number): string {
     if (rank === 1) {
-      return '#E63946';
+      return DesignTokens.accent();
     }
     if (rank === 2) {
-      return '#FF6B35';
+      return DesignTokens.warning();
     }
     if (rank === 3) {
-      return '#FF9500';
+      return DesignTokens.info();
     }
     return this.tertiaryText();
   }

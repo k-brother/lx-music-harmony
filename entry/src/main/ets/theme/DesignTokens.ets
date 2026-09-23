@@ -275,6 +275,11 @@ export class DesignTokens {
     return { radius: 10, color: 'rgba(0,0,0,0.08)', offsetX: 0, offsetY: 3 };
   }
 
+  /** 底部迷你播放条这类「贴边悬浮」元素的投影（比卡片更软、偏移更大） */
+  static floatingShadow(): ShadowOptions {
+    return { radius: 16, color: 'rgba(0,0,0,0.08)', offsetX: 0, offsetY: 4 };
+  }
+
   /**
    * 图片/动态背景上的文字阴影。
    *

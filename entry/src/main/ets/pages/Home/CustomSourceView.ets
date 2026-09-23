@@ -490,7 +490,7 @@ export struct CustomSourceView {
                 .height(44)
                 .fontSize(15)
                 .backgroundColor(this.isLoading ? DesignTokens.disabled(this.theme) : DesignTokens.accent())
-                .fontColor('#FFFFFF')
+                .fontColor(DesignTokens.onAccent())
                 .borderRadius(8)
                 .margin({ top: 16, left: 16, right: 16 })
                 .enabled(!this.isLoading)

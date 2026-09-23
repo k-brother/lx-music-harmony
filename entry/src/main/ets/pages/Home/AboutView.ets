@@ -134,7 +134,7 @@ export struct AboutView {
               Text('LX Music')
                 .fontSize(20)
                 .fontWeight(FontWeight.Bold)
-                .fontColor('#E63946')
+                .fontColor(DesignTokens.accent())
                 .margin({ bottom: 8 })
 
               Text(t('about_slogan'))
@@ -149,7 +149,7 @@ export struct AboutView {
 
               Text(t('about_app_desc'))
                 .fontSize(14)
-                .fontColor(this.theme === 'dark' ? '#CCCCCC' : '#555555')
+                .fontColor(DesignTokens.labelSecondary(this.theme))
                 .lineHeight(22)
                 .textAlign(TextAlign.JUSTIFY)
             }
@@ -276,7 +276,7 @@ export struct AboutView {
             Column() {
               Text(t('about_thanks_detail'))
                 .fontSize(14)
-                .fontColor(this.theme === 'dark' ? '#CCCCCC' : '#555555')
+                .fontColor(DesignTokens.labelSecondary(this.theme))
                 .lineHeight(22)
                 .textAlign(TextAlign.JUSTIFY)
             }
