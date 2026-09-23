@@ -6,7 +6,7 @@
  */
 import { DesignTokens } from '../../theme/DesignTokens';
 import { t } from '../../service/LocalizationService';
-import { BottomSheet } from './BottomSheet';
+import { BottomSheet, dismissSheet } from './BottomSheet';
 import type { SettingOption } from './SettingsTypes';
 
 @Component
@@ -21,10 +21,7 @@ export struct SelectSheet {
   onCancel?: () => void;
 
   private cancel(): void {
-    this.visible = false;
-    if (this.onCancel) {
-      this.onCancel();
-    }
+    this.visible = dismissSheet(this.onCancel);
   }
 
   build() {

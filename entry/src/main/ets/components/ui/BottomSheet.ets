@@ -11,6 +11,19 @@
  */
 import { DesignTokens } from '../../theme/DesignTokens';
 
+/**
+ * 关闭面板：先收起，再通知调用方（顺序固定，避免回调里读到的还是「打开」态）。
+ *
+ * 各个面板组件都写了同一段 `this.visible = false; if (this.onCancel) ...`，
+ * 这里收成一个函数，写法统一为 `this.visible = dismissSheet(this.onCancel);`
+ */
+export function dismissSheet(onDismiss?: () => void): boolean {
+  if (onDismiss) {
+    onDismiss();
+  }
+  return false;
+}
+
 @Component
 export struct BottomSheet {
   @StorageProp('theme') theme: string = 'light';

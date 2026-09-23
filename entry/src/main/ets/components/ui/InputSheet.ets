@@ -5,7 +5,7 @@
  */
 import { DesignTokens } from '../../theme/DesignTokens';
 import { t } from '../../service/LocalizationService';
-import { BottomSheet } from './BottomSheet';
+import { BottomSheet, dismissSheet } from './BottomSheet';
 
 @Component
 export struct InputSheet {
@@ -22,10 +22,7 @@ export struct InputSheet {
   onCancel?: () => void;
 
   private cancel(): void {
-    this.visible = false;
-    if (this.onCancel) {
-      this.onCancel();
-    }
+    this.visible = dismissSheet(this.onCancel);
   }
 
   @State draft: string = '';

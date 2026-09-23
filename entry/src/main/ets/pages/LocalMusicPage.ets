@@ -16,6 +16,9 @@ import { NavBar } from '../components/ui/NavBar';
 import { StateView } from '../components/ui/StateView';
 import { hapticService } from '../service/HapticService';
 import { appActionMenu } from '../service/DialogService';
+import { EditMetadataSheet } from './LocalMusic/EditMetadataSheet';
+import { LocalMusicActions } from './LocalMusic/LocalMusicActions';
+import { TrackRow } from './LocalMusic/TrackRow';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'LocalMusicPage';
@@ -24,18 +27,6 @@ const TAG: string = 'LocalMusicPage';
 export struct LocalMusicPage {
   @StorageProp('theme') theme: string = 'light';
 
-  /** 按压反馈：卡片轻微缩放 */
-  @Styles
-  pressScale() {
-    .scale({ x: 0.97, y: 0.97 })
-  }
-
-  /** 按压反馈：列表行/图标变淡 */
-  @Styles
-  pressDim() {
-    .opacity(0.65)
-  }
-
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
   @State tracks: LocalMusicInfo[] = [];
@@ -43,9 +34,6 @@ export struct LocalMusicPage {
   @State playingId: string = '';
   /** 元数据编辑弹窗 */
   @State showEditDialog: boolean = false;
-  @State editName: string = '';
-  @State editSinger: string = '';
-  @State editAlbum: string = '';
   private editingTrack: LocalMusicInfo | null = null;
   private coverLoaded: Set<string> = new Set();
 
@@ -162,19 +150,16 @@ export struct LocalMusicPage {
   /** 打开元数据编辑弹窗 */
   private openEditDialog(track: LocalMusicInfo): void {
     this.editingTrack = track;
-    this.editName = track.name;
-    this.editSinger = track.singer;
-    this.editAlbum = track.album;
     this.showEditDialog = true;
   }
 
-  /** 保存元数据 */
-  private async saveMetadata(): Promise<void> {
+  /** 保存元数据（新值由编辑面板回传） */
+  private async saveMetadata(name: string, singer: string, album: string): Promise<void> {
     const track = this.editingTrack;
     if (!track) {
       return;
     }
-    const ok = await localMusicService.updateMetadata(track.id, this.editName, this.editSinger, this.editAlbum);
+    const ok = await localMusicService.updateMetadata(track.id, name, singer, album);
     if (ok) {
       this.showEditDialog = false;
       this.editingTrack = null;
@@ -229,179 +214,34 @@ export struct LocalMusicPage {
     return `${m}:${s.toString().padStart(2, '0')}`;
   }
 
+  /** 行副标题：「歌手 · 专辑」，缺歌手时只显示专辑 */
+  private buildSubtitle(track: LocalMusicInfo): string {
+    if (track.singer.length === 0) {
+      return track.album;
+    }
+    return `${track.singer} · ${track.album}`;
+  }
+
   @Builder
   TopBar() {
     // 统一顶部栏：返回按钮触控区/标题字号/沉浸式安全区都由 NavBar 负责
     NavBar({
       title: t('local_music'),
       trailing: (): void => {
-        this.TopBarActions();
+        LocalMusicActions({
+          hasTracks: this.tracks.length > 0,
+          onRescan: (): void => {
+            void this.rescan();
+          },
+          onImport: (): void => {
+            void this.importMusic();
+          },
+        })
       },
     })
   }
 
-  @Builder
-  TopBarActions() {
-    Row({ space: 4 }) {
-      if (this.tracks.length > 0) {
-        Row() {
-          SymbolGlyph($r('sys.symbol.arrow_clockwise'))
-            .fontSize(19)
-            .fontColor([DesignTokens.labelSecondary(this.theme)])
-        }
-        .width(34)
-        .height(34)
-        .justifyContent(FlexAlign.Center)
-        .backgroundColor(DesignTokens.mutedFill(this.theme))
-        .borderRadius(17)
-        .responseRegion(DesignTokens.touchRegion(34))
-        .onClick(() => {
-          hapticService.light();
-          void this.rescan();
-        })
-      }
-
-      Row() {
-        SymbolGlyph($r('sys.symbol.plus'))
-          .fontSize(18)
-          .fontColor([DesignTokens.accent()])
-      }
-      .width(34)
-      .height(34)
-      .justifyContent(FlexAlign.Center)
-      .backgroundColor(DesignTokens.accentSoft(this.theme))
-      .borderRadius(17)
-      .responseRegion(DesignTokens.touchRegion(34))
-      .onClick(() => {
-        hapticService.light();
-        void this.importMusic();
-      })
-    }
-    .alignItems(VerticalAlign.Center)
-  }
-
-  @Builder
-  EditMetadataDialog() {
-    Stack() {
-      Column()
-        .width('100%')
-        .height('100%')
-        .backgroundColor(DesignTokens.maskColor())
-        .onClick(() => {
-          this.showEditDialog = false;
-          this.editingTrack = null;
-        })
-
-      Column({ space: 10 }) {
-        Text(t('edit_metadata'))
-          .fontSize(17)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(DesignTokens.labelPrimary(this.theme))
-          .width('100%')
-          .textAlign(TextAlign.Start)
-
-        // 三个字段内联书写：@Builder 传函数回调在 ArkTS V1 里支持不稳定
-        Column() {
-          Text(t('metadata_name'))
-            .fontSize(12)
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-            .width('100%')
-            .textAlign(TextAlign.Start)
-          TextInput({ text: this.editName })
-            .width('100%')
-            .height(40)
-            .fontSize(15)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-            .backgroundColor(DesignTokens.mutedFill(this.theme))
-            .borderRadius(10)
-            .padding({ left: 12, right: 12 })
-            .margin({ top: 6 })
-            .onChange((text: string) => {
-              this.editName = text;
-            })
-        }
-        .width('100%')
-        .alignItems(HorizontalAlign.Start)
-
-        Column() {
-          Text(t('metadata_singer'))
-            .fontSize(12)
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-            .width('100%')
-            .textAlign(TextAlign.Start)
-          TextInput({ text: this.editSinger })
-            .width('100%')
-            .height(40)
-            .fontSize(15)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-            .backgroundColor(DesignTokens.mutedFill(this.theme))
-            .borderRadius(10)
-            .padding({ left: 12, right: 12 })
-            .margin({ top: 6 })
-            .onChange((text: string) => {
-              this.editSinger = text;
-            })
-        }
-        .width('100%')
-        .alignItems(HorizontalAlign.Start)
-
-        Column() {
-          Text(t('metadata_album'))
-            .fontSize(12)
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-            .width('100%')
-            .textAlign(TextAlign.Start)
-          TextInput({ text: this.editAlbum })
-            .width('100%')
-            .height(40)
-            .fontSize(15)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-            .backgroundColor(DesignTokens.mutedFill(this.theme))
-            .borderRadius(10)
-            .padding({ left: 12, right: 12 })
-            .margin({ top: 6 })
-            .onChange((text: string) => {
-              this.editAlbum = text;
-            })
-        }
-        .width('100%')
-        .alignItems(HorizontalAlign.Start)
-
-        Row({ space: 10 }) {
-          Button(t('cancel'))
-            .fontSize(15)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-            .backgroundColor(DesignTokens.mutedFill(this.theme))
-            .borderRadius(18)
-            .layoutWeight(1)
-            .onClick(() => {
-              this.showEditDialog = false;
-              this.editingTrack = null;
-            })
-          Button(t('confirm'))
-            .fontSize(15)
-            .fontColor(DesignTokens.onAccent())
-            .backgroundColor(DesignTokens.accent())
-            .borderRadius(18)
-            .layoutWeight(1)
-            .onClick(() => {
-              void this.saveMetadata();
-            })
-        }
-        .width('100%')
-        .margin({ top: 6 })
-      }
-      .width('86%')
-      .padding(18)
-      .backgroundColor(DesignTokens.card(this.theme))
-      .borderRadius(20)
-      .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
-      .onClick(() => {})
-    }
-    .width('100%')
-    .height('100%')
-  }
-
+  /** 空态：提示 + 直接导入的入口（比只给一句提示更可操作） */
   @Builder
   EmptyState() {
     Column() {
@@ -426,78 +266,6 @@ export struct LocalMusicPage {
     .justifyContent(FlexAlign.Center)
   }
 
-  @Builder
-  TrackList() {
-    List() {
-      ForEach(this.tracks, (track: LocalMusicInfo, index: number) => {
-        ListItem() {
-          Row() {
-            if (track.picUrl && track.picUrl.length > 0) {
-              Image(`file://${track.picUrl}`)
-                .width(52)
-                .height(52)
-                .borderRadius(8)
-                .objectFit(ImageFit.Cover)
-                .backgroundColor(DesignTokens.mutedFill(this.theme))
-            } else {
-              Image($r('app.media.ic_player_cover_placeholder'))
-                .width(52)
-                .height(52)
-                .borderRadius(8)
-                .objectFit(ImageFit.Cover)
-            }
-
-            Column() {
-              Text(track.name)
-                .fontSize(15)
-                .fontWeight(this.playingId === track.id ? FontWeight.Medium : FontWeight.Normal)
-                .fontColor(this.playingId === track.id
-                  ? DesignTokens.accent() : DesignTokens.labelPrimary(this.theme))
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-                .width('100%')
-                .textAlign(TextAlign.Start)
-              Text(track.singer.length > 0 ? `${track.singer} · ${track.album}` : track.album)
-                .fontSize(12)
-                .fontColor(DesignTokens.labelTertiary(this.theme))
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-                .width('100%')
-                .textAlign(TextAlign.Start)
-                .margin({ top: 4 })
-            }
-            .layoutWeight(1)
-            .alignItems(HorizontalAlign.Start)
-            .margin({ left: 12 })
-
-            Text(this.formatDuration(track.duration))
-              .fontSize(12)
-              .fontColor(DesignTokens.labelTertiary(this.theme))
-          }
-          .width('100%')
-          .padding({
-            left: DesignTokens.spaceGutter(),
-            right: DesignTokens.spaceGutter(),
-            top: 8,
-            bottom: 8,
-          })
-          .stateStyles({ pressed: this.pressDim })
-          .onClick(() => {
-            void this.playTrack(index);
-          })
-          .gesture(
-            LongPressGesture()
-              .onAction(() => {
-                this.showTrackMenu(track);
-              })
-          )
-        }
-      }, (track: LocalMusicInfo) => track.id)
-    }
-    .width('100%')
-    .layoutWeight(1)
-  }
-
   build() {
     Column() {
       this.TopBar()
@@ -515,13 +283,44 @@ export struct LocalMusicPage {
       } else if (this.tracks.length === 0) {
         this.EmptyState()
       } else {
-        this.TrackList()
+        List() {
+          ForEach(this.tracks, (track: LocalMusicInfo, index: number) => {
+            ListItem() {
+              TrackRow({
+                title: track.name,
+                subtitle: this.buildSubtitle(track),
+                durationText: this.formatDuration(track.duration),
+                coverUrl: track.picUrl ?? '',
+                active: this.playingId === track.id,
+                onTap: (): void => {
+                  void this.playTrack(index);
+                },
+                onLongPress: (): void => {
+                  void this.showTrackMenu(track);
+                },
+              })
+            }
+          }, (track: LocalMusicInfo) => track.id)
+        }
+        .width('100%')
+        .layoutWeight(1)
       }
 
       PlayerBar()
 
       if (this.showEditDialog) {
-        this.EditMetadataDialog()
+        EditMetadataSheet({
+          visible: $showEditDialog,
+          name: this.editingTrack ? this.editingTrack.name : '',
+          singer: this.editingTrack ? this.editingTrack.singer : '',
+          album: this.editingTrack ? this.editingTrack.album : '',
+          onCancel: (): void => {
+            this.editingTrack = null;
+          },
+          onSave: (name: string, singer: string, album: string): void => {
+            void this.saveMetadata(name, singer, album);
+          },
+        })
       }
     }
     .width('100%')
