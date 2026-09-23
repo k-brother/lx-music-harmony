@@ -768,34 +768,7 @@ export struct LeaderboardView {
             .width('100%')
             .layoutWeight(1)
         } else {
-          Column() {
-            ForEach(this.cardStates, (card: LeaderboardCardState, index: number) => {
-              ChartCard({
-                cardId: this.cardStates[index].board.id,
-                title: this.cardStates[index].board.name,
-                playCount: this.cardStates[index].board.playCount ?? -1,
-                coverUrl: this.resolveCardCoverAt(index),
-                placeholderColors: this.placeholderPair(index),
-                songs: this.cardStates[index].displayList,
-                loadState: this.cardStates[index].loadState,
-                expanded: this.cardStates[index].expanded,
-                onToggleExpand: (): void => this.toggleExpand(index),
-                onOpenBoard: (): void => this.navigateToBoardDetail(this.cardStates[index].board),
-                onPlaySong: (song: BoardMusicItem): void => {
-                  void this.playPreviewSong(song);
-                },
-                onRetry: (): void => this.retryPreview(index),
-              })
-              .width('100%')
-              .padding({ left: 12, right: 12 })
-              .onAppear(() => {
-                this.ensurePreviewAtIndex(index);
-              })
-            }, (card: LeaderboardCardState, index: number) => `${card.board.source}_${card.board.id}_${index}`)
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .padding({ bottom: 16 })
+          this.CardsColumn()
         }
       }
       .width('100%')
@@ -834,37 +807,7 @@ export struct LeaderboardView {
                 .width('100%')
                 .height(this.filterBarPinnedHeight)
             }
-            Column() {
-              ForEach(this.cardStates, (card: LeaderboardCardState, index: number) => {
-                ChartCard({
-                  cardId: this.cardStates[index].board.id,
-                  title: this.cardStates[index].board.name,
-                  playCount: this.cardStates[index].board.playCount ?? -1,
-                  coverUrl: this.resolveCardCoverAt(index),
-                  placeholderColors: this.placeholderPair(index),
-                  songs: this.cardStates[index].displayList,
-                  loadState: this.cardStates[index].loadState,
-                  expanded: this.cardStates[index].expanded,
-                  onToggleExpand: (): void => this.toggleExpand(index),
-                  onOpenBoard: (): void => this.navigateToBoardDetail(this.cardStates[index].board),
-                  onPlaySong: (song: BoardMusicItem): void => {
-                    void this.playPreviewSong(song);
-                  },
-                  onRetry: (): void => this.retryPreview(index),
-                })
-                .width('100%')
-                // 大屏内容列居中（榜单卡片在 PC 上不拉满整屏）
-                .padding({
-                  left: 12 + Breakpoints.contentInset(this.windowWidthVp),
-                  right: 12 + Breakpoints.contentInset(this.windowWidthVp),
-                })
-                .onAppear(() => {
-                  this.ensurePreviewAtIndex(index);
-                })
-              }, (card: LeaderboardCardState, index: number) => `${card.board.source}_${card.board.id}_${index}`)
-            }
-            .width('100%')
-            .padding({ bottom: 16 })
+            this.CardsColumn()
             }
             .width('100%')
           }
@@ -881,6 +824,43 @@ export struct LeaderboardView {
       .width('100%')
       .layoutWeight(1)
     }
+  }
+
+
+  /** 榜单卡片列表（吸顶与未吸顶两种布局共用一份，含大屏内容列居中） */
+  @Builder
+  CardsColumn() {
+    Column() {
+      ForEach(this.cardStates, (card: LeaderboardCardState, index: number) => {
+        ChartCard({
+          cardId: this.cardStates[index].board.id,
+          title: this.cardStates[index].board.name,
+          playCount: this.cardStates[index].board.playCount ?? -1,
+          coverUrl: this.resolveCardCoverAt(index),
+          placeholderColors: this.placeholderPair(index),
+          songs: this.cardStates[index].displayList,
+          loadState: this.cardStates[index].loadState,
+          expanded: this.cardStates[index].expanded,
+          onToggleExpand: (): void => this.toggleExpand(index),
+          onOpenBoard: (): void => this.navigateToBoardDetail(this.cardStates[index].board),
+          onPlaySong: (song: BoardMusicItem): void => {
+            void this.playPreviewSong(song);
+          },
+          onRetry: (): void => this.retryPreview(index),
+        })
+        .width('100%')
+        // 大屏内容列居中（榜单卡片在 PC 上不拉满整屏）
+        .padding({
+          left: 12 + Breakpoints.contentInset(this.windowWidthVp),
+          right: 12 + Breakpoints.contentInset(this.windowWidthVp),
+        })
+        .onAppear(() => {
+          this.ensurePreviewAtIndex(index);
+        })
+      }, (card: LeaderboardCardState, index: number) => `${card.board.source}_${card.board.id}_${index}`)
+    }
+    .width('100%')
+    .padding({ bottom: 16 })
   }
 
 
