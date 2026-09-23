@@ -35,6 +35,9 @@ python3 "${SCRIPT_DIR}/check_accessibility.py"
 echo "== 迷你播放条覆盖 =="
 python3 "${SCRIPT_DIR}/check_mini_player.py"
 
+echo "== 回调属性内联组件（真机崩溃根因）=="
+python3 "${SCRIPT_DIR}/check_builder_params.py"
+
 echo "== 2in1 键盘操作 =="
 python3 "${SCRIPT_DIR}/check_keyboard.py"
 

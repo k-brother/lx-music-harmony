@@ -314,18 +314,29 @@ export struct LocalMusicPage {
     NavBar({
       title: t('local_music'),
       trailing: (): void => {
-        LocalMusicActions({
-          hasTracks: this.tracks.length > 0,
-          onPlayAll: (): void => {
-            void this.playTrack(0);
-          },
-          onRescan: (): void => {
-            void this.rescan();
-          },
-          onImport: (): void => {
-            void this.importMusic();
-          },
-        })
+        this.NavActions();
+      },
+    })
+  }
+
+  /**
+   * 顶栏右侧的三个动作（播放全部 / 重新扫描 / 导入）。
+   *
+   * 必须放在 @Builder 方法里：把 LocalMusicActions 直接内联在 trailing 箭头函数里时，
+   * ArkUI 不会把它当 builder 编译，运行时组件调用返回 undefined 直接崩（点击「本地音乐」闪退）。
+   */
+  @Builder
+  NavActions() {
+    LocalMusicActions({
+      hasTracks: this.tracks.length > 0,
+      onPlayAll: (): void => {
+        void this.playTrack(0);
+      },
+      onRescan: (): void => {
+        void this.rescan();
+      },
+      onImport: (): void => {
+        void this.importMusic();
       },
     })
   }

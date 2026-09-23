@@ -220,6 +220,21 @@ export struct LoveListPage {
     }
   }
 
+  /**
+   * 顶栏右侧的收藏数量。
+   *
+   * 必须放在 @Builder 方法里：直接把 `Text(...)` 写在 NavBar 的 trailing 箭头函数里，
+   * ArkUI 不会把它当 builder 编译，运行时 Text(...) 返回 undefined → `.fontSize` 抛
+   * TypeError 整页崩（真机日志：Cannot read property fontSize of undefined）。
+   */
+  @Builder
+  NavCount() {
+    Text(tf('count_songs_short', [this.songs.length.toString()]))
+      .fontSize(DesignTokens.fontCaption())
+      .fontColor(DesignTokens.labelTertiary(this.theme))
+      .padding({ right: 6 })
+  }
+
   @Builder
   private rowTrailing(song: SongRow, index: number) {
     Stack() {
@@ -245,10 +260,7 @@ export struct LoveListPage {
         largeTitle: true,
         collapsed: this.navCollapsed,
         trailing: (): void => {
-          Text(tf('count_songs_short', [this.songs.length.toString()]))
-            .fontSize(DesignTokens.fontCaption())
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-            .padding({ right: 6 })
+          this.NavCount();
         },
       })
 
