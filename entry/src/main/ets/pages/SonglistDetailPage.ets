@@ -15,13 +15,6 @@ import { createUserList, moveMusicInList, removeMusicsFromList, replaceUserListM
 import { emitSearchRequest } from '../service/EventBus';
 import { buildShareText, getMusicDetailPageUrl } from '../core/music/MusicDetailUrl';
 import { shareText } from '../service/ShareService';
-import {
-  collectOnlineSonglist,
-  uncollectOnlineSonglist,
-  syncUserListFromOnline,
-  isOnlineSonglistCollected,
-} from '../service/UserListSyncService';
-import { findUserListByBinding } from '../service/ListService';
 import { dislikeList } from '../core/dislike/DislikeList';
 import { showSongItemMenu, showSonglistMoreMenu } from './SonglistDetail/SonglistMenus';
 import { songRowToListItem, songRowToMusicInfo, songRowToQueueItem } from '../core/list/SongMappers';
@@ -35,6 +28,11 @@ import type { SongItem, SonglistInfo } from './SonglistDetail/SonglistTypes';
 import { SonglistDetailHeader } from './SonglistDetail/SonglistDetailHeader';
 import { SonglistBatchBar } from './SonglistDetail/SonglistBatchBar';
 import { SonglistSortSheet } from './SonglistDetail/SonglistSortSheet';
+import {
+  collectSonglist,
+  syncBoundSonglist,
+  uncollectSonglist,
+} from './SonglistDetail/SonglistCollectActions';
 import {
   batchAddToDefaultList,
   batchDownloadSongs,
@@ -626,36 +624,17 @@ export struct SonglistDetailPage {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
 
-  /**
-   * 收藏歌单（对齐安卓版 handleCollect）
-   * - 未收藏：创建绑定在线歌单的自建歌单（全量拉取歌曲），在「我的列表」可见
-   * - 已收藏：弹菜单，可「更新歌单内容」（列表级同步）或「取消收藏」
-   */
+  /** 收藏：语义在 SonglistDetail/SonglistCollectActions */
   async toggleCollect(): Promise<void> {
-    if (this.listInfo.source === 'local') {
-      this.showToast(t('toast_local_list_no_collect'));
-      return;
-    }
     if (this.collectBusy) {
       return;
     }
+    this.collectBusy = true;
     try {
-      hilog.info(0x0001, 'SonglistDetail', 'Collect songlist: %{public}s', this.listInfo.name);
-      const collected = isOnlineSonglistCollected(this.listInfo.source, this.listInfo.id);
-      if (collected) {
-        this.openCollectedMenu();
-        return;
+      const outcome = await collectSonglist(this.listInfo, this.toast());
+      if (outcome.kind === 'menu') {
+        await this.openCollectedMenu();
       }
-      // 未收藏：全量拉取并创建绑定列表（耗时操作，期间禁止重复触发）
-      this.collectBusy = true;
-      this.showToast(t('toast_collecting'));
-      const result = await collectOnlineSonglist(
-        this.listInfo.source, this.listInfo.id, this.listInfo.name, this.listInfo.pic);
-      this.showToast(tf('toast_collected_count', [String(result.localCount ?? 0)]));
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
-      hilog.error(0x0001, 'SonglistDetail', 'Failed to toggle collect: %{public}s', errorMsg);
-      this.showToast(t('toast_operation_failed') + ': ' + errorMsg);
     } finally {
       this.collectBusy = false;
     }
@@ -677,40 +656,12 @@ export struct SonglistDetailPage {
 
   /** 更新歌单内容（列表级同步） */
   private async syncBoundList(): Promise<void> {
-    const info = findUserListByBinding(this.listInfo.source, this.listInfo.id);
-    if (!info) {
-      this.showToast(t('toast_operation_failed'));
-      return;
-    }
-    try {
-      this.showToast(t('toast_syncing'));
-      const result = await syncUserListFromOnline(info.id);
-      if (result.ok) {
-        this.showToast(tf('toast_sync_done_count', [String(result.count)]));
-      } else {
-        this.showToast(t('toast_sync_local_failed'));
-      }
-    } catch (err) {
-      hilog.warn(0x0001, 'SonglistDetail', 'syncBoundList failed: %{public}s', JSON.stringify(err));
-      this.showToast(t('toast_sync_local_failed'));
-    }
+    await syncBoundSonglist(this.listInfo, this.toast());
   }
 
-  /** 取消收藏（删除对应自建歌单） */
+  /** 取消收藏（删除绑定列表） */
   private async uncollect(): Promise<void> {
-    try {
-      const confirmed = await this.showConfirmDialog(
-        t('toast_uncollected_action'),
-        tf('confirm_uncollect', [this.listInfo.name]));
-      if (!confirmed) {
-        return;
-      }
-      await uncollectOnlineSonglist(this.listInfo.source, this.listInfo.id);
-      this.showToast(tf('toast_uncollected', [this.listInfo.name]));
-    } catch (err) {
-      hilog.warn(0x0001, 'SonglistDetail', 'uncollect failed: %{public}s', JSON.stringify(err));
-      this.showToast(t('toast_operation_failed'));
-    }
+    await uncollectSonglist(this.listInfo, this.confirm(), this.toast());
   }
 
   // 显示提示
