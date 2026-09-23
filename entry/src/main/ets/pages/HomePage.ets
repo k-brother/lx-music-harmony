@@ -561,54 +561,7 @@ export struct HomePage {
   SearchOverlay() {
     if (this.searchViewState !== SearchViewState.HIDDEN) {
       Column() {
-        Row() {
-          Row() {
-            SymbolGlyph($r('sys.symbol.magnifyingglass'))
-              .fontSize(DesignTokens.fontLarge())
-              .fontColor([DesignTokens.labelSecondary(this.theme)])
-              .margin({ left: 10, right: 6 })
-            TextInput({ placeholder: t('search_placeholder'), text: this.searchText })
-              // 焦点键：浮层出现时自动聚焦（见 onAppear），用户不必再点一次
-              .key(SEARCH_INPUT_KEY)
-              .onAppear(() => {
-                requestFocusSafe(this.getUIContext(), SEARCH_INPUT_KEY);
-              })
-              .layoutWeight(1)
-              .height(DesignTokens.heightSearchField())
-              .backgroundColor(Color.Transparent)
-              .fontSize(DesignTokens.fontTitle())
-              .fontColor(DesignTokens.labelPrimary(this.theme))
-              .placeholderColor(DesignTokens.labelTertiary(this.theme))
-              .padding({ right: 10 })
-              .onChange((text: string) => {
-                this.searchText = text;
-                this.scheduleSearchTips(text);
-              })
-              .onSubmit(() => {
-                this.clearSearchTips();
-                void this.submitGlobalSearchFromStrip();
-              })
-          }
-          .layoutWeight(1)
-          .height(DesignTokens.heightSearchField())
-          .backgroundColor(DesignTokens.mutedFill(this.theme))
-          .borderRadius(DesignTokens.radiusSearch())
-          .border({ width: 0.5, color: DesignTokens.searchFieldBorder(this.theme) })
-          .alignItems(VerticalAlign.Center)
-
-          Text(t('cancel'))
-            .fontSize(DesignTokens.fontTitle())
-            .fontWeight(FontWeight.Medium)
-            .fontColor(DesignTokens.accent())
-            .padding({ left: 12, right: 4, top: 8, bottom: 8 })
-            .margin({ left: 4 })
-            .onClick(() => {
-              this.closeSearch();
-            })
-        }
-        .width('100%')
-        .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter() - 8, top: 10, bottom: 6 })
-        .alignItems(VerticalAlign.Center)
+        this.SearchFieldRow()
 
         // 搜索内容
         if (this.searchViewState === SearchViewState.INPUT) {
@@ -637,6 +590,61 @@ export struct HomePage {
         right: Breakpoints.contentInset(this.windowWidthVp),
       })
     }
+  }
+
+  /** 搜索浮层顶部：输入框（出现即自动聚焦）+ 取消按钮 */
+  @Builder
+  SearchFieldRow() {
+    Row() {
+      Row() {
+        SymbolGlyph($r('sys.symbol.magnifyingglass'))
+          .fontSize(DesignTokens.fontLarge())
+          .fontColor([DesignTokens.labelSecondary(this.theme)])
+          .margin({ left: 10, right: 6 })
+        TextInput({ placeholder: t('search_placeholder'), text: this.searchText })
+          // 焦点键：浮层出现时自动聚焦（见 onAppear），用户不必再点一次
+          .key(SEARCH_INPUT_KEY)
+          .onAppear(() => {
+            requestFocusSafe(this.getUIContext(), SEARCH_INPUT_KEY);
+          })
+          .layoutWeight(1)
+          .height(DesignTokens.heightSearchField())
+          .backgroundColor(Color.Transparent)
+          .fontSize(DesignTokens.fontTitle())
+          .fontColor(DesignTokens.labelPrimary(this.theme))
+          .placeholderColor(DesignTokens.labelTertiary(this.theme))
+          .padding({ right: 10 })
+          .accessibilityText(t('search_placeholder'))
+          .onChange((text: string) => {
+            this.searchText = text;
+            this.scheduleSearchTips(text);
+          })
+          .onSubmit(() => {
+            this.clearSearchTips();
+            void this.submitGlobalSearchFromStrip();
+          })
+      }
+      .layoutWeight(1)
+      .height(DesignTokens.heightSearchField())
+      .backgroundColor(DesignTokens.mutedFill(this.theme))
+      .borderRadius(DesignTokens.radiusSearch())
+      .border({ width: 0.5, color: DesignTokens.searchFieldBorder(this.theme) })
+      .alignItems(VerticalAlign.Center)
+
+      Text(t('cancel'))
+        .fontSize(DesignTokens.fontTitle())
+        .fontWeight(FontWeight.Medium)
+        .fontColor(DesignTokens.accent())
+        .padding({ left: 12, right: 4, top: 8, bottom: 8 })
+        .margin({ left: 4 })
+        .accessibilityText(t('cancel'))
+        .onClick(() => {
+          this.closeSearch();
+        })
+    }
+    .width('100%')
+    .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter() - 8, top: 10, bottom: 6 })
+    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
@@ -702,61 +710,78 @@ export struct HomePage {
     .layoutWeight(1)
   }
 
+  /** 搜索结果行 → 队列歌曲（取到播放地址后再回填 url / duration） */
+  private searchItemToSongInfo(item: SearchResultItem, url: string, duration: number): SongInfo {
+    return {
+      id: item.id,
+      songmid: item.songmid || item.id,
+      url,
+      title: item.name,
+      artist: item.singer,
+      album: item.album,
+      artwork: item.pic || null,
+      duration,
+      source: item.source,
+      hash: item.hash,
+      strMediaMid: item.strMediaMid,
+      songId: item.songId,
+      albumId: item.albumId,
+      copyrightId: item.copyrightId,
+    };
+  }
+
+  /** 搜索结果行 → 音乐信息（用于取播放地址、歌词等） */
+  private searchItemToMusicInfo(item: SearchResultItem): MusicInfo {
+    const src = item.source as MusicSource;
+    return {
+      id: item.id,
+      name: item.name,
+      singer: item.singer,
+      source: src,
+      songmid: item.songmid || item.id,
+      strMediaMid: src === 'tx' ? (item.strMediaMid || item.songmid || item.id) : item.strMediaMid,
+      hash: item.hash,
+      songId: item.songId,
+      albumId: item.albumId,
+      copyrightId: item.copyrightId,
+      albumName: item.album,
+      album: item.album,
+      interval: item.duration > 0 ? formatPlayTime(item.duration) : null,
+      img: item.pic && item.pic.length > 0 ? item.pic : null,
+      pic: item.pic && item.pic.length > 0 ? item.pic : undefined,
+      lrc: null,
+      types: [],
+      _types: new Map(),
+      typeUrl: new Map(),
+      otherSource: null,
+    };
+  }
+
+  /**
+   * 把当前搜索结果整列设为临时播放队列（不写入用户歌单），并定位到被点击的那首。
+   * 这样「下一首/上一首」可以在结果里连续播放，且不会静默改动用户数据。
+   */
+  private syncSearchQueueAsPlaylist(item: SearchResultItem): void {
+    if (this.searchResults.length <= 1) {
+      return;
+    }
+    const queue: SongInfo[] = [];
+    let startIndex = 0;
+    for (let i = 0; i < this.searchResults.length; i++) {
+      const r = this.searchResults[i];
+      if (r.id === item.id && r.source === item.source) {
+        startIndex = i;
+      }
+      queue.push(this.searchItemToSongInfo(r, '', r.duration > 0 ? r.duration : 0));
+    }
+    playerService.setPlayList(queue, startIndex);
+  }
+
   /** 搜索overlay内：点击搜索结果行播放 */
   async playSearchResult(item: SearchResultItem): Promise<void> {
     try {
-      // 队列 = 当前搜索结果列表（临时队列，不写入用户列表）
-      // 这样「下一首/上一首」可以在结果里连续播放，且不会静默改动用户数据
-      if (this.searchResults.length > 1) {
-        const queue: SongInfo[] = [];
-        let startIndex = 0;
-        for (let i = 0; i < this.searchResults.length; i++) {
-          const r = this.searchResults[i];
-          if (r.id === item.id && r.source === item.source) {
-            startIndex = i;
-          }
-          queue.push({
-            id: r.id,
-            songmid: r.songmid || r.id,
-            url: '',
-            title: r.name,
-            artist: r.singer,
-            album: r.album,
-            artwork: r.pic || null,
-            duration: r.duration > 0 ? r.duration : 0,
-            source: r.source,
-            hash: r.hash,
-            strMediaMid: r.strMediaMid,
-            songId: r.songId,
-            albumId: r.albumId,
-            copyrightId: r.copyrightId,
-          });
-        }
-        playerService.setPlayList(queue, startIndex);
-      }
-      const src = item.source as MusicSource;
-      const musicInfo: MusicInfo = {
-        id: item.id,
-        name: item.name,
-        singer: item.singer,
-        source: src,
-        songmid: item.songmid || item.id,
-        strMediaMid: src === 'tx' ? (item.strMediaMid || item.songmid || item.id) : item.strMediaMid,
-        hash: item.hash,
-        songId: item.songId,
-        albumId: item.albumId,
-        copyrightId: item.copyrightId,
-        albumName: item.album,
-        album: item.album,
-        interval: item.duration > 0 ? formatPlayTime(item.duration) : null,
-        img: item.pic && item.pic.length > 0 ? item.pic : null,
-        pic: item.pic && item.pic.length > 0 ? item.pic : undefined,
-        lrc: null,
-        types: [],
-        _types: new Map(),
-        typeUrl: new Map(),
-        otherSource: null,
-      };
+      this.syncSearchQueueAsPlaylist(item);
+      const musicInfo: MusicInfo = this.searchItemToMusicInfo(item);
       const url: string | null = await getMusicUrl({
         musicInfo,
         isRefresh: false,
@@ -768,22 +793,7 @@ export struct HomePage {
         return;
       }
       const durSec = item.duration > 0 ? item.duration : 0;
-      const songInfo: SongInfo = {
-        id: item.id,
-        songmid: item.songmid || item.id,
-        url: url,
-        title: item.name,
-        artist: item.singer,
-        album: item.album,
-        artwork: item.pic || null,
-        duration: durSec,
-        source: item.source,
-        hash: item.hash,
-        strMediaMid: item.strMediaMid,
-        songId: item.songId,
-        albumId: item.albumId,
-        copyrightId: item.copyrightId,
-      };
+      const songInfo: SongInfo = this.searchItemToSongInfo(item, url, durSec);
       // 选中歌曲（受「自动播放」设置控制）
       await playerService.playFromSelection(songInfo, url, durSec);
       // 不关闭搜索浮层，用户可在结果列表中自由切换歌曲

@@ -75,7 +75,10 @@ CHECKS = [
  ('下一首播放(插队)', 'service/PlayerService.ets', r'insertNext'),
  ('队列后台补全全量', 'service/PlayerService.ets', r'refineQueueWithFullList'),
  ('歌单行菜单:下一首/来源详情/不喜欢', 'pages/SonglistDetailPage.ets', r'playLater|openSourceDetail|showDislikeMenu'),
- ('搜索结果整列表入队', 'pages/HomePage.ets', r'this.searchResults.length > 1'),
+ # 搜索结果整列入队的逻辑收敛到 syncSearchQueueAsPlaylist（判据跟着指向该辅助方法，
+ # 且必须真的把整列交给播放器，避免只留一句守卫、实际不入队）
+ ('搜索结果整列表入队', 'pages/HomePage.ets',
+  r'syncSearchQueueAsPlaylist\(item: SearchResultItem\): void[\s\S]*?setPlayList\(queue, startIndex\)'),
  ('榜单整列表入队', 'pages/BoardDetailPage.ets', r'buildQueue\(\)'),
  ('播放页音量/静音', 'pages/PlayDetailPage.ets', r'applyVolume|toggleMute|VolumeSheet'),
  ('播放队列面板', 'pages/PlayDetailPage.ets', r'QueueSheet|playFromQueue'),

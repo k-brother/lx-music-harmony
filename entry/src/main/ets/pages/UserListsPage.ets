@@ -202,79 +202,10 @@ export struct UserListsPage {
   @Builder
   ListCardBody(index: number) {
     Row() {
-      Stack() {
-        if (this.userLists[index].pic) {
-          Image(this.userLists[index].pic)
-            .width(52)
-            .height(52)
-            .borderRadius(10)
-            .objectFit(ImageFit.Cover)
-        } else {
-          Column() {
-            SymbolGlyph($r('sys.symbol.music_note_list'))
-              .fontSize(DesignTokens.fontCoverIcon())
-              .fontColor([DesignTokens.labelTertiary(this.theme)])
-          }
-          .width(52)
-          .height(52)
-          .borderRadius(10)
-          .backgroundColor(DesignTokens.mutedFill(this.theme))
-          .justifyContent(FlexAlign.Center)
-        }
-      }
-
-      Column() {
-        Text(this.userLists[index].name)
-          .fontSize(DesignTokens.fontTitle())
-          .fontWeight(FontWeight.Medium)
-          .fontColor(DesignTokens.labelPrimary(this.theme))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Row() {
-          Text(tf('count_songs_unit', [this.userLists[index].count.toString()]))
-            .fontSize(DesignTokens.fontCallout())
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-          if (this.userLists[index].bindingListId.length > 0) {
-            Text(tf('list_bound_online', [sourceLabel(this.userLists[index].bindingSource)]))
-              .fontSize(DesignTokens.fontMicro())
-              .fontColor(DesignTokens.accent())
-              .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-              .borderRadius(8)
-              .border({ width: 1, color: DesignTokens.accent() })
-              .margin({ left: 8 })
-          }
-        }
-        .margin({ top: 6 })
-      }
-      .layoutWeight(1)
-      .padding({ left: 14 })
-      .alignItems(HorizontalAlign.Start)
-
-      if (this.userLists[index].bindingListId.length > 0) {
-        Text(t('list_sync_content'))
-          .fontSize(DesignTokens.fontCallout())
-          .fontColor(DesignTokens.accent())
-          .padding({ left: 10, right: 10, top: 6, bottom: 6 })
-          .onClick(() => {
-            void this.syncList(this.userLists[index]);
-          })
-      }
-
-      // 行尾 ⋮ 菜单：打开 / 更新歌单内容（绑定在线歌单时）/ 重命名 / 删除
-      Stack() {
-        Circle({ width: 30, height: 30 })
-          .fill(DesignTokens.mutedFill(this.theme))
-        Image($r('app.media.ic_pd_more'))
-          .width(14)
-          .height(14)
-          .fillColor(DesignTokens.labelSecondary(this.theme))
-      }
-      .width(DesignTokens.touchTarget())
-      .height(DesignTokens.touchTarget())
-      .accessibilityText(t('a11y_more'))
-      .onClick(() => {
-        void this.openListMenu(this.userLists[index]);
-      })
+      this.ListCardCover(index)
+      this.ListCardTitle(index)
+      this.ListCardSyncAction(index)
+      this.ListCardMoreAction(index)
     }
     .width('100%')
     .padding(16)
@@ -288,6 +219,96 @@ export struct UserListsPage {
         songListName: this.userLists[index].name,
         songListSource: 'local',
       });
+    })
+  }
+
+  /** 歌单封面（无封面时用占位图标） */
+  @Builder
+  ListCardCover(index: number) {
+    Stack() {
+      if (this.userLists[index].pic) {
+        Image(this.userLists[index].pic)
+          .width(52)
+          .height(52)
+          .borderRadius(10)
+          .objectFit(ImageFit.Cover)
+      } else {
+        Column() {
+          SymbolGlyph($r('sys.symbol.music_note_list'))
+            .fontSize(DesignTokens.fontCoverIcon())
+            .fontColor([DesignTokens.labelTertiary(this.theme)])
+        }
+        .width(52)
+        .height(52)
+        .borderRadius(10)
+        .backgroundColor(DesignTokens.mutedFill(this.theme))
+        .justifyContent(FlexAlign.Center)
+      }
+    }
+  }
+
+  /** 歌单名称 + 歌曲数 + 「来自 xxx」角标 */
+  @Builder
+  ListCardTitle(index: number) {
+    Column() {
+      Text(this.userLists[index].name)
+        .fontSize(DesignTokens.fontTitle())
+        .fontWeight(FontWeight.Medium)
+        .fontColor(DesignTokens.labelPrimary(this.theme))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Row() {
+        Text(tf('count_songs_unit', [this.userLists[index].count.toString()]))
+          .fontSize(DesignTokens.fontCallout())
+          .fontColor(DesignTokens.labelTertiary(this.theme))
+        if (this.userLists[index].bindingListId.length > 0) {
+          Text(tf('list_bound_online', [sourceLabel(this.userLists[index].bindingSource)]))
+            .fontSize(DesignTokens.fontMicro())
+            .fontColor(DesignTokens.accent())
+            .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+            .borderRadius(8)
+            .border({ width: 1, color: DesignTokens.accent() })
+            .margin({ left: 8 })
+        }
+      }
+      .margin({ top: 6 })
+    }
+    .layoutWeight(1)
+    .padding({ left: 14 })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  /** 绑定在线歌单时的「同步歌单内容」入口 */
+  @Builder
+  ListCardSyncAction(index: number) {
+    if (this.userLists[index].bindingListId.length > 0) {
+      Text(t('list_sync_content'))
+        .fontSize(DesignTokens.fontCallout())
+        .fontColor(DesignTokens.accent())
+        .padding({ left: 10, right: 10, top: 6, bottom: 6 })
+        .accessibilityText(t('list_sync_content'))
+        .onClick(() => {
+          void this.syncList(this.userLists[index]);
+        })
+    }
+  }
+
+  /** 行尾 ⋮ 菜单：打开 / 更新歌单内容（绑定在线歌单时）/ 重命名 / 删除 */
+  @Builder
+  ListCardMoreAction(index: number) {
+    Stack() {
+      Circle({ width: 30, height: 30 })
+        .fill(DesignTokens.mutedFill(this.theme))
+      Image($r('app.media.ic_pd_more'))
+        .width(14)
+        .height(14)
+        .fillColor(DesignTokens.labelSecondary(this.theme))
+    }
+    .width(DesignTokens.touchTarget())
+    .height(DesignTokens.touchTarget())
+    .accessibilityText(t('a11y_more'))
+    .onClick(() => {
+      void this.openListMenu(this.userLists[index]);
     })
   }
 
