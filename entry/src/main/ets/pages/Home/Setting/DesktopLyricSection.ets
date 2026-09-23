@@ -14,7 +14,7 @@ import {
 import { t } from '../../../service/LocalizationService';
 import { appToast } from '../../../service/DialogService';
 import { DesktopLyricManager } from '../../../components/common/DesktopLyric';
-import { watchSettings } from '../../../service/SettingsWatcher';
+import { Subscription } from '../../../service/Subscription';
 import { SettingsSection } from '../../../components/ui/SettingsSection';
 import type { SettingOption, SettingSectionItem } from '../../../components/ui/SettingsTypes';
 
@@ -43,22 +43,19 @@ export struct DesktopLyricSection {
   /** 是否由系统原生歌词接管（决定提示文案） */
   @State usingSystemLyric: boolean = false;
 
-  private settingsUnsub: (() => void) | null = null;
+  private settingsWatch: Subscription = new Subscription();
 
   aboutToAppear() {
     this.loadFromSettings();
     this.usingSystemLyric = DesktopLyricManager.isUsingSystemLyric();
     // 外部改动（恢复备份 / 同步下发 / 其它入口）也要刷新本分组
-    this.settingsUnsub = watchSettings((): void => {
+    this.settingsWatch.bindSettings((): void => {
       this.loadFromSettings();
     });
   }
 
   aboutToDisappear() {
-    if (this.settingsUnsub) {
-      this.settingsUnsub();
-      this.settingsUnsub = null;
-    }
+    this.settingsWatch.detach();
   }
 
   /** 从设置服务读取本分组的当前值 */

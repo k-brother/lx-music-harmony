@@ -2,10 +2,10 @@
  * 播放事件订阅中心
  *
  * PlayerService 里原先有 6 组「listener 数组 + 订阅方法 + 广播方法」，
- * 每组写法一致却各写一遍（约 150 行）。抽成一个通用订阅器：
+ * 每组写法一致却各写一遍（约 150 行）。通用订阅器已收敛到 service/EventChannel：
  * 新增一种事件只需一行声明，广播也自动做了「单个订阅者异常不影响其他人」。
  */
-import { appLog as hilog } from '../../core/log/AppLogger';
+import { EventChannel } from '../EventChannel';
 import type { MusicInfo } from '../../types/MusicTypes';
 import type { PlayStatus, ProgressInfo } from './PlaybackTypes';
 
@@ -24,47 +24,6 @@ export type MusicInfoListener = (info: MusicInfo) => void;
 export type TrackCompletedListener = () => void;
 /** 进度信息变化（节流后的完整快照） */
 export type ProgressInfoListener = (progress: ProgressInfo) => void;
-
-/** 订阅 + 广播的通用实现 */
-class EventChannel<T> {
-  private listeners: T[] = [];
-  private readonly name: string;
-
-  constructor(name: string) {
-    this.name = name;
-  }
-
-  /** 订阅，返回取消订阅函数 */
-  on(listener: T): () => void {
-    this.listeners.push(listener);
-    return (): void => {
-      const index = this.listeners.indexOf(listener);
-      if (index > -1) {
-        this.listeners.splice(index, 1);
-      }
-    };
-  }
-
-  /** 广播：订阅者抛错只记日志，不影响其他订阅者 */
-  emit(invoke: (listener: T) => void): void {
-    if (this.listeners.length === 0) {
-      return;
-    }
-    const snapshot = this.listeners.slice();
-    for (let i = 0; i < snapshot.length; i++) {
-      try {
-        invoke(snapshot[i]);
-      } catch (err) {
-        hilog.warn(DOMAIN, TAG, '%{public}s listener failed: %{public}s',
-          this.name, err instanceof Error ? err.message : JSON.stringify(err));
-      }
-    }
-  }
-
-  clear(): void {
-    this.listeners = [];
-  }
-}
 
 /**
  * 播放事件中心

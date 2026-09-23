@@ -11,6 +11,8 @@ import { getMusicUrl } from '../../core/music/MusicFeatureEntry';
 import type { MusicInfo } from '../../types/MusicTypes';
 import hilog from '@ohos.hilog';
 import { DesignTokens } from '../../theme/DesignTokens';
+import { CoverPalette } from '../../theme/CoverPalette';
+import { DeferredScrollToTop } from '../../utils/ScrollTools';
 import { SearchStrip, SearchStripActions } from '../../components/common/SearchStrip';
 import { FilterPillBar, type FilterPillOption } from './Home/FilterPillBar';
 import { RefreshContainer } from '../../components/ui/RefreshContainer';
@@ -86,37 +88,20 @@ export struct LeaderboardView {
   private readonly searchStripHostHeight: number = DesignTokens.heightSearchField() + DesignTokens.spaceUnit() * 2;
   private readonly filterBarPinnedHeight: number = 76;
   private readonly minPinCards: number = 2;
-  private alive: boolean = false;
-  private scrollTopTimer: number = -1;
+  /** 切源/切筛选后「等一帧再回顶部」（实现在 utils/ScrollTools） */
+  private scrollTopDefer: DeferredScrollToTop = new DeferredScrollToTop();
   @State coverInteractionUnlocked: boolean = false;
   private readonly startupPreviewLimit: number = 1;
 
   private scrollToTopSoon(): void {
-    if (!this.alive) {
-      return;
-    }
-    if (this.scrollTopTimer >= 0) {
-      clearTimeout(this.scrollTopTimer);
-      this.scrollTopTimer = -1;
-    }
-    this.scrollTopTimer = setTimeout((): void => {
-      if (!this.alive) {
-        return;
-      }
-      try {
-        this.leaderboardScroller.scrollTo({ xOffset: 0, yOffset: 0, animation: false });
-      } catch (e) {
-        hilog.warn(0x0001, 'LeaderboardView', 'scrollToTop failed: %{public}s', (e as Error)?.message);
-      }
-      this.scrollTopTimer = -1;
-    }, 0);
+    this.scrollTopDefer.schedule(this.leaderboardScroller);
   }
 
   private leaderboardSearchActions: SearchStripActions = new SearchStripActions();
   private leaderboardOverlaySearchActions: SearchStripActions = new SearchStripActions();
 
   aboutToAppear() {
-    this.alive = true;
+    this.scrollTopDefer.start();
     this.coverInteractionUnlocked = true;
     this.leaderboardSearchActions.onTextChange = (_t: string): void => {};
     this.leaderboardSearchActions.onMagnifierClick = (): void => {
@@ -138,11 +123,7 @@ export struct LeaderboardView {
   }
 
   aboutToDisappear() {
-    this.alive = false;
-    if (this.scrollTopTimer >= 0) {
-      clearTimeout(this.scrollTopTimer);
-      this.scrollTopTimer = -1;
-    }
+    this.scrollTopDefer.stop();
   }
 
 
@@ -689,26 +670,13 @@ export struct LeaderboardView {
   }
 
 
-  /** 卡片渐变占位色（按榜单 id 稳定取色，各榜可区分） */
+  /** 卡片渐变占位色（按榜单 id 稳定取色，色板与算法在 theme/CoverPalette） */
   placeholderPair(index: number): string[] {
     if (index < 0 || index >= this.cardStates.length) {
-      return ['#E63946', '#B5171F'];
+      return CoverPalette.defaultPair();
     }
-    const palettes: string[][] = [
-      ['#E63946', '#B5171F'],
-      ['#F2845C', '#C9552E'],
-      ['#5C7CFA', '#3B54B8'],
-      ['#2FA36B', '#1C7248'],
-      ['#8E5CF2', '#5F35B8'],
-      ['#E0A33B', '#B27322'],
-    ];
     const card = this.cardStates[index];
-    const key = `${card.board.source}__${card.board.id}`;
-    let hash = 0;
-    for (let i = 0; i < key.length; i++) {
-      hash = (hash * 31 + key.charCodeAt(i)) % 9973;
-    }
-    return palettes[hash % palettes.length];
+    return CoverPalette.pairFor(`${card.board.source}__${card.board.id}`);
   }
 
   /** 试听加载失败后的重试：回到 idle 再拉一次 */

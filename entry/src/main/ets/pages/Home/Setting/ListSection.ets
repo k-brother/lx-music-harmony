@@ -8,7 +8,7 @@ import { settingsService, type AddMusicLocation } from '../../../service/Setting
 import { t, tf } from '../../../service/LocalizationService';
 import { appActionMenu, appToast } from '../../../service/DialogService';
 import { dislikeList } from '../../../core/dislike/DislikeList';
-import { watchSettings } from '../../../service/SettingsWatcher';
+import { Subscription } from '../../../service/Subscription';
 import { SettingsSection } from '../../../components/ui/SettingsSection';
 import type { SettingOption, SettingSectionItem } from '../../../components/ui/SettingsTypes';
 
@@ -27,21 +27,18 @@ export struct ListSection {
   /** 不喜欢规则条数（打开设置页时刷新） */
   @State dislikeCount: number = 0;
 
-  private settingsUnsub: (() => void) | null = null;
+  private settingsWatch: Subscription = new Subscription();
 
   aboutToAppear() {
     this.loadFromSettings();
     // 外部改动（恢复备份 / 同步下发 / 其它入口）也要刷新本分组
-    this.settingsUnsub = watchSettings((): void => {
+    this.settingsWatch.bindSettings((): void => {
       this.loadFromSettings();
     });
   }
 
   aboutToDisappear() {
-    if (this.settingsUnsub) {
-      this.settingsUnsub();
-      this.settingsUnsub = null;
-    }
+    this.settingsWatch.detach();
   }
 
   /** 从设置服务读取本分组的当前值 */

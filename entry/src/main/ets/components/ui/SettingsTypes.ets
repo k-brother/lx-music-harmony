@@ -11,6 +11,21 @@ export interface SettingOption {
   value: string;
 }
 
+/**
+ * 选项值 → 展示文案。
+ *
+ * 设置分组里「已选中值要显示成哪个 label」原先在三个分组各写了一遍；
+ * 找不到时回退成原值，避免出现空白行。
+ */
+export function labelOfOption(options: SettingOption[], value: string): string {
+  for (let i = 0; i < options.length; i++) {
+    if (options[i].value === value) {
+      return options[i].label;
+    }
+  }
+  return value;
+}
+
 /** 设置行类型 */
 export type SettingItemType = 'toggle' | 'select' | 'button' | 'input' | 'info';
 

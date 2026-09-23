@@ -105,6 +105,14 @@ export class DesignTokens {
     return 'rgba(0, 0, 0, 0.42)';
   }
 
+  /**
+   * 压在封面等图片上的小标签底色（播放量角标等）。
+   * 与全屏遮罩区分开：这里的目的是「让白字在任意封面上可读」，不能太黑。
+   */
+  static scrim(): string {
+    return 'rgba(0, 0, 0, 0.40)';
+  }
+
   /** 中性信息（已完成的历史条目） */
   static info(): string {
     return '#0A84FF';
@@ -277,5 +285,20 @@ export class DesignTokens {
       return undefined;
     }
     return { radius: 12, color: 'rgba(0,0,0,0.06)', offsetX: 0, offsetY: 2 };
+  }
+
+  /** 悬浮元素（播放条、浮层卡片）的通用投影 */
+  static softShadow(): ShadowOptions {
+    return { radius: 10, color: 'rgba(0,0,0,0.08)', offsetX: 0, offsetY: 3 };
+  }
+
+  /**
+   * 图片/动态背景上的文字阴影。
+   *
+   * 播放页、歌词视图、播放页顶栏原先各自定义了一份完全相同的常量，
+   * 收敛到这里，保证「同一张背景图上的文字」观感一致。
+   */
+  static textShadowOnArtwork(): ShadowOptions {
+    return { radius: 8, color: 'rgba(0,0,0,0.55)', offsetX: 0, offsetY: 0 };
   }
 }

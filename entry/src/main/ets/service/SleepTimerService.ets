@@ -7,6 +7,7 @@
 import hilog from '@ohos.hilog';
 import { settingsService } from './SettingsService';
 import { playerService } from './PlayerService';
+import { EventChannel } from './EventChannel';
 
 const TAG = 'SleepTimerService';
 const DOMAIN = 0x0005;
@@ -22,7 +23,8 @@ type SleepTimerListener = (state: SleepTimerState) => void;
 
 class SleepTimerServiceImpl {
   private timerId: number = -1;
-  private listeners: SleepTimerListener[] = [];
+  /** 状态订阅（通用订阅器，与播放事件中心同一套实现） */
+  private listeners: EventChannel<SleepTimerListener> = new EventChannel('sleepTimer');
   /** 倒计时结束但仍在等当前歌曲播完 */
   private waitingTrackEnd: boolean = false;
   private trackEndUnsub: (() => void) | null = null;
@@ -161,13 +163,7 @@ class SleepTimerServiceImpl {
   }
 
   onStateChange(listener: SleepTimerListener): () => void {
-    this.listeners.push(listener);
-    return (): void => {
-      const index = this.listeners.indexOf(listener);
-      if (index > -1) {
-        this.listeners.splice(index, 1);
-      }
-    };
+    return this.listeners.on(listener);
   }
 
   private stopTimerOnly(): void {
@@ -179,9 +175,9 @@ class SleepTimerServiceImpl {
 
   private notify(): void {
     const state = this.getState();
-    for (let i = 0; i < this.listeners.length; i++) {
-      this.listeners[i](state);
-    }
+    this.listeners.emit((listener: SleepTimerListener): void => {
+      listener(state);
+    });
   }
 }
 

@@ -19,6 +19,7 @@ import { SkeletonGridItem } from '../../components/common/SkeletonView';
 import { SegmentedBar, type SegmentOption } from '../../components/ui/SegmentedBar';
 import { RefreshContainer } from '../../components/ui/RefreshContainer';
 import { hapticService } from '../../service/HapticService';
+import { DeferredScrollToTop } from '../../utils/ScrollTools';
 
 // 排序选项接口
 interface SortOption {
@@ -61,29 +62,12 @@ export struct SongListView {
   private readonly searchStripHostHeight: number = DesignTokens.heightSearchField() + DesignTokens.spaceUnit() * 2;
   private readonly filterBarPinnedHeight: number = 52;
   private readonly minPinItems: number = 9;
-  private alive: boolean = false;
-  private scrollTopTimer: number = -1;
+  /** 切源/切排序后「等一帧再回顶部」（实现在 utils/ScrollTools） */
+  private scrollTopDefer: DeferredScrollToTop = new DeferredScrollToTop();
   @State coverInteractionUnlocked: boolean = false;
 
   private scrollToTopSoon(): void {
-    if (!this.alive) {
-      return;
-    }
-    if (this.scrollTopTimer >= 0) {
-      clearTimeout(this.scrollTopTimer);
-      this.scrollTopTimer = -1;
-    }
-    this.scrollTopTimer = setTimeout((): void => {
-      if (!this.alive) {
-        return;
-      }
-      try {
-        this.songListScroller.scrollTo({ xOffset: 0, yOffset: 0, animation: false });
-      } catch (e) {
-        hilog.warn(0x0001, 'SongListView', 'scrollToTop failed: %{public}s', (e as Error)?.message);
-      }
-      this.scrollTopTimer = -1;
-    }, 0);
+    this.scrollTopDefer.schedule(this.songListScroller);
   }
 
   // 排序选项
@@ -111,7 +95,7 @@ export struct SongListView {
   private readonly preloadRows: number = 1;
 
   aboutToAppear() {
-    this.alive = true;
+    this.scrollTopDefer.start();
     this.coverInteractionUnlocked = true;
     // 初始化排序选项
     const defaultOption: SortOption = { name: t('sort_default'), tid: 'default' };
@@ -124,11 +108,7 @@ export struct SongListView {
   }
 
   aboutToDisappear() {
-    this.alive = false;
-    if (this.scrollTopTimer >= 0) {
-      clearTimeout(this.scrollTopTimer);
-      this.scrollTopTimer = -1;
-    }
+    this.scrollTopDefer.stop();
   }
 
 

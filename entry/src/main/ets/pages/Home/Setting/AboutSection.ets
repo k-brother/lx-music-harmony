@@ -11,9 +11,10 @@ import { appToast } from '../../../service/DialogService';
 import { logService } from '../../../service/LogService';
 import { APP_VERSION } from '../../../service/VersionCheckService';
 import { PactDialog } from '../../../components/common/PactDialog';
-import { watchSettings } from '../../../service/SettingsWatcher';
+import { Subscription } from '../../../service/Subscription';
 import { SettingsSection } from '../../../components/ui/SettingsSection';
 import type { SettingSectionItem } from '../../../components/ui/SettingsTypes';
+import { DesignTokens } from '../../../theme/DesignTokens';
 
 @Component
 export struct AboutSection {
@@ -21,21 +22,18 @@ export struct AboutSection {
   @State logCount: number = 0;
   @State showPact: boolean = false;
 
-  private settingsUnsub: (() => void) | null = null;
+  private settingsWatch: Subscription = new Subscription();
 
   aboutToAppear() {
     this.loadFromSettings();
     // 外部改动（恢复备份 / 同步下发 / 其它入口）也要刷新本分组
-    this.settingsUnsub = watchSettings((): void => {
+    this.settingsWatch.bindSettings((): void => {
       this.loadFromSettings();
     });
   }
 
   aboutToDisappear() {
-    if (this.settingsUnsub) {
-      this.settingsUnsub();
-      this.settingsUnsub = null;
-    }
+    this.settingsWatch.detach();
   }
 
   /** 从设置服务读取本分组的当前值 */
@@ -102,7 +100,7 @@ export struct AboutSection {
           Column()
             .width('100%')
             .height('100%')
-            .backgroundColor('rgba(0, 0, 0, 0.45)')
+            .backgroundColor(DesignTokens.maskColor())
 
           PactDialog({
             readonlyMode: true,

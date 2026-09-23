@@ -14,6 +14,7 @@ import { navigationService, NavigationParams } from '../service/NavigationServic
 import { DesignTokens } from '../theme/DesignTokens';
 import { NavBar } from '../components/ui/NavBar';
 import { StateView } from '../components/ui/StateView';
+import { scrollerOffsetY } from '../utils/ScrollTools';
 
 interface BoardDetailParams {
   boardId: string;
@@ -54,15 +55,7 @@ export struct BoardDetailPage {
   private songListScroller: Scroller = new Scroller();
 
   private getSongListOffsetY(): number {
-    try {
-      const y = this.songListScroller.currentOffset().yOffset;
-      if (typeof y === 'number' && isFinite(y)) {
-        return y;
-      }
-      return 0;
-    } catch (_e) {
-      return 0;
-    }
+    return scrollerOffsetY(this.songListScroller);
   }
 
   private getBoardCover(): string {

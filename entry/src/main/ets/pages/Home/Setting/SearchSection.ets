@@ -4,7 +4,7 @@
 import { settingsService } from '../../../service/SettingsService';
 import { t, tf } from '../../../service/LocalizationService';
 import { appToast } from '../../../service/DialogService';
-import { watchSettings } from '../../../service/SettingsWatcher';
+import { Subscription } from '../../../service/Subscription';
 import { SettingsSection } from '../../../components/ui/SettingsSection';
 import type { SettingOption, SettingSectionItem } from '../../../components/ui/SettingsTypes';
 
@@ -15,21 +15,18 @@ export struct SearchSection {
   @State showSearchHistory: boolean = false;
   @State searchHistoryCount: number = 20;
 
-  private settingsUnsub: (() => void) | null = null;
+  private settingsWatch: Subscription = new Subscription();
 
   aboutToAppear() {
     this.loadFromSettings();
     // 外部改动（恢复备份 / 同步下发 / 其它入口）也要刷新本分组
-    this.settingsUnsub = watchSettings((): void => {
+    this.settingsWatch.bindSettings((): void => {
       this.loadFromSettings();
     });
   }
 
   aboutToDisappear() {
-    if (this.settingsUnsub) {
-      this.settingsUnsub();
-      this.settingsUnsub = null;
-    }
+    this.settingsWatch.detach();
   }
 
   /** 从设置服务读取本分组的当前值 */

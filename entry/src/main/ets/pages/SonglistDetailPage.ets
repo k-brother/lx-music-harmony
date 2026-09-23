@@ -46,6 +46,7 @@ import {
 } from './SonglistDetail/SonglistActions';
 import { DesignTokens } from '../theme/DesignTokens';
 import { formatPlayTime } from '../utils/CommonUtils';
+import { scrollerOffsetY } from '../utils/ScrollTools';
 import { SkeletonListItem } from '../components/common/SkeletonView';
 import { StateView } from '../components/ui/StateView';
 import { t, tf, sourceLabel } from '../service/LocalizationService';
@@ -215,15 +216,7 @@ export struct SonglistDetailPage {
   }
 
   private getSongListOffsetY(): number {
-    try {
-      const y = this.songListScroller.currentOffset().yOffset;
-      if (typeof y === 'number' && isFinite(y)) {
-        return y;
-      }
-      return 0;
-    } catch (_e) {
-      return 0;
-    }
+    return scrollerOffsetY(this.songListScroller);
   }
 
   private getSourceLabel(): string {

@@ -11,9 +11,9 @@ import { t } from '../../../service/LocalizationService';
 import { setLanguage } from '../../../service/LocalizationService';
 import { navigationService, RouteName } from '../../../service/NavigationService';
 import { appToast } from '../../../service/DialogService';
-import { watchSettings } from '../../../service/SettingsWatcher';
+import { Subscription } from '../../../service/Subscription';
 import { SettingsSection } from '../../../components/ui/SettingsSection';
-import type { SettingOption, SettingSectionItem } from '../../../components/ui/SettingsTypes';
+import { labelOfOption, type SettingOption, type SettingSectionItem } from '../../../components/ui/SettingsTypes';
 
 @Component
 export struct BasicSection {
@@ -25,21 +25,18 @@ export struct BasicSection {
   @State allowProgressBarSeek: boolean = true;
   @State hapticFeedback: boolean = true;
 
-  private settingsUnsub: (() => void) | null = null;
+  private settingsWatch: Subscription = new Subscription();
 
   aboutToAppear() {
     this.loadFromSettings();
     // 外部改动（恢复备份 / 同步下发 / 其它入口）也要刷新本分组
-    this.settingsUnsub = watchSettings((): void => {
+    this.settingsWatch.bindSettings((): void => {
       this.loadFromSettings();
     });
   }
 
   aboutToDisappear() {
-    if (this.settingsUnsub) {
-      this.settingsUnsub();
-      this.settingsUnsub = null;
-    }
+    this.settingsWatch.detach();
   }
 
   /** 从设置服务读取本分组的当前值 */
@@ -119,7 +116,7 @@ export struct BasicSection {
       onChange: (value: string): void => {
         this.sourceNameType = value;
         void settingsService.update({ sourceNameType: value as SourceNameType });
-        appToast(`${t('settings_source_name')}: ${this.labelOf(sourceNameOptions, value)}`);
+        appToast(`${t('settings_source_name')}: ${labelOfOption(sourceNameOptions, value)}`);
       },
     });
 
@@ -132,7 +129,7 @@ export struct BasicSection {
       onChange: (value: string): void => {
         this.shareType = value;
         void settingsService.update({ shareType: value as ShareType });
-        appToast(`${t('settings_share_type')}: ${this.labelOf(shareOptions, value)}`);
+        appToast(`${t('settings_share_type')}: ${labelOfOption(shareOptions, value)}`);
       },
     });
 
@@ -161,14 +158,6 @@ export struct BasicSection {
     return items;
   }
 
-  private labelOf(options: SettingOption[], value: string): string {
-    for (let i = 0; i < options.length; i++) {
-      if (options[i].value === value) {
-        return options[i].label;
-      }
-    }
-    return value;
-  }
 
   build() {
     SettingsSection({ title: t('settings_basic'), items: this.buildItems() })

@@ -12,7 +12,6 @@ import { SegmentedBar } from '../../components/ui/SegmentedBar';
 import { t } from '../../service/LocalizationService';
 
 /** 字体阴影（设置 → 外观 → 字体阴影） */
-const PLAY_TEXT_SHADOW: ShadowOptions = { radius: 8, color: 'rgba(0,0,0,0.55)', offsetX: 0, offsetY: 0 };
 
 @Component
 export struct PlayDetailTopBar {
@@ -36,13 +35,13 @@ export struct PlayDetailTopBar {
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .fontWeight(FontWeight.Medium)
           .maxLines(1)
-          .textShadow(this.fontShadow ? PLAY_TEXT_SHADOW : undefined)
+          .textShadow(this.fontShadow ? DesignTokens.textShadowOnArtwork() : undefined)
         if (this.singer.length > 0) {
           Text(this.singer)
             .fontSize(DesignTokens.fontCaption())
             .fontColor(DesignTokens.labelSecondary(this.theme))
             .maxLines(1)
-            .textShadow(this.fontShadow ? PLAY_TEXT_SHADOW : undefined)
+            .textShadow(this.fontShadow ? DesignTokens.textShadowOnArtwork() : undefined)
         }
       }
       .layoutWeight(1)

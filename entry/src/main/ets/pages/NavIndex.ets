@@ -24,6 +24,7 @@ import { on, EventTypes } from '../service/EventBus';
 import { playerService } from '../service/PlayerService';
 import { SheetHost } from '../components/ui/SheetHost';
 import { AppDestination } from '../components/ui/AppDestination';
+import { DesignTokens } from '../theme/DesignTokens';
 
 
 @Component
@@ -114,7 +115,7 @@ export struct NavIndex {
         .height('100%')
         .justifyContent(FlexAlign.Center)
         .alignItems(HorizontalAlign.Center)
-        .backgroundColor('rgba(0,0,0,0.45)')
+        .backgroundColor(DesignTokens.maskColor())
       }
     }
     .width('100%')

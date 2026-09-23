@@ -10,9 +10,9 @@ import { t } from '../../../service/LocalizationService';
 import { appToast } from '../../../service/DialogService';
 import { applyThemeById, applyAutoTheme, getAllThemes } from '../../../service/ThemeService';
 import { DEFAULT_THEME_ID } from '../../../core/theme/themes';
-import { watchSettings } from '../../../service/SettingsWatcher';
+import { Subscription } from '../../../service/Subscription';
 import { SettingsSection } from '../../../components/ui/SettingsSection';
-import type { SettingOption, SettingSectionItem } from '../../../components/ui/SettingsTypes';
+import { labelOfOption, type SettingOption, type SettingSectionItem } from '../../../components/ui/SettingsTypes';
 import type { ThemeItem } from '../../../types/ThemeTypes';
 
 const DOMAIN = 0x0001;
@@ -33,21 +33,18 @@ export struct AppearanceSection {
   @State fontSize: number = 14;
   @State showAnimation: boolean = true;
 
-  private settingsUnsub: (() => void) | null = null;
+  private settingsWatch: Subscription = new Subscription();
 
   aboutToAppear() {
     this.loadFromSettings();
     // 外部改动（恢复备份 / 同步下发 / 其它入口）也要刷新本分组
-    this.settingsUnsub = watchSettings((): void => {
+    this.settingsWatch.bindSettings((): void => {
       this.loadFromSettings();
     });
   }
 
   aboutToDisappear() {
-    if (this.settingsUnsub) {
-      this.settingsUnsub();
-      this.settingsUnsub = null;
-    }
+    this.settingsWatch.detach();
   }
 
   /** 从设置服务读取本分组的当前值 */
@@ -149,7 +146,7 @@ export struct AppearanceSection {
         options: allOptions,
         onChange: (value: string): void => {
           void this.applyTheme(value);
-          appToast(`${t('settings_theme')}: ${this.labelOf(allOptions, value)}`);
+          appToast(`${t('settings_theme')}: ${labelOfOption(allOptions, value)}`);
         },
       });
     }
@@ -217,14 +214,6 @@ export struct AppearanceSection {
     return items;
   }
 
-  private labelOf(options: SettingOption[], value: string): string {
-    for (let i = 0; i < options.length; i++) {
-      if (options[i].value === value) {
-        return options[i].label;
-      }
-    }
-    return value;
-  }
 
   build() {
     SettingsSection({ title: t('settings_appearance'), items: this.buildItems() })

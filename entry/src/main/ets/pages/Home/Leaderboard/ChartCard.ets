@@ -6,6 +6,7 @@
  * 页面按 index 读状态并映射成 props（@Prop 会随父组件重渲染更新），两边职责更清楚。
  */
 import { DesignTokens } from '../../../theme/DesignTokens';
+import { CoverPalette } from '../../../theme/CoverPalette';
 import { t, tf } from '../../../service/LocalizationService';
 import { formatPlayCount } from '../../../utils/FormatTools';
 import type { BoardMusicItem } from '../../../store/leaderboard/LeaderboardStoreState';
@@ -19,7 +20,7 @@ export struct ChartCard {
   @Prop playCount: number = -1;
   @Prop coverUrl: string = '';
   /** 无榜单图时的渐变占位色（由页面按榜单 id 生成，保证各榜可区分） */
-  @Prop placeholderColors: string[] = ['#E63946', '#B5171F'];
+  @Prop placeholderColors: string[] = CoverPalette.defaultPair();
   @Prop songs: BoardMusicItem[] = [];
   /** idle / loading / ready / err */
   @Prop loadState: string = 'idle';
@@ -51,7 +52,7 @@ export struct ChartCard {
   private placeholderGradientOptions(): LinearGradientOptions {
     const colors: string[] = this.placeholderColors.length >= 2
       ? this.placeholderColors
-      : ['#E63946', '#B5171F'];
+      : CoverPalette.defaultPair();
     return { angle: 135, colors: [[colors[0], 0.0], [colors[1], 1.0]] };
   }
 

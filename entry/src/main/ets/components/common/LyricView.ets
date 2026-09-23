@@ -6,7 +6,6 @@ import { t } from '../../service/LocalizationService';
 import { DesignTokens } from '../../theme/DesignTokens';
 
 /** 动态背景/封面背景下的文字阴影（半径小、偏移 0，等效"描边感"） */
-const LYRIC_TEXT_SHADOW: ShadowOptions = { radius: 8, color: 'rgba(0,0,0,0.55)', offsetX: 0, offsetY: 0 };
 
 @Component
 export struct LyricView {
@@ -128,7 +127,7 @@ export struct LyricView {
                 .textAlign(this.alignMode())
                 .width('100%')
                 .maxLines(1)
-                .textShadow(this.fontShadow ? LYRIC_TEXT_SHADOW : undefined)
+                .textShadow(this.fontShadow ? DesignTokens.textShadowOnArtwork() : undefined)
               if (this.showLyricRoma && index < this.romaLines.length && this.romaLines[index] && this.romaLines[index].length > 0) {
                 Text(this.romaLines[index])
                   .fontSize(index === this.currentLyricIndex ? 12 : 10)

@@ -10,9 +10,9 @@ import { t } from '../../../service/LocalizationService';
 import { appToast } from '../../../service/DialogService';
 import { playerService } from '../../../service/PlayerService';
 import { sleepTimerService, type SleepTimerState } from '../../../service/SleepTimerService';
-import { watchSettings } from '../../../service/SettingsWatcher';
+import { Subscription } from '../../../service/Subscription';
 import { SettingsSection } from '../../../components/ui/SettingsSection';
-import type { SettingOption, SettingSectionItem } from '../../../components/ui/SettingsTypes';
+import { labelOfOption, type SettingOption, type SettingSectionItem } from '../../../components/ui/SettingsTypes';
 import type { Quality } from '../../../types/MusicTypes';
 
 const DOMAIN = 0x0001;
@@ -36,20 +36,20 @@ export struct PlaybackSection {
   @State sleepWaitTrackEnd: boolean = true;
   /** 定时到点后正在等当前歌曲播完（此时开关语义变为"取消退出"） */
   @State waitingTrackEnd: boolean = false;
-  private sleepUnsub: (() => void) | null = null;
+  private sleepWatch: Subscription = new Subscription();
 
-  private settingsUnsub: (() => void) | null = null;
+  private settingsWatch: Subscription = new Subscription();
 
   aboutToAppear() {
     this.loadFromSettings();
     // 外部改动（恢复备份 / 同步下发 / 播放页改设置）也要刷新本分组
-    this.settingsUnsub = watchSettings((): void => {
+    this.settingsWatch.bindSettings((): void => {
       this.loadFromSettings();
     });
-    this.sleepUnsub = sleepTimerService.onStateChange((state: SleepTimerState): void => {
+    this.sleepWatch.bind((): () => void => sleepTimerService.onStateChange((state: SleepTimerState): void => {
       this.sleepTimerEnabled = state.enabled || state.waitingTrackEnd;
       this.waitingTrackEnd = state.waitingTrackEnd;
-    });
+    }));
   }
 
   /** 从设置服务读取本分组的当前值 */
@@ -72,14 +72,8 @@ export struct PlaybackSection {
   }
 
   aboutToDisappear() {
-    if (this.sleepUnsub) {
-      this.sleepUnsub();
-      this.sleepUnsub = null;
-    }
-    if (this.settingsUnsub) {
-      this.settingsUnsub();
-      this.settingsUnsub = null;
-    }
+    this.sleepWatch.detach();
+    this.settingsWatch.detach();
   }
 
   private buildItems(): SettingSectionItem[] {
@@ -129,7 +123,7 @@ export struct PlaybackSection {
       onChange: (value: string): void => {
         this.playQuality = value;
         void settingsService.update({ playQuality: value as Quality });
-        appToast(`${t('settings_high_quality')}: ${this.labelOf(qualityOptions, value)}`);
+        appToast(`${t('settings_high_quality')}: ${labelOfOption(qualityOptions, value)}`);
       },
     });
 
@@ -252,7 +246,7 @@ export struct PlaybackSection {
         void settingsService.update({ s2tMode: value === 's2t' ? 's2t' : (value === 't2s' ? 't2s' : 'off') });
         // 正在播放时立即生效，无需重新请求歌词
         playerService.applyLyricConversion();
-        appToast(`${t('settings_s2t')}: ${this.labelOf(s2tOptions, value)}`);
+        appToast(`${t('settings_s2t')}: ${labelOfOption(s2tOptions, value)}`);
       },
     });
 
@@ -320,14 +314,6 @@ export struct PlaybackSection {
     return items;
   }
 
-  private labelOf(options: SettingOption[], value: string): string {
-    for (let i = 0; i < options.length; i++) {
-      if (options[i].value === value) {
-        return options[i].label;
-      }
-    }
-    return value;
-  }
 
   build() {
     Column() {

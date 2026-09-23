@@ -78,14 +78,14 @@ export struct SongListCard {
             .margin({ left: 3 })
         }
         .padding({ left: 6, right: 6, top: 3, bottom: 3 })
-        .backgroundColor('rgba(0, 0, 0, 0.4)')
+        .backgroundColor(DesignTokens.scrim())
         .borderRadius(DesignTokens.radiusCover())
         .position({ x: 6, y: 6 })
       }
       .width('100%')
       .aspectRatio(1)
       // 封面投影：无卡片底色时提供层次（主流音乐 App 的歌单网格做法）
-      .shadow({ radius: 10, color: 'rgba(0,0,0,0.10)', offsetX: 0, offsetY: 3 })
+      .shadow(DesignTokens.softShadow())
 
       Column() {
         Text(this.item.name)

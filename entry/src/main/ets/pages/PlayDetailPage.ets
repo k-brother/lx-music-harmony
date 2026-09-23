@@ -47,7 +47,6 @@ const DOMAIN: number = 0x0001;
 const TAG: string = 'PlayDetailPage';
 
 /** 字体阴影（设置 → 外观 → 字体阴影） */
-const PLAY_TEXT_SHADOW: ShadowOptions = { radius: 8, color: 'rgba(0,0,0,0.55)', offsetX: 0, offsetY: 0 };
 
 interface PlaylistOptionRow {
   id: string;
