@@ -3,8 +3,9 @@
  *
  * 由 DesktopLyricWindow 通过 createSubWindow + setUIContent 加载。
  * 视觉上是"歌词浮在屏幕上"，不是一条黑底横幅：
- * - 默认背景全透明，靠文字描边 + 阴影保证任何壁纸下都能看清；
- * - 背景不透明度、字号、颜色、单双行都来自设置，实时生效；
+ * - 默认背景全透明，靠文字描边 + 阴影保证任何壁纸下都能看清（描边宽度/颜色可调）；
+ * - 背景不透明度、字号、颜色、字重、圆角、内边距、单双行都来自设置，实时生效；
+ * - 行切换有上滑/淡入两种动画，可关闭；
  * - 未锁定时可拖动（拖动结束把坐标回写为自定义位置），锁定后点击穿透。
  */
 
@@ -16,11 +17,20 @@ const DOMAIN: number = 0x0002;
 const TAG: string = 'DesktopLyricPage';
 /** 拖动过程中的节流（毫秒）：拖动时实时跟随，但不至于每帧都调窗口 API */
 const DRAG_COMMIT_INTERVAL_MS: number = 60;
+/** 行切换动画时长（毫秒） */
+const LINE_ANIM_DURATION_MS: number = 220;
+/** 上滑动画的起始位移（vp） */
+const LINE_ANIM_OFFSET_VP: number = 10;
+/** 描边阴影的方向数量（8 向环绕，足够圆润又不至于过重） */
+const OUTLINE_DIRECTIONS: number[][] = [
+  [-1, 0], [1, 0], [0, -1], [0, 1],
+  [-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7], [0.7, 0.7],
+];
 
 @Entry
 @Component
 struct DesktopLyricPage {
-  @StorageLink('desktopLyricText') lyricText: string = '';
+  @StorageLink('desktopLyricText') @Watch('onLyricChanged') lyricText: string = '';
   @StorageLink('desktopLyricNextText') nextText: string = '';
   @StorageLink('desktopLyricNext2Text') next2Text: string = '';
   /** 未播放行颜色（安卓版 desktopLyric.style.lyricUnplayColor） */
@@ -38,6 +48,15 @@ struct DesktopLyricPage {
   @StorageLink('desktopLyricTextOpacity') textOpacity: number = 100;
   @StorageLink('desktopLyricAnim') animEnabled: boolean = true;
   @StorageLink('desktopLyricShadowColor') shadowColor: string = '#99000000';
+  /** 描边宽度（0 = 关闭） */
+  @StorageLink('desktopLyricOutlineWidth') lyricOutlineWidth: number = 1;
+  @StorageLink('desktopLyricOutlineColor') lyricOutlineColor: string = '#CC000000';
+  @StorageLink('desktopLyricFontWeight') fontWeightName: string = 'medium';
+  @StorageLink('desktopLyricCornerRadius') cornerRadius: number = 12;
+  @StorageLink('desktopLyricPadding') panelPadding: number = 16;
+  @StorageLink('desktopLyricAnimStyle') animStyle: string = 'slide';
+  /** 行切换动画进度：1 = 静止，切换时 0 → 1 */
+  @State animProgress: number = 1;
 
   private windowX: number = 0;
   private windowY: number = 0;
@@ -53,6 +72,69 @@ struct DesktopLyricPage {
     this.windowY = pos[1];
     hilog.info(DOMAIN, TAG, 'DesktopLyricPage appear, window=(%{public}d,%{public}d), locked=%{public}s',
       this.windowX, this.windowY, this.locked.toString());
+  }
+
+  /**
+   * 当前句变化时播放行切换动画。
+   * 直接改值 + UIContext.animateTo（全局 animateTo 自 API 18 起已废弃）。
+   */
+  private onLyricChanged(): void {
+    if (!this.animEnabled || this.animStyle === 'none') {
+      this.animProgress = 1;
+      return;
+    }
+    this.animProgress = 0;
+    this.getUIContext().animateTo({ duration: LINE_ANIM_DURATION_MS, curve: Curve.EaseOut }, (): void => {
+      this.animProgress = 1;
+    });
+  }
+
+  /** 当前句的行切换位移（slide 才有位移，fade 只做透明度） */
+  private lineOffsetY(): number {
+    if (this.animStyle !== 'slide') {
+      return 0;
+    }
+    return (1 - this.animProgress) * LINE_ANIM_OFFSET_VP;
+  }
+
+  /** 文字透明度 = 设置的不透明度 × 行切换动画进度 */
+  private lineOpacity(): number {
+    return (this.textOpacity / 100) * this.animProgress;
+  }
+
+  /** 字重设置 -> ArkUI FontWeight */
+  private fontWeightValue(): FontWeight {
+    if (this.fontWeightName === 'light') {
+      return FontWeight.Lighter;
+    }
+    if (this.fontWeightName === 'bold') {
+      return FontWeight.Bold;
+    }
+    if (this.fontWeightName === 'normal') {
+      return FontWeight.Normal;
+    }
+    return FontWeight.Medium;
+  }
+
+  /**
+   * 文字阴影列表 = 描边（8 向环绕，radius 0）+ 投影。
+   * 透明背景下"没有黑底也看得清"就靠这层描边。
+   */
+  private textShadows(): ShadowOptions[] {
+    const shadows: ShadowOptions[] = [];
+    const outline: number = this.lyricOutlineWidth;
+    if (outline > 0) {
+      for (const dir of OUTLINE_DIRECTIONS) {
+        shadows.push({
+          radius: 0,
+          color: this.lyricOutlineColor,
+          offsetX: dir[0] * outline,
+          offsetY: dir[1] * outline,
+        });
+      }
+    }
+    shadows.push({ radius: 4, color: this.shadowColor, offsetX: 0, offsetY: 1 });
+    return shadows;
   }
 
   private backgroundHex(): string {
@@ -100,16 +182,17 @@ struct DesktopLyricPage {
     Column() {
       Text(this.lyricText.length > 0 ? this.lyricText : t('music_playing'))
         .fontSize(this.lyricFontSize)
-        .fontWeight(FontWeight.Medium)
+        .fontWeight(this.fontWeightValue())
         // 当前句用「已播放颜色」，其余行用「未播放颜色」
         .fontColor(this.playedColor)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .textAlign(this.textAlignMode())
         .width('100%')
-        .opacity(this.textOpacity / 100)
-        // 透明背景下用描边/阴影保证可读性
-        .textShadow({ radius: 4, color: this.shadowColor, offsetX: 0, offsetY: 1 })
+        .opacity(this.lineOpacity())
+        .translate({ y: this.lineOffsetY() })
+        // 透明背景下用描边/阴影保证可读性（描边宽度与颜色可调）
+        .textShadow(this.textShadows())
 
       if (!this.singleLine && this.maxLines >= 2 && this.nextText.length > 0) {
         Text(this.nextText)
@@ -121,7 +204,7 @@ struct DesktopLyricPage {
           .width('100%')
           .margin({ top: 2 })
           .opacity(this.textOpacity / 100)
-          .textShadow({ radius: 3, color: this.shadowColor, offsetX: 0, offsetY: 1 })
+          .textShadow(this.textShadows())
       }
 
       if (!this.singleLine && this.maxLines >= 3 && this.next2Text.length > 0) {
@@ -134,7 +217,7 @@ struct DesktopLyricPage {
           .width('100%')
           .margin({ top: 2 })
           .opacity(this.textOpacity / 100)
-          .textShadow({ radius: 3, color: this.shadowColor, offsetX: 0, offsetY: 1 })
+          .textShadow(this.textShadows())
       }
     }
     .width('100%')
@@ -192,9 +275,9 @@ struct DesktopLyricPage {
       .width('100%')
       .height('100%')
       .justifyContent(FlexAlign.Center)
-      .padding({ left: 16, right: 16, top: 4, bottom: 4 })
+      .padding({ left: this.panelPadding, right: this.panelPadding, top: 4, bottom: 4 })
       .backgroundColor(this.backgroundHex())
-      .borderRadius(10)
+      .borderRadius(this.cornerRadius)
       .gesture(
         PanGesture({ fingers: 1, distance: 4 })
           .onActionStart(() => {

@@ -1,16 +1,20 @@
 /**
  * 设置 → 桌面歌词
  *
- * 开关 / 位置 / 颜色（未播放行 + 当前行）/ 文字位置与不透明度 / 背景不透明度 /
- * 字号 / 单双行 / 行数 / 宽度 / 行切换动画 / 阴影色 / 锁定穿透。
+ * 开关 / 预设样式 / 位置 / 颜色（未播放行 + 当前行）/ 文字位置与不透明度 / 背景不透明度 /
+ * 字号 / 字重 / 描边宽度与颜色 / 圆角 / 内边距 / 单双行 / 行数 / 宽度 / 行切换动画与方式 /
+ * 阴影色 / 锁定穿透。
  * 外观类改动统一调用 DesktopLyricManager.applyAppearance() 让子窗口立即重算。
  */
 import hilog from '@ohos.hilog';
 import { selectRow, toggleRow, infoRow } from '../../../components/ui/SettingsRows';
 import {
   settingsService,
+  type AppSettings,
   type DesktopLyricPosition,
   type SettingsPatch,
+  toDlFontWeight,
+  toDlAnimStyle,
 } from '../../../service/SettingsService';
 import { t } from '../../../service/LocalizationService';
 import { appToast } from '../../../service/DialogService';
@@ -21,6 +25,141 @@ import type { SettingOption, SettingSectionItem } from '../../../components/ui/S
 
 const DOMAIN = 0x0001;
 const TAG = 'DesktopLyricSection';
+/** 预设样式选择里代表「当前设置不匹配任何预设」的那一项 */
+const PRESET_CUSTOM: string = 'custom';
+
+/**
+ * 一键预设：把互相耦合的几项（背景/描边/字重/圆角/内边距/动画）打包成一种观感。
+ * 单看某一项很难调出"自然"的效果，预设让用户一步到位，再按需微调。
+ */
+interface LyricStylePreset {
+  id: string;
+  patch: SettingsPatch;
+}
+
+const LYRIC_PRESETS: LyricStylePreset[] = [
+  {
+    id: 'natural',
+    patch: {
+      desktopLyricBgAlpha: 0,
+      desktopLyricOutlineWidth: 1,
+      desktopLyricOutlineColor: '#CC000000',
+      desktopLyricShadowColor: '#99000000',
+      desktopLyricFontWeight: 'medium',
+      desktopLyricCornerRadius: 12,
+      desktopLyricPadding: 16,
+      desktopLyricAnimStyle: 'slide',
+    },
+  },
+  {
+    id: 'minimal',
+    patch: {
+      desktopLyricBgAlpha: 0,
+      desktopLyricOutlineWidth: 0,
+      desktopLyricShadowColor: '#00000000',
+      desktopLyricFontWeight: 'normal',
+      desktopLyricCornerRadius: 0,
+      desktopLyricPadding: 8,
+      desktopLyricAnimStyle: 'fade',
+    },
+  },
+  {
+    id: 'contrast',
+    patch: {
+      desktopLyricBgAlpha: 55,
+      desktopLyricOutlineWidth: 2,
+      desktopLyricOutlineColor: '#E6000000',
+      desktopLyricShadowColor: '#CC000000',
+      desktopLyricFontWeight: 'bold',
+      desktopLyricCornerRadius: 8,
+      desktopLyricPadding: 20,
+      desktopLyricAnimStyle: 'none',
+    },
+  },
+  {
+    id: 'ktv',
+    patch: {
+      desktopLyricBgAlpha: 30,
+      desktopLyricOutlineWidth: 1,
+      desktopLyricOutlineColor: '#B3000000',
+      desktopLyricShadowColor: '#99000000',
+      desktopLyricFontWeight: 'bold',
+      desktopLyricCornerRadius: 18,
+      desktopLyricPadding: 16,
+      desktopLyricAnimStyle: 'slide',
+      desktopLyricColor: '#FFFFFF',
+      desktopLyricPlayedColor: '#07C556',
+    },
+  },
+];
+
+/** 预设名称：用字面量取词条，动态拼键会让 i18n 检查追踪不到引用 */
+function presetLabel(id: string): string {
+  if (id === 'natural') {
+    return t('lyric_preset_natural');
+  }
+  if (id === 'minimal') {
+    return t('lyric_preset_minimal');
+  }
+  if (id === 'contrast') {
+    return t('lyric_preset_contrast');
+  }
+  if (id === 'ktv') {
+    return t('lyric_preset_ktv');
+  }
+  return t('lyric_preset_custom');
+}
+
+/** patch 里声明的每一项都要与当前设置一致 */
+function presetMatches(patch: SettingsPatch, settings: AppSettings): boolean {
+  if (patch.desktopLyricBgAlpha !== undefined && patch.desktopLyricBgAlpha !== settings.desktopLyricBgAlpha) {
+    return false;
+  }
+  if (patch.desktopLyricOutlineWidth !== undefined
+    && patch.desktopLyricOutlineWidth !== settings.desktopLyricOutlineWidth) {
+    return false;
+  }
+  if (patch.desktopLyricOutlineColor !== undefined
+    && patch.desktopLyricOutlineColor !== settings.desktopLyricOutlineColor) {
+    return false;
+  }
+  if (patch.desktopLyricShadowColor !== undefined
+    && patch.desktopLyricShadowColor !== settings.desktopLyricShadowColor) {
+    return false;
+  }
+  if (patch.desktopLyricFontWeight !== undefined
+    && patch.desktopLyricFontWeight !== settings.desktopLyricFontWeight) {
+    return false;
+  }
+  if (patch.desktopLyricCornerRadius !== undefined
+    && patch.desktopLyricCornerRadius !== settings.desktopLyricCornerRadius) {
+    return false;
+  }
+  if (patch.desktopLyricPadding !== undefined && patch.desktopLyricPadding !== settings.desktopLyricPadding) {
+    return false;
+  }
+  if (patch.desktopLyricAnimStyle !== undefined && patch.desktopLyricAnimStyle !== settings.desktopLyricAnimStyle) {
+    return false;
+  }
+  if (patch.desktopLyricColor !== undefined && patch.desktopLyricColor !== settings.desktopLyricColor) {
+    return false;
+  }
+  if (patch.desktopLyricPlayedColor !== undefined
+    && patch.desktopLyricPlayedColor !== settings.desktopLyricPlayedColor) {
+    return false;
+  }
+  return true;
+}
+
+/** 由当前外观项反推预设：全部命中才算命中，否则显示「自定义」 */
+function matchPreset(settings: AppSettings): string {
+  for (const preset of LYRIC_PRESETS) {
+    if (presetMatches(preset.patch, settings)) {
+      return preset.id;
+    }
+  }
+  return PRESET_CUSTOM;
+}
 
 
 @Component
@@ -40,6 +179,14 @@ export struct DesktopLyricSection {
   @State lyricMaxLines: number = 2;
   @State animEnabled: boolean = true;
   @State lyricShadowColor: string = '#99000000';
+  @State lyricOutlineWidth: number = 1;
+  @State lyricOutlineColor: string = '#CC000000';
+  @State lyricFontWeight: string = 'medium';
+  @State cornerRadius: number = 12;
+  @State panelPadding: number = 16;
+  @State animStyle: string = 'slide';
+  /** 当前匹配到的预设 id（不落盘，由各外观项反推） */
+  @State presetId: string = PRESET_CUSTOM;
   @State locked: boolean = false;
   /** 是否由系统原生歌词接管（决定提示文案） */
   @State usingSystemLyric: boolean = false;
@@ -77,13 +224,39 @@ export struct DesktopLyricSection {
     this.lyricMaxLines = settings.desktopLyricMaxLines;
     this.animEnabled = settings.desktopLyricAnim;
     this.lyricShadowColor = settings.desktopLyricShadowColor;
+    this.lyricOutlineWidth = settings.desktopLyricOutlineWidth;
+    this.lyricOutlineColor = settings.desktopLyricOutlineColor;
+    this.lyricFontWeight = settings.desktopLyricFontWeight;
+    this.cornerRadius = settings.desktopLyricCornerRadius;
+    this.panelPadding = settings.desktopLyricPadding;
+    this.animStyle = settings.desktopLyricAnimStyle;
     this.locked = settings.desktopLyricLocked;
+    this.presetId = matchPreset(settings);
+  }
+
+  /** 应用预设：一次性写入整套外观，再同步本地状态 */
+  private applyPreset(presetId: string): void {
+    if (presetId === PRESET_CUSTOM) {
+      return;
+    }
+    const preset: LyricStylePreset | undefined = LYRIC_PRESETS.find(
+      (item: LyricStylePreset): boolean => item.id === presetId);
+    if (!preset) {
+      return;
+    }
+    this.persistAppearance(preset.patch, (): void => {
+      this.loadFromSettings();
+      appToast(t('toast_lyric_preset_applied'));
+    });
   }
 
   /** 外观类设置改动后让子窗口立即重算尺寸/配色 */
-  private persistAppearance(patch: SettingsPatch): void {
+  private persistAppearance(patch: SettingsPatch, after?: () => void): void {
     settingsService.update(patch).then((): void => {
       DesktopLyricManager.applyAppearance();
+      if (after) {
+        after();
+      }
     }).catch((err: Error) => {
       hilog.warn(DOMAIN, TAG, 'applyAppearance failed: %{public}s', err.message);
     });
@@ -113,6 +286,7 @@ export struct DesktopLyricSection {
     this.appendStatusItems(items);
     this.appendPositionItems(items);
     this.appendTextItems(items);
+    this.appendStyleItems(items);
     this.appendBehaviorItems(items);
     return items;
   }
@@ -279,17 +453,112 @@ export struct DesktopLyricSection {
     }));
   }
 
-  /** 行为：动画 / 文字阴影 / 锁定穿透 */
+  /**
+   * 描边与观感：预设 / 描边宽度与颜色 / 字重 / 圆角 / 内边距。
+   * 这几项共同决定"没有黑底也自然"的效果，所以放在一起，先给预设再给细项。
+   */
+  private appendStyleItems(items: SettingSectionItem[]): void {
+    const presetOptions: SettingOption[] = LYRIC_PRESETS.map((preset: LyricStylePreset): SettingOption => {
+      return { label: presetLabel(preset.id), value: preset.id };
+    });
+    presetOptions.push({ label: presetLabel(PRESET_CUSTOM), value: PRESET_CUSTOM });
+
+    const outlineOptions: SettingOption[] = [
+      { label: t('lyric_outline_off'), value: '0' },
+      { label: '1', value: '1' },
+      { label: '2', value: '2' },
+      { label: '3', value: '3' },
+    ];
+    const outlineColorOptions: SettingOption[] = [
+      { label: t('lyric_shadow_black'), value: '#CC000000' },
+      { label: t('lyric_shadow_white'), value: '#CCFFFFFF' },
+      { label: t('lyric_shadow_none'), value: '#00000000' },
+    ];
+    const weightOptions: SettingOption[] = [
+      { label: t('lyric_weight_light'), value: 'light' },
+      { label: t('lyric_weight_normal'), value: 'normal' },
+      { label: t('lyric_weight_medium'), value: 'medium' },
+      { label: t('lyric_weight_bold'), value: 'bold' },
+    ];
+    const radiusOptions: SettingOption[] = [
+      { label: '0', value: '0' },
+      { label: '8', value: '8' },
+      { label: '12', value: '12' },
+      { label: '20', value: '20' },
+    ];
+    const paddingOptions: SettingOption[] = [
+      { label: '0', value: '0' },
+      { label: '8', value: '8' },
+      { label: '16', value: '16' },
+      { label: '24', value: '24' },
+    ];
+
+    items.push(selectRow(t('lyric_preset_title'), this.presetId, presetOptions, (value: string): void => {
+      this.applyPreset(value);
+    }, t('lyric_preset_desc')));
+
+    items.push(selectRow(t('lyric_outline_width'), this.lyricOutlineWidth.toString(), outlineOptions,
+      (value: string): void => {
+        const width = parseInt(value);
+        if (isNaN(width)) {
+          return;
+        }
+        this.lyricOutlineWidth = width;
+        this.persistAppearance({ desktopLyricOutlineWidth: width });
+      }));
+
+    items.push(selectRow(t('lyric_outline_color'), this.lyricOutlineColor, outlineColorOptions, (value: string): void => {
+      this.lyricOutlineColor = value;
+      this.persistAppearance({ desktopLyricOutlineColor: value });
+    }));
+
+    items.push(selectRow(t('lyric_font_weight'), this.lyricFontWeight, weightOptions, (value: string): void => {
+      this.lyricFontWeight = value;
+      this.persistAppearance({ desktopLyricFontWeight: toDlFontWeight(value) });
+    }));
+
+    items.push(selectRow(t('lyric_corner_radius'), this.cornerRadius.toString(), radiusOptions,
+      (value: string): void => {
+        const radius = parseInt(value);
+        if (isNaN(radius)) {
+          return;
+        }
+        this.cornerRadius = radius;
+        this.persistAppearance({ desktopLyricCornerRadius: radius });
+      }));
+
+    items.push(selectRow(t('lyric_padding'), this.panelPadding.toString(), paddingOptions,
+      (value: string): void => {
+        const padding = parseInt(value);
+        if (isNaN(padding)) {
+          return;
+        }
+        this.panelPadding = padding;
+        this.persistAppearance({ desktopLyricPadding: padding });
+      }));
+  }
+
+  /** 行为：动画 / 动画方式 / 文字阴影 / 锁定穿透 */
   private appendBehaviorItems(items: SettingSectionItem[]): void {
     const shadowOptions: SettingOption[] = [
       { label: t('lyric_shadow_black'), value: '#99000000' },
       { label: t('lyric_shadow_none'), value: '#00000000' },
       { label: t('lyric_shadow_white'), value: '#99FFFFFF' },
     ];
+    const animStyleOptions: SettingOption[] = [
+      { label: t('lyric_anim_slide'), value: 'slide' },
+      { label: t('lyric_anim_fade'), value: 'fade' },
+      { label: t('lyric_anim_none'), value: 'none' },
+    ];
 
     items.push(toggleRow(t('lyric_anim'), this.animEnabled, (value: boolean): void => {
       this.animEnabled = value;
-      void settingsService.update({ desktopLyricAnim: value });
+      this.persistAppearance({ desktopLyricAnim: value });
+    }));
+
+    items.push(selectRow(t('lyric_anim_style'), this.animStyle, animStyleOptions, (value: string): void => {
+      this.animStyle = value;
+      this.persistAppearance({ desktopLyricAnimStyle: toDlAnimStyle(value) });
     }));
 
     items.push(selectRow(t('lyric_shadow_title'), this.lyricShadowColor, shadowOptions, (value: string): void => {

@@ -141,6 +141,10 @@ export class BackgroundRunningManager {
       await this.session.activate();
       hilog.info(DOMAIN, TAG, 'AVSession activated successfully');
 
+      // 5.1 声明会话能力：后台播放模式 / 播控中心控件 / 支持的循环模式。
+      //     不做这一步时，播控中心只会显示最基本的播放暂停，进度条与速度入口都是灰的。
+      await this.applySessionCapabilities();
+
       // 6. 设置播放状态（可在激活后设置）
       if (this.hasPendingPlaybackState) {
         await this.applyPendingPlaybackState();
@@ -164,6 +168,48 @@ export class BackgroundRunningManager {
       return;
     }
     registerMediaControlCommands(this.session, this.callbacks);
+  }
+
+  /**
+   * 会话能力声明（API 24/26 新增，设备不支持时静默跳过）。
+   *
+   * - setBackgroundPlayMode：明确告知系统音频可后台继续，避免切后台被回收；
+   * - setMediaCenterControlType：播控中心按应用能力显示控件，这里只声明
+   *   已注册回调的四种（上/下一首、循环、收藏），不声明未实现的快进/倍速，
+   *   否则用户点下去没有反应；
+   * - setSupportedLoopModes：让播控中心的循环按钮知道有哪几档。
+   */
+  private async applySessionCapabilities(): Promise<void> {
+    const session = this.session;
+    if (!session) {
+      return;
+    }
+    if (canIUse('SystemCapability.Multimedia.AVSession.Core')) {
+      try {
+        await session.setBackgroundPlayMode(avSession.BackgroundPlayMode.ENABLE_BACKGROUND_PLAY);
+      } catch (err) {
+        hilog.info(DOMAIN, TAG, 'setBackgroundPlayMode skipped: %{public}s',
+          (err as Error)?.message ?? '');
+      }
+    }
+    try {
+      await session.setMediaCenterControlType(
+        ['playPrevious', 'playNext', 'setLoopMode', 'toggleFavorite']);
+    } catch (err) {
+      hilog.info(DOMAIN, TAG, 'setMediaCenterControlType skipped: %{public}s',
+        (err as Error)?.message ?? '');
+    }
+    try {
+      await session.setSupportedLoopModes([
+        avSession.LoopMode.LOOP_MODE_LIST,
+        avSession.LoopMode.LOOP_MODE_SINGLE,
+        avSession.LoopMode.LOOP_MODE_SEQUENCE,
+        avSession.LoopMode.LOOP_MODE_SHUFFLE,
+      ]);
+    } catch (err) {
+      hilog.info(DOMAIN, TAG, 'setSupportedLoopModes skipped: %{public}s',
+        (err as Error)?.message ?? '');
+    }
   }
 
   /**
@@ -469,27 +515,48 @@ export class BackgroundRunningManager {
     }
   }
 
-  /** 系统桌面歌词可见性/锁定状态变化（用户在系统歌词上操作时回调） */
-  onSystemDesktopLyricStateChanged(callback: (state: avSession.DesktopLyricState) => void): void {
+  /**
+   * 订阅系统桌面歌词的可见性与锁定状态变化。
+   *
+   * 系统歌词窗口是系统自己渲染的：用户在系统侧把它关掉、或者点了锁定，
+   * 只有这两个回调能知道。不订阅的话应用里的开关会一直停在"已开启"，
+   * 用户再点一次也没任何反应。
+   */
+  observeSystemDesktopLyric(
+    onVisibility: (visible: boolean) => void,
+    onState: (state: avSession.DesktopLyricState) => void): void {
     if (!this.session) {
       return;
     }
     try {
-      this.session.onDesktopLyricStateChanged(callback);
+      this.session.onDesktopLyricVisibilityChanged(onVisibility);
     } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'onSystemDesktopLyricStateChanged failed: %{public}s',
+      hilog.warn(DOMAIN, TAG, 'onDesktopLyricVisibilityChanged failed: %{public}s',
+        (err as Error)?.message ?? '');
+    }
+    try {
+      this.session.onDesktopLyricStateChanged(onState);
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'onDesktopLyricStateChanged failed: %{public}s',
         (err as Error)?.message ?? '');
     }
   }
 
-  offSystemDesktopLyricStateChanged(): void {
+  /** 取消系统桌面歌词状态订阅（关闭桌面歌词时调用） */
+  unobserveSystemDesktopLyric(): void {
     if (!this.session) {
       return;
     }
     try {
+      this.session.offDesktopLyricVisibilityChanged();
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'offDesktopLyricVisibilityChanged failed: %{public}s',
+        (err as Error)?.message ?? '');
+    }
+    try {
       this.session.offDesktopLyricStateChanged();
     } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'offSystemDesktopLyricStateChanged failed: %{public}s',
+      hilog.warn(DOMAIN, TAG, 'offDesktopLyricStateChanged failed: %{public}s',
         (err as Error)?.message ?? '');
     }
   }

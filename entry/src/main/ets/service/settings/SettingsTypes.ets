@@ -25,6 +25,13 @@ export type DesktopLyricPosition = 'top' | 'middle' | 'bottom' | 'custom';
 export type DesktopLyricTextPositionX = 'left' | 'center' | 'right';
 /** 桌面歌词文字在窗口内的垂直位置 */
 export type DesktopLyricTextPositionY = 'top' | 'middle' | 'bottom';
+/** 桌面歌词字重 */
+export type DesktopLyricFontWeight = 'light' | 'normal' | 'medium' | 'bold';
+/**
+ * 桌面歌词行切换动画。
+ * slide = 下一句从下方滑入（主流播放器做法）；fade = 淡入淡出；none = 直接切换
+ */
+export type DesktopLyricAnimStyle = 'slide' | 'fade' | 'none';
 /** 同步模式 */
 export type SyncMode = 'client' | 'server';
 /** 音源名称显示方式：别名（小蜗音乐…） / 原名（酷我音乐…） */
@@ -94,8 +101,23 @@ export interface AppSettings {
   desktopLyricMaxLines: number;
   /** 桌面歌词行切换动画 */
   desktopLyricAnim: boolean;
-  /** 桌面歌词阴影/描边色 */
+  /** 桌面歌词阴影色（文字投影，用于和背景拉开层次） */
   desktopLyricShadowColor: string;
+  /**
+   * 桌面歌词描边宽度 vp（0 = 关闭，1-3）。
+   * 透明背景下靠描边保证任何壁纸上都能看清，这是"没有黑底也自然"的关键。
+   */
+  desktopLyricOutlineWidth: number;
+  /** 桌面歌词描边颜色 */
+  desktopLyricOutlineColor: string;
+  /** 桌面歌词字重 */
+  desktopLyricFontWeight: DesktopLyricFontWeight;
+  /** 桌面歌词面板圆角 vp */
+  desktopLyricCornerRadius: number;
+  /** 桌面歌词面板左右内边距 vp */
+  desktopLyricPadding: number;
+  /** 桌面歌词行切换动画方式 */
+  desktopLyricAnimStyle: DesktopLyricAnimStyle;
   /** 列表是否显示音源 */
   showListSource: boolean;
   /** 触感反馈（切 Tab / 播放暂停 / 长按菜单等操作的轻微振动） */
@@ -227,6 +249,12 @@ export interface SettingsPatch {
   desktopLyricTextOpacity?: number;
   desktopLyricAnim?: boolean;
   desktopLyricShadowColor?: string;
+  desktopLyricOutlineWidth?: number;
+  desktopLyricOutlineColor?: string;
+  desktopLyricFontWeight?: DesktopLyricFontWeight;
+  desktopLyricCornerRadius?: number;
+  desktopLyricPadding?: number;
+  desktopLyricAnimStyle?: DesktopLyricAnimStyle;
   showListSource?: boolean;
   hapticFeedback?: boolean;
   showListAlbum?: boolean;
@@ -320,6 +348,12 @@ export function createDefaultSettings(): AppSettings {
     desktopLyricTextOpacity: 100,
     desktopLyricAnim: true,
     desktopLyricShadowColor: '#99000000',
+    desktopLyricOutlineWidth: 1,
+    desktopLyricOutlineColor: '#CC000000',
+    desktopLyricFontWeight: 'medium',
+    desktopLyricCornerRadius: 12,
+    desktopLyricPadding: 16,
+    desktopLyricAnimStyle: 'slide',
     showListSource: true,
     hapticFeedback: true,
     showListAlbum: true,
@@ -443,6 +477,22 @@ export function toDlTextPosY(value: string): DesktopLyricTextPositionY {
     return value;
   }
   return 'middle';
+}
+
+/** 桌面歌词字重容错（非法值回落到 medium） */
+export function toDlFontWeight(value: string): DesktopLyricFontWeight {
+  if (value === 'light' || value === 'normal' || value === 'bold') {
+    return value;
+  }
+  return 'medium';
+}
+
+/** 桌面歌词行切换动画容错（非法值回落到 slide） */
+export function toDlAnimStyle(value: string): DesktopLyricAnimStyle {
+  if (value === 'fade' || value === 'none') {
+    return value;
+  }
+  return 'slide';
 }
 
 /** 数值收敛到 [min, max]，非法值用 fallback（滑块类设置共用） */

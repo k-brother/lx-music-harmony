@@ -21,6 +21,8 @@ export struct AboutSection {
   @State enableVerboseLog: boolean = false;
   @State logCount: number = 0;
   @State showPact: boolean = false;
+  /** 打开的是哪份法律文本：pact = 许可协议，privacy = 隐私政策 */
+  @State legalDocument: string = 'pact';
 
   private settingsWatch: Subscription = new Subscription();
 
@@ -76,6 +78,15 @@ export struct AboutSection {
         type: 'button',
         title: t('pact_title'),
         onClick: (): void => {
+          this.legalDocument = 'pact';
+          this.showPact = true;
+        },
+      },
+      {
+        type: 'button',
+        title: t('privacy_title'),
+        onClick: (): void => {
+          this.legalDocument = 'privacy';
           this.showPact = true;
         },
       },
@@ -131,6 +142,7 @@ export struct AboutSection {
 
           PactDialog({
             readonlyMode: true,
+            initialDocument: this.legalDocument,
             visible: true,
             onClose: (): void => {
               this.showPact = false;

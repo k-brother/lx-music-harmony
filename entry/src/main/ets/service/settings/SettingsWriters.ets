@@ -267,6 +267,46 @@ export async function applyLyricSettings(
       await storage.setString(StorageKeys.PLAY_DL_SHADOW_COLOR, patch.desktopLyricShadowColor);
       changed.push('desktopLyricShadowColor');
     }
+    if (patch.desktopLyricOutlineWidth !== undefined) {
+      const nextOutline = clampNumber(patch.desktopLyricOutlineWidth, 0, 3, values.desktopLyricOutlineWidth);
+      if (nextOutline !== values.desktopLyricOutlineWidth) {
+        values.desktopLyricOutlineWidth = nextOutline;
+        await storage.setNumber(StorageKeys.PLAY_DL_OUTLINE_WIDTH, nextOutline);
+        changed.push('desktopLyricOutlineWidth');
+      }
+    }
+    if (patch.desktopLyricOutlineColor !== undefined
+      && patch.desktopLyricOutlineColor !== values.desktopLyricOutlineColor) {
+      values.desktopLyricOutlineColor = patch.desktopLyricOutlineColor;
+      await storage.setString(StorageKeys.PLAY_DL_OUTLINE_COLOR, patch.desktopLyricOutlineColor);
+      changed.push('desktopLyricOutlineColor');
+    }
+    if (patch.desktopLyricFontWeight !== undefined && patch.desktopLyricFontWeight !== values.desktopLyricFontWeight) {
+      values.desktopLyricFontWeight = patch.desktopLyricFontWeight;
+      await storage.setString(StorageKeys.PLAY_DL_FONT_WEIGHT, patch.desktopLyricFontWeight);
+      changed.push('desktopLyricFontWeight');
+    }
+    if (patch.desktopLyricCornerRadius !== undefined) {
+      const nextRadius = clampNumber(patch.desktopLyricCornerRadius, 0, 28, values.desktopLyricCornerRadius);
+      if (nextRadius !== values.desktopLyricCornerRadius) {
+        values.desktopLyricCornerRadius = nextRadius;
+        await storage.setNumber(StorageKeys.PLAY_DL_CORNER_RADIUS, nextRadius);
+        changed.push('desktopLyricCornerRadius');
+      }
+    }
+    if (patch.desktopLyricPadding !== undefined) {
+      const nextPadding = clampNumber(patch.desktopLyricPadding, 0, 32, values.desktopLyricPadding);
+      if (nextPadding !== values.desktopLyricPadding) {
+        values.desktopLyricPadding = nextPadding;
+        await storage.setNumber(StorageKeys.PLAY_DL_PADDING, nextPadding);
+        changed.push('desktopLyricPadding');
+      }
+    }
+    if (patch.desktopLyricAnimStyle !== undefined && patch.desktopLyricAnimStyle !== values.desktopLyricAnimStyle) {
+      values.desktopLyricAnimStyle = patch.desktopLyricAnimStyle;
+      await storage.setString(StorageKeys.PLAY_DL_ANIM_STYLE, patch.desktopLyricAnimStyle);
+      changed.push('desktopLyricAnimStyle');
+    }
     if (patch.lyricFontSize !== undefined) {
       const nextSize = clampNumber(patch.lyricFontSize, 14, 24, values.lyricFontSize);
       if (nextSize !== values.lyricFontSize) {

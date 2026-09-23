@@ -321,6 +321,12 @@ interface StorageKeysInterface {
   PLAY_DL_TEXT_OPACITY: string;
   PLAY_DL_ANIM: string;
   PLAY_DL_SHADOW_COLOR: string;
+  PLAY_DL_OUTLINE_WIDTH: string;
+  PLAY_DL_OUTLINE_COLOR: string;
+  PLAY_DL_FONT_WEIGHT: string;
+  PLAY_DL_CORNER_RADIUS: string;
+  PLAY_DL_PADDING: string;
+  PLAY_DL_ANIM_STYLE: string;
   PLAY_DESKTOP_LYRIC_Y: string;
 
   // 搜索设置
@@ -430,6 +436,12 @@ export const StorageKeys: StorageKeysInterface = {
   PLAY_DL_TEXT_OPACITY: 'setting.play.desktopLyricTextOpacity',
   PLAY_DL_ANIM: 'setting.play.desktopLyricAnim',
   PLAY_DL_SHADOW_COLOR: 'setting.play.desktopLyricShadowColor',
+  PLAY_DL_OUTLINE_WIDTH: 'setting.play.desktopLyricOutlineWidth',
+  PLAY_DL_OUTLINE_COLOR: 'setting.play.desktopLyricOutlineColor',
+  PLAY_DL_FONT_WEIGHT: 'setting.play.desktopLyricFontWeight',
+  PLAY_DL_CORNER_RADIUS: 'setting.play.desktopLyricCornerRadius',
+  PLAY_DL_PADDING: 'setting.play.desktopLyricPadding',
+  PLAY_DL_ANIM_STYLE: 'setting.play.desktopLyricAnimStyle',
   PLAY_DESKTOP_LYRIC_Y: 'setting.play.desktopLyricY',
 
   // 搜索设置

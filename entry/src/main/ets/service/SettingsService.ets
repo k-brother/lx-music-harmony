@@ -47,6 +47,10 @@ export type {
 } from './settings/SettingsTypes';
 export type { S2TMode } from '../core/lyric/ChineseConvert';
 
+// 枚举容错转换（界面选择值 -> 强类型）与类型同源，一起从本模块出口，
+// 页面侧只依赖 service/SettingsService 一个入口。
+export { toDlFontWeight, toDlAnimStyle } from './settings/SettingsTypes';
+
 const TAG = 'SettingsService';
 const DOMAIN = 0x0005;
 /** 字号设置 1.0 倍对应的基准值 */
@@ -147,6 +151,12 @@ class SettingsServiceImpl {
     copy.desktopLyricTextOpacity = source.desktopLyricTextOpacity;
     copy.desktopLyricAnim = source.desktopLyricAnim;
     copy.desktopLyricShadowColor = source.desktopLyricShadowColor;
+    copy.desktopLyricOutlineWidth = source.desktopLyricOutlineWidth;
+    copy.desktopLyricOutlineColor = source.desktopLyricOutlineColor;
+    copy.desktopLyricFontWeight = source.desktopLyricFontWeight;
+    copy.desktopLyricCornerRadius = source.desktopLyricCornerRadius;
+    copy.desktopLyricPadding = source.desktopLyricPadding;
+    copy.desktopLyricAnimStyle = source.desktopLyricAnimStyle;
     copy.showListSource = source.showListSource;
     copy.hapticFeedback = source.hapticFeedback;
     copy.showListAlbum = source.showListAlbum;
@@ -281,6 +291,12 @@ class SettingsServiceImpl {
       desktopLyricX: defaults.desktopLyricX,
       desktopLyricY: defaults.desktopLyricY,
       desktopLyricShadowColor: defaults.desktopLyricShadowColor,
+      desktopLyricOutlineWidth: defaults.desktopLyricOutlineWidth,
+      desktopLyricOutlineColor: defaults.desktopLyricOutlineColor,
+      desktopLyricFontWeight: defaults.desktopLyricFontWeight,
+      desktopLyricCornerRadius: defaults.desktopLyricCornerRadius,
+      desktopLyricPadding: defaults.desktopLyricPadding,
+      desktopLyricAnimStyle: defaults.desktopLyricAnimStyle,
       showListSource: defaults.showListSource,
       hapticFeedback: defaults.hapticFeedback,
       showListAlbum: defaults.showListAlbum,
@@ -369,6 +385,12 @@ class SettingsServiceImpl {
     AppStorage.setOrCreate('desktopLyricTextPositionX', this.values.desktopLyricTextPositionX);
     AppStorage.setOrCreate('desktopLyricTextPositionY', this.values.desktopLyricTextPositionY);
     AppStorage.setOrCreate('desktopLyricTextOpacity', this.values.desktopLyricTextOpacity);
+    AppStorage.setOrCreate('desktopLyricOutlineWidth', this.values.desktopLyricOutlineWidth);
+    AppStorage.setOrCreate('desktopLyricOutlineColor', this.values.desktopLyricOutlineColor);
+    AppStorage.setOrCreate('desktopLyricFontWeight', this.values.desktopLyricFontWeight);
+    AppStorage.setOrCreate('desktopLyricCornerRadius', this.values.desktopLyricCornerRadius);
+    AppStorage.setOrCreate('desktopLyricPadding', this.values.desktopLyricPadding);
+    AppStorage.setOrCreate('desktopLyricAnimStyle', this.values.desktopLyricAnimStyle);
   }
 
   /** 应用字号缩放（设置 -> 外观 -> 字体大小） */

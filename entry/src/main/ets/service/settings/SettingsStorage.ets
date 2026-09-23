@@ -18,6 +18,8 @@ import {
   toDesktopLyricPosition,
   toDlTextPosX,
   toDlTextPosY,
+  toDlFontWeight,
+  toDlAnimStyle,
   toPlayMode,
   toQuality,
   toShareType,
@@ -203,6 +205,21 @@ export async function loadSettingsFromStorage(): Promise<AppSettings> {
     settings.desktopLyricAnim = await storage.getBoolean(StorageKeys.PLAY_DL_ANIM, defaults.desktopLyricAnim);
     settings.desktopLyricShadowColor = await storage.getString(
       StorageKeys.PLAY_DL_SHADOW_COLOR, defaults.desktopLyricShadowColor);
+    settings.desktopLyricOutlineWidth = clampNumber(
+      await storage.getNumber(StorageKeys.PLAY_DL_OUTLINE_WIDTH, defaults.desktopLyricOutlineWidth),
+      0, 3, defaults.desktopLyricOutlineWidth);
+    settings.desktopLyricOutlineColor = await storage.getString(
+      StorageKeys.PLAY_DL_OUTLINE_COLOR, defaults.desktopLyricOutlineColor);
+    settings.desktopLyricFontWeight = toDlFontWeight(
+      await storage.getString(StorageKeys.PLAY_DL_FONT_WEIGHT, defaults.desktopLyricFontWeight));
+    settings.desktopLyricCornerRadius = clampNumber(
+      await storage.getNumber(StorageKeys.PLAY_DL_CORNER_RADIUS, defaults.desktopLyricCornerRadius),
+      0, 28, defaults.desktopLyricCornerRadius);
+    settings.desktopLyricPadding = clampNumber(
+      await storage.getNumber(StorageKeys.PLAY_DL_PADDING, defaults.desktopLyricPadding),
+      0, 32, defaults.desktopLyricPadding);
+    settings.desktopLyricAnimStyle = toDlAnimStyle(
+      await storage.getString(StorageKeys.PLAY_DL_ANIM_STYLE, defaults.desktopLyricAnimStyle));
     settings.showListSource = await storage.getBoolean(StorageKeys.LIST_SHOW_SOURCE, defaults.showListSource);
     settings.hapticFeedback = await storage.getBoolean(StorageKeys.HAPTIC_FEEDBACK, defaults.hapticFeedback);
     settings.showListAlbum = await storage.getBoolean(StorageKeys.LIST_SHOW_ALBUM, defaults.showListAlbum);

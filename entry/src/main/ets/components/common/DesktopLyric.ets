@@ -12,6 +12,7 @@ import hilog from '@ohos.hilog';
 import { DesignTokens } from '../../theme/DesignTokens';
 import window from '@ohos.window';
 import { display } from '@kit.ArkUI';
+import { avSession } from '@kit.AVSessionKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { playerService, type LyricLineState, type PlayStatus } from '../../service/PlayerService';
 import { settingsService, type AppSettings, type DesktopLyricPosition } from '../../service/SettingsService';
@@ -324,6 +325,64 @@ export class DesktopLyricManager {
   private static usingSystemLyric: boolean = false;
   /** 会话就绪回调只绑定一次 */
   private static sessionHookBound: boolean = false;
+  /** 系统歌词状态订阅只绑定一次 */
+  private static observersBound: boolean = false;
+  /**
+   * 本应用期望的系统歌词可见性。
+   * 与系统回调不一致时说明是「用户在系统侧操作」，需要回写应用设置，避免来回打架。
+   */
+  private static expectedVisible: boolean | null = null;
+
+  /**
+   * 订阅系统歌词的可见性/锁定状态。
+   * 系统歌词是系统自己渲染的窗口，用户在系统侧锁定或关闭只有这两条回调能感知；
+   * 不订阅就会出现「应用里显示已开启、屏幕上看不到歌词」的错位。
+   */
+  private static bindSystemLyricObservers(): void {
+    if (DesktopLyricManager.observersBound) {
+      return;
+    }
+    DesktopLyricManager.observersBound = true;
+    backgroundRunningManager.observeSystemDesktopLyric(
+      (visible: boolean): void => {
+        DesktopLyricManager.onSystemVisibilityChanged(visible);
+      },
+      (state: avSession.DesktopLyricState): void => {
+        DesktopLyricManager.onSystemLockChanged(state.isLocked);
+      });
+  }
+
+  /** 用户在系统侧显示/关闭了歌词 */
+  private static onSystemVisibilityChanged(visible: boolean): void {
+    if (DesktopLyricManager.expectedVisible === visible) {
+      return;
+    }
+    hilog.info(DOMAIN, TAG, 'System desktop lyric visibility changed externally: %{public}s',
+      visible.toString());
+    if (visible) {
+      return;
+    }
+    // 系统侧已关闭：应用里的开关一起收回来，否则再点一次「开启」没有任何反应
+    DesktopLyricManager.usingSystemLyric = false;
+    backgroundRunningManager.setSystemDesktopLyricActive(false);
+    DesktopLyricController.getInstance().stop();
+    backgroundRunningManager.unobserveSystemDesktopLyric();
+    DesktopLyricManager.observersBound = false;
+    settingsService.update({ showDesktopLyric: false }).catch((err: Error) => {
+      hilog.warn(DOMAIN, TAG, 'sync desktop lyric off failed: %{public}s', err.message);
+    });
+  }
+
+  /** 用户在系统歌词上切换了锁定 */
+  private static onSystemLockChanged(locked: boolean): void {
+    if (locked === settingsService.get().desktopLyricLocked) {
+      return;
+    }
+    hilog.info(DOMAIN, TAG, 'System desktop lyric lock changed externally: %{public}s', locked.toString());
+    settingsService.update({ desktopLyricLocked: locked }).catch((err: Error) => {
+      hilog.warn(DOMAIN, TAG, 'sync desktop lyric lock failed: %{public}s', err.message);
+    });
+  }
 
   /**
    * 绑定「AVSession 就绪」回调。
@@ -361,6 +420,8 @@ export class DesktopLyricManager {
     DesktopLyricController.getInstance().start();
     DesktopLyricController.applyLyricState(playerService.getLyricState());
     await backgroundRunningManager.setSystemDesktopLyricLocked(settings.desktopLyricLocked);
+    DesktopLyricManager.expectedVisible = true;
+    DesktopLyricManager.bindSystemLyricObservers();
     // 释放内置浮窗，避免系统歌词与浮窗同时显示
     await DesktopLyricWindow.destroy();
     hilog.info(DOMAIN, TAG, 'Upgraded to system desktop lyric after session ready');
@@ -376,8 +437,11 @@ export class DesktopLyricManager {
     const controller = DesktopLyricController.getInstance();
     if (!enabled) {
       if (DesktopLyricManager.usingSystemLyric) {
+        DesktopLyricManager.expectedVisible = false;
         await backgroundRunningManager.setSystemDesktopLyricVisible(false);
         await backgroundRunningManager.enableSystemDesktopLyric(false);
+        backgroundRunningManager.unobserveSystemDesktopLyric();
+        DesktopLyricManager.observersBound = false;
       }
       backgroundRunningManager.setSystemDesktopLyricActive(false);
       controller.stop();
@@ -390,11 +454,13 @@ export class DesktopLyricManager {
     // 1) 系统原生桌面歌词
     const systemSupported = await backgroundRunningManager.isSystemDesktopLyricSupported();
     if (systemSupported) {
+      DesktopLyricManager.expectedVisible = true;
       const enabledOnSystem = await backgroundRunningManager.enableSystemDesktopLyric(true);
       if (enabledOnSystem) {
         controller.start();
         DesktopLyricController.applyLyricState(playerService.getLyricState());
         await backgroundRunningManager.setSystemDesktopLyricLocked(settings.desktopLyricLocked);
+        DesktopLyricManager.bindSystemLyricObservers();
         DesktopLyricManager.usingSystemLyric = true;
         hilog.info(DOMAIN, TAG, 'Using system desktop lyric');
         return;
@@ -403,6 +469,7 @@ export class DesktopLyricManager {
 
     // 2) 降级：内置悬浮歌词子窗口
     DesktopLyricManager.usingSystemLyric = false;
+    DesktopLyricManager.expectedVisible = null;
     controller.start();
     DesktopLyricController.applyLyricState(playerService.getLyricState());
     await DesktopLyricWindow.create();
