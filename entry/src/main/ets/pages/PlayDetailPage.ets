@@ -38,7 +38,14 @@ import { VolumeSheet } from './PlayDetail/VolumeSheet';
 import { LyricOffsetSheet } from './PlayDetail/LyricOffsetSheet';
 import { QueueSheet } from './PlayDetail/QueueSheet';
 import { SourceSwitchSheet } from './PlayDetail/SourceSwitchSheet';
-import { showSpeedMenu, showLyricDisplayMenu, speedToast } from './PlayDetail/PlayDetailMenus';
+import { buildPlayActionSections, showSpeedMenu, speedToast } from './PlayDetail/PlayDetailMenus';
+import {
+  applyLyricDisplayChoice,
+  cancelPendingSleepExit,
+  chooseSleepTimer,
+  nextPlayMode,
+  playModeText,
+} from './PlayDetail/PlaySettingsActions';
 import { toRoma } from '../utils/RomaConverter';
 import { hapticService } from '../service/HapticService';
 import { appActionMenu, appToast } from '../service/DialogService';
@@ -424,10 +431,7 @@ export struct PlayDetailPage {
   }
 
   private togglePlayMode(): void {
-    const modes = ['listLoop', 'singleLoop', 'random', 'sequential'];
-    const idx = modes.indexOf(this.playMode);
-    const nextIdx = idx >= 0 ? (idx + 1) % modes.length : 0;
-    this.playMode = modes[nextIdx];
+    this.playMode = nextPlayMode(this.playMode);
     hilog.info(DOMAIN, TAG, 'play mode -> %{public}s (label=%{public}s)',
       this.playMode, this.getPlayModeText());
     // 同步到 PlayerService（由 PlayerService 同步到 AVSession）
@@ -445,30 +449,13 @@ export struct PlayDetailPage {
   }
 
   private async toggleTimeoutExit(): Promise<void> {
-    // 走 DialogService：取消项由系统菜单提供，避免出现两个「取消」
-    const ix = await appActionMenu(t('sleep_timer_setting'), [
-      t('sleep_15min'),
-      t('sleep_30min'),
-      t('sleep_60min'),
-      t('sleep_disable'),
-    ]);
-    if (ix < 0 || ix > 3) {
+    const outcome = await chooseSleepTimer();
+    if (!outcome) {
       return;
     }
-    if (ix === 3) {
-      this.timeoutExitEnabled = false;
-      this.timeoutExitLabel = t('sleep_timer_setting');
-      sleepTimerService.stop();
-      sleepTimerService.cancelPendingExit();
-      this.showToast(t('toast_sleep_cancel'));
-      return;
-    }
-    const mins = ix === 0 ? 15 : (ix === 1 ? 30 : 60);
-    this.timeoutExitEnabled = true;
-    this.timeoutExitLabel = `${mins} ${t('settings_sleep_minutes')}`;
-    // 统一由 SleepTimerService 计时，保证与设置页状态一致
-    sleepTimerService.start(mins);
-    this.showToast(`${t('toast_sleep_set')} ${mins} ${t('toast_sleep_start')}`);
+    this.timeoutExitEnabled = outcome.enabled;
+    this.timeoutExitLabel = outcome.label;
+    this.showToast(outcome.toast);
   }
 
   /** 加入歌单：命令式动作在 PlayDetail/PlaySongActions，页面只负责取当前歌曲与提示 */
@@ -490,55 +477,13 @@ export struct PlayDetailPage {
    * 14 个动作平铺时用户要逐行找，这里按用途分成四组（与主流播放器的「⋯」菜单一致）：
    * 歌曲信息与来源 / 播放相关 / 歌词相关 / 保存与分享。
    */
+  /** 「更多」面板的动作分组（内容在 PlayDetail/PlayDetailMenus，含随状态变化的三条文案） */
   private actionSections(): PlayActionSection[] {
-    return [
-      {
-        title: t('player_action_group_song'),
-        rows: [
-          { key: 'addToList', icon: $r('app.media.ic_pd_playlist'), label: t('player_add_to_list') },
-          { key: 'comment', icon: $r('app.media.ic_pd_comment'), label: t('player_comment') },
-          { key: 'dislike', icon: $r('app.media.ic_pd_comment'), label: t('dislike_title') },
-          { key: 'switchSource', icon: $r('app.media.ic_pd_loop'), label: t('switch_source') },
-        ],
-      },
-      {
-        title: t('player_action_group_play'),
-        rows: [
-          { key: 'speed', icon: $r('app.media.ic_pd_timer'), label: t('play_speed') },
-          { key: 'volume', icon: $r('app.media.ic_pd_timer'), label: t('settings_volume') },
-          {
-            key: 'sleepTimer',
-            icon: $r('app.media.ic_pd_timer'),
-            label: this.sleepWaitingTrackEnd ? t('sleep_cancel_wait') : t('sleep_timer_setting'),
-          },
-          { key: 'queue', icon: $r('app.media.ic_pd_playlist'), label: t('play_queue') },
-        ],
-      },
-      {
-        title: t('player_action_group_lyric'),
-        rows: [
-          {
-            key: 'switchTab',
-            icon: $r('app.media.ic_pd_lyric'),
-            label: this.currentTab === 0 ? t('switch_to_lyric') : t('switch_to_cover'),
-          },
-          { key: 'lyricOffset', icon: $r('app.media.ic_pd_lyric'), label: t('lyric_offset') },
-          { key: 'lyricDisplay', icon: $r('app.media.ic_pd_lyric'), label: t('lyric_display') },
-          {
-            key: 'desktopLyric',
-            icon: $r('app.media.ic_pd_lyric'),
-            label: this.showDesktopLyric ? t('close_desktop_lyric') : t('open_desktop_lyric'),
-          },
-        ],
-      },
-      {
-        title: t('player_action_group_save'),
-        rows: [
-          { key: 'saveLyric', icon: $r('app.media.ic_pd_lyric'), label: t('media_save_lyric') },
-          { key: 'saveCover', icon: $r('app.media.ic_pd_comment'), label: t('media_save_cover') },
-        ],
-      },
-    ];
+    return buildPlayActionSections({
+      sleepWaitingTrackEnd: this.sleepWaitingTrackEnd,
+      currentTab: this.currentTab,
+      desktopLyricOn: this.showDesktopLyric,
+    });
   }
 
   /** 面板回调：按 key 分发（避免下标与列表顺序耦合） */
@@ -557,9 +502,8 @@ export struct PlayDetailPage {
       this.toggleDesktopLyric();
     } else if (key === 'sleepTimer') {
       if (this.sleepWaitingTrackEnd) {
-        sleepTimerService.cancelPendingExit();
         this.sleepWaitingTrackEnd = false;
-        this.showToast(t('toast_sleep_cancel'));
+        this.showToast(cancelPendingSleepExit());
       } else {
         void this.toggleTimeoutExit();
       }
@@ -615,43 +559,14 @@ export struct PlayDetailPage {
 
   /** 歌词显示设置（翻译 / 罗马音 / 字号 / 对齐 / 进度） */
   private async pickLyricDisplay(): Promise<void> {
-    const settings = settingsService.get();
-    const action = await showLyricDisplayMenu({
-      translation: settings.showLyricTranslation,
-      roma: settings.showLyricRoma,
-      fontSize: settings.lyricFontSize,
-      alignLabel: this.alignLabel(settings.lyricAlign),
-      progress: settings.showLyricProgress,
-    });
-    if (action === null) {
+    const outcome = await applyLyricDisplayChoice();
+    if (!outcome) {
       return;
     }
-    if (action === 'translation') {
-      const next = !settings.showLyricTranslation;
-      await settingsService.update({ showLyricTranslation: next });
-      this.showToast(`${t('lyric_translation')}: ${next ? t('on') : t('off')}`);
-    } else if (action === 'roma') {
-      const next = !settings.showLyricRoma;
-      await settingsService.update({ showLyricRoma: next });
+    if (outcome.romaChanged) {
       this.rebuildRomaLines();
-      this.showToast(`${t('lyric_roma')}: ${next ? t('on') : t('off')}`);
-    } else if (action === 'fontSize') {
-      const sizes: number[] = [14, 16, 18, 20, 22, 24];
-      const index = sizes.indexOf(settings.lyricFontSize);
-      const nextSize = sizes[(index + 1) % sizes.length];
-      await settingsService.update({ lyricFontSize: nextSize });
-      this.showToast(`${t('lyric_font_size')}: ${nextSize}`);
-    } else if (action === 'align') {
-      const modes: string[] = ['center', 'left', 'right'];
-      const index = modes.indexOf(settings.lyricAlign);
-      const nextAlign = modes[(index + 1) % modes.length];
-      await settingsService.update({ lyricAlign: nextAlign });
-      this.showToast(`${t('lyric_align')}: ${this.alignLabel(nextAlign)}`);
-    } else {
-      const next = !settings.showLyricProgress;
-      await settingsService.update({ showLyricProgress: next });
-      this.showToast(`${t('lyric_progress')}: ${next ? t('on') : t('off')}`);
     }
+    this.showToast(outcome.toast);
   }
 
   /** 不喜欢：按粒度写入屏蔽规则（播放时自动跳过） */
@@ -707,19 +622,6 @@ export struct PlayDetailPage {
   }
 
 
-  /** 对齐方式的中文/英文展示名 */
-  private alignLabel(mode: string): string {
-    if (mode === 'left') {
-      return t('lyric_align_left');
-    }
-    if (mode === 'right') {
-      return t('lyric_align_right');
-    }
-    return t('lyric_align_center');
-  }
-
-
-
   /** 歌词偏移：正值让歌词更早出现，负值延后 */
 
   /** 保存当前歌词到本地文件 */
@@ -752,175 +654,184 @@ export struct PlayDetailPage {
   }
 
   private getPlayModeText(): string {
-    switch (this.playMode) {
-      case 'listLoop': return t('mode_list_loop');
-      case 'singleLoop': return t('mode_single_loop');
-      case 'random': return t('mode_random');
-      case 'sequential': return t('mode_sequential');
-      default: return t('mode_list_loop');
+    return playModeText(this.playMode);
+  }
+
+  /** 动态背景：封面高斯模糊垫底 + 上下渐变过渡到页面底色 */
+  @Builder
+  DynamicBackdrop() {
+    // 「深色模式隐藏背景」开启时，深色主题下退回纯色
+    if (this.dynamicBg && !(this.hideBgDark && this.theme === 'dark') && this.canRenderCover(this.pic)) {
+      Image(this.pic)
+        .width('100%')
+        .height('100%')
+        .objectFit(ImageFit.Cover)
+        .blur(64)
+        .opacity(this.theme === 'dark' ? 0.35 : 0.5)
+      Column()
+        .width('100%')
+        .height('100%')
+        .linearGradient({
+          angle: 180,
+          colors: [
+            [this.theme === 'dark' ? '#CC000000' : '#B3FFFFFF', 0.0],
+            [this.theme === 'dark' ? '#F2000000' : '#F2FFFFFF', 0.55],
+            [DesignTokens.pageBg(this.theme), 1.0],
+          ],
+        })
+    }
+  }
+
+  /** 主体：顶栏 + 「封面/歌词」滑动区 + 控制区 */
+  @Builder
+  PlayerStage() {
+    Column() {
+      PlayDetailTopBar({
+        musicName: this.musicName,
+        singer: this.singer,
+        fontShadow: this.fontShadow,
+        currentTab: this.currentTab,
+        onMore: (): void => this.showMoreActions(),
+        onSelectTab: (tab: number): void => {
+          if (tab === 0) {
+            this.switchToCoverTab();
+          } else {
+            this.switchToLyricTab();
+          }
+        },
+      })
+
+      Swiper(this.swiperController) {
+        this.AlbumArt()
+        // 滑动切换的视觉反馈：非当前页轻微缩小淡出（@Builder 不能链式修饰，包一层容器）
+        Column() {
+          LyricPane({
+            lyricLines: this.lyricLines,
+            secondaryLyricLines: this.secondaryLyricLines,
+            romaLines: this.romaLines,
+            currentLyricIndex: this.currentLyricIndex,
+            showLyricProgress: this.showLyricProgress,
+            progress: this.progress,
+            isSeeking: this.isSeeking,
+            previewProgress: this.previewProgress,
+            currentTime: this.currentTime,
+            previewTime: this.previewTimeText(),
+            totalTime: this.totalTime,
+            onSeekChange: (value: number, mode: SliderChangeMode): void => {
+              this.handleSeekChange(value, mode);
+            },
+          })
+        }
+        .justifyContent(FlexAlign.SpaceBetween)
+        .width('100%')
+        .height('100%')
+        .scale({ x: this.currentTab === 1 ? 1 : 0.94, y: this.currentTab === 1 ? 1 : 0.94 })
+        .opacity(this.currentTab === 1 ? 1 : 0.7)
+        .animation({ duration: DesignTokens.motionNormal(), curve: Curve.EaseOut })
+      }
+      .index(this.currentTab)
+      .width('100%')
+      .layoutWeight(1)
+      .duration(DesignTokens.motionSlow())
+      .curve(Curve.EaseOut)
+      .indicator(false)
+      .loop(false)
+      .onChange((newIndex: number) => {
+        this.currentTab = newIndex;
+        const currentMusicInfo = playerService.getCurrentMusicInfo();
+        if (newIndex === 0) {
+          if (!this.canRenderCover(this.pic)) {
+            void this.ensureCoverReady(currentMusicInfo, false);
+          }
+          return;
+        }
+        // 歌词页：没有歌词时补拉一次（失败/无歌词时不会反复请求，见 PlayMediaAssets）
+        const hasLyric = this.lyricTimeline.length > 0 ||
+          (this.lyricLines.length > 0 && this.lyricLines[0] !== t('player_no_lyric'));
+        if (!hasLyric) {
+          void this.ensureLyricReady(currentMusicInfo, false);
+        }
+      })
+
+      this.PlayerControls()
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  /** 五个底部面板：都只在打开时挂载（未挂载的面板点了不会有反应） */
+  @Builder
+  PlaySheets() {
+    if (this.showMoreActionsDialog) {
+      MoreActionsSheet({
+        visible: $showMoreActionsDialog,
+        // 标题用当前歌曲，用户才知道这些操作作用于哪首（此前误用了播放队列的文案）
+        title: this.singer.length > 0 ? `${this.musicName} - ${this.singer}` : this.musicName,
+        sections: this.actionSections(),
+        onPick: (key: string): void => {
+          this.onActionPicked(key);
+        },
+      })
+    }
+
+    if (this.showSourceDialog) {
+      SourceSwitchSheet({
+        visible: $showSourceDialog,
+        candidates: this.sourceCandidates,
+        loading: this.sourceCandidates.length === 0,
+        onPick: (target: MusicInfo): void => {
+          void this.switchToSource(target);
+        },
+      })
+    }
+
+    if (this.showVolumeSheet) {
+      VolumeSheet({
+        visible: $showVolumeSheet,
+        volume: this.volumeDraft,
+        onVolumeChange: (value: number): void => {
+          this.applyVolume(value);
+        },
+        onToggleMute: (): void => {
+          this.toggleMute();
+        },
+      })
+    }
+
+    if (this.showLyricOffsetSheet) {
+      LyricOffsetSheet({
+        visible: $showLyricOffsetSheet,
+        offsetSeconds: this.lyricOffsetDraft,
+        onOffsetChange: (value: number): void => {
+          this.applyLyricOffset(value);
+        },
+      })
+    }
+
+    if (this.showQueueSheet) {
+      QueueSheet({
+        visible: $showQueueSheet,
+        queue: this.queueItems,
+        currentIndex: this.queueIndex,
+        onPick: (index: number): void => {
+          void this.playFromQueue(index);
+        },
+        onMove: (from: number, to: number): void => {
+          this.reorderQueue(from, to);
+        },
+        onRemove: (index: number): void => {
+          this.removeFromQueue(index);
+        },
+      })
     }
   }
 
   build() {
     Stack() {
-      // 动态背景：封面高斯模糊垫底（设置 → 外观 → 动态背景）
-      // 「深色模式隐藏背景」开启时，深色主题下退回纯色
-      if (this.dynamicBg && !(this.hideBgDark && this.theme === 'dark') && this.canRenderCover(this.pic)) {
-        Image(this.pic)
-          .width('100%')
-          .height('100%')
-          .objectFit(ImageFit.Cover)
-          .blur(64)
-          .opacity(this.theme === 'dark' ? 0.35 : 0.5)
-        Column()
-          .width('100%')
-          .height('100%')
-          .linearGradient({
-            angle: 180,
-            colors: [
-              [this.theme === 'dark' ? '#CC000000' : '#B3FFFFFF', 0.0],
-              [this.theme === 'dark' ? '#F2000000' : '#F2FFFFFF', 0.55],
-              [DesignTokens.pageBg(this.theme), 1.0],
-            ],
-          })
-      }
-
-      Column() {
-        PlayDetailTopBar({
-          musicName: this.musicName,
-          singer: this.singer,
-          fontShadow: this.fontShadow,
-          currentTab: this.currentTab,
-          onMore: (): void => this.showMoreActions(),
-          onSelectTab: (tab: number): void => {
-            if (tab === 0) {
-              this.switchToCoverTab();
-            } else {
-              this.switchToLyricTab();
-            }
-          },
-        })
-
-        Swiper(this.swiperController) {
-          this.AlbumArt()
-          // 滑动切换的视觉反馈：非当前页轻微缩小淡出（@Builder 不能链式修饰，包一层容器）
-          Column() {
-            LyricPane({
-              lyricLines: this.lyricLines,
-              secondaryLyricLines: this.secondaryLyricLines,
-              romaLines: this.romaLines,
-              currentLyricIndex: this.currentLyricIndex,
-              showLyricProgress: this.showLyricProgress,
-              progress: this.progress,
-              isSeeking: this.isSeeking,
-              previewProgress: this.previewProgress,
-              currentTime: this.currentTime,
-              previewTime: this.previewTimeText(),
-              totalTime: this.totalTime,
-              onSeekChange: (value: number, mode: SliderChangeMode): void => {
-                this.handleSeekChange(value, mode);
-              },
-            })
-          }
-          .justifyContent(FlexAlign.SpaceBetween)
-          .width('100%')
-          .height('100%')
-          .scale({ x: this.currentTab === 1 ? 1 : 0.94, y: this.currentTab === 1 ? 1 : 0.94 })
-          .opacity(this.currentTab === 1 ? 1 : 0.7)
-          .animation({ duration: 260, curve: Curve.EaseOut })
-        }
-        .index(this.currentTab)
-        .width('100%')
-        .layoutWeight(1)
-        .duration(300)
-        .curve(Curve.EaseOut)
-        .indicator(false)
-        .loop(false)
-        .onChange((newIndex: number) => {
-          this.currentTab = newIndex;
-          if (newIndex === 0) {
-            if (!this.canRenderCover(this.pic)) {
-              const currentMusicInfo = playerService.getCurrentMusicInfo();
-              void this.ensureCoverReady(currentMusicInfo, false);
-            }
-          } else {
-            const hasLyric = this.lyricTimeline.length > 0 ||
-              (this.lyricLines.length > 0 && this.lyricLines[0] !== t('player_no_lyric'));
-            if (!hasLyric) {
-              const currentMusicInfo = playerService.getCurrentMusicInfo();
-              void this.ensureLyricReady(currentMusicInfo, false);
-            }
-          }
-        })
-
-        this.PlayerControls()
-      }
-      .width('100%')
-      .height('100%')
-
-      // 四个面板统一由组件承载（底部面板 + 分组卡片）
-      if (this.showMoreActionsDialog) {
-        MoreActionsSheet({
-          visible: $showMoreActionsDialog,
-          // 标题用当前歌曲，用户才知道这些操作作用于哪首（此前误用了播放队列的文案）
-          title: this.singer.length > 0 ? `${this.musicName} - ${this.singer}` : this.musicName,
-          sections: this.actionSections(),
-          onPick: (key: string): void => {
-            this.onActionPicked(key);
-          },
-        })
-      }
-
-      if (this.showSourceDialog) {
-        SourceSwitchSheet({
-          visible: $showSourceDialog,
-          candidates: this.sourceCandidates,
-          loading: this.sourceCandidates.length === 0,
-          onPick: (target: MusicInfo): void => {
-            void this.switchToSource(target);
-          },
-        })
-      }
-
-      if (this.showVolumeSheet) {
-        VolumeSheet({
-          visible: $showVolumeSheet,
-          volume: this.volumeDraft,
-          onVolumeChange: (value: number): void => {
-            this.applyVolume(value);
-          },
-          onToggleMute: (): void => {
-            this.toggleMute();
-          },
-        })
-      }
-
-      if (this.showLyricOffsetSheet) {
-        LyricOffsetSheet({
-          visible: $showLyricOffsetSheet,
-          offsetSeconds: this.lyricOffsetDraft,
-          onOffsetChange: (value: number): void => {
-            this.applyLyricOffset(value);
-          },
-        })
-      }
-
-      if (this.showQueueSheet) {
-        QueueSheet({
-          visible: $showQueueSheet,
-          queue: this.queueItems,
-          currentIndex: this.queueIndex,
-          onPick: (index: number): void => {
-            void this.playFromQueue(index);
-          },
-          onMove: (from: number, to: number): void => {
-            this.reorderQueue(from, to);
-          },
-          onRemove: (index: number): void => {
-            this.removeFromQueue(index);
-          },
-        })
-      }
+      this.DynamicBackdrop()
+      this.PlayerStage()
+      // 面板统一由组件承载（底部面板 + 分组卡片）
+      this.PlaySheets()
     }
     .width('100%')
     .height('100%')

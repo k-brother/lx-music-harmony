@@ -6,6 +6,7 @@
  */
 import { t, tf } from '../../service/LocalizationService';
 import { appActionMenu } from '../../service/DialogService';
+import type { PlayActionSection } from './MoreActionsSheet';
 
 /** 倍速选项（0.5x - 2.0x） */
 const SPEED_RATES: string[] = ['0.5', '0.75', '1.0', '1.25', '1.5', '2.0'];
@@ -86,4 +87,71 @@ export async function showDislikeMenu(): Promise<DislikeLevel | null> {
 /** 后续动作提示文案（用于切歌/切源后的统一 toast） */
 export function speedToast(rate: number): string {
   return tf('play_speed_set', [`${rate}x`]);
+}
+
+/**
+ * 「更多」面板的动作分组内容。
+ *
+ * 14 个动作平铺时用户要逐行找，这里按用途分成四组（与主流播放器的「⋯」菜单一致）：
+ * 歌曲信息与来源 / 播放相关 / 歌词相关 / 保存与分享。
+ * 其中三项文案随状态变化（定时等待态、当前在封面页还是歌词页、桌面歌词开关），
+ * 所以由调用方把状态传进来、每次渲染重新构造。
+ */
+export interface PlayActionState {
+  /** 定时器已到点、正在等当前歌曲播完 */
+  sleepWaitingTrackEnd: boolean;
+  /** 0=封面页，1=歌词页 */
+  currentTab: number;
+  desktopLyricOn: boolean;
+}
+
+export function buildPlayActionSections(state: PlayActionState): PlayActionSection[] {
+  return [
+    {
+      title: t('player_action_group_song'),
+      rows: [
+        { key: 'addToList', icon: $r('app.media.ic_pd_playlist'), label: t('player_add_to_list') },
+        { key: 'comment', icon: $r('app.media.ic_pd_comment'), label: t('player_comment') },
+        { key: 'dislike', icon: $r('app.media.ic_pd_comment'), label: t('dislike_title') },
+        { key: 'switchSource', icon: $r('app.media.ic_pd_loop'), label: t('switch_source') },
+      ],
+    },
+    {
+      title: t('player_action_group_play'),
+      rows: [
+        { key: 'speed', icon: $r('app.media.ic_pd_timer'), label: t('play_speed') },
+        { key: 'volume', icon: $r('app.media.ic_pd_timer'), label: t('settings_volume') },
+        {
+          key: 'sleepTimer',
+          icon: $r('app.media.ic_pd_timer'),
+          label: state.sleepWaitingTrackEnd ? t('sleep_cancel_wait') : t('sleep_timer_setting'),
+        },
+        { key: 'queue', icon: $r('app.media.ic_pd_playlist'), label: t('play_queue') },
+      ],
+    },
+    {
+      title: t('player_action_group_lyric'),
+      rows: [
+        {
+          key: 'switchTab',
+          icon: $r('app.media.ic_pd_lyric'),
+          label: state.currentTab === 0 ? t('switch_to_lyric') : t('switch_to_cover'),
+        },
+        { key: 'lyricOffset', icon: $r('app.media.ic_pd_lyric'), label: t('lyric_offset') },
+        { key: 'lyricDisplay', icon: $r('app.media.ic_pd_lyric'), label: t('lyric_display') },
+        {
+          key: 'desktopLyric',
+          icon: $r('app.media.ic_pd_lyric'),
+          label: state.desktopLyricOn ? t('close_desktop_lyric') : t('open_desktop_lyric'),
+        },
+      ],
+    },
+    {
+      title: t('player_action_group_save'),
+      rows: [
+        { key: 'saveLyric', icon: $r('app.media.ic_pd_lyric'), label: t('media_save_lyric') },
+        { key: 'saveCover', icon: $r('app.media.ic_pd_comment'), label: t('media_save_cover') },
+      ],
+    },
+  ];
 }
