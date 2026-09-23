@@ -545,7 +545,9 @@ pages/Home/Home/
   改为 UI Kit + DialogService，行尾统一 ⋮ 菜单，空/加载态统一）
 - 已完成：`SettingView`、`SonglistDetailPage`、`PlayDetailPage`、`MylistView`、`HomePage`、
   `LeaderboardView`、`PlayerService`、`ResolvePlayback` 的拆分（见上表）
-- 待迁移：`DownloadPage`、`LocalMusicPage`、`CommentPage`、`BoardDetailPage`、`UserListsPage` 的 UI Kit 收口
+- 已收口：`DownloadPage`（拆成 `Download/{DownloadView,DownloadTaskRow,DownloadSelectionBar}`）；
+  `LocalMusicPage` / `CommentPage` / `BoardDetailPage` / `UserListsPage` 已用 NavBar + StateView，
+  剩下的自有布局（编辑弹层、评论楼层、榜单头部）按需继续收敛
 
 ### 本轮修正（真机日志暴露的问题 + 对齐补口）
 
