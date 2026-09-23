@@ -82,7 +82,6 @@ export function buildEnUS(): Map<string, string> {
   m.set('player_unlove', 'Unfavorite');
   m.set('player_loved', 'Added to favorites');
   m.set('player_unloved_ok', 'Removed from favorites');
-  m.set('more_actions', 'More actions');
   m.set('load_failed_hint', 'Please go back and retry');
   m.set('toast_backup_running', 'Backing up…');
   m.set('user_lists_empty_hint', 'Tap the + button at the top right to create one');

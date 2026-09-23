@@ -85,7 +85,6 @@ export function buildZhCN(): Map<string, string> {
   m.set('player_loved', '已收藏');
   m.set('player_unlove', '取消收藏');
   m.set('player_love', '收藏');
-  m.set('more_actions', '更多操作');
   m.set('play_queue', '播放队列');
   m.set('play_queue_remove', '从队列移除');
   m.set('play_queue_count', '播放队列（{0} 首）');

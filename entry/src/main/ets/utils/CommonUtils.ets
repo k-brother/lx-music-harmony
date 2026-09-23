@@ -51,6 +51,24 @@ export function decodeName(str: string): string {
     .trim();
 }
 
+/**
+ * 把音源返回的富文本简介转成纯文本。
+ *
+ * 歌单/榜单简介是各平台后台直接存的 HTML 片段（`纵颠覆流离<br>纵世人皆弃`），
+ * 以前原样塞进 Text 里，界面上就会出现 `<br>` 这种标签字面量。
+ * 这里按「块级标签 -> 空格、其余标签直接去掉、实体解码、空白折叠」处理。
+ */
+export function plainTextFromHtml(str: string): string {
+  if (!str) {
+    return '';
+  }
+  const withBreaks: string = str
+    .replace(/<\s*br\s*\/?\s*>/gi, ' ')
+    .replace(/<\s*\/\s*(p|div|li|tr|h[1-6])\s*>/gi, ' ');
+  const noTags: string = withBreaks.replace(/<[^>]*>/g, '');
+  return decodeName(noTags);
+}
+
 // 格式化歌手名称（多个用、分隔）
 export function formatSinger(singerStr: string): string {
   if (!singerStr) return '';

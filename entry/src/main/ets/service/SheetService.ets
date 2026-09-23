@@ -21,7 +21,20 @@ export interface SheetOption {
   value: string;
 }
 
-export type SheetKind = 'select' | 'input';
+/**
+ * 面板里的一行动作（菜单 / 确认框共用）
+ * - icon：行首系统符号，商业级菜单都是「左图标 + 右文案」
+ * - index：回传给调用方的原始下标（菜单项顺序会被调用方用来分支）
+ */
+export interface SheetRow {
+  label: string;
+  icon: Resource;
+  danger: boolean;
+  disabled: boolean;
+  index: number;
+}
+
+export type SheetKind = 'select' | 'input' | 'menu' | 'confirm';
 
 /** 一次面板请求（宿主据此渲染） */
 export interface SheetRequest {
@@ -31,6 +44,10 @@ export interface SheetRequest {
   value: string;
   placeholder: string;
   numberOnly: boolean;
+  /** menu / confirm：动作行 */
+  rows: SheetRow[];
+  /** confirm：说明文字 */
+  message: string;
   /** 完成：选中值 / 输入值；取消返回空字符串 */
   resolve: (value: string) => void;
 }
@@ -58,13 +75,35 @@ class SheetServiceImpl {
     return this.request('input', title, [], value, placeholder, numberOnly);
   }
 
+  /** 动作菜单：返回被点行的原始下标，取消返回 -1 */
+  async menu(title: string, rows: SheetRow[]): Promise<number> {
+    const picked: string = await this.request('menu', title, [], '', '', false, rows);
+    return SheetServiceImpl.toIndex(picked);
+  }
+
+  /** 确认框：返回被点行的原始下标（调用方约定 1=确认、0=取消），取消返回 -1 */
+  async confirm(title: string, message: string, rows: SheetRow[]): Promise<number> {
+    const picked: string = await this.request('confirm', title, [], '', '', false, rows, message);
+    return SheetServiceImpl.toIndex(picked);
+  }
+
+  private static toIndex(picked: string): number {
+    if (picked.length === 0) {
+      return -1;
+    }
+    const index: number = parseInt(picked);
+    return isNaN(index) ? -1 : index;
+  }
+
   private request(
     kind: SheetKind,
     title: string,
     options: SheetOption[],
     value: string,
     placeholder: string,
-    numberOnly: boolean
+    numberOnly: boolean,
+    rows: SheetRow[] = [],
+    message: string = ''
   ): Promise<string> {
     if (!this.presenter) {
       hilog.warn(DOMAIN, TAG, 'No sheet host registered, request dropped: %{public}s', title);
@@ -88,6 +127,8 @@ class SheetServiceImpl {
         value,
         placeholder,
         numberOnly,
+        rows,
+        message,
         resolve: finish,
       };
       this.presenter?.(request);

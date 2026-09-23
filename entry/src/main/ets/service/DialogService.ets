@@ -2,39 +2,33 @@
  * 对话框 / 菜单 / 轻提示统一入口
  *
  * 之前每个页面各写一遍：
- *   - `new Promise(resolve => showDialog({title, message, buttons:[取消,确认]}, cb))`
- *   - `showActionMenu({title, buttons:[...6 元组]}, cb)`（按钮数量受限，超过 6 个要自己拆二级菜单）
- *   - `showToast({message})` + try/catch
+ *   - 系统居中确认弹窗（标题/按钮居中，和平台观感不统一）
+ *   - 系统动作菜单（按钮数量受限，超过 6 个要自己拆二级菜单）
+ *   - 轻提示 + try/catch
  * 现在统一到这里，页面只关心「问一句」或「列一组动作」：
  *   const ok = await appConfirm('删除', '删除后不可恢复');
  *   const index = await appActionMenu('歌曲名', ['播放','下一首播放','收藏','分享','不喜欢'], [4]);
  *   appToast('已添加');
  *
- * ActionMenu 超过 5 项时自动折叠为「前 4 项 + 更多…」，选择后再展开剩余项，
- * 返回值始终是**原始数组下标**，调用方不需要感知折叠。
+ * 菜单与确认框都渲染成同一种底部面板（components/ui/MenuSheet）：
+ * 每行「左图标 + 右文案」、左对齐、行高一致，危险项用危险色。
+ * `appActionMenu` 的返回值始终是**原始数组下标**，调用方沿用原有分支即可。
  */
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { t } from './LocalizationService';
 import { getAppUiContext } from './UiContext';
-import { DesignTokens } from '../theme/DesignTokens';
-import { promptAction } from '@kit.ArkUI';
 import { hapticService } from './HapticService';
+import { sheetService, type SheetRow } from './SheetService';
+import { menuIconFor } from '../utils/MenuIcons';
 
 const DOMAIN = 0x0005;
 const TAG = 'DialogService';
-/** ActionMenu 单页最多 6 个按钮，其中 1 个留给"取消" */
-const MENU_PAGE_SIZE = 5;
-/** 折叠时先展示的项数（其余进"更多"） */
-const MENU_VISIBLE_WHEN_OVERFLOW = 4;
-
 /** 确认框选项 */
 export interface ConfirmOptions {
   confirmText?: string;
   cancelText?: string;
-  /** 危险动作：确认按钮用危险色（删除、清空等） */
+  /** 危险动作：确认行用危险色 + 删除图标（删除、清空等） */
   danger?: boolean;
-  /** 主题（决定颜色），默认读取 AppStorage 的 theme */
-  theme?: string;
 }
 
 /** 菜单选项 */
@@ -45,90 +39,65 @@ export interface ActionMenuOptions {
   disabledIndexes?: number[];
 }
 
-interface PromptActionResult {
-  index: number;
-}
-
-type MenuButton = promptAction.Button;
-/** ActionMenu 的 buttons 是定长元组（1-6 项），动态数组需要显式收窄 */
-type MenuButtonTuple = [MenuButton, MenuButton?, MenuButton?, MenuButton?, MenuButton?, MenuButton?];
-
-function currentTheme(): string {
-  try {
-    return AppStorage.get<string>('theme') ?? 'light';
-  } catch (err) {
-    return 'light';
-  }
-}
-
 /**
  * 二选一确认框（Promise 化，取消返回 false）
+ *
+ * 视觉上不再用系统居中弹窗（标题/按钮都居中，和信息类菜单不是一套观感），
+ * 改成与动作菜单同源的底部面板：每行「左图标 + 右文案」、左对齐，
+ * 确认行在危险动作时用危险色 + 垃圾桶图标，取消行固定在最下面。
  * UI 不可用时返回 false，调用方无需再判断上下文
  */
 export async function appConfirm(title: string, message: string, options?: ConfirmOptions): Promise<boolean> {
-  const uiContext = getAppUiContext();
-  if (!uiContext) {
-    hilog.warn(DOMAIN, TAG, 'appConfirm skipped: no UIContext');
-    return false;
-  }
-  const theme = options?.theme ?? currentTheme();
-  const confirmColor = options?.danger === true ? DesignTokens.danger() : DesignTokens.accent();
-  return new Promise<boolean>((resolve: (value: boolean) => void) => {
-    try {
-      uiContext.getPromptAction().showDialog({
-        title,
-        message,
-        buttons: [
-          { text: options?.cancelText ?? t('cancel'), color: DesignTokens.labelSecondary(theme) },
-          { text: options?.confirmText ?? t('confirm'), color: confirmColor },
-        ],
-      }, (err: object, data: PromptActionResult) => {
-        resolve(!err && data.index === 1);
-      });
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'appConfirm failed: %{public}s', JSON.stringify(err));
-      resolve(false);
-    }
-  });
+  const danger: boolean = options?.danger === true;
+  const rows: SheetRow[] = [
+    {
+      label: options?.confirmText ?? t('confirm'),
+      icon: danger ? $r('sys.symbol.trash') : $r('sys.symbol.checkmark_circle'),
+      danger: danger,
+      disabled: false,
+      index: 1,
+    },
+    {
+      label: options?.cancelText ?? t('cancel'),
+      icon: $r('sys.symbol.xmark'),
+      danger: false,
+      disabled: false,
+      index: 0,
+    },
+  ];
+  const picked: number = await sheetService.confirm(title, message, rows);
+  return picked === 1;
 }
 
 /**
  * 单按钮提示框（只有「知道了」）。
  * 用于「插件加载失败」这类只需告知、不需要选择的场景，
- * 避免各页面自己 getPromptAction().showDialog 拼按钮与颜色。
+ * 避免各页面自己拼系统 dialog。
+ *
+ * 同样走底部面板：与菜单/确认框同一套「左图标 + 右文案」观感，不再用居中弹窗。
  */
 export async function appAlert(title: string, message: string, options?: ConfirmOptions): Promise<void> {
-  const uiContext = getAppUiContext();
-  const theme = options?.theme ?? currentTheme();
-  if (!uiContext) {
-    // UI 不可用（例如页面已销毁）：至少把内容写进日志，便于「运行日志」里排查
-    hilog.warn(DOMAIN, TAG, 'appAlert skipped (no UIContext): %{public}s - %{public}s', title, message);
-    return;
-  }
-  return new Promise<void>((resolve: () => void) => {
-    try {
-      uiContext.getPromptAction().showDialog({
-        title,
-        message,
-        buttons: [
-          { text: options?.confirmText ?? t('got_it'), color: DesignTokens.accent() },
-        ],
-      }, (err: object) => {
-        if (err) {
-          hilog.warn(DOMAIN, TAG, 'appAlert failed: %{public}s', JSON.stringify(err));
-        }
-        resolve();
-      });
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'appAlert threw: %{public}s', JSON.stringify(err));
-      resolve();
-    }
-  });
+  const rows: SheetRow[] = [
+    {
+      label: options?.confirmText ?? t('got_it'),
+      icon: $r('sys.symbol.checkmark_circle'),
+      danger: false,
+      disabled: false,
+      index: 0,
+    },
+  ];
+  // 面板不可用（例如页面已销毁）时 sheetService 会直接返回 -1，
+  // 内容同时已经进日志仓库，便于「运行日志」排查。
+  await sheetService.confirm(title, message, rows);
+  hilog.info(DOMAIN, TAG, 'appAlert: %{public}s - %{public}s', title, message);
 }
 
 /**
  * 动作菜单（Promise 化，返回原始下标；用户取消返回 -1）
- * items 超过 5 项时自动折叠成「更多…」，返回值仍是原始下标。
+ *
+ * 统一走底部面板 MenuSheet：每行「左图标 + 右文案」、左对齐，行高一致，
+ * 项数不再受系统 showActionMenu 的 6 项限制，因此也不需要「更多…」折叠。
+ * 传入的 items 顺序即返回值下标，调用方沿用原有分支即可。
  */
 export async function appActionMenu(
   title: string,
@@ -140,78 +109,22 @@ export async function appActionMenu(
   }
   // 长按菜单唤起时给一次「中等」触感，与系统原生菜单手感一致
   hapticService.medium();
-  return await showMenuPage(title, items, options ?? {}, 0, items.length);
-}
 
-/**
- * 展示菜单的一页
- * @param offset 本页第一项在原始数组中的下标
- * @param totalCount 原始数组长度（用于判断是否还有后续页）
- */
-async function showMenuPage(
-  title: string,
-  items: string[],
-  options: ActionMenuOptions,
-  offset: number,
-  totalCount: number
-): Promise<number> {
-  const uiContext = getAppUiContext();
-  if (!uiContext) {
-    return -1;
+  const dangerIndexes: number[] = options?.dangerIndexes ?? [];
+  const disabledIndexes: number[] = options?.disabledIndexes ?? [];
+  const rows: SheetRow[] = [];
+  for (let i = 0; i < items.length; i++) {
+    const label: string = items[i] ?? '';
+    const row: SheetRow = {
+      label,
+      icon: menuIconFor(label),
+      danger: dangerIndexes.indexOf(i) >= 0,
+      disabled: disabledIndexes.indexOf(i) >= 0,
+      index: i,
+    };
+    rows.push(row);
   }
-  const theme = currentTheme();
-  const remaining = totalCount - offset;
-  const overflow = remaining > MENU_PAGE_SIZE;
-  const pageSize = overflow ? MENU_VISIBLE_WHEN_OVERFLOW : remaining;
-  const dangerIndexes = options.dangerIndexes ?? [];
-  const disabledIndexes = options.disabledIndexes ?? [];
-
-  const buttons: MenuButton[] = [];
-  for (let i = 0; i < pageSize; i++) {
-    const absoluteIndex = offset + i;
-    const original = items[absoluteIndex] ?? '';
-    const isDanger = dangerIndexes.indexOf(absoluteIndex) >= 0;
-    const isDisabled = disabledIndexes.indexOf(absoluteIndex) >= 0;
-    const color = isDisabled
-      ? DesignTokens.labelTertiary(theme)
-      : (isDanger ? DesignTokens.danger() : DesignTokens.labelPrimary(theme));
-    buttons.push({ text: original, color });
-  }
-  if (overflow) {
-    buttons.push({ text: t('more_actions'), color: DesignTokens.labelPrimary(theme) });
-  }
-  // 不再自己追加「取消」：系统 showActionMenu 底部自带一个，
-  // 之前两处叠加会出现两个「取消」（真机可见）。系统取消返回 index < 0，仍映射为 -1。
-
-  return new Promise<number>((resolve: (value: number) => void) => {
-    try {
-      const buttonsTuple = buttons as MenuButtonTuple;
-      uiContext.getPromptAction().showActionMenu({ title, buttons: buttonsTuple },
-        (err: object, data: PromptActionResult) => {
-        if (err || !data || data.index < 0) {
-          resolve(-1);
-          return;
-        }
-        const index = data.index;
-        if (overflow && index === pageSize) {
-          // 「更多…」：展开剩余项，返回值映射回原始下标
-          showMenuPage(title, items, options, offset + pageSize, totalCount)
-            .then((result: number) => resolve(result))
-            .catch(() => resolve(-1));
-          return;
-        }
-        if (index < 0 || index >= pageSize) {
-          // 越界（含系统自带的取消项）一律按取消处理
-          resolve(-1);
-          return;
-        }
-        resolve(offset + index);
-      });
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'appActionMenu failed: %{public}s', JSON.stringify(err));
-      resolve(-1);
-    }
-  });
+  return await sheetService.menu(title, rows);
 }
 
 /** 轻提示（UI 不可用时静默忽略） */

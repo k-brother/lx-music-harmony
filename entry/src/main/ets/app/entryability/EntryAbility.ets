@@ -4,9 +4,11 @@
 import { UIAbility } from '@kit.AbilityKit';
 import type { Configuration } from '@kit.AbilityKit';
 import { ConfigurationConstant } from '@kit.AbilityKit';
+import { errorManager } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
+import { appLog } from '../../core/log/AppLogger';
 import { stateEvent } from '../../event/StateEvent';
 import { appEvent } from '../../event/AppEvent';
 import { playerService } from '../../service/PlayerService';
@@ -65,12 +67,53 @@ let globalApp: GlobalApp;
 export default class EntryAbility extends UIAbility {
   onCreate(want: object, launchParam: object): void {
     hilog.info(DOMAIN, TAG, 'EntryAbility onCreate');
+    // 崩溃兜底：注册后未捕获异常不再直接闪退，并把栈写进「设置 → 运行日志」
+    this.registerCrashGuard();
     // 初始化全局状态
     this.initGlobalState();
     // 初始化后台任务管理器（传入 context 用于后续长时任务申请）
     backgroundRunningManager.init(this.context);
     // 初始化应用（异步，传入 want 供深链等后续扩展）
     void this.initApp(want);
+  }
+
+  /**
+   * 未捕获异常兜底。
+   *
+   * 注册 errorManager.on('error') 后，应用发生 JS 未捕获异常时**不会自动退出**
+   * （官方文档：the application will not exit automatically）。这里把异常栈逐行写进
+   * 应用内日志仓库，用户可在「设置 → 运行日志」里看到并反馈，而不是只看到闪退。
+   *
+   * 权衡：官方建议回调里同步退出以免带着脏状态继续跑；音乐播放器的播放态与音频服务
+   * 都在原生侧、页面可以重进，保留进程不会打断播放，收益大于风险，因此这里选择
+   * 「记录 + 继续」，并把级别标成 FATAL 方便定位。
+   */
+  private registerCrashGuard(): void {
+    try {
+      errorManager.on('error', {
+        onUnhandledException: (errMsg: string): void => {
+          this.recordCrash(errMsg);
+        },
+      });
+      hilog.info(DOMAIN, TAG, 'Crash guard registered');
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'registerCrashGuard failed: %{public}s',
+        (err as Error)?.message ?? '');
+    }
+  }
+
+  /** 异常栈逐行入库（单行过长会被截断，分行更利于在日志页阅读） */
+  private recordCrash(errMsg: string): void {
+    const text: string = errMsg ?? '';
+    hilog.fatal(DOMAIN, TAG, 'Uncaught exception captured (app kept alive): %{public}s', text);
+    const lines: string[] = text.split('\n');
+    const limit: number = Math.min(lines.length, 40);
+    for (let i = 0; i < limit; i++) {
+      const line: string = lines[i].trim();
+      if (line.length > 0) {
+        appLog.fatal(DOMAIN, 'CrashGuard', '%{public}s', line);
+      }
+    }
   }
 
   onDestroy(): void {

@@ -460,7 +460,8 @@ export struct CommentPage {
                   },
                 })
               }
-            }, (comment: Comment) => comment.id)
+            // key 带上序号：同一楼层重复 id 时，重复 key 会让 LazyForEach 错行
+          }, (comment: Comment, index: number) => `${comment.id}_${index}`)
 
             if (this.hasMore) {
               ListItem() {

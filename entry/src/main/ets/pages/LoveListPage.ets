@@ -23,6 +23,7 @@ import { PlayerBar } from '../components/player/PlayerBar';
 import { navigationService, RouteName } from '../service/NavigationService';
 import { playKeyOfIds } from '../service/PlayerService';
 import { pageScrollKey, ScrollMemoryHandle } from '../service/ScrollMemoryService';
+import { asNumber, asText } from '../utils/ValueCoerce';
 
 const DOMAIN = 0x0001;
 const TAG = 'LoveListPage';
@@ -83,13 +84,14 @@ export struct LoveListPage {
       for (let i = 0; i < loveList.length; i++) {
         const m = loveList[i];
         rows.push({
-          id: m.id || '',
-          name: m.name || '',
-          singer: m.singer || '',
-          album: m.album || '',
-          pic: m.pic || '',
-          duration: m.duration || 0,
-          source: m.source || '',
+          // 老版本存下来的字段可能缺项/类型不同，进 UI 前统一收敛（@Prop 会校验类型）
+          id: asText(m.id),
+          name: asText(m.name),
+          singer: asText(m.singer),
+          album: asText(m.album),
+          pic: asText(m.pic),
+          duration: asNumber(m.duration),
+          source: asText(m.source),
         });
       }
       this.songs = rows;

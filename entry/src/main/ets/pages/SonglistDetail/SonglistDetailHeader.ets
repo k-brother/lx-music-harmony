@@ -108,7 +108,10 @@ export struct SonglistDetailHeader {
         Text(this.description)
           .fontSize(DesignTokens.fontCaption())
           .fontColor(DesignTokens.labelSecondary(this.theme))
+          .lineHeight(19)
           .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .width('100%')
           .margin({ top: this.compact ? 6 : 10 })
       }
     }
@@ -154,12 +157,17 @@ export struct SonglistDetailHeader {
           .fontWeight(FontWeight.Medium)
           .maxLines(2)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-        Text(`${t('songlist_creator')}: ${this.creator.length > 0 ? this.creator : t('unknown')}`)
-          .fontSize(DesignTokens.fontCaption())
-          .fontColor(DesignTokens.labelSecondary(this.theme))
-          .maxLines(1)
           .width('100%')
+
+        // 创建者：源没给作者时整行不渲染（此前会留下一个「创建者:」空标签）
+        if (this.creator.length > 0) {
+          Text(`${t('songlist_creator')}: ${this.creator}`)
+            .fontSize(DesignTokens.fontCaption())
+            .fontColor(DesignTokens.labelSecondary(this.theme))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .width('100%')
+        }
 
         Row() {
           Text(tf('count_play', [this.formatPlayCount(this.playCount)]))

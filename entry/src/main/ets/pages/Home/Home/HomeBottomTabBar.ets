@@ -27,21 +27,24 @@ export struct HomeBottomTabBar {
 
   @Builder
   TabItem(tab: HomeTabItem) {
-    Column({ space: 2 }) {
+    Column({ space: 3 }) {
       // 系统符号必须用 SymbolGlyph 渲染（Image 加载 sys.symbol.* 会空白）
       SymbolGlyph(tab.icon)
-        .fontSize(DesignTokens.iconMd() + 4)
+        // 底部导航图标按平台规范取 22vp（iconMd 是正文图标尺寸，这里加一档）
+        .fontSize(DesignTokens.iconMd() + 6)
         .fontColor([this.activeIndex === tab.idx ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme)])
         .scale({ x: this.activeIndex === tab.idx ? 1.08 : 1, y: this.activeIndex === tab.idx ? 1.08 : 1 })
         .animation({ duration: DesignTokens.motionFast(), curve: Curve.EaseOut })
       Text(tab.label)
-        .fontSize(DesignTokens.fontBody())
+        .fontSize(DesignTokens.fontCaption())
         .fontColor(this.activeIndex === tab.idx ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
         .fontWeight(this.activeIndex === tab.idx ? FontWeight.Medium : FontWeight.Normal)
         .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
     .layoutWeight(1)
-    .height(44)
+    // 图标 + 文案的完整高度：此前给 44 而 Row 又加了内边距，文案被压到屏幕外
+    .height(50)
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
     .onClick(() => {
@@ -77,18 +80,12 @@ export struct HomeBottomTabBar {
           }, (tab: HomeTabItem) => tab.idx.toString())
         }
         .width('100%')
-        .height(44)
-        .padding({ top: 4, bottom: 4 })
+        // 不写死高度：由 TabItem 撑开，避免再次出现「图标挤到文案」
+        .padding({ top: 6, bottom: 6 })
         .border({ width: { top: 0.33 }, color: DesignTokens.hairlineSeparator(this.theme) })
-
-        // 底部安全区占位（沉浸式导航栏）
-        Blank()
-          .width('100%')
-          .height(6)
       }
       .width('100%')
       .backgroundColor(DesignTokens.tabBarBg(this.theme))
-      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
     }
   }
 }

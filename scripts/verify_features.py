@@ -208,7 +208,15 @@ CHECKS = [
  ('拖拽手柄吞掉点击', 'pages/PlayDetail/QueueSheet.ets', r'\.onClick\(\(\) => \{\}\)'),
  ('队列拖拽结果落到播放队列', 'pages/PlayDetailPage.ets', r'this\.reorderQueue\(from, to\)'),
  ('队列移除', 'service/PlayerService.ets', r'removeFromQueue'),
- ('动作菜单不再重复“取消”', 'service/DialogService.ets', r'不再自己追加'),
+ # 动作菜单/确认框统一走底部面板 MenuSheet：每行左图标 + 右文案，取消行只有一处
+ ('动作菜单用面板渲染（每行左图标+右文案）', 'components/ui/MenuSheet.ets',
+  r'SymbolGlyph\(row\.icon\)|SheetRow'),
+ ('菜单图标按关键字映射到系统符号', 'utils/MenuIcons.ets', r'export function menuIconFor'),
+ ('动作菜单不再受系统 6 项限制', 'service/DialogService.ets', r'sheetService\.menu\(',
+  r'MENU_VISIBLE_WHEN_OVERFLOW'),
+ ('确认框也用同一套面板（不再居中弹窗）', 'service/DialogService.ets', r'sheetService\.confirm\(',
+  r'showDialog\('),
+ ('未捕获异常兜底（不闪退并记日志）', 'app/entryability/EntryAbility.ets', r'onUnhandledException'),
  ('更多操作面板标题用歌曲', 'pages/PlayDetailPage.ets', r'title: this\.singer\.length > 0'),
  # 真机踩坑（对照实验结论）：@Builder 的参数不会随状态刷新，但 Builder 内部读 this.* 会刷新。
  # 实验：参数版点「播放模式」后状态已切到 sequential，界面仍停在上一档；

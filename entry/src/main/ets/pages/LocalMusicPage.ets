@@ -25,9 +25,12 @@ import { Breakpoints } from '../theme/Breakpoints';
 import { LazyDataSource } from '../utils/LazyDataSource';
 import { pageScrollKey, ScrollMemoryHandle } from '../service/ScrollMemoryService';
 import { playKeyOfIds } from '../service/PlayerService';
+import { asNumber, asText } from '../utils/ValueCoerce';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'LocalMusicPage';
+/** 每次进入页面最多解析多少首的内嵌封面（原生解码，分批做） */
+const MAX_COVER_EXTRACT_PER_VISIT: number = 12;
 
 @Component
 export struct LocalMusicPage {
@@ -69,9 +72,14 @@ export struct LocalMusicPage {
     this.isLoading = true;
     try {
       const list = localMusicService.getLibrary();
-      this.tracks = list.slice();
+      // 老版本存下来的条目可能缺字段/类型不同，进 UI 前统一收敛（@Prop 会校验类型）
+      const normalized: LocalMusicInfo[] = [];
+      for (let i = 0; i < list.length; i++) {
+        normalized.push(LocalMusicPage.sanitize(list[i]));
+      }
+      this.tracks = normalized;
       this.trackSource.reload(this.tracks);
-      void this.loadCovers(list);
+      void this.loadCovers(normalized);
       // 数据进列表后：首次进入落回上次位置（重扫/下拉刷新不重复恢复）
       this.scrollMemory.markLoaded();
       if (!this.scrollMemoryRestored) {
@@ -85,14 +93,34 @@ export struct LocalMusicPage {
     }
   }
 
+  /** 曲库条目字段收敛：字符串给空串、时长给有限数字、封面缺省为空 */
+  private static sanitize(track: LocalMusicInfo): LocalMusicInfo {
+    const fixed: LocalMusicInfo = {
+      id: asText(track.id),
+      name: asText(track.name),
+      singer: asText(track.singer),
+      album: asText(track.album),
+      duration: asNumber(track.duration),
+      interval: asText(track.interval),
+      filePath: asText(track.filePath),
+      size: asNumber(track.size),
+      picUrl: asText(track.picUrl),
+    };
+    return fixed;
+  }
+
   /** 首次展示时异步补内嵌封面，避免卡住列表 */
   private async loadCovers(list: LocalMusicInfo[]): Promise<void> {
-    for (let i = 0; i < list.length; i++) {
+    // 每进一次页面最多解析这么多首：封面解析要走系统 AVMetadataExtractor（原生解码），
+    // 一次刷一整个曲库既慢又容易把内存顶上去；没解析到的下次进来继续。
+    let extracted: number = 0;
+    for (let i = 0; i < list.length && extracted < MAX_COVER_EXTRACT_PER_VISIT; i++) {
       const track = list[i];
       if (this.coverLoaded.has(track.id)) {
         continue;
       }
       this.coverLoaded.add(track.id);
+      extracted += 1;
       try {
         const cover = await getLocalPicUrl({
           musicInfo: track,
@@ -416,7 +444,8 @@ export struct LocalMusicPage {
             actionAreaDistance: 56,
           },
         })
-      }, (track: LocalMusicInfo) => track.id)
+        // key 带上序号：老数据里 id 可能重复/为空，重复 key 会让 LazyForEach 出现错行甚至崩
+      }, (track: LocalMusicInfo, index: number) => `${track.id}_${index}`)
     }
     .width('100%')
     .layoutWeight(1)

@@ -14,6 +14,7 @@ import {
   musicRowListToSongItems,
   parsePlayCountText,
 } from './SonglistMapper';
+import { plainTextFromHtml } from '../../utils/CommonUtils';
 import type { SongItem, SonglistInfo } from './SonglistTypes';
 
 const TAG = 'SonglistLoader';
@@ -43,10 +44,12 @@ export async function loadOnlineSonglist(source: string, id: string): Promise<So
     const info: SonglistInfo = {
       source: source,
       id: id,
-      name: result.info.name || t('unknown_playlist'),
-      creator: result.info.author || t('unknown'),
+      name: plainTextFromHtml(result.info.name || '') || t('unknown_playlist'),
+      // 作者字段各源都可能带 HTML 实体或纯空白，先转纯文本，空则由头部隐藏该行
+      creator: plainTextFromHtml(result.info.author || ''),
       pic: result.info.img || '',
-      desc: result.info.desc || '',
+      // 源返回的简介是 HTML 片段（含 <br>），这里统一转纯文本，界面不再出现标签字面量
+      desc: plainTextFromHtml(result.info.desc || ''),
       playCount: parsePlayCountText(result.info.play_count),
     };
     return { status: 'ok', info: info, songs: musicInfoListToSongItems(result.list, source) };
@@ -71,7 +74,7 @@ export function loadLocalSonglist(id: string): SonglistLoadOutcome {
       name: listInfo.name,
       creator: t('local_playlist'),
       pic: listInfo.pic || (localSongs.length > 0 ? (localSongs[0].pic ?? '') : ''),
-      desc: listInfo.desc || '',
+      desc: plainTextFromHtml(listInfo.desc || ''),
       playCount: 0,
     };
     return { status: 'ok', info: info, songs: musicRowListToSongItems(localSongs) };

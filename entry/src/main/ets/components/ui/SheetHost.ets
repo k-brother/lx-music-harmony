@@ -8,7 +8,9 @@
 import { sheetService, type SheetRequest } from '../../service/SheetService';
 import { SelectSheet } from './SelectSheet';
 import { InputSheet } from './InputSheet';
+import { MenuSheet } from './MenuSheet';
 import type { SettingOption } from './SettingsTypes';
+import type { SheetRow } from '../../service/SheetService';
 
 @Component
 export struct SheetHost {
@@ -19,6 +21,8 @@ export struct SheetHost {
   @State value: string = '';
   @State placeholder: string = '';
   @State numberOnly: boolean = false;
+  @State rows: SheetRow[] = [];
+  @State message: string = '';
   private pending: SheetRequest | null = null;
 
   aboutToAppear() {
@@ -33,6 +37,8 @@ export struct SheetHost {
       this.value = request.value;
       this.placeholder = request.placeholder;
       this.numberOnly = request.numberOnly;
+      this.rows = request.rows;
+      this.message = request.message;
       this.visible = true;
     });
   }
@@ -57,6 +63,21 @@ export struct SheetHost {
         numberOnly: this.numberOnly,
         onSubmit: (text: string): void => {
           this.finish(text);
+        },
+        onCancel: (): void => {
+          this.finish('');
+        },
+      })
+    } else if (this.kind === 'menu' || this.kind === 'confirm') {
+      MenuSheet({
+        visible: $visible,
+        title: this.title,
+        message: this.message,
+        rows: this.rows,
+        // 菜单底部固定给一行「取消」；确认框的两行动作里已经有取消，不重复
+        showCancelRow: this.kind === 'menu',
+        onPick: (index: number): void => {
+          this.finish(index.toString());
         },
         onCancel: (): void => {
           this.finish('');

@@ -115,16 +115,18 @@ export struct BoardDetailHeader {
         .width('100%')
       }
 
-      // 收缩态：滚动后替代大封面那一行（高度为 0 时不占位）
-      Row({ space: 8 }) {
-        this.PlayAllButton()
-        this.SourceBadge()
+      // 收缩态：滚动后替代大封面那一行。
+      // 展开/收缩用 if/else 切换（此前两份都渲染、靠 opacity+0 高度藏，滚动时会多出空行）
+      if (this.compact) {
+        Row({ space: 8 }) {
+          this.PlayAllButton()
+          this.SourceBadge()
+        }
+        .width('100%')
+        .height(38)
+        .justifyContent(FlexAlign.Start)
+        .alignItems(VerticalAlign.Center)
       }
-      .width('100%')
-      .justifyContent(FlexAlign.Start)
-      .alignItems(VerticalAlign.Center)
-      .opacity(this.compact ? 1 : 0)
-      .height(this.compact ? 38 : 0)
     }
     .width('100%')
     .padding(14)
