@@ -202,6 +202,16 @@ CHECKS = [
   r"toFixed\(1\) \+ ' ' \+ t\('ten_thousand_unit'\)"),
  ('歌单卡片播放量走统一实现', 'pages/Home/SongListView.ets', r'formatPlayCount\(num, t\(',
   r"toFixed\(1\) \+ ' ' \+ t\('ten_thousand_unit'\)"),
+ # 提示/确认框统一出口：页面不再自己 getPromptAction().showDialog 拼按钮与颜色
+ ('确认与提示统一走 DialogService', 'service/DialogService.ets', r'export async function appAlert'),
+ ('日志页清空走统一确认', 'pages/LogPage.ets', r'appConfirm\(',
+  r'getPromptAction\(\)\.showDialog'),
+ ('自定义源删除走统一确认', 'pages/Home/CustomSourceView.ets', r'appConfirm\(',
+  r'getPromptAction\(\)\.showDialog'),
+ ('退出确认走统一确认', 'pages/Index.ets', r'appConfirm\(',
+  r"color: '#8E8E93'"),
+ ('歌单详情确认走统一确认', 'pages/SonglistDetailPage.ets', r'appConfirm\(title, message\)',
+  r'getPromptAction\(\)\.showDialog'),
  # 榜单封面不允许再拿「第一首歌的封面」冒充（不同榜单会长得一模一样）
  ('榜单封面只用榜单自己的图', 'pages/Home/LeaderboardView.ets', r'placeholderGradient',
   r'card\.topSongs\[i\]\.pic'),

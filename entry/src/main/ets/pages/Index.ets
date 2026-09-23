@@ -1,5 +1,6 @@
 // Index 页面 - 应用入口页面，使用 Navigation 组件
 import hilog from '@ohos.hilog';
+import { appConfirm } from '../service/DialogService';
 import type { BusinessError } from '@kit.BasicServicesKit';
 import type { common } from '@kit.AbilityKit';
 import { NavIndex } from './NavIndex';
@@ -35,31 +36,21 @@ struct Index {
       return true;
     }
     this.exitDialogShowing = true;
-    try {
-      this.getUIContext().getPromptAction().showDialog({
-        title: t('confirm_exit'),
-        message: t('confirm_exit_msg'),
-        buttons: [
-          { text: t('cancel'), color: '#8E8E93' },
-          { text: t('confirm'), color: '#E63946' },
-        ],
-      }, (err: BusinessError, data: PromptDialogResult) => {
-        this.exitDialogShowing = false;
-        if (err) {
-          hilog.warn(DOMAIN, TAG, 'Exit confirm dialog failed: %{public}s', err.message);
-          return;
-        }
-        if (data.index === 1) {
-          const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-          context.terminateSelf().catch((terminateErr: BusinessError) => {
-            hilog.error(DOMAIN, TAG, 'terminateSelf failed: %{public}s', terminateErr.message);
-          });
-        }
-      });
-    } catch (err) {
+    // 统一走 DialogService 的危险确认；确认后退出应用（颜色不再硬编码）
+    appConfirm(t('confirm_exit'), t('confirm_exit_msg'),
+      { danger: true, confirmText: t('confirm') }).then((confirmed: boolean): void => {
       this.exitDialogShowing = false;
-      hilog.error(DOMAIN, TAG, 'showExitConfirm failed: %{public}s', JSON.stringify(err));
-    }
+      if (!confirmed) {
+        return;
+      }
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      context.terminateSelf().catch((terminateErr: BusinessError) => {
+        hilog.error(DOMAIN, TAG, 'terminateSelf failed: %{public}s', terminateErr.message);
+      });
+    }).catch((err: Error): void => {
+      this.exitDialogShowing = false;
+      hilog.warn(DOMAIN, TAG, 'Exit confirm dialog failed: %{public}s', err.message);
+    });
     return true;
   }
 

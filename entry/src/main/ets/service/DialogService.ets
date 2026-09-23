@@ -93,6 +93,40 @@ export async function appConfirm(title: string, message: string, options?: Confi
 }
 
 /**
+ * 单按钮提示框（只有「知道了」）。
+ * 用于「插件加载失败」这类只需告知、不需要选择的场景，
+ * 避免各页面自己 getPromptAction().showDialog 拼按钮与颜色。
+ */
+export async function appAlert(title: string, message: string, options?: ConfirmOptions): Promise<void> {
+  const uiContext = getAppUiContext();
+  const theme = options?.theme ?? currentTheme();
+  if (!uiContext) {
+    // UI 不可用（例如页面已销毁）：至少把内容写进日志，便于「运行日志」里排查
+    hilog.warn(DOMAIN, TAG, 'appAlert skipped (no UIContext): %{public}s - %{public}s', title, message);
+    return;
+  }
+  return new Promise<void>((resolve: () => void) => {
+    try {
+      uiContext.getPromptAction().showDialog({
+        title,
+        message,
+        buttons: [
+          { text: options?.confirmText ?? t('got_it'), color: DesignTokens.accent() },
+        ],
+      }, (err: object) => {
+        if (err) {
+          hilog.warn(DOMAIN, TAG, 'appAlert failed: %{public}s', JSON.stringify(err));
+        }
+        resolve();
+      });
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'appAlert threw: %{public}s', JSON.stringify(err));
+      resolve();
+    }
+  });
+}
+
+/**
  * 动作菜单（Promise 化，返回原始下标；用户取消返回 -1）
  * items 超过 5 项时自动折叠成「更多…」，返回值仍是原始下标。
  */

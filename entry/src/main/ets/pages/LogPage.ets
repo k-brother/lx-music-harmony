@@ -2,6 +2,7 @@
 // 展示应用运行日志（WARN/ERROR 默认记录，可选详细日志），支持筛选、复制、导出、清空
 
 import hilog from '@ohos.hilog';
+import { appConfirm } from '../service/DialogService';
 import { showAppToast, TOAST_DURATION_DEFAULT } from '../utils/Toast';
 import { DesignTokens } from '../theme/DesignTokens';
 import { logService } from '../service/LogService';
@@ -104,18 +105,9 @@ export struct LogPage {
 
   private async clearLogs(): Promise<void> {
     try {
-      const confirmed = await new Promise<boolean>((resolve: (value: boolean) => void) => {
-        this.getUIContext().getPromptAction().showDialog({
-          title: t('logs_clear'),
-          message: t('confirm_clear_logs'),
-          buttons: [
-            { text: t('cancel'), color: DesignTokens.labelSecondary(this.theme) },
-            { text: t('confirm'), color: DesignTokens.danger() },
-          ],
-        }, (err: object, data: PromptActionResultLike) => {
-          resolve(!err && data.index === 1);
-        });
-      });
+      // 统一走 DialogService 的危险确认（危险按钮用危险色）
+      const confirmed = await appConfirm(t('logs_clear'), t('confirm_clear_logs'),
+        { danger: true, confirmText: t('confirm') });
       if (!confirmed) {
         return;
       }

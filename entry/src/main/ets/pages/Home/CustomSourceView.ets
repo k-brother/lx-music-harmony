@@ -1,5 +1,6 @@
 import { t, tf } from '../../service/LocalizationService';
 import { showAppToast, TOAST_DURATION_DEFAULT } from '../../utils/Toast';
+import { appAlert, appConfirm } from '../../service/DialogService';
 /**
  * 自定义源设置视图
  * 用于设置和管理在线JS源文件地址
@@ -127,18 +128,11 @@ export struct CustomSourceView {
 
   /** 删除自定义源（带确认） */
   private async removeSource(source: StoredCustomSource): Promise<void> {
-    const confirmed = await new Promise<boolean>((resolve: (value: boolean) => void) => {
-      this.getUIContext().getPromptAction().showDialog({
-        title: t('custom_source_remove'),
-        message: tf('custom_source_remove_confirm', [source.name]),
-        buttons: [
-          { text: t('cancel'), color: DesignTokens.labelSecondary(this.theme) },
-          { text: t('delete'), color: DesignTokens.danger() },
-        ],
-      }, (err: object, data: PromptActionResult) => {
-        resolve(!err && data.index === 1);
-      });
-    });
+    // 统一走 DialogService 的危险确认（不再自己拼按钮与颜色）
+    const confirmed = await appConfirm(
+      t('custom_source_remove'),
+      tf('custom_source_remove_confirm', [source.name]),
+      { danger: true, confirmText: t('delete') });
     if (!confirmed) {
       return;
     }
@@ -257,17 +251,10 @@ export struct CustomSourceView {
 
   private showPluginErrorDialog(message: string): void {
     const msg = message && message.length > 0 ? message : t('unknown_error');
-    try {
-      this.getUIContext().getPromptAction().showDialog({
-        title: t('plugin_load_failed'),
-        message: msg,
-        buttons: [
-          { text: t('got_it'), color: DesignTokens.accent() },
-        ],
-      });
-    } catch (_e) {
-      hilog.warn(DOMAIN, TAG, 'showPluginErrorDialog fallback: %{public}s', msg);
-    }
+    // 单按钮提示统一走 DialogService.appAlert
+    appAlert(t('plugin_load_failed'), msg).catch((err: Error): void => {
+      hilog.warn(DOMAIN, TAG, 'showPluginErrorDialog fallback: %{public}s', err.message);
+    });
   }
 
   isValidUrl(url: string): boolean {
