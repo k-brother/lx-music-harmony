@@ -83,23 +83,8 @@ export struct BackupSection {
         appToast(t('toast_restore_cancel'));
         return;
       }
-      const confirmed = await appConfirm(
-        t('restore_confirm_title'),
-        tf('confirm_restore_backup', [file.fileName]),
-        { danger: true });
-      if (!confirmed) {
-        appToast(t('toast_restore_cancel'));
-        return;
-      }
-      const ok = await backupService.restoreBackup(file);
-      if (!ok) {
-        appToast(t('toast_restore_fail'));
-        return;
-      }
-      appToast(t('toast_restore_success'));
-      // 恢复后列表数据需要重新加载，否则界面还是旧数据
-      await initListService();
-      hilog.info(DOMAIN, TAG, 'App data reloaded after restore');
+      // 确认 / 恢复 / 重载的收尾与「本地备份」路径共用同一实现
+      await this.applyRestore(file);
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'restoreData failed: %{public}s', JSON.stringify(err));
       appToast(t('toast_restore_fail'));
@@ -193,22 +178,35 @@ export struct BackupSection {
     return `${when} · ${sizeKb} KB`;
   }
 
-  private async restoreFromList(file: BackupFileInfo): Promise<void> {
+  /**
+   * 执行恢复（确认 → 恢复 → 重载列表数据）。
+   *
+   * 「从文件恢复」与「从本地备份恢复」两条路径的收尾完全一样，抽成一处：
+   * 恢复后必须重新加载列表，否则界面还是旧数据。
+   * @returns 是否真的恢复了
+   */
+  private async applyRestore(file: BackupFileInfo): Promise<boolean> {
     const confirmed = await appConfirm(
       t('restore_confirm_title'),
       tf('confirm_restore_backup', [file.fileName]),
       { danger: true });
     if (!confirmed) {
       appToast(t('toast_restore_cancel'));
-      return;
+      return false;
     }
     const ok = await backupService.restoreBackup(file);
     if (!ok) {
       appToast(t('toast_restore_fail'));
-      return;
+      return false;
     }
     appToast(t('toast_restore_success'));
     await initListService();
+    hilog.info(DOMAIN, TAG, 'App data reloaded after restore: %{public}s', file.fileName);
+    return true;
+  }
+
+  private async restoreFromList(file: BackupFileInfo): Promise<void> {
+    await this.applyRestore(file);
   }
 
   private async deleteFromList(file: BackupFileInfo): Promise<void> {
