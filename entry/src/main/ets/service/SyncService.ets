@@ -417,7 +417,7 @@ export class SyncService {
       this.currentStatus.lastSyncTime = Date.now();
       this.updateStatus(SyncStatus.CONNECTED, t('sync_msg_done'));
     } else {
-      const errorMsg: string = dataObj['error'] as string || '未知错误';
+      const errorMsg: string = dataObj['error'] as string || t('unknown_error');
       this.updateStatus(SyncStatus.ERROR, t('sync_msg_failed'), errorMsg);
     }
   }
@@ -425,7 +425,7 @@ export class SyncService {
   // 处理同步错误
   private handleSyncError(data: object): void {
     const dataObj: Record<string, Object> = data as Record<string, Object>;
-    const errorMsg: string = dataObj['error'] as string || '未知错误';
+    const errorMsg: string = dataObj['error'] as string || t('unknown_error');
     hilog.error(DOMAIN, TAG, '同步错误: %{public}s', errorMsg);
     this.updateStatus(SyncStatus.ERROR, t('sync_msg_error'), errorMsg);
   }

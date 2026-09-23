@@ -8,6 +8,7 @@ import { getStorageService } from '../interfaces/IStorageService';
 import { CustomSourcePlugin } from './CustomSourcePlugin';
 import fs from '@ohos.file.fs';
 import { utf8Decode } from '../../utils/TextCodec';
+import { t } from '../../service/LocalizationService';
 import {
   loadStoredSources,
   upsertStoredSource,
@@ -316,10 +317,10 @@ class PluginManagerImpl {
   private parsePluginMeta(script: string): PluginMeta {
     const meta: PluginMeta = {
       id: 'custom_' + Date.now(),
-      name: '自定义源',
-      description: '用户自定义音乐源',
+      name: t('custom_source_title'),
+      description: t('custom_source_desc'),
       version: '1.0.0',
-      author: '未知',
+      author: t('unknown'),
       homepage: '',
     };
 

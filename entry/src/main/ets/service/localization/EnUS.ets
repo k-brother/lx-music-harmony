@@ -445,6 +445,14 @@ export function buildEnUS(): Map<string, string> {
   m.set('comment_hot', 'Hot');
   m.set('comment_new', 'New');
   m.set('comment_reply', 'Reply');
+  m.set('comment_anonymous', 'Anonymous');
+  m.set('comment_time_unknown', 'Unknown time');
+  m.set('comment_time_just_now', 'Just now');
+  m.set('comment_time_minutes_ago', '{0} min ago');
+  m.set('comment_time_hours_ago', '{0} h ago');
+  m.set('comment_time_days_ago', '{0} d ago');
+  m.set('custom_source_title', 'Custom source');
+  m.set('custom_source_desc', 'User-provided music source');
   m.set('comment_no_data', 'No comments');
   m.set('history_title', 'History');
   m.set('history_count', '{0} songs in history');

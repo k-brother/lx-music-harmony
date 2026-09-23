@@ -8,6 +8,7 @@
  */
 import { DesignTokens } from '../../theme/DesignTokens';
 import { t, tf } from '../../service/LocalizationService';
+import { formatPlayCount } from '../../utils/FormatTools';
 
 @Component
 export struct SonglistDetailHeader {
@@ -26,12 +27,12 @@ export struct SonglistDetailHeader {
 
   @State coverFailed: boolean = false;
 
-  /** 播放量展示：>=1万 显示 x.x万 */
+  /**
+   * 播放量展示：实现与单位文案统一走 utils/FormatTools + 词条
+   * （此前这里自己写了一份 `(count/10000).toFixed(1)万`，英文界面下也会带「万」）
+   */
   private formatPlayCount(count: number): string {
-    if (count >= 10000) {
-      return `${(count / 10000).toFixed(1)}万`;
-    }
-    return count.toString();
+    return formatPlayCount(count, t('ten_thousand_unit'), t('billion_unit'));
   }
 
   private canRenderCover(url: string): boolean {

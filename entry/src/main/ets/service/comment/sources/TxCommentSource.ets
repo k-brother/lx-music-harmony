@@ -3,6 +3,7 @@
  *
  * 由 CommentService 拆分而来：本文件只关心该平台的接口差异与字段映射。
  */
+import { t } from '../../LocalizationService';
 import { appLog as hilog } from '../../../core/log/AppLogger';
 import type { MusicInfo } from '../../../types/MusicTypes';
 import type { CommentSourceAdapter } from '../CommentSourceAdapter';
@@ -128,7 +129,7 @@ const TAG: string = 'TxCommentSource';
           replies.push(buildCommentReply(
             String(sub['subcommentid'] ?? `tx_reply_${j}`),
             String(sub['replycontent'] ?? ''),
-            rawNick.startsWith('@') ? rawNick.substring(1) : (rawNick.length > 0 ? rawNick : '匿名用户'),
+            rawNick.startsWith('@') ? rawNick.substring(1) : (rawNick.length > 0 ? rawNick : t('comment_anonymous')),
             String(sub['avatarurl'] ?? ''),
             formatCommentTime(asCommentTimeInput(sub['time'] ?? sub['pubtime'])),
             parseInt(String(sub['praisenum'] ?? '0')) || 0,
@@ -140,7 +141,7 @@ const TAG: string = 'TxCommentSource';
       const commentObj: Comment = {
         id: String(comment['commentid'] ?? `tx_${Date.now()}_${Math.random()}`),
         content: String(comment['rootcommentcontent'] ?? comment['content'] ?? ''),
-        userName: String(comment['nick'] ?? '匿名用户'),
+        userName: String(comment['nick'] ?? t('comment_anonymous')),
         userAvatar: String(comment['avatarurl'] ?? ''),
         time: formatCommentTime(asCommentTimeInput(comment['time'] ?? comment['pubtime'])),
         likeCount: parseInt(String(comment['praisenum'] ?? '0')) || 0,

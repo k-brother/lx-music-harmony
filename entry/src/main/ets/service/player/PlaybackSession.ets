@@ -14,6 +14,7 @@ import { toggleLoveList, type MusicItem } from '../ListService';
 import type { AvMediaMetadata, AvSessionCallbacks } from '../BackgroundRunningManager';
 import type { PlayMode } from '../SettingsService';
 import type { MusicInfo } from '../../types/MusicTypes';
+import { t } from '../LocalizationService';
 import type { SongInfo } from '../PlayerService';
 
 const TAG = 'PlaybackSession';
@@ -80,8 +81,9 @@ export function buildAvMetadata(input: AvMetadataInput): AvMediaMetadata {
   const assetId = info.id || info.songmid || `track_${Date.now()}`;
   const metadata: AvMediaMetadata = {
     assetId: assetId,
-    title: info.name || '未知歌曲',
-    artist: info.singer || '未知歌手',
+    // 锁屏/控制中心会直接展示这两个兜底文案，必须跟随语言
+    title: info.name || t('unknown_song'),
+    artist: info.singer || t('unknown_artist'),
     album: info.albumName ?? info.album,
     duration: Math.max(input.durationSeconds, 1) * 1000,
   };

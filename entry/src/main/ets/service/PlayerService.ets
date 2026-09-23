@@ -294,16 +294,6 @@ export class PlayerService {
   }
 
   /** 播放模式对应的中文名 */
-  getPlayModeLabel(): string {
-    switch (this.playMode) {
-      case 'listLoop': return '列表循环';
-      case 'singleLoop': return '单曲循环';
-      case 'random': return '随机播放';
-      case 'sequential': return '顺序播放';
-      default: return '列表循环';
-    }
-  }
-
   // 初始化播放器（委托 AvPlayerPlugin）
   async init(): Promise<void> {
     hilog.info(DOMAIN, TAG, 'PlayerService init called');

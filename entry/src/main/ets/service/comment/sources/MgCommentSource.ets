@@ -3,6 +3,7 @@
  *
  * 由 CommentService 拆分而来：本文件只关心该平台的接口差异与字段映射。
  */
+import { t } from '../../LocalizationService';
 import { appLog as hilog } from '../../../core/log/AppLogger';
 import type { MusicInfo } from '../../../types/MusicTypes';
 import type { CommentSourceAdapter } from '../CommentSourceAdapter';
@@ -125,7 +126,7 @@ const TAG: string = 'MgCommentSource';
           replies.push(buildCommentReply(
             String(reply['replyId'] ?? `mg_reply_${j}`),
             String(reply['replyInfo'] ?? ''),
-            replyUser !== undefined && replyUser !== null ? String(replyUser['nickName'] ?? '匿名用户') : '匿名用户',
+            replyUser !== undefined && replyUser !== null ? String(replyUser['nickName'] ?? t('comment_anonymous')) : t('comment_anonymous'),
             replyUser !== undefined && replyUser !== null
               ? String(replyUser['middleIcon'] ?? replyUser['bigIcon'] ?? replyUser['smallIcon'] ?? '')
               : '',
@@ -139,7 +140,7 @@ const TAG: string = 'MgCommentSource';
       const commentObj: Comment = {
         id: String(comment['commentId'] ?? `mg_${Date.now()}_${Math.random()}`),
         content: String(comment['content'] ?? ''),
-        userName: nick !== undefined && nick !== null ? String(nick) : '匿名用户',
+        userName: nick !== undefined && nick !== null ? String(nick) : t('comment_anonymous'),
         userAvatar: user !== undefined && user !== null ? String(user['headUrl'] ?? '') : '',
         time: formatCommentTime(asCommentTimeInput(comment['createTime'])),
         likeCount: Number(comment['likeCount'] ?? 0),

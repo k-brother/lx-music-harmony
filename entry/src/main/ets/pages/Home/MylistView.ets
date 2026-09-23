@@ -461,7 +461,7 @@ export struct MylistView {
 
   async playList(list: UserListRow): Promise<void> {
     if (list.musicList.length === 0) {
-      this.toast('歌单为空，无法播放');
+      this.toast(t('songlist_empty'));
       return;
     }
     try {

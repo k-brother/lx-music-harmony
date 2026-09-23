@@ -448,6 +448,14 @@ export function buildZhCN(): Map<string, string> {
   m.set('comment_hot', '热门');
   m.set('comment_new', '最新');
   m.set('comment_reply', '回复');
+  m.set('comment_anonymous', '匿名用户');
+  m.set('comment_time_unknown', '未知时间');
+  m.set('comment_time_just_now', '刚刚');
+  m.set('comment_time_minutes_ago', '{0}分钟前');
+  m.set('comment_time_hours_ago', '{0}小时前');
+  m.set('comment_time_days_ago', '{0}天前');
+  m.set('custom_source_title', '自定义源');
+  m.set('custom_source_desc', '用户自定义音乐源');
   m.set('comment_no_data', '暂无评论');
   m.set('history_title', '播放历史');
   m.set('history_count', '共 {0} 首历史记录');

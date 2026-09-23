@@ -3,6 +3,7 @@
  *
  * 由 CommentService 拆分而来：本文件只关心该平台的接口差异与字段映射。
  */
+import { t } from '../../LocalizationService';
 import { appLog as hilog } from '../../../core/log/AppLogger';
 import type { MusicInfo } from '../../../types/MusicTypes';
 import type { CommentSourceAdapter } from '../CommentSourceAdapter';
@@ -115,7 +116,7 @@ const TAG: string = 'KwCommentSource';
           replies.push(buildCommentReply(
             String(child.cid ?? `kw_reply_${i}`),
             child.msg || '',
-            child.u_name || '匿名用户',
+            child.u_name || t('comment_anonymous'),
             child.u_pic || '',
             formatCommentTime(child.time ?? undefined),
             parseInt(child.like_num || '0') || 0,
@@ -128,7 +129,7 @@ const TAG: string = 'KwCommentSource';
       const commentObj: Comment = {
         id: comment.cid || `kw_${Date.now()}_${Math.random()}`,
         content: comment.msg || '',
-        userName: comment.u_name || '匿名用户',
+        userName: comment.u_name || t('comment_anonymous'),
         userAvatar: comment.u_pic || '',
         time,
         likeCount: parseInt(comment.like_num || '0') || 0,

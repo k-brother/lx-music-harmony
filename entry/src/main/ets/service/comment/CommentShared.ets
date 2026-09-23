@@ -5,6 +5,7 @@
  * 从 CommentService 抽出，供 sources/* 复用。
  */
 import { appLog as hilog } from '../../core/log/AppLogger';
+import { t, tf } from '../LocalizationService';
 import { http } from '@kit.NetworkKit';
 import type { Comment, CommentJsonObject } from './CommentTypes';
 
@@ -116,7 +117,7 @@ const TAG: string = 'CommentShared';
   export function formatCommentTime(timestamp: string | number | undefined): string {
     try {
       if (timestamp === undefined) {
-        return '未知时间';
+        return t('comment_time_unknown');
       }
       const timeNum = typeof timestamp === 'string' ? parseInt(timestamp) : timestamp;
       const date = new Date(timeNum * 1000);
@@ -128,18 +129,18 @@ const TAG: string = 'CommentShared';
       const diffDays = Math.floor(diffMs / 86400000);
       
       if (diffMins < 1) {
-        return '刚刚';
+        return t('comment_time_just_now');
       } else if (diffMins < 60) {
-        return `${diffMins}分钟前`;
+        return tf('comment_time_minutes_ago', [diffMins.toString()]);
       } else if (diffHours < 24) {
-        return `${diffHours}小时前`;
+        return tf('comment_time_hours_ago', [diffHours.toString()]);
       } else if (diffDays < 30) {
-        return `${diffDays}天前`;
+        return tf('comment_time_days_ago', [diffDays.toString()]);
       } else {
         return date.toLocaleDateString();
       }
     } catch (e) {
       hilog.warn(DOMAIN, TAG, 'formatCommentTime failed: %{public}s', (e as Error)?.message);
-      return '未知时间';
+      return t('comment_time_unknown');
     }
   }
