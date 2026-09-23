@@ -12,36 +12,14 @@ import { backgroundTaskManager } from '@kit.BackgroundTasksKit';
 import { bundleManager, common, wantAgent, WantAgent } from '@kit.AbilityKit';
 import { avSession } from '@kit.AVSessionKit';
 import hilog from '@ohos.hilog';
+import { registerMediaControlCommands } from './player/MediaControlCommands';
+import type { AvMediaMetadata, AvSessionCallbacks } from './player/AvSessionTypes';
 
 const TAG: string = 'BackgroundRunningMgr';
 const DOMAIN: number = 0x0002;
 
-// 媒体元数据结构（用于播控中心显示）
-export interface AvMediaMetadata {
-  assetId: string;
-  title: string;
-  artist: string;
-  album?: string;
-  duration: number; // 毫秒
-  mediaImage?: string; // 封面URL（播控中心要求为 URL string 或 PixelMap，直接传 string 即可）
-  /** 标准 LRC 歌词全文，系统播控中心/锁屏据此显示歌词 */
-  lyric?: string;
-  /** 当前这一句歌词（不含时间前缀），用于灵动岛/胶囊的单行歌词展示 */
-  singleLyricText?: string;
-}
-
-// AVSession 播控命令回调接口
-export interface AvSessionCallbacks {
-  onPlay: () => void;
-  onPause: () => void;
-  onStop: () => void;
-  onPlayNext: () => void;
-  onPlayPrevious: () => void;
-  onSeek: (positionMs: number) => void;
-  onSetLoopMode: (loopMode: avSession.LoopMode) => void;
-  onToggleFavorite: (assetId: string) => void;
-}
-
+// 元数据与回调类型在 player/AvSessionTypes（这里 re-export，调用方路径不变）
+export type { AvMediaMetadata, AvSessionCallbacks };
 export class BackgroundRunningManager {
   private session: avSession.AVSession | null = null;
   private isTaskRunning: boolean = false;
@@ -180,129 +158,14 @@ export class BackgroundRunningManager {
   /**
    * 注册播控中心控制命令
    */
+  /** 注册播控命令：8 条命令的统一注册/错误处理在 player/MediaControlCommands */
   private registerControlCommands(): void {
     if (!this.session) {
       return;
     }
-
-    // 播放
-    try {
-      this.session.on('play', () => {
-        hilog.info(DOMAIN, TAG, 'AVSession command: play');
-        try {
-          this.callbacks?.onPlay();
-        } catch (err) {
-          hilog.warn(DOMAIN, TAG, 'onPlay callback error: %{public}s', (err as Error)?.message);
-        }
-      });
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'register play command error: %{public}s', (err as Error)?.message);
-    }
-
-    // 暂停
-    try {
-      this.session.on('pause', () => {
-        hilog.info(DOMAIN, TAG, 'AVSession command: pause');
-        try {
-          this.callbacks?.onPause();
-        } catch (err) {
-          hilog.warn(DOMAIN, TAG, 'onPause callback error: %{public}s', (err as Error)?.message);
-        }
-      });
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'register pause command error: %{public}s', (err as Error)?.message);
-    }
-
-    // 停止
-    try {
-      this.session.on('stop', () => {
-        hilog.info(DOMAIN, TAG, 'AVSession command: stop');
-        try {
-          this.callbacks?.onStop();
-        } catch (err) {
-          hilog.warn(DOMAIN, TAG, 'onStop callback error: %{public}s', (err as Error)?.message);
-        }
-      });
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'register stop command error: %{public}s', (err as Error)?.message);
-    }
-
-    // 下一首
-    try {
-      this.session.on('playNext', () => {
-        hilog.info(DOMAIN, TAG, 'AVSession command: playNext');
-        try {
-          this.callbacks?.onPlayNext();
-        } catch (err) {
-          hilog.warn(DOMAIN, TAG, 'onPlayNext callback error: %{public}s', (err as Error)?.message);
-        }
-      });
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'register playNext command error: %{public}s', (err as Error)?.message);
-    }
-
-    // 上一首
-    try {
-      this.session.on('playPrevious', () => {
-        hilog.info(DOMAIN, TAG, 'AVSession command: playPrevious');
-        try {
-          this.callbacks?.onPlayPrevious();
-        } catch (err) {
-          hilog.warn(DOMAIN, TAG, 'onPlayPrevious callback error: %{public}s', (err as Error)?.message);
-        }
-      });
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'register playPrevious command error: %{public}s', (err as Error)?.message);
-    }
-
-    // 进度调节
-    try {
-      this.session.on('seek', (positionMs: number) => {
-        hilog.info(DOMAIN, TAG, 'AVSession command: seek %{public}d', positionMs);
-        try {
-          this.callbacks?.onSeek(positionMs);
-        } catch (err) {
-          hilog.warn(DOMAIN, TAG, 'onSeek callback error: %{public}s', (err as Error)?.message);
-        }
-      });
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'register seek command error: %{public}s', (err as Error)?.message);
-    }
-
-    // 循环模式切换
-    try {
-      this.session.on('setLoopMode', (loopMode: avSession.LoopMode) => {
-        hilog.info(DOMAIN, TAG, 'AVSession command: setLoopMode %{public}d', loopMode);
-        try {
-          this.callbacks?.onSetLoopMode(loopMode);
-        } catch (err) {
-          hilog.warn(DOMAIN, TAG, 'onSetLoopMode callback error: %{public}s', (err as Error)?.message);
-        }
-      });
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'register setLoopMode command error: %{public}s', (err as Error)?.message);
-    }
-
-    // 收藏
-    try {
-      this.session.on('toggleFavorite', (assetId: string) => {
-        hilog.info(DOMAIN, TAG, 'AVSession command: toggleFavorite assetId=%{public}s', assetId);
-        try {
-          this.callbacks?.onToggleFavorite(assetId);
-        } catch (err) {
-          hilog.warn(DOMAIN, TAG, 'onToggleFavorite callback error: %{public}s', (err as Error)?.message);
-        }
-      });
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'register toggleFavorite command error: %{public}s', (err as Error)?.message);
-    }
-
-    hilog.info(DOMAIN, TAG, 'All control commands registered');
+    registerMediaControlCommands(this.session, this.callbacks);
   }
 
-  /**
-   * 设置点击播控卡片启动的Ability
-   */
   private async setLaunchAbility(): Promise<void> {
     if (!this.session || !this.context) {
       return;

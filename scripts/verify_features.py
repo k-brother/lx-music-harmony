@@ -245,6 +245,10 @@ CHECKS = [
  ('歌单服务不再直写存储', 'service/ListService.ets', r"from '\./list/ListStorage'",
   r'StorageService\.setString'),
  ('歌单 ID 常量独立成文件', 'service/list/ListIds.ets', r'export const LIST_IDS'),
+ # 系统播控命令注册器独立，且注册/回调错误处理只有一处
+ ('播控命令注册器独立成文件', 'service/player/MediaControlCommands.ets', r'export function registerMediaControlCommands'),
+ ('播控命令错误处理统一', 'service/player/MediaControlCommands.ets', r'function safeInvoke'),
+ ('播控类型独立成文件', 'service/player/AvSessionTypes.ets', r'export interface AvSessionCallbacks'),
 ]
 
 fails = []
