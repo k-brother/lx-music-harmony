@@ -200,108 +200,11 @@ export struct ChartCard {
 
   build() {
     Column() {
-      Row() {
-        this.Cover()
+      this.CardHeader()
 
-        Column() {
-          Text(this.title.length > 0 ? this.title : t('board_item'))
-            .fontSize(DesignTokens.fontHeadline())
-            .fontWeight(FontWeight.Medium)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-            .maxLines(2)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .lineHeight(22)
-          if (this.playCount >= 0) {
-            Text(this.playCountText())
-              .fontSize(DesignTokens.fontCaption())
-              .fontColor(DesignTokens.labelTertiary(this.theme))
-              .margin({ top: 8 })
-          } else {
-            Text(t('leaderboard_official'))
-              .fontSize(DesignTokens.fontCaption())
-              .fontColor(DesignTokens.labelTertiary(this.theme))
-              .margin({ top: 8 })
-          }
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
-        .margin({ left: 14 })
-        .onClick(() => {
-          if (this.onOpenBoard) {
-            this.onOpenBoard();
-          }
-        })
+      this.PreviewContent()
 
-        Row() {
-          SymbolGlyph(this.expanded ? $r('sys.symbol.chevron_up') : $r('sys.symbol.chevron_down'))
-            .fontSize(DesignTokens.fontDisplay())
-            .fontColor([DesignTokens.labelSecondary(this.theme)])
-            .padding(8)
-            .responseRegion(DesignTokens.touchRegion(30))
-            // 展开/收起是同一个按钮，朗读文案跟着状态走
-            .accessibilityText(this.expanded ? t('a11y_collapse') : t('a11y_expand'))
-            .onClick(() => {
-              if (this.onToggleExpand) {
-                this.onToggleExpand();
-              }
-            })
-          SymbolGlyph($r('sys.symbol.chevron_right'))
-            .fontSize(DesignTokens.fontLarge())
-            .fontColor([DesignTokens.accent()])
-            .padding({ left: 4, right: 4, top: 8, bottom: 8 })
-            .responseRegion(DesignTokens.touchRegion(30))
-            .accessibilityText(t('a11y_open_board'))
-            .onClick(() => {
-              if (this.onOpenBoard) {
-                this.onOpenBoard();
-              }
-            })
-        }
-        .alignItems(VerticalAlign.Center)
-      }
-      .width('100%')
-      .padding({ left: 14, right: 10, top: 16, bottom: 12 })
-      .alignItems(VerticalAlign.Center)
-
-      if (this.loadState === 'loading') {
-        this.LoadingRows()
-      } else if (this.loadState === 'err') {
-        this.ErrorRow()
-      } else if (this.songs.length === 0) {
-        Text(t('no_data'))
-          .fontSize(DesignTokens.fontCallout())
-          .fontColor(DesignTokens.labelTertiary(this.theme))
-          .padding({ left: 14, right: 14, bottom: 12 })
-      } else {
-        this.PreviewList()
-      }
-
-      Row() {
-        Text(this.expanded ? t('collapse_preview') : t('expand_preview'))
-          .fontSize(DesignTokens.fontCaption())
-          .fontColor(DesignTokens.labelSecondary(this.theme))
-          .onClick(() => {
-            if (this.onToggleExpand) {
-              this.onToggleExpand();
-            }
-          })
-        Blank()
-        Text(t('view_full_chart'))
-          .fontSize(DesignTokens.fontBody())
-          .fontColor(DesignTokens.accent())
-          .fontWeight(FontWeight.Medium)
-        SymbolGlyph($r('sys.symbol.chevron_right'))
-          .fontSize(DesignTokens.fontHeadline())
-          .fontColor([DesignTokens.accent()])
-          .margin({ left: 4 })
-      }
-      .width('100%')
-      .padding({ left: 14, right: 14, top: 4, bottom: 16 })
-      .onClick(() => {
-        if (this.onOpenBoard) {
-          this.onOpenBoard();
-        }
-      })
+      this.CardFooter()
     }
     .width('100%')
     .backgroundColor(DesignTokens.card(this.theme))
@@ -309,4 +212,111 @@ export struct ChartCard {
     .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
     .margin({ top: 12 })
   }
+
+  /** 卡片头部：封面 + 榜单名/播放量 + 展开与进入按钮 */
+  @Builder
+  CardHeader() {
+    Row() {
+      this.Cover()
+
+      Column() {
+        Text(this.title.length > 0 ? this.title : t('board_item'))
+          .fontSize(DesignTokens.fontHeadline())
+          .fontWeight(FontWeight.Medium)
+          .fontColor(DesignTokens.labelPrimary(this.theme))
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .lineHeight(22)
+        if (this.playCount >= 0) {
+          Text(this.playCountText())
+            .fontSize(DesignTokens.fontCaption())
+            .fontColor(DesignTokens.labelTertiary(this.theme))
+            .margin({ top: 8 })
+        } else {
+          Text(t('leaderboard_official'))
+            .fontSize(DesignTokens.fontCaption())
+            .fontColor(DesignTokens.labelTertiary(this.theme))
+            .margin({ top: 8 })
+        }
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+      .margin({ left: 14 })
+      .onClick(() => {
+        if (this.onOpenBoard) {
+          this.onOpenBoard();
+        }
+      })
+
+      Row() {
+        SymbolGlyph(this.expanded ? $r('sys.symbol.chevron_up') : $r('sys.symbol.chevron_down'))
+          .fontSize(DesignTokens.fontDisplay())
+          .fontColor([DesignTokens.labelSecondary(this.theme)])
+          .padding(8)
+          .responseRegion(DesignTokens.touchRegion(30))
+          // 展开/收起是同一个按钮，朗读文案跟着状态走
+          .accessibilityText(this.expanded ? t('a11y_collapse') : t('a11y_expand'))
+          .onClick(() => {
+            if (this.onToggleExpand) {
+              this.onToggleExpand();
+            }
+          })
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(DesignTokens.fontLarge())
+          .fontColor([DesignTokens.accent()])
+          .padding({ left: 4, right: 4, top: 8, bottom: 8 })
+          .responseRegion(DesignTokens.touchRegion(30))
+          .accessibilityText(t('a11y_open_board'))
+          .onClick(() => {
+            if (this.onOpenBoard) {
+              this.onOpenBoard();
+            }
+          })
+      }
+      .alignItems(VerticalAlign.Center)
+    }
+  }
+
+  /** 试听列表区（加载中骨架 / 失败重试 / 空 / 列表） */
+  @Builder
+  PreviewContent() {
+    if (this.loadState === 'loading') {
+      this.LoadingRows()
+    } else if (this.loadState === 'err') {
+      this.ErrorRow()
+    } else if (this.songs.length === 0) {
+      Text(t('no_data'))
+        .fontSize(DesignTokens.fontCallout())
+        .fontColor(DesignTokens.labelTertiary(this.theme))
+        .padding({ left: 14, right: 14, bottom: 12 })
+    } else {
+      this.PreviewList()
+    }
+  }
+
+  /** 底部：展开收起 + 查看完整榜单 */
+  @Builder
+  CardFooter() {
+    Row() {
+      Text(this.expanded ? t('collapse_preview') : t('expand_preview'))
+        .fontSize(DesignTokens.fontCaption())
+        .fontColor(DesignTokens.labelSecondary(this.theme))
+        .onClick(() => {
+          if (this.onToggleExpand) {
+            this.onToggleExpand();
+          }
+        })
+      Blank()
+      Text(t('view_full_chart'))
+        .fontSize(DesignTokens.fontBody())
+        .fontColor(DesignTokens.accent())
+        .fontWeight(FontWeight.Medium)
+      SymbolGlyph($r('sys.symbol.chevron_right'))
+        .fontSize(DesignTokens.fontHeadline())
+        .fontColor([DesignTokens.accent()])
+        .margin({ left: 4 })
+    }
+  }
+
+
 }
