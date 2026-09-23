@@ -16,6 +16,7 @@ import { common } from '@kit.AbilityKit';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { Breakpoints } from '../../theme/Breakpoints';
 import { NavBackButton } from '../../components/common/NavBackButton';
+import { NavBar } from '../../components/ui/NavBar';
 
 const TAG = 'CustomSource';
 const DOMAIN = 0x0001;
@@ -413,18 +414,8 @@ export struct CustomSourceView {
   /** 标题栏 */
   @Builder
   TopBar() {
-    Row() {
-      NavBackButton()
-
-      Text(t('custom_sources'))
-        .fontSize(DesignTokens.fontTitle())
-        .fontWeight(FontWeight.Medium)
-        .fontColor(DesignTokens.labelPrimary(this.theme))
-        .layoutWeight(1)
-        .margin({ left: 12 })
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-    }
+    // 统一顶部栏（返回 + 标题 + 安全区）
+    NavBar({ title: t('custom_sources') })
   }
 
   /** 内置音源列表 */

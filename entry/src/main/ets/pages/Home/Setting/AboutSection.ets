@@ -76,17 +76,11 @@ export struct AboutSection {
       },
       {
         type: 'button',
-        title: t('pact_title'),
+        // 许可协议与隐私政策合并成一行：点开弹层里可切换两篇（原来两行平铺）
+        title: t('legal_title'),
+        description: t('legal_title_desc'),
         onClick: (): void => {
           this.legalDocument = 'pact';
-          this.showPact = true;
-        },
-      },
-      {
-        type: 'button',
-        title: t('privacy_title'),
-        onClick: (): void => {
-          this.legalDocument = 'privacy';
           this.showPact = true;
         },
       },

@@ -14,6 +14,12 @@ import { t, tf } from '../../service/LocalizationService';
 @Component
 export struct BoardDetailHeader {
   @StorageProp('theme') theme: string = 'light';
+  /** 榜单名（与歌单详情头部一样，标题放在卡片里） */
+  @Prop title: string = '';
+  /** 榜单来源平台名（如「小蜗音乐」），作为「作者」信息展示 */
+  @Prop sourceLabel: string = '';
+  /** 榜单说明（源提供才有，没有不显示该行） */
+  @Prop description: string = '';
   /** 榜单封面（空则用占位图） */
   @Prop cover: string = '';
   /** 音源简写（kw/kg/...），作为来源角标 */
@@ -58,7 +64,7 @@ export struct BoardDetailHeader {
         .fontWeight(FontWeight.Medium)
     }
     .height(38)
-    .width(112)
+    .width('100%')
     .backgroundColor(DesignTokens.accent())
     .borderRadius(19)
     .justifyContent(FlexAlign.Center)
@@ -102,17 +108,54 @@ export struct BoardDetailHeader {
           .height(106)
           .align(Alignment.BottomEnd)
 
-          Column({ space: 10 }) {
-            this.PlayAllButton()
+          // 标题 / 来源 / 曲目数：与歌单详情头部同一套排版
+          Column({ space: 6 }) {
+            Text(this.title)
+              .fontSize(DesignTokens.fontTitle())
+              .fontColor(DesignTokens.labelPrimary(this.theme))
+              .fontWeight(FontWeight.Medium)
+              .maxLines(2)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .width('100%')
+
+            if (this.sourceLabel.length > 0) {
+              Text(tf('from_source', [this.sourceLabel]))
+                .fontSize(DesignTokens.fontCaption())
+                .fontColor(DesignTokens.labelSecondary(this.theme))
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .width('100%')
+            }
+
             Text(tf('count_songs', [this.songCount.toString()]))
               .fontSize(DesignTokens.fontCaption())
               .fontColor(DesignTokens.labelSecondary(this.theme))
+              .width('100%')
           }
-          .alignItems(HorizontalAlign.End)
+          .alignItems(HorizontalAlign.Start)
           .layoutWeight(1)
           .margin({ left: 14 })
         }
         .width('100%')
+
+        // 播放全部整行（与歌单详情一致：按钮不再挤占正文列）
+        Row() {
+          this.PlayAllButton()
+        }
+        .width('100%')
+        .margin({ top: 12 })
+
+        // 榜单说明（源提供才显示，最多两行）
+        if (this.description.length > 0) {
+          Text(this.description)
+            .fontSize(DesignTokens.fontCaption())
+            .fontColor(DesignTokens.labelSecondary(this.theme))
+            .lineHeight(19)
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .width('100%')
+            .margin({ top: 10 })
+        }
       }
 
       // 收缩态：滚动后替代大封面那一行。

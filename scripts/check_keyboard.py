@@ -19,7 +19,6 @@ TARGETS = {
     'components/ui/ListRow.ets': '统一列表行',
     'components/common/LyricView.ets': '歌词行',
     'pages/LocalMusic/TrackRow.ets': '本地音乐行',
-    'pages/BoardDetail/BoardSongRow.ets': '榜单/歌单歌曲行',
     'pages/Download/DownloadTaskRow.ets': '下载任务行',
     'pages/Home/SongList/SongListCard.ets': '歌单卡片',
     # 面板里的可点行同理：PC 上只能靠鼠标/键盘

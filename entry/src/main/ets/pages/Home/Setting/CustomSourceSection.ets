@@ -11,7 +11,7 @@ import { picker as filePicker } from '@kit.CoreFileKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { t } from '../../../service/LocalizationService';
 import { navigationService, RouteName } from '../../../service/NavigationService';
-import { appToast } from '../../../service/DialogService';
+import { appActionMenu, appToast } from '../../../service/DialogService';
 import { DesignTokens } from '../../../theme/DesignTokens';
 import { loadCustomSource } from '../../../core/music/MusicFeatureEntry';
 import { pluginManager } from '../../../core/plugin/PluginManager';
@@ -124,16 +124,28 @@ export struct CustomSourceSection {
 
   private buildItems(): SettingSectionItem[] {
     const items: SettingSectionItem[] = [];
+    // 「自定义源」与「快速导入」合并成一个入口：点开先选要做什么，避免设置页里
+    // 两行名字相近的入口让人分不清（两者本来就是同一件事的两半）。
     items.push(buttonRow(t('settings_custom_source'), (): void => {
-  navigationService.navigateTo(RouteName.CUSTOM_SOURCE);
-}, { description: this.loadedName.length > 0
+      void this.openSourceMenu();
+    }, { description: this.loadedName.length > 0
         ? `${t('custom_source_in_use')}: ${this.loadedName}`
         : t('settings_custom_source_desc') }));
-    items.push(buttonRow(t('custom_source_quick_import'), (): void => {
+    return items;
+  }
+
+  /** 自定义源入口菜单：管理（进二级页）/ 快速导入（面板） */
+  private async openSourceMenu(): Promise<void> {
+    const picked = await appActionMenu(t('settings_custom_source'), [
+      t('custom_source_manage'),
+      t('custom_source_quick_import'),
+    ]);
+    if (picked === 0) {
+      navigationService.navigateTo(RouteName.CUSTOM_SOURCE);
+    } else if (picked === 1) {
       this.error = '';
       this.showImport = true;
-    }, { description: t('custom_source_online_js') + ' / ' + t('custom_source_local_js') }));
-    return items;
+    }
   }
 
   /** 快速导入面板 */

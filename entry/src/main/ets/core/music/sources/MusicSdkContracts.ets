@@ -15,6 +15,8 @@ export interface LeaderboardItem {
   name: string;
   bangid: string;
   pic?: string;
+  /** 榜单说明（部分源提供，如网易云的 description）；没有就别编 */
+  desc?: string;
 }
 
 export interface SongListDetailInfo {

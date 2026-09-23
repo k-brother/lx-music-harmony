@@ -170,7 +170,8 @@ export async function getBoardsList(source: BoardSource): Promise<BoardItem[]> {
       const boardItems: BoardItem[] = result.list.map((item: LeaderboardItem): BoardItem => ({
         id: canonicalBoardRowId(source, item),
         name: item.name,
-        description: '',
+        // 源里有榜单说明就带上（网易云等），没有则为空、详情页不显示该行
+        description: item.desc ?? '',
         pic: httpsifyMediaUrl(item.pic || ''),
         source: source as BoardSource,
         playCount: null,

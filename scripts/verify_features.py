@@ -72,6 +72,17 @@ CHECKS = [
  ('我的tab绑定角标+同步', 'pages/Home/MylistView.ets', r'bindingListId'),
  ('歌单详情收藏/更新菜单', 'pages/SonglistDetailPage.ets', r'openCollectedMenu|syncBoundList'),
  ('桌面歌词文字不透明度', 'pages/DesktopLyricPage.ets', r'textOpacity'),
+ # 顶部栏统一：设置主页与设置里能跳到的二级页都必须用同一个 NavBar
+ ('设置主页有统一顶部栏', 'pages/Home/SettingView.ets', r'NavBar\('),
+ ('关于页用统一顶部栏', 'pages/Home/AboutView.ets', r'NavBar\('),
+ ('自定义源页用统一顶部栏', 'pages/Home/CustomSourceView.ets', r'NavBar\('),
+ ('运行日志页用统一顶部栏', 'pages/LogPage.ets', r'NavBar\('),
+ # 设置项入口合并：法律文本一项、自定义源一项（点开选管理/快速导入）
+ ('许可协议与隐私政策合并为一项', 'pages/Home/Setting/AboutSection.ets', r"'legal_title'"),
+ ('自定义源入口合并为菜单', 'pages/Home/Setting/CustomSourceSection.ets', r'openSourceMenu'),
+ # 榜单详情头部补齐来源与说明，行与歌单详情统一（ListRow + ⋯ 菜单）
+ ('榜单头部展示来源与说明', 'pages/Board/BoardDetailHeader.ets', r"from_source|description"),
+ ('榜单说明来自源数据', 'core/music/sources/wy/leaderboard.ets', r'description'),
  # 面板统一规则（真机反馈定的）：取消不收成单独一行，一律右上角 ×；高度按内容行数自适应
  ('面板标题行统一（左标题+右上角关闭）', 'components/ui/SheetHeader.ets', r'export struct SheetHeader'),
  ('选择面板用共享标题行', 'components/ui/SelectSheet.ets', r'SheetHeader\(\{', r"Button\(t\('cancel'\)\)"),
@@ -405,7 +416,9 @@ CHECKS = [
  ('列表行时长统一拼装', 'core/list/RowTexts.ets', r'export function composeRowDurationText'),
  ('统一列表行响应显示设置', 'components/ui/ListRow.ets', r"@StorageProp\('showListAlbum'\)"),
  ('本地音乐行响应显示设置', 'pages/LocalMusic/TrackRow.ets', r"@StorageProp\('showListDuration'\)"),
- ('榜单歌曲行响应显示设置', 'pages/BoardDetail/BoardSongRow.ets', r"@StorageProp\('showListSource'\)"),
+ # 榜单歌曲行改用共享 ListRow（与歌单详情同一套行与显示设置响应）
+ ('榜单歌曲行用共享 ListRow', 'pages/BoardDetailPage.ets', r'ListRow\(\{'),
+ ('榜单歌曲行有 ⋯ 菜单', 'pages/BoardDetailPage.ets', r'showSongItemMenu'),
  # 播放页封面手势：左右滑动切歌（华为音乐/Spotify 的习惯），翻页改由显式入口驱动
  ('播放页封面左右滑切歌', 'pages/PlayDetailPage.ets', r'SWIPE_TRACK_THRESHOLD_VP[\s\S]{0,500}?playNext\(\)'),
  ('播放页歌词页右滑回封面', 'pages/PlayDetailPage.ets',

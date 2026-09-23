@@ -11,6 +11,7 @@ import { tf } from '../../service/LocalizationService';
 import { stateEvent, type VersionInfo } from '../../event/StateEvent';
 import { checkVersionNow, compareVersion, getLastVersionInfo, APP_VERSION } from '../../service/VersionCheckService';
 import type { common } from '@kit.AbilityKit';
+import { NavBar } from '../../components/ui/NavBar';
 
 const TAG = 'About';
 const DOMAIN = 0x0001;
@@ -338,22 +339,7 @@ export struct AboutView {
 
   @Builder
   HeaderBar() {
-    Row() {
-      NavBackButton()
-
-      Text(t('settings_about'))
-        .fontSize(DesignTokens.fontTitle())
-        .fontColor(DesignTokens.labelPrimary(this.theme))
-        .fontWeight(FontWeight.Medium)
-        .margin({ left: 12 })
-
-      Blank()
-    }
-    .width('100%')
-    .height(60)
-    .padding({ left: 14, right: 14, top: 8, bottom: 6 })
-    .backgroundColor(DesignTokens.chromeBar(this.theme))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
+    NavBar({ title: t('settings_about') })
   }
 
   // NavDestination onReady callback

@@ -12,6 +12,7 @@ import { NavBackButton } from '../components/common/NavBackButton';
 import { SegmentedBar } from '../components/ui/SegmentedBar';
 import { t, tf } from '../service/LocalizationService';
 import type { LogRecord } from '../core/log/LogStore';
+import { NavBar } from '../components/ui/NavBar';
 
 const DOMAIN = 0x0001;
 const TAG = 'LogPage';
@@ -131,42 +132,38 @@ export struct LogPage {
     ];
   }
 
+  /** 顶部栏：统一走 NavBar（返回 + 标题 + 右侧复制/清空动作） */
   @Builder
   private Header() {
-    Row() {
-      NavBackButton()
+    NavBar({
+      title: t('logs_title'),
+      trailing: (): void => {
+        this.HeaderActions();
+      },
+    })
+  }
 
-      Text(t('logs_title'))
-        .fontSize(DesignTokens.fontDisplay())
-        .fontWeight(FontWeight.Bold)
-        .fontColor(DesignTokens.labelPrimary(this.theme))
-        .margin({ left: 12 })
-        .layoutWeight(1)
-
-      if (this.totalCount > 0) {
-        Row({ space: 4 }) {
-          Text(t('logs_copy'))
-            .fontSize(DesignTokens.fontBody())
-            .fontColor(DesignTokens.accent())
-            .padding({ left: 8, right: 8, top: 6, bottom: 6 })
-            .onClick(() => {
-              void this.copyLogs();
-            })
-          Text(t('logs_clear'))
-            .fontSize(DesignTokens.fontBody())
-            .fontColor(DesignTokens.danger())
-            .padding({ left: 8, right: 4, top: 6, bottom: 6 })
-            .onClick(() => {
-              void this.clearLogs();
-            })
-        }
+  /** 顶栏右侧：复制 / 清空 */
+  @Builder
+  private HeaderActions() {
+    if (this.totalCount > 0) {
+      Row({ space: 4 }) {
+        Text(t('logs_copy'))
+          .fontSize(DesignTokens.fontBody())
+          .fontColor(DesignTokens.accent())
+          .padding({ left: 8, right: 8, top: 6, bottom: 6 })
+          .onClick(() => {
+            void this.copyLogs();
+          })
+        Text(t('logs_clear'))
+          .fontSize(DesignTokens.fontBody())
+          .fontColor(DesignTokens.danger())
+          .padding({ left: 8, right: 4, top: 6, bottom: 6 })
+          .onClick(() => {
+            void this.clearLogs();
+          })
       }
     }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 14, bottom: 10 })
-    .alignItems(VerticalAlign.Center)
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
-    .backgroundColor(DesignTokens.chromeBar(this.theme))
   }
 
   @Builder

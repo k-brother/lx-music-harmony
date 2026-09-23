@@ -126,7 +126,6 @@ export function buildZhCN(): Map<string, string> {
   m.set('a11y_import', '导入本地音乐');
   m.set('a11y_close', '关闭');
   m.set('a11y_search', '搜索');
-  m.set('a11y_download', '下载');
   m.set('a11y_delete', '删除');
   m.set('a11y_drag_handle', '拖动调整顺序');
   m.set('a11y_expand', '展开');
@@ -463,6 +462,7 @@ export function buildZhCN(): Map<string, string> {
   m.set('settings_anim', '显示动画');
   m.set('settings_custom_source', '自定义源');
   m.set('custom_source_quick_import', '快速导入自定义源');
+  m.set('custom_source_manage', '管理自定义源');
   m.set('custom_source_import_from_url', '从链接导入');
   m.set('settings_desktop_lyric', '桌面歌词');
   m.set('settings_custom_source_desc', '弹框配置：在线链接导入或本地JS文件导入');
@@ -473,6 +473,8 @@ export function buildZhCN(): Map<string, string> {
   m.set('toast_settings_reset', '已恢复默认设置');
   m.set('settings_about_lx', '关于 LX Music');
   m.set('pact_title', '许可协议');
+  m.set('legal_title', '许可协议与隐私政策');
+  m.set('legal_title_desc', '点击查看许可协议与隐私政策');
   m.set('privacy_title', '隐私政策');
   m.set('pact_accept', '接受');
   m.set('pact_reject', '拒绝');
@@ -576,6 +578,7 @@ export function buildZhCN(): Map<string, string> {
   m.set('source_local_import_success', '本地音源导入成功');
   m.set('source_local_import_fail', '本地文件导入失败，请确认文件内容正确');
   m.set('unknown', '未知');
+  m.set('from_source', '来自 {0}');
   m.set('unknown_artist', '未知歌手');
   m.set('unknown_album', '未知专辑');
   m.set('unknown_song', '未知歌曲');

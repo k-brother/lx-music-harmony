@@ -115,7 +115,6 @@ export function buildEnUS(): Map<string, string> {
   m.set('a11y_import', 'Import local music');
   m.set('a11y_close', 'Close');
   m.set('a11y_search', 'Search');
-  m.set('a11y_download', 'Download');
   m.set('a11y_delete', 'Delete');
   m.set('a11y_drag_handle', 'Drag to reorder');
   m.set('a11y_expand', 'Expand');
@@ -457,6 +456,7 @@ export function buildEnUS(): Map<string, string> {
   m.set('settings_anim', 'Animations');
   m.set('settings_custom_source', 'Custom Source');
   m.set('custom_source_quick_import', 'Quick Import Custom Source');
+  m.set('custom_source_manage', 'Manage custom sources');
   m.set('custom_source_import_from_url', 'Import from URL');
   m.set('settings_desktop_lyric', 'Desktop Lyric');
   m.set('settings_custom_source_desc', 'Import JS link or file');
@@ -467,6 +467,8 @@ export function buildEnUS(): Map<string, string> {
   m.set('toast_settings_reset', 'Default settings restored');
   m.set('settings_about_lx', 'About LX Music');
   m.set('pact_title', 'License Agreement');
+  m.set('legal_title', 'License & Privacy Policy');
+  m.set('legal_title_desc', 'Tap to read the license agreement and privacy policy');
   m.set('privacy_title', 'Privacy Policy');
   m.set('pact_accept', 'Accept');
   m.set('pact_reject', 'Decline');
@@ -569,6 +571,7 @@ export function buildEnUS(): Map<string, string> {
   m.set('source_local_import_success', 'Local source imported');
   m.set('source_local_import_fail', 'Local file import failed');
   m.set('unknown', 'Unknown');
+  m.set('from_source', 'From {0}');
   m.set('unknown_artist', 'Unknown Artist');
   m.set('unknown_album', 'Unknown Album');
   m.set('unknown_song', 'Unknown Song');

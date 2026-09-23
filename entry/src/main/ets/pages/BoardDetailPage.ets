@@ -1,6 +1,5 @@
-import { t , tf } from '../service/LocalizationService';
+import { t, tf, sourceLabel } from '../service/LocalizationService';
 import { showAppToast, TOAST_DURATION_SHORT } from '../utils/Toast';
-import { BoardSongRow } from './BoardDetail/BoardSongRow';
 // 排行榜详情页 - 显示榜单信息和歌曲列表
 // 支持分组展示前几条歌曲作为预览
 
@@ -20,6 +19,14 @@ import { LazyDataSource } from '../utils/LazyDataSource';
 import { BoardDetailHeader } from './Board/BoardDetailHeader';
 import { scrollerOffsetY } from '../utils/ScrollTools';
 import { parameterizedPageScrollKey, ScrollMemoryHandle } from '../service/ScrollMemoryService';
+import { ListRow } from '../components/ui/ListRow';
+import { showSongItemMenu } from './SonglistDetail/SonglistMenus';
+import { songRowToQueueItem } from '../core/list/SongMappers';
+import { addRowToDefaultList, addRowToDislike, openInBrowser, shareSongRow, sourceDetailUrl } from './SonglistDetail/SonglistRowActions';
+import { emitSearchRequest } from '../service/EventBus';
+import { appActionMenu } from '../service/DialogService';
+import type { SongItem } from './SonglistDetail/SonglistTypes';
+import type { common } from '@kit.AbilityKit';
 
 interface BoardDetailParams {
   boardId: string;
@@ -27,18 +34,6 @@ interface BoardDetailParams {
   boardSource: string;
 }
 
-// 榜单歌曲项
-interface BoardSongItem {
-  id: string;
-  name: string;
-  singer: string;
-  album: string;
-  duration: number;
-  pic: string;
-  source: string;
-  index: number;
-  isPlaying: boolean;
-}
 
 @Component
 export struct BoardDetailPage {
@@ -53,9 +48,11 @@ export struct BoardDetailPage {
   @State boardName: string = t('tab_leaderboard');
   @State boardId: string = '';
   @State boardSource: string = 'kw';
-  @State songList: BoardSongItem[] = [];
+  /** 榜单说明（来源提供才有） */
+  @State boardDesc: string = '';
+  @State songList: SongItem[] = [];
   /** LazyForEach 数据源：长列表只创建可视区的行 */
-  private songListSource: LazyDataSource<BoardSongItem> = new LazyDataSource<BoardSongItem>();
+  private songListSource: LazyDataSource<SongItem> = new LazyDataSource<SongItem>();
   @State isLoading: boolean = true;
   @State totalCount: number = 0;
   @State headerCompact: boolean = false;
@@ -114,6 +111,7 @@ export struct BoardDetailPage {
         this.boardId = nextId;
         this.boardName = (p.boardName as string) || t('tab_leaderboard');
         this.boardSource = (p.boardSource as string) || 'kw';
+        this.boardDesc = (p.boardDesc as string) || '';
         hilog.info(0x0001, 'BoardDetail', 'Loaded from onReady - id: %{public}s, name: %{public}s', this.boardId, this.boardName);
         this.hasLoadedData = true;
         if (needLoad) {
@@ -130,6 +128,7 @@ export struct BoardDetailPage {
         this.boardId = navParams.boardId;
         this.boardName = navParams.boardName || t('tab_leaderboard');
         this.boardSource = navParams.boardSource || 'kw';
+        this.boardDesc = navParams.boardDesc || '';
         hilog.info(0x0001, 'BoardDetail', 'Loaded from service - id: %{public}s', this.boardId);
         this.loadBoardDetail();
         this.hasLoadedData = true;
@@ -170,7 +169,7 @@ export struct BoardDetailPage {
       // 与排行榜 Tab 共用同一套「超时 + 空包重试」，避免个别源偶发空列表直接白屏
       const result = await getLeaderboardDetailReliable(source, bangId, 1);
       if (result && result.list) {
-        const items: BoardSongItem[] = [];
+        const items: SongItem[] = [];
         for (let i = 0; i < result.list.length; i++) {
           const item = result.list[i];
           items.push({
@@ -181,7 +180,6 @@ export struct BoardDetailPage {
             duration: item.duration || 0,
             pic: item.pic || '',
             source: item.source || source,
-            index: i + 1,
             isPlaying: false,
           });
         }
@@ -313,7 +311,7 @@ export struct BoardDetailPage {
     showAppToast(this.getUIContext(), message, TOAST_DURATION_SHORT);
   }
 
-  private buildMusicInfoForDownload(song: BoardSongItem): MusicInfo {
+  private buildMusicInfoForDownload(song: SongItem): MusicInfo {
     return {
       id: song.id,
       name: song.name,
@@ -332,7 +330,7 @@ export struct BoardDetailPage {
     };
   }
 
-  private async downloadSong(song: BoardSongItem): Promise<void> {
+  private async downloadSong(song: SongItem): Promise<void> {
     try {
       // 与歌单详情页一致，统一走下载服务（下载页可见、可暂停/恢复）
       const taskId: string = await download.startDownload({
@@ -344,6 +342,114 @@ export struct BoardDetailPage {
       hilog.error(0x0001, 'BoardDetail', 'downloadSong failed: %{public}s', JSON.stringify(err));
       this.showToast(t('media_save_fail'));
     }
+  }
+
+  /** 行尾 ⋯ 菜单按钮（与歌单详情同一套观感） */
+  @Builder
+  SongRowTrailing(song: SongItem) {
+    Stack() {
+      Circle({ width: 30, height: 30 })
+        .fill(DesignTokens.mutedFill(this.theme))
+      Image($r('app.media.ic_pd_more'))
+        .width(14)
+        .height(14)
+        .fillColor(DesignTokens.labelSecondary(this.theme))
+    }
+    .width(DesignTokens.touchTarget())
+    .height(DesignTokens.touchTarget())
+    .accessibilityText(t('a11y_more'))
+    .onClick(() => {
+      void this.openSongMenu(song);
+    })
+  }
+
+  /**
+   * 单曲菜单：动作集合与歌单详情完全一致（下一首播放/添加到列表/下载/分享/不喜欢/
+   * 来源详情/查看歌手/查看专辑），榜单是只读的，所以没有「调整位置/移动到列表」。
+   */
+  private async openSongMenu(song: SongItem): Promise<void> {
+    await showSongItemMenu(song, {
+      onPlayLater: (target: SongItem): void => {
+        playerService.insertNext(songRowToQueueItem(target));
+        this.showToast(tf('toast_play_later_added', [target.name]));
+      },
+      onAddToList: (target: SongItem): void => {
+        void this.addToPlaylist(target);
+      },
+      onDownload: (target: SongItem): void => {
+        void this.downloadSong(target);
+      },
+      onShare: (target: SongItem): void => {
+        void this.shareSong(target);
+      },
+      onDislike: (target: SongItem): void => {
+        void this.showDislikeMenu(target);
+      },
+      onSourceDetail: (target: SongItem): void => {
+        const url: string = sourceDetailUrl(target);
+        if (!openInBrowser(this.hostContext(), url)) {
+          this.showToast(t('toast_operation_failed'));
+        }
+      },
+      onViewArtist: (target: SongItem): void => {
+        this.viewByKeyword(target.singer);
+      },
+      onViewAlbum: (target: SongItem): void => {
+        this.viewByKeyword(target.album);
+      },
+    }, { canEditPosition: false, canMoveToList: false });
+  }
+
+  /** 收藏到默认列表（与歌单详情同一入口） */
+  private async addToPlaylist(song: SongItem): Promise<void> {
+    const error = await addRowToDefaultList(song);
+    this.showToast(error.length === 0
+      ? tf('toast_added_to_default', [song.name])
+      : t('toast_add_to_list_failed') + ': ' + error);
+  }
+
+  /** 分享（按「设置 → 分享方式」走系统分享，失败回退剪贴板） */
+  private async shareSong(song: SongItem): Promise<void> {
+    const result = await shareSongRow(this.hostContext(), song, sourceLabel(song.source));
+    if (result === 'clipboard') {
+      this.showToast(t('toast_share_copy'));
+    } else if (result === 'failed') {
+      this.showToast(t('toast_operation_failed'));
+    }
+  }
+
+  /** 不喜欢：歌曲 / 歌手 / 歌名三种粒度（与歌单详情、播放页同一套规则） */
+  private async showDislikeMenu(song: SongItem): Promise<void> {
+    const picked = await appActionMenu(t('dislike_title'), [
+      t('dislike_song'),
+      t('dislike_singer'),
+      t('dislike_name'),
+    ]);
+    if (picked < 0) {
+      return;
+    }
+    try {
+      const count = await addRowToDislike(song, picked);
+      this.showToast(tf('dislike_added', [count.toString()]));
+    } catch (err) {
+      hilog.warn(0x0001, 'BoardDetail', 'addDislike failed: %{public}s', JSON.stringify(err));
+      this.showToast(t('toast_operation_failed'));
+    }
+  }
+
+  /** 按关键词回首页搜索（查看歌手 / 查看专辑） */
+  private viewByKeyword(keyword: string): void {
+    if (!keyword || keyword.length === 0) {
+      this.showToast(t('toast_operation_failed'));
+      return;
+    }
+    emitSearchRequest(keyword);
+    navigationService.back();
+  }
+
+  /** 宿主 Ability 上下文（分享 / 打开外链共用） */
+  private hostContext(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext;
   }
 
   /** 顶栏右侧：曲目总数 */
@@ -388,6 +494,9 @@ export struct BoardDetailPage {
           .layoutWeight(1)
       } else {
         BoardDetailHeader({
+          title: this.boardName,
+          sourceLabel: sourceLabel(this.boardSource),
+          description: this.boardDesc,
           cover: this.getBoardCover(),
           sourceTag: this.boardSource,
           songCount: this.totalCount,
@@ -412,28 +521,36 @@ export struct BoardDetailPage {
   SongList() {
     List({ space: 8, scroller: this.songListScroller }) {
       // 行组件与歌单详情同款观感（序号 / 歌名 / 歌手 / 下载 / 播放高亮）
-      LazyForEach(this.songListSource, (song: BoardSongItem, index: number) => {
+      LazyForEach(this.songListSource, (song: SongItem, index: number) => {
         ListItem() {
-          BoardSongRow({
-            index: index + 1,
-            title: song.name,
-            singer: song.singer,
-            album: song.album,
-            sourceId: song.source,
-            durationSeconds: song.duration,
-            active: playKeyOfIds(song.source, song.id, song.id) === this.playingSongKey,
-            divider: index < this.songList.length - 1,
-            onTap: (): void => {
-              this.playSong(index);
-            },
-            onDownload: (): void => {
-              void this.downloadSong(song);
-            },
-          })
+          // 与歌单详情完全同一套行：序号 / 歌名 / 歌手·专辑·音源 / 时长 / 行尾 ⋯ 菜单
+          Column() {
+            ListRow({
+              index: index + 1,
+              title: song.name,
+              singer: song.singer,
+              album: song.album,
+              sourceId: song.source,
+              durationSeconds: song.duration,
+              active: playKeyOfIds(song.source, song.id, song.id) === this.playingSongKey,
+              divider: index < this.songList.length - 1,
+              onTap: (): void => {
+                void this.playSong(index);
+              },
+              onLongPress: (): void => {
+                void this.openSongMenu(song);
+              },
+              trailing: (): void => {
+                this.SongRowTrailing(song);
+              },
+            })
+          }
+          .padding({ left: 12, right: 8 })
+          .width('100%')
         }
       },
         // 高亮改由 @StorageProp('playingSongKey') 驱动，key 不再需要带播放态
-        (song: BoardSongItem, index: number): string => `${song.id}_${index}`)
+        (song: SongItem, index: number): string => `${song.id}_${index}`)
     }
     .width('100%')
     .layoutWeight(1)

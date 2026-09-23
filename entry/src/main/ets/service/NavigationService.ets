@@ -32,6 +32,8 @@ export interface NavigationParams {
   boardId?: string;
   boardName?: string;
   boardSource?: string;
+  /** 榜单说明（源提供了才带，详情页顶部展示） */
+  boardDesc?: string;
   networkTest?: boolean;
   /** 评论页等：当前歌曲 */
   musicId?: string;

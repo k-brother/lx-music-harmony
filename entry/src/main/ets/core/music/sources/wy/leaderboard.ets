@@ -33,6 +33,8 @@ interface WYBoardListDataItem {
   id: number;
   name: string;
   coverImgUrl?: string;
+  /** 榜单说明 */
+  description?: string;
 }
 
 // 网易云排行榜列表响应
@@ -197,6 +199,8 @@ class WyLeaderboardImpl implements LeaderboardInterface {
               name: item.name || '',
               bangid: item.id.toString(),
               pic,
+              // 网易云给了榜单说明/创建者信息，带下去给详情页顶部展示
+              desc: item.description ?? '',
             };
             return boardItem;
           });

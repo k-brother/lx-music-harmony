@@ -6,7 +6,6 @@
 
 现在拼装只剩 core/list/RowTexts.ets 一处，行组件统一调它。判定：
 1. 除 RowTexts 外，不许再出现手拼的「歌手 · 专辑」副标题；
-2. 行组件（ListRow / TrackRow / BoardSongRow）必须引用统一拼装；
 3. 三个列表显示开关必须被行组件读取（@StorageProp）。
 
 用法：python3 scripts/check_row_texts.py
@@ -20,7 +19,6 @@ ROW_TEXTS = 'core/list/RowTexts.ets'
 ROW_COMPONENTS = {
     'components/ui/ListRow.ets': '统一列表行',
     'pages/LocalMusic/TrackRow.ets': '本地音乐行',
-    'pages/BoardDetail/BoardSongRow.ets': '榜单歌曲行',
 }
 SETTING_KEYS = ('showListAlbum', 'showListSource', 'showListDuration')
 # 手拼副标题的特征：模板串里同时出现 singer 与 album

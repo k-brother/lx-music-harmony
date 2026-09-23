@@ -11,6 +11,8 @@
  * - 新增设置项 = 加一个分组组件或往现有分组的 items 里加一项，不会互相踩状态。
  */
 import { DesignTokens } from '../../theme/DesignTokens';
+import { NavBar } from '../../components/ui/NavBar';
+import { t } from '../../service/LocalizationService';
 import { Breakpoints } from '../../theme/Breakpoints';
 import { BasicSection } from './Setting/BasicSection';
 import { PlaybackSection } from './Setting/PlaybackSection';
@@ -56,9 +58,13 @@ export struct SettingView {
   }
 
   build() {
-    Scroll() {
-      Column() {
-        // 平板横屏 / PC：分成两列，一屏能看到更多分组（与 iPad 版设置页的密度接近）
+    Column() {
+      // 统一顶部栏：与其它二级页同一套（返回 + 居中标题 + 沉浸式安全区）
+      NavBar({ title: t('settings_title') })
+
+      Scroll() {
+        Column() {
+          // 平板横屏 / PC：分成两列，一屏能看到更多分组（与 iPad 版设置页的密度接近）
         if (Breakpoints.isLarge(this.breakpoint)) {
           Row({ space: 0 }) {
             Column() {
@@ -85,16 +91,19 @@ export struct SettingView {
       }
       .width('100%')
       // 分组卡片左右留白（8pt 网格）；大屏额外居中，避免卡片被拉满整屏
-      .padding({
-        left: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
-        right: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
-        bottom: 28,
-      })
+        .padding({
+          left: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+          right: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+          bottom: 28,
+        })
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
     }
     .width('100%')
     .height('100%')
-    .scrollBar(BarState.Off)
-    .edgeEffect(EdgeEffect.Spring)
     .backgroundColor(DesignTokens.pageBg(this.theme))
   }
 }

@@ -632,6 +632,7 @@ export struct LeaderboardView {
       boardId: canonicalBoardId,
       boardName: board.name,
       boardSource: board.source,
+      boardDesc: board.description ?? '',
     });
   }
 
