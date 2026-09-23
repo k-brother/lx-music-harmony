@@ -46,6 +46,8 @@ export struct MylistView {
   @StorageProp('theme') theme: string = 'light';
   /** 一多：窗口宽度（vp），大屏内容列居中 */
   @StorageProp('windowWidthVp') windowWidthVp: number = 360;
+  /** 一多：断点（lg 下分两列） */
+  @StorageProp('breakpoint') breakpoint: string = 'sm';
 
   /** 按压反馈：卡片轻微缩放 */
   @Styles
@@ -193,27 +195,9 @@ export struct MylistView {
 
 
 
-  build() {
-    Stack() {
-      if (this.isLoading) {
-        StateView({ state: 'loading' })
-          .width('100%')
-          .height('100%')
-      } else {
-        RefreshContainer({
-          refreshing: $isRefreshing,
-          onRefresh: (): void => {
-            hapticService.selection();
-            hilog.info(0x0001, 'MylistView', 'Pull-to-refresh: reload my lists');
-            this.loadMyLists().then((): void => {
-              this.isRefreshing = false;
-            }).catch((): void => {
-              this.isRefreshing = false;
-            });
-          },
-        }) {
-          Scroll() {
-            Column() {
+  /** 左列：快捷入口 + 本地音乐 + 我喜欢 */
+  @Builder
+  LeftSections() {
             // 快捷入口：我喜欢 / 播放历史
             Row({ space: 10 }) {
               MylistQuickCard({
@@ -237,8 +221,8 @@ export struct MylistView {
             }
             .width('100%')
             .padding({
-              left: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
-              right: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+              left: DesignTokens.spaceGutter(),
+              right: DesignTokens.spaceGutter(),
               top: 12,
               bottom: 6,
             })
@@ -253,8 +237,8 @@ export struct MylistView {
               },
             })
               .padding({
-                left: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
-                right: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+                left: DesignTokens.spaceGutter(),
+                right: DesignTokens.spaceGutter(),
               })
 
             // 我喜欢
@@ -278,7 +262,11 @@ export struct MylistView {
                 },
               })
             }
+  }
 
+  /** 右列：播放历史 + 自建歌单 */
+  @Builder
+  RightSections() {
             // 播放历史
             MylistSectionHeader({
               title: t('my_history'),
@@ -344,17 +332,66 @@ export struct MylistView {
                       void this.openListMenu(list);
                     },
                   })
-                    .padding({
-                      left: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
-                      right: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
-                    })
+                    .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter() })
                 }, (list: UserListRow) => list.id)
               }
               .width('100%')
               .padding({ bottom: 32 })
             }
+  }
+
+  build() {
+    Stack() {
+      if (this.isLoading) {
+        StateView({ state: 'loading' })
+          .width('100%')
+          .height('100%')
+      } else {
+        RefreshContainer({
+          refreshing: $isRefreshing,
+          onRefresh: (): void => {
+            hapticService.selection();
+            hilog.info(0x0001, 'MylistView', 'Pull-to-refresh: reload my lists');
+            this.loadMyLists().then((): void => {
+              this.isRefreshing = false;
+            }).catch((): void => {
+              this.isRefreshing = false;
+            });
+          },
+        }) {
+          Scroll() {
+            Column() {
+              // 一多：lg（平板横屏 / PC）分两列，窄屏保持单列；两列顺序与单列自上而下一致
+              if (Breakpoints.isLarge(this.breakpoint)) {
+                Row({ space: 0 }) {
+                  Column() {
+                    this.LeftSections()
+                  }
+                  .layoutWeight(1)
+                  .alignItems(HorizontalAlign.Start)
+
+                  Column() {
+                    this.RightSections()
+                  }
+                  .layoutWeight(1)
+                  .alignItems(HorizontalAlign.Start)
+                }
+                .width('100%')
+                .alignItems(VerticalAlign.Top)
+              } else {
+                Column() {
+                  this.LeftSections()
+                  this.RightSections()
+                }
+                .width('100%')
+              }
             }
             .width('100%')
+            // 大屏内容列居中：只在这里加一次留白，各区块只管自己的 16vp 边距
+            .padding({
+              left: Breakpoints.contentInset(this.windowWidthVp),
+              right: Breakpoints.contentInset(this.windowWidthVp),
+            })
           }
           .width('100%')
           .height('100%')
