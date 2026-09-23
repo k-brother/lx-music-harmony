@@ -318,6 +318,46 @@ export async function getLeaderboardDetail(source: string, id: string, page: num
   }
 }
 
+/** 榜单详情请求超时（毫秒）：个别源偶发长时间无响应，不能让页面一直转圈 */
+const LEADERBOARD_REQUEST_TIMEOUT_MS = 20000;
+/** 空包重试前的等待（毫秒）：酷狗等源首包常为空，稍等再拉一次 */
+const LEADERBOARD_RETRY_DELAY_MS = 450;
+
+/**
+ * 带超时与空包重试的榜单详情拉取
+ *
+ * 这些源（尤其酷狗）偶发返回空列表或长时间不响应，页面各自写重试策略既重复又容易漏。
+ * 统一在这里处理：每次尝试都有超时，空列表则短暂等待后重试，全部失败返回 null。
+ *
+ * @param attempts 最多尝试次数（默认 3）
+ */
+export async function getLeaderboardDetailReliable(
+  source: string, id: string, page: number = 1, attempts: number = 3
+): Promise<ListDetailInfo | null> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const detail = await Promise.race<ListDetailInfo | null>([
+      getLeaderboardDetail(source, id, page),
+      new Promise<ListDetailInfo | null>((_resolve, reject) => {
+        setTimeout(() => {
+          reject(new Error('leaderboard detail timeout'));
+        }, LEADERBOARD_REQUEST_TIMEOUT_MS);
+      }),
+    ]).catch((): ListDetailInfo | null => null);
+
+    if (detail && detail.list && detail.list.length > 0) {
+      return detail;
+    }
+    if (attempt + 1 < attempts) {
+      await new Promise<void>((resolve: () => void) => {
+        setTimeout((): void => {
+          resolve();
+        }, LEADERBOARD_RETRY_DELAY_MS);
+      });
+    }
+  }
+  return null;
+}
+
 // 获取排行榜内全部歌曲（分页获取所有歌曲）
 export async function getListDetailAll(
   id: string,

@@ -5,7 +5,7 @@ import { showAppToast, TOAST_DURATION_SHORT } from '../utils/Toast';
 
 import hilog from '@ohos.hilog';
 import { PlayerBar } from '../components/player/PlayerBar';
-import { getLeaderboardDetail } from '../core/leaderboard';
+import { getLeaderboardDetailReliable } from '../core/leaderboard';
 import { playerService, SongInfo } from '../service/PlayerService';
 import { getMusicUrl, download } from '../core/music/MusicFeatureEntry';
 import type { MusicInfo } from '../types/MusicTypes';
@@ -162,7 +162,8 @@ export struct BoardDetailPage {
         }
       }
 
-      const result = await getLeaderboardDetail(source, bangId, 1);
+      // 与排行榜 Tab 共用同一套「超时 + 空包重试」，避免个别源偶发空列表直接白屏
+      const result = await getLeaderboardDetailReliable(source, bangId, 1);
       if (result && result.list) {
         const items: BoardSongItem[] = [];
         for (let i = 0; i < result.list.length; i++) {

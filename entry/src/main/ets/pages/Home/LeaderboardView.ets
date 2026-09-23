@@ -3,7 +3,7 @@ import { SkeletonGridItem } from '../../components/common/SkeletonView';
 // 排行榜视图：纵向分组卡片 + 榜单内预览曲目 + 展开/收起与进入完整榜单
 // 信息架构：一屏浏览多个榜；弱打扰预览 3 条；展开看更多；右侧箭头进二级页
 
-import { getBoardsList, getLeaderboardDetail, type ListDetailInfo } from '../../core/leaderboard';
+import { getBoardsList, getLeaderboardDetailReliable } from '../../core/leaderboard';
 import type { BoardItem, BoardSource, BoardMusicItem } from '../../store/leaderboard/LeaderboardStoreState';
 import { navigationService, RouteName } from '../../service/NavigationService';
 import { playerService, SongInfo } from '../../service/PlayerService';
@@ -471,36 +471,9 @@ export struct LeaderboardView {
     };
     this.cardStates = loadingSlice;
     try {
+      // 超时 + 空包重试策略收在 core/leaderboard.getLeaderboardDetailReliable 里
       const bang = this.unwrapBangFromRowId(board.id);
-      const fetchDetail = (): Promise<ListDetailInfo | null> =>
-        Promise.race<ListDetailInfo | null>([
-          getLeaderboardDetail(board.source, bang, 1),
-          new Promise<ListDetailInfo | null>((_, reject) => {
-            setTimeout(() => reject(new Error('preview timeout')), PREVIEW_REQUEST_TIMEOUT_MS);
-          }),
-        ]);
-      let detail = await fetchDetail();
-      if (startedPreviewGen !== this.previewGeneration) {
-        return;
-      }
-      if (!detail || !detail.list || detail.list.length === 0) {
-        detail = await fetchDetail();
-      }
-      if (startedPreviewGen !== this.previewGeneration) {
-        return;
-      }
-      // 酷狗 HTTP 等偶发首包空列表：短延迟后再拉一次，减少「有榜无预览」
-      if (!detail || !detail.list || detail.list.length === 0) {
-        await new Promise<void>((resolve: (v: void) => void) => {
-          setTimeout((): void => {
-            resolve();
-          }, 450);
-        });
-        if (startedPreviewGen !== this.previewGeneration) {
-          return;
-        }
-        detail = await fetchDetail();
-      }
+      const detail = await getLeaderboardDetailReliable(board.source, bang, 1);
       if (startedPreviewGen !== this.previewGeneration) {
         return;
       }
