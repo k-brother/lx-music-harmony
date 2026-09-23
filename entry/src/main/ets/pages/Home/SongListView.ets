@@ -1,5 +1,6 @@
 import { t } from '../../service/LocalizationService';
-import { formatPlayCount } from '../../utils/FormatTools';
+import type { SongListItemData } from './SongListTypes';
+import { SongListCard } from './SongList/SongListCard';
 import { EmptyView } from '../../components/common/EmptyView';
 // SongList 视图 - 歌单列表视图
 // 优化：字体放大、标签筛选、下拉刷新
@@ -32,17 +33,6 @@ interface TagOption {
 }
 
 // 歌单项接口
-interface SongListItemData {
-  id: string;
-  name: string;
-  author: string;
-  img: string;
-  play_count: string;
-  desc: string;
-  total: number;
-  source: string;
-}
-
 @Component
 export struct SongListView {
   // 换源时以 sourceId 变化为触发（比依赖父级的 epoch 更直接）：
@@ -610,7 +600,12 @@ export struct SongListView {
     Grid() {
       ForEach(this.songLists, (item: SongListItemData, index: number) => {
         GridItem() {
-          this.SongListCard(item, index)
+          SongListCard({
+            item: item,
+            onTap: (): void => {
+              this.openSonglistDetail(item);
+            },
+          })
         }
         .onAppear(() => {
           if (this.hasUserScrolledForPagination &&
@@ -671,108 +666,4 @@ export struct SongListView {
     .backgroundColor(DesignTokens.pageBg(this.theme))
   }
 
-  private toLightweightCoverUrl(rawUrl: string): string {
-    const url = (rawUrl ?? '').trim();
-    if (!url) {
-      return '';
-    }
-    let next = url;
-    // Kuwo/通用目录尺寸：/500/ -> /150/
-    next = next.replace('/500/', '/150/');
-    next = next.replace('/300/', '/150/');
-    // QQ 500x500 封面降级到 300x300
-    next = next.replace('T002R500x500M000', 'T002R300x300M000');
-    next = next.replace('T001R500x500M000', 'T001R300x300M000');
-    // 通用后缀尺寸 _500.jpg -> _150.jpg
-    next = next.replace('_500.jpg', '_150.jpg');
-    next = next.replace('_500.png', '_150.png');
-    return next;
-  }
-
-  private canRenderCover(item: SongListItemData): boolean {
-    const img = (item.img || '').trim();
-    return img.length > 0;
-  }
-
-  @Builder
-  SongListCard(item: SongListItemData, index: number) {
-    Column() {
-      // 封面
-      Stack() {
-        if (this.canRenderCover(item)) {
-          Image(this.toLightweightCoverUrl(item.img || ''))
-            .width('100%')
-            .aspectRatio(1)
-            .borderRadius(DesignTokens.radiusCover())
-            .objectFit(ImageFit.Cover)
-            .onError(() => {
-              // 单卡封面失败时降级占位，避免重复解码/重试风暴。
-              item.img = '';
-            })
-        } else {
-          Image($r('app.media.ic_player_cover_placeholder'))
-          .width('100%')
-          .aspectRatio(1)
-          .borderRadius(DesignTokens.radiusCover())
-          .objectFit(ImageFit.Cover)
-        }
-
-        // 播放量
-        Row() {
-          SymbolGlyph($r('sys.symbol.play_fill'))
-            .fontSize(12)
-            .fontColor(['#FFFFFF'])
-          Text(this.formatPlayCountValue(item.play_count))
-            .fontSize(10)
-            .fontColor('#FFFFFF')
-            .margin({ left: 3 })
-        }
-        .padding({ left: 6, right: 6, top: 3, bottom: 3 })
-        .backgroundColor('rgba(0, 0, 0, 0.4)')
-        .borderRadius(DesignTokens.radiusCover())
-        .position({ x: 6, y: 6 })
-      }
-      .width('100%')
-      .aspectRatio(1)
-      // 封面投影：无卡片底色时提供层次（主流音乐 App 的歌单网格做法）
-      .shadow({ radius: 10, color: 'rgba(0,0,0,0.10)', offsetX: 0, offsetY: 3 })
-
-      // 信息
-      Column() {
-        Text(item.name)
-          .fontSize(14)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(DesignTokens.labelPrimary(this.theme))
-          .maxLines(2)
-          .lineHeight(19)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .width('100%')
-
-        Text(item.author)
-          .fontSize(12)
-          .fontColor(DesignTokens.labelTertiary(this.theme))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .width('100%')
-          .margin({ top: 5 })
-      }
-      .alignItems(HorizontalAlign.Start)
-      .width('100%')
-          .padding({ top: 8 })
-    }
-    .width('100%')
-    .stateStyles({ pressed: this.pressScale })
-    .onClick(() => {
-      this.openSonglistDetail(item);
-    })
-  }
-
-  /** 播放量格式统一在 utils/FormatTools（接口给的是字符串，这里负责解析） */
-  private formatPlayCountValue(count: string): string {
-    const num = parseFloat(count);
-    if (isNaN(num)) {
-      return '0';
-    }
-    return formatPlayCount(num, t('ten_thousand_unit'), t('billion_unit'));
-  }
 }

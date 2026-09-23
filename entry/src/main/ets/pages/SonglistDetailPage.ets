@@ -29,6 +29,11 @@ import { SonglistDetailHeader } from './SonglistDetail/SonglistDetailHeader';
 import { SonglistBatchBar } from './SonglistDetail/SonglistBatchBar';
 import { SonglistSortSheet } from './SonglistDetail/SonglistSortSheet';
 import {
+  musicInfoListToSongItems,
+  musicRowListToSongItems,
+  parsePlayCountText,
+} from './SonglistDetail/SonglistMapper';
+import {
   collectSonglist,
   syncBoundSonglist,
   uncollectSonglist,
@@ -401,30 +406,10 @@ export struct SonglistDetailPage {
         creator: result.info.author || t('unknown'),
         pic: result.info.img || '',
         desc: result.info.desc || '',
-        playCount: this.parsePlayCount(result.info.play_count),
+        playCount: parsePlayCountText(result.info.play_count),
       };
       this.listCoverLoadFailed = false;
-      const items: SongItem[] = [];
-      for (let i = 0; i < result.list.length; i++) {
-        const m: MusicInfo = result.list[i];
-        const durationVal = this.parseDurationToSeconds(m.interval);
-        const item: SongItem = {
-          id: m.songmid || m.id || '',
-          name: m.name || '',
-          singer: m.singer || '',
-          album: m.albumName || m.album || '',
-          duration: durationVal,
-          isPlaying: false,
-          source: source,
-          pic: m.img || m.pic || '',
-          albumId: m.albumId || '',
-          songmid: m.songmid || '',
-          strMediaMid: m.strMediaMid || '',
-          hash: m.hash || '',
-          copyrightId: m.copyrightId || '',
-        };
-        items.push(item);
-      }
+      const items: SongItem[] = musicInfoListToSongItems(result.list, source);
       hilog.info(0x0001, 'SonglistDetail', 'Parsed %{public}s songs to display', items.length.toString());
       this.songList = items;
       this.detailLoaded = true;
@@ -460,7 +445,7 @@ export struct SonglistDetailPage {
       };
       this.listCoverLoadFailed = false;
 
-      this.songList = this.musicRowsFromLocal(localSongs);
+      this.songList = musicRowListToSongItems(localSongs);
       this.detailLoaded = true;
     } catch (err) {
       hilog.error(0x0001, 'SonglistDetail', 'Failed to load local song list: %{public}s', JSON.stringify(err));
@@ -469,49 +454,6 @@ export struct SonglistDetailPage {
     } finally {
       this.isLoading = false;
     }
-  }
-
-  /** 本地曲库行 -> 页面行（首次加载与位置调整后的刷新共用一份映射） */
-  private musicRowsFromLocal(list: MusicItem[]): SongItem[] {
-    const rows: SongItem[] = [];
-    for (let i = 0; i < list.length; i++) {
-      const song = list[i];
-      rows.push({
-        id: song.id || '',
-        name: song.name || '',
-        singer: song.singer || '',
-        album: song.album || '',
-        duration: song.duration || 0,
-        isPlaying: false,
-        source: song.source || 'local',
-        pic: song.pic || '',
-        albumId: song.albumId || '',
-        songmid: song.id || '',
-        hash: '',
-        strMediaMid: '',
-        copyrightId: '',
-      });
-    }
-    return rows;
-  }
-
-  parsePlayCount(countStr: string): number {
-    if (!countStr) return 0;
-    const num = parseFloat(countStr);
-    return isNaN(num) ? 0 : num;
-  }
-
-  parseDurationToSeconds(interval: string | null): number {
-    if (!interval) return 0;
-    const parts = interval.split(':');
-    if (parts.length === 2) {
-      const minutes = parseInt(parts[0]);
-      const seconds = parseInt(parts[1]);
-      if (!isNaN(minutes) && !isNaN(seconds)) {
-        return minutes * 60 + seconds;
-      }
-    }
-    return 0;
   }
 
   /** 播放量格式统一在 utils/FormatTools */
@@ -1031,7 +973,7 @@ export struct SonglistDetailPage {
     if (!this.canEditLocalList()) {
       return;
     }
-    this.songList = this.musicRowsFromLocal(getUserListMusic(this.listInfo.id));
+    this.songList = musicRowListToSongItems(getUserListMusic(this.listInfo.id));
   }
 
   /** 可移动的目标列表（排除当前列表） */

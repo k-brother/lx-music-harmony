@@ -200,7 +200,7 @@ CHECKS = [
  ('播放量格式化单一出口', 'utils/FormatTools.ets', r'export function formatPlayCount'),
  ('排行榜播放量走统一实现', 'pages/Home/LeaderboardView.ets', r'formatPlayCount\(count, t\(',
   r"toFixed\(1\) \+ ' ' \+ t\('ten_thousand_unit'\)"),
- ('歌单卡片播放量走统一实现', 'pages/Home/SongListView.ets', r'formatPlayCount\(num, t\(',
+ ('歌单卡片播放量走统一实现', 'pages/Home/SongList/SongListCard.ets', r'formatPlayCount\(num, t\(',
   r"toFixed\(1\) \+ ' ' \+ t\('ten_thousand_unit'\)"),
  # 提示/确认框统一出口：页面不再自己 getPromptAction().showDialog 拼按钮与颜色
  ('确认与提示统一走 DialogService', 'service/DialogService.ets', r'export async function appAlert'),
