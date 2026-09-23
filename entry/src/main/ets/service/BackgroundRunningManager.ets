@@ -166,10 +166,13 @@ export class BackgroundRunningManager {
     registerMediaControlCommands(this.session, this.callbacks);
   }
 
-  private async setLaunchAbility(): Promise<void> {
-    if (!this.session || !this.context) {
-      return;
-    }
+  /**
+   * 构造「点击通知回到本应用」的 WantAgent。
+   *
+   * 播控会话的 setLaunchAbility 与后台长时任务的 startBackgroundRunning 都要它，
+   * 之前两处各写一遍（只差一个 wantAgentFlags），抽成一处避免取包名/Ability 名两处漂移。
+   */
+  private async buildLaunchWantAgent(updatePresent: boolean): Promise<WantAgent | null> {
     try {
       const bundleInfo = bundleManager.getBundleInfoForSelfSync(
         bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION
@@ -183,9 +186,25 @@ export class BackgroundRunningManager {
         ],
         actionType: wantAgent.OperationType.START_ABILITY,
         requestCode: 0,
-        wantAgentFlags: [wantAgent.WantAgentFlags.UPDATE_PRESENT_FLAG]
+        wantAgentFlags: updatePresent ? [wantAgent.WantAgentFlags.UPDATE_PRESENT_FLAG] : [],
       };
-      const wantAgentObj: WantAgent = await wantAgent.getWantAgent(wantAgentInfo);
+      return await wantAgent.getWantAgent(wantAgentInfo);
+    } catch (err) {
+      const msg: string = err instanceof Error ? err.message : JSON.stringify(err);
+      hilog.warn(DOMAIN, TAG, 'buildLaunchWantAgent failed: %{public}s', msg);
+      return null;
+    }
+  }
+
+  private async setLaunchAbility(): Promise<void> {
+    if (!this.session || !this.context) {
+      return;
+    }
+    try {
+      const wantAgentObj = await this.buildLaunchWantAgent(true);
+      if (!wantAgentObj) {
+        return;
+      }
       await this.session.setLaunchAbility(wantAgentObj);
       hilog.info(DOMAIN, TAG, 'setLaunchAbility succeeded');
     } catch (err) {
@@ -538,22 +557,12 @@ export class BackgroundRunningManager {
     this.isTaskRunning = true;
 
     try {
-      const bundleInfo = bundleManager.getBundleInfoForSelfSync(
-        bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION
-      );
+      const wantAgentObj = await this.buildLaunchWantAgent(false);
+      if (!wantAgentObj) {
+        this.isTaskRunning = false;
+        return;
+      }
 
-      const wantAgentInfo: wantAgent.WantAgentInfo = {
-        wants: [
-          {
-            bundleName: bundleInfo.name,
-            abilityName: 'EntryAbility',
-          }
-        ],
-        actionType: wantAgent.OperationType.START_ABILITY,
-        requestCode: 0,
-      };
-
-      const wantAgentObj: WantAgent = await wantAgent.getWantAgent(wantAgentInfo);
       if (canIUse('SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask')) {
         // @SuppressWarnings syscap
         await backgroundTaskManager.startBackgroundRunning(
