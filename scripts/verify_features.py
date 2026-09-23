@@ -221,6 +221,10 @@ CHECKS = [
  ('备份兼容旧 XOR 格式解密', 'service/crypto/AesPayload.ets', r'legacyXorDecrypt'),
  ('备份服务走统一加解密', 'service/BackupService.ets', r'decryptWithPassword\('),
  ('同步加解密走同一实现', 'service/sync/SyncCrypto.ets', r"from '../crypto/AesPayload'"),
+ # 备份域拆分：类型/数据映射与服务分开
+ ('备份类型独立成文件', 'service/backup/BackupTypes.ets', r'export enum BackupDataType'),
+ ('备份数据映射独立成文件', 'service/backup/BackupDataMapping.ets', r'export async function collectBackupData'),
+ ('备份服务只留文件与调度', 'service/BackupService.ets', r'from \'./backup/BackupDataMapping\''),
 ]
 
 fails = []
