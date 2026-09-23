@@ -6,8 +6,10 @@ import { SourceTabBar } from './Home/Home/SourceTabBar';
 import { HomeBottomTabBar, type HomeTabItem } from './Home/Home/HomeBottomTabBar';
 import { SearchMusicResultList, SearchSonglistResultList } from './Home/Home/SearchResultLists';
 import { SearchInputContent } from './Home/Home/SearchInputContent';
+import { promoteHistoryWord, runSongSearch, runSonglistSearch } from './Home/Home/SearchRunner';
+import type { SearchResultItem } from './Home/Home/SearchResultTypes';
 import { StateView } from '../components/ui/StateView';
-import { searchMusic, getHotSearch, getTipListInfo, HotSearchItem, Source } from '../core/search/search';
+import { getHotSearch, getTipListInfo, HotSearchItem, Source } from '../core/search/search';
 
 // 导入播放器栏组件
 import { PlayerBar } from '../components/player/PlayerBar';
@@ -30,7 +32,6 @@ import {
   addHistoryWord,
   clearHistoryList,
   getSearchHistory,
-  searchSonglist,
   type SonglistSearchResult,
 } from '../core/search/search';
 import { type NavigationParams } from '../service/NavigationService';
@@ -56,22 +57,6 @@ interface SourceOption {
 }
 
 // 搜索结果项
-interface SearchResultItem {
-  id: string;
-  songmid?: string;
-  name: string;
-  singer: string;
-  album: string;
-  pic: string;
-  duration: number;
-  source: string;
-  albumId?: string;
-  hash?: string;
-  strMediaMid?: string;
-  songId?: number;
-  copyrightId?: string;
-}
-
 // 搜索状态枚举
 enum SearchViewState {
   HIDDEN = 'hidden',      // 未展开
@@ -362,7 +347,9 @@ export struct HomePage {
   // 执行搜索
   async doSearch(): Promise<void> {
     const query = this.searchText.trim();
-    if (!query) return;
+    if (!query) {
+      return;
+    }
     // 歌单搜索走独立分支（单曲搜索结果与歌单结果结构不同）
     if (this.searchType === 'songlist') {
       await this.doSearchSonglist(query);
@@ -370,52 +357,23 @@ export struct HomePage {
     }
     // 记录搜索历史（条数上限由设置决定）
     addHistoryWord(query).then((): void => {
-      this.searchHistory = this.searchHistory.filter((word: string) => word !== query);
-      this.searchHistory.unshift(query);
-      const limit = settingsService.get().searchHistoryCount;
-      if (this.searchHistory.length > limit) {
-        this.searchHistory = this.searchHistory.slice(0, limit);
-      }
-    }).catch((err: Error) => {
+      this.searchHistory = promoteHistoryWord(
+        this.searchHistory, query, settingsService.get().searchHistoryCount);
+    }).catch((err: Error): void => {
       hilog.warn(0x0001, 'HomePage', 'addHistoryWord failed: %{public}s', err.message);
     });
+
     const currentEpoch = ++this.searchEpoch;
     const previousResults = this.searchResults.slice();
     this.isSearching = true;
     try {
-      // 使用统一搜索入口（core/search），避免首页与其他页面走不同链路。
-      let results = await searchMusic(query, 1, this.currentSource as Source);
-      // 当前源无结果时，回退全源聚合
-      if (results.length === 0 && this.currentSource !== 'all') {
-        results = await searchMusic(query, 1, 'all');
-      }
-      hilog.info(0x0001, 'HomePage', 'doSearch query=%{public}s source=%{public}s count=%{public}d',
-        query, this.currentSource, results.length);
-      // 检查版本是否过期（用户可能已发起新搜索）
+      // 搜索接口与字段映射在 Home/SearchRunner
+      const items: SearchResultItem[] = await runSongSearch(query, this.currentSource as Source);
+      // 版本过期（用户已发起新搜索）：丢弃本次结果
       if (currentEpoch !== this.searchEpoch) {
         return;
       }
-      const items: SearchResultItem[] = [];
-      for (let i = 0; i < results.length; i++) {
-        const r = results[i];
-        const item: SearchResultItem = {
-          id: r.id,
-          songmid: r.songmid,
-          name: r.name,
-          singer: r.singer,
-          album: r.album,
-          pic: r.pic || '',
-          duration: r.duration,
-          source: r.source,
-          albumId: r.albumId,
-          hash: r.hash,
-          strMediaMid: r.strMediaMid,
-          songId: r.songId,
-          copyrightId: r.copyrightId,
-        };
-        items.push(item);
-      }
-      // 同关键词重复请求若返回空，保留已有结果，避免点击歌曲后因偶发重复搜索导致“瞬间空列表”
+      // 同关键词重复请求若返回空，保留已有结果，避免点击歌曲后因偶发重复搜索导致「瞬间空列表」
       if (items.length === 0 && previousResults.length > 0 && query === this.lastResolvedSearchQuery) {
         hilog.warn(0x0001, 'HomePage', 'doSearch keep previous results for query: %{public}s', query);
         this.searchResults = previousResults;
@@ -428,12 +386,10 @@ export struct HomePage {
     } catch (err) {
       hilog.error(0x0001, 'HomePage', 'Search failed: %{public}s', JSON.stringify(err));
       if (currentEpoch === this.searchEpoch) {
-        // 同关键词异常时保留已有结果，避免误显示“未找到相关结果”
-        if (previousResults.length > 0 && query === this.lastResolvedSearchQuery) {
-          this.searchResults = previousResults;
-        } else {
-          this.searchResults = [];
-        }
+        // 同关键词异常时保留已有结果，避免误显示「未找到相关结果」
+        this.searchResults = previousResults.length > 0 && query === this.lastResolvedSearchQuery
+          ? previousResults
+          : [];
       }
     } finally {
       if (currentEpoch === this.searchEpoch) {
@@ -442,18 +398,14 @@ export struct HomePage {
     }
   }
 
-  /** 歌单搜索 */
   private async doSearchSonglist(query: string): Promise<void> {
-    addHistoryWord(query).catch((err: Error) => {
+    addHistoryWord(query).catch((err: Error): void => {
       hilog.warn(0x0001, 'HomePage', 'addHistoryWord failed: %{public}s', err.message);
     });
     this.isSearching = true;
     try {
-      const results = await searchSonglist(query, 1, this.currentSource as Source);
-      this.songlistResults = results;
+      this.songlistResults = await runSonglistSearch(query, this.currentSource as Source);
       this.searchViewState = SearchViewState.RESULT;
-      hilog.info(0x0001, 'HomePage', 'doSearchSonglist query=%{public}s count=%{public}d',
-        query, results.length);
     } catch (err) {
       hilog.error(0x0001, 'HomePage', 'doSearchSonglist failed: %{public}s', JSON.stringify(err));
       this.songlistResults = [];
@@ -462,7 +414,6 @@ export struct HomePage {
     }
   }
 
-  /** 切换搜索类型（单曲/歌单）后重新搜索 */
   private switchSearchType(type: string): void {
     if (this.searchType === type) {
       return;
