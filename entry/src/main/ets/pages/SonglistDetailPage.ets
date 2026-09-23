@@ -161,6 +161,8 @@ export struct SonglistDetailPage {
   private lastSourceId: string = '';
   private lastListId: string = '';
   private songListScroller: Scroller = new Scroller();
+  /** 恢复滚动位置的延迟任务（页面销毁时要清掉，避免回调落在已销毁的组件上） */
+  private restoreScrollTimer: number = -1;
 
   /**
    * 系统返回键拦截（注册到 NavigationService，由 AppDestination 转发）。
@@ -222,7 +224,11 @@ export struct SonglistDetailPage {
       return;
     }
     // 等一帧让列表完成布局，否则 scrollTo 会被忽略
-    setTimeout(() => {
+    if (this.restoreScrollTimer !== -1) {
+      clearTimeout(this.restoreScrollTimer);
+    }
+    this.restoreScrollTimer = setTimeout(() => {
+      this.restoreScrollTimer = -1;
       try {
         this.songListScroller.scrollTo({ xOffset: 0, yOffset: offset, animation: false });
         hilog.info(0x0001, 'SonglistDetail', 'Scroll restored to %{public}d', offset);
@@ -275,6 +281,10 @@ export struct SonglistDetailPage {
 
   aboutToDisappear(): void {
     this.saveScrollPosition();
+    if (this.restoreScrollTimer !== -1) {
+      clearTimeout(this.restoreScrollTimer);
+      this.restoreScrollTimer = -1;
+    }
     navigationService.popBackGuard(this.backGuard);
   }
 
