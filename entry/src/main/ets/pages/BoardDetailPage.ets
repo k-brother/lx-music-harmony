@@ -13,6 +13,7 @@ import type { MusicInfo } from '../types/MusicTypes';
 import { navigationService, NavigationParams } from '../service/NavigationService';
 import { DesignTokens } from '../theme/DesignTokens';
 import { NavBar } from '../components/ui/NavBar';
+import { StateView } from '../components/ui/StateView';
 
 interface BoardDetailParams {
   boardId: string;
@@ -357,30 +358,14 @@ export struct BoardDetailPage {
       })
 
       if (this.isLoading) {
-        // 加载中
-        Column() {
-          LoadingProgress()
-            .width(32)
-            .height(32)
-          Text(t('loading'))
-            .fontSize(14)
-            .fontColor(DesignTokens.labelSecondary(this.theme))
-            .margin({ top: 12 })
-        }
-        .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
+        // 加载/空态统一走 StateView（与其它列表页同一套）
+        StateView({ state: 'loading' })
+          .width('100%')
+          .layoutWeight(1)
       } else if (this.songList.length === 0) {
-        // 空状态
-        Column() {
-          Text(t('no_data'))
-            .fontSize(14)
-            .fontColor(DesignTokens.labelSecondary(this.theme))
-        }
-        .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
+        StateView({ state: 'empty', iconRes: $r('sys.symbol.music_note_list'), message: t('no_data') })
+          .width('100%')
+          .layoutWeight(1)
       } else {
         this.BoardHeaderCard()
         this.SongList()

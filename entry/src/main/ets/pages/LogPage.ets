@@ -6,7 +6,7 @@ import { appConfirm } from '../service/DialogService';
 import { showAppToast, TOAST_DURATION_DEFAULT } from '../utils/Toast';
 import { DesignTokens } from '../theme/DesignTokens';
 import { logService } from '../service/LogService';
-import { EmptyView } from '../components/common/EmptyView';
+import { StateView } from '../components/ui/StateView';
 import { NavBackButton } from '../components/common/NavBackButton';
 import { SegmentedBar } from '../components/ui/SegmentedBar';
 import { t, tf } from '../service/LocalizationService';
@@ -263,7 +263,7 @@ export struct LogPage {
         .justifyContent(FlexAlign.Center)
         .alignItems(HorizontalAlign.Center)
       } else if (this.records.length === 0) {
-        EmptyView({ iconRes: $r('sys.symbol.doc_text'), message: t('logs_empty') })
+        StateView({ state: 'empty', iconRes: $r('sys.symbol.doc_text'), message: t('logs_empty') })
           .layoutWeight(1)
           .width('100%')
       } else {

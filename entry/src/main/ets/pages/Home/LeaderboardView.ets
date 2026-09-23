@@ -14,6 +14,7 @@ import { DesignTokens } from '../../theme/DesignTokens';
 import { SearchStrip, SearchStripActions } from '../../components/common/SearchStrip';
 import { FilterPillBar, type FilterPillOption } from './Home/FilterPillBar';
 import { RefreshContainer } from '../../components/ui/RefreshContainer';
+import { StateView } from '../../components/ui/StateView';
 import { SkeletonBoards } from './Leaderboard/SkeletonBoards';
 import { LeaderboardSearchOverlay } from './Leaderboard/LeaderboardSearchOverlay';
 import { hapticService } from '../../service/HapticService';
@@ -788,14 +789,13 @@ export struct LeaderboardView {
               })
               this.LeaderboardFilterBar()
               if (this.cardStates.length === 0) {
-                Column() {
-                  Text(this.boardList.length === 0 ? t('no_data') : t('search_no_result'))
-                    .fontSize(15)
-                    .fontColor(this.secondaryText())
-                }
-                .width('100%')
-                .layoutWeight(1)
-                .justifyContent(FlexAlign.Center)
+                StateView({
+                  state: 'empty',
+                  iconRes: $r('sys.symbol.list_number'),
+                  message: this.boardList.length === 0 ? t('no_data') : t('search_no_result'),
+                })
+                  .width('100%')
+                  .layoutWeight(1)
               } else {
                 Column() {
                   ForEach(this.cardStates, (card: LeaderboardCardState, index: number) => {

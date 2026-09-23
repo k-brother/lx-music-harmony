@@ -165,7 +165,8 @@ CHECKS = [
  ('歌单批量栏触控高度', 'pages/SonglistDetail/SonglistBatchBar.ets', r'touchTarget\(\)'),
  ('系统符号用 SymbolGlyph 渲染', 'components/ui/StateView.ets', r'SymbolGlyph\('),
  ('底部 Tab 图标用 SymbolGlyph', 'pages/Home/Home/HomeBottomTabBar.ets', r'SymbolGlyph\(tab\.icon\)'),
- ('空态图标用 SymbolGlyph', 'components/common/EmptyView.ets', r'SymbolGlyph\(this\.iconRes\)'),
+ # EmptyView/ErrorView 已并入 StateView：空态图标仍必须是 SymbolGlyph
+ ('空态图标用 SymbolGlyph', 'components/ui/StateView.ets', r'SymbolGlyph\(this\.state === .error.'),
  ('底部面板用系统 bindSheet', 'components/ui/BottomSheet.ets', r'bindSheet\(\$\$this\.visible'),
  ('全局面板宿主', 'components/ui/SheetHost.ets', r'export struct SheetHost'),
  ('全局面板服务', 'service/SheetService.ets', r'export const sheetService'),
@@ -231,6 +232,12 @@ CHECKS = [
  # 颜色 token 化：面板遮罩/日志状态色不再写死
  ('面板遮罩走设计 token', 'components/ui/BottomSheet.ets', r'DesignTokens\.maskColor\(\)'),
  ('日志状态色走设计 token', 'pages/LogPage.ets', r'DesignTokens\.(warning|success|info)\(\)'),
+ # 空/加载/错误态统一出口：旧 EmptyView/ErrorView 已删除，页面一律用 StateView
+ ('空态加载态统一走 StateView', 'components/ui/StateView.ets', r"export type ViewState"),
+ ('列表页用 StateView 展示空态', 'pages/Home/SongListView.ets', r"StateView\(\{ state: 'empty'"),
+ ('榜单详情用 StateView 展示状态', 'pages/BoardDetailPage.ets', r"StateView\(\{ state: 'loading'"),
+ ('日志页用 StateView 展示空态', 'pages/LogPage.ets', r"StateView\(\{ state: 'empty'"),
+ ('排行榜空态用 StateView', 'pages/Home/LeaderboardView.ets', r"StateView\(\{"),
 ]
 
 fails = []

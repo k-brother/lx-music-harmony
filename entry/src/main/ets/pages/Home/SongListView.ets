@@ -1,7 +1,7 @@
 import { t } from '../../service/LocalizationService';
 import type { SongListItemData } from './SongListTypes';
 import { SongListCard } from './SongList/SongListCard';
-import { EmptyView } from '../../components/common/EmptyView';
+import { StateView } from '../../components/ui/StateView';
 // SongList 视图 - 歌单列表视图
 // 优化：字体放大、标签筛选、下拉刷新
 
@@ -424,7 +424,7 @@ export struct SongListView {
         if (this.isLoading && this.songLists.length === 0) {
           this.SkeletonGrid()
         } else if (this.songLists.length === 0) {
-          EmptyView({ iconRes: $r('sys.symbol.music_note_list'), message: t('no_data') })
+          StateView({ state: 'empty', iconRes: $r('sys.symbol.music_note_list'), message: t('no_data') })
             .width('100%')
             .layoutWeight(1)
         } else {
