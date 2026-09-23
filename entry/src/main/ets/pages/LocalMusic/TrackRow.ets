@@ -75,6 +75,8 @@ export struct TrackRow {
       top: DesignTokens.spaceUnit(),
       bottom: DesignTokens.spaceUnit(),
     })
+    // 2in1（PC/平板接鼠标）下的悬停反馈：系统标准高亮，触屏设备无副作用
+    .hoverEffect(HoverEffect.Highlight)
     .stateStyles({ pressed: this.pressDim })
     .onClick(() => {
       if (this.onTap) {

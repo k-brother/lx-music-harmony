@@ -129,6 +129,8 @@ export struct CommentRow {
                   .objectFit(ImageFit.Cover)
                   .margin({ top: 8, right: 8 })
                   .accessibilityText(t('a11y_expand'))
+                  // 2in1（PC/平板接鼠标）下的悬停反馈
+                  .hoverEffect(HoverEffect.Highlight)
                   .onClick(() => {
                     if (this.onPreviewImage) { this.onPreviewImage(url); }
                   })
@@ -205,6 +207,8 @@ export struct CommentRow {
       }
       .width('100%')
       .padding({ top: 16, bottom: 16, left: 16, right: 16 })
+      // 2in1（PC/平板接鼠标）下的悬停反馈：整条评论高亮
+      .hoverEffect(HoverEffect.Highlight)
       
       // 分隔线
       if (!this.isLast) {

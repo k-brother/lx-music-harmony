@@ -154,6 +154,8 @@ export struct DownloadTaskRow {
     .backgroundColor(DesignTokens.card(this.theme))
     .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
     .alignItems(VerticalAlign.Center)
+    // 2in1（PC/平板接鼠标）下的悬停反馈：系统标准高亮，触屏设备无副作用
+    .hoverEffect(HoverEffect.Highlight)
     .stateStyles({ pressed: this.pressed })
     .onClick(() => {
       if (this.row.selectMode && this.onToggleSelect) {

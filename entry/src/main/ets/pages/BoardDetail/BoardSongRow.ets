@@ -78,6 +78,8 @@ export struct BoardSongRow {
     .backgroundColor(DesignTokens.card(this.theme))
     .borderRadius(12)
     .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
+    // 2in1（PC/平板接鼠标）下的悬停反馈：整行高亮
+    .hoverEffect(HoverEffect.Highlight)
     .onClick(() => {
       if (this.onTap) {
         this.onTap();
