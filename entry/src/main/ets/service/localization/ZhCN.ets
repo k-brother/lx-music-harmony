@@ -493,10 +493,6 @@ export function buildZhCN(): Map<string, string> {
   m.set('toast_play_url_failed', '获取播放地址失败，请稍后重试或切换音源');
   m.set('file_not_found', '文件路径不存在');
   m.set('task_not_found', '任务不存在');
-  m.set('source_kw_short', '酷我');
-  m.set('source_wy_short', '网易');
-  m.set('source_kg_short', '酷狗');
-  m.set('source_mg_short', '咪咕');
   m.set('music_playing', '♪ 音乐播放中...');
   m.set('loading_lyric', '加载歌词中...');
   m.set('sleep_timer_setting', '定时退出');
@@ -625,7 +621,6 @@ export function buildZhCN(): Map<string, string> {
   m.set('toast_clear_failed', '清空失败');
   m.set('toast_history_cleared', '已清空试听列表');
   m.set('toast_no_play_url', '无法获取播放链接');
-  m.set('no_playlist_available', '暂无可用歌单');
   m.set('toast_create_list_fail', '创建失败，请重试');
   m.set('toast_rename_fail', '重命名失败');
   m.set('toast_delete_fail', '删除失败');

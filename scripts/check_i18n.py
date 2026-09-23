@@ -1,4 +1,5 @@
 import re, pathlib, collections
+import sys
 
 # 允许从任意目录执行：以脚本位置定位工程根目录
 import os
@@ -42,3 +43,20 @@ print(unused)
 missing = sorted(set(used) - zhset)
 print('used but undefined', len(missing))
 print(missing)
+
+# 中英必须一一对应，且不留「定义了没人用」「用了却没定义」的词条：
+# 前者是死文案，后者会让界面直接显示原始 key（曾经真的漏过，如
+# sync_msg_connect_fail 与 sync_msg_connect_failed 拼写不一致）。
+problems = []
+if zh_dup or en_dup:
+    problems.append(f'重复词条 zh={zh_dup} en={en_dup}')
+if zhset - enset or enset - zhset:
+    problems.append(f'中英不一致 缺 en={sorted(zhset - enset)} 缺 zh={sorted(enset - zhset)}')
+if unused:
+    problems.append(f'定义但未使用 {len(unused)} 条: {unused}')
+if missing:
+    problems.append(f'使用但未定义 {len(missing)} 条: {missing}')
+if problems:
+    print('FAIL ' + '; '.join(problems))
+    sys.exit(1)
+print('i18n 检查通过')

@@ -489,10 +489,6 @@ export function buildEnUS(): Map<string, string> {
   m.set('toast_play_url_failed', 'Failed to get the play URL, try again later or switch the source');
   m.set('file_not_found', 'File path not found');
   m.set('task_not_found', 'Task not found');
-  m.set('source_kw_short', 'Kuwo');
-  m.set('source_wy_short', 'Netease');
-  m.set('source_kg_short', 'Kugou');
-  m.set('source_mg_short', 'Migu');
   m.set('music_playing', '♪ Playing...');
   m.set('loading_lyric', 'Loading lyrics...');
   m.set('sleep_timer_setting', 'Sleep Timer');
@@ -641,7 +637,6 @@ export function buildEnUS(): Map<string, string> {
   m.set('toast_clear_failed', 'Failed to clear');
   m.set('toast_history_cleared', 'History cleared');
   m.set('toast_no_play_url', 'Unable to get the play URL');
-  m.set('no_playlist_available', 'No playlist available');
   m.set('toast_create_list_fail', 'Failed to create, please retry');
   m.set('toast_rename_fail', 'Rename failed');
   m.set('toast_delete_fail', 'Delete failed');

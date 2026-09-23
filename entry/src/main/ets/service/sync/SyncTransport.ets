@@ -74,7 +74,7 @@ export class SyncTransport {
       const alive = await this.checkServerStatus(config);
       if (!alive) {
         hilog.warn(DOMAIN, TAG, 'Server health check failed: %{public}s', config.serverUrl);
-        this.handlers.onConnectionChange(false, t('sync_msg_connect_fail'));
+        this.handlers.onConnectionChange(false, t('sync_msg_server_unavailable'));
         return false;
       }
       await this.connectWebSocket(config);
@@ -85,7 +85,7 @@ export class SyncTransport {
     } catch (err) {
       const msg = err instanceof Error ? err.message : JSON.stringify(err);
       hilog.error(DOMAIN, TAG, '连接失败: %{public}s', msg);
-      this.handlers.onConnectionChange(false, t('sync_msg_connect_fail'));
+      this.handlers.onConnectionChange(false, t('sync_msg_connect_failed'));
       return false;
     }
   }
