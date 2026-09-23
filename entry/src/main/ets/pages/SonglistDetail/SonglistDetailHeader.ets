@@ -7,7 +7,7 @@
  * 组件只负责展示与回调，列表信息与收藏状态由页面传入。
  */
 import { DesignTokens } from '../../theme/DesignTokens';
-import { t, tf } from '../../service/LocalizationService';
+import { t, tf, playCountUnits } from '../../service/LocalizationService';
 import { formatPlayCount } from '../../utils/FormatTools';
 
 @Component
@@ -32,7 +32,7 @@ export struct SonglistDetailHeader {
    * （此前这里自己写了一份 `(count/10000).toFixed(1)万`，英文界面下也会带「万」）
    */
   private formatPlayCount(count: number): string {
-    return formatPlayCount(count, t('ten_thousand_unit'), t('billion_unit'));
+    return formatPlayCount(count, playCountUnits());
   }
 
   private canRenderCover(url: string): boolean {

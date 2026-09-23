@@ -23,10 +23,26 @@ print('missing in en:', sorted(zhset - enset))
 print('missing in zh:', sorted(enset - zhset))
 
 used = collections.Counter()
+
+
+def strip_comments(text: str) -> str:
+    """去掉整行注释：文档注释里的示例（如 tf('toast_added_to_list', [name])）不是真实调用，
+    否则会被算成「使用了未定义的词条」而误报。"""
+    kept = []
+    for line in text.split('\n'):
+        stripped = line.strip()
+        if stripped.startswith('//') or stripped.startswith('*') or stripped.startswith('/*'):
+            continue
+        kept.append(line)
+    return '\n'.join(kept)
+
+
 for p in root.rglob('*.ets'):
-    if p.name == 'LocalizationService.ets':
-        continue
-    text = p.read_text()
+    # 注意：**不能**跳过 LocalizationService.ets —— 它自己也会用字面量键调 t()
+    # （如 sourceLabel 里的 t('local_music')、playCountUnits 里的量级单位），
+    # 跳过会把这类「真实使用」误判成闲置词条。动态拼键（t(key)）本来就不会被下面的
+    # 字面量正则命中，也不需要额外排除。
+    text = strip_comments(p.read_text())
     for k in re.findall(r"\bt\('([^']+)'\)", text):
         used[k] += 1
     for k in re.findall(r"\btf\('([^']+)'", text):

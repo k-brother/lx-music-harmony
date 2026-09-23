@@ -1,4 +1,4 @@
-import { t } from '../../service/LocalizationService';
+import { t, playCountUnits } from '../../service/LocalizationService';
 import { formatPlayCount } from '../../utils/FormatTools';
 // 排行榜视图：纵向分组卡片 + 榜单内预览曲目 + 展开/收起与进入完整榜单
 // 信息架构：一屏浏览多个榜；弱打扰预览 3 条；展开看更多；右侧箭头进二级页
@@ -634,7 +634,7 @@ export struct LeaderboardView {
 
   /** 播放量格式统一在 utils/FormatTools（单位文案由调用方注入，保持纯函数） */
   formatPlayCount(count: number): string {
-    return formatPlayCount(count, t('ten_thousand_unit'), t('billion_unit'));
+    return formatPlayCount(count, playCountUnits());
   }
 
   /**

@@ -3,6 +3,7 @@ import {
   formatPlayCount as formatPlayCountCore,
   parsePlayTimeText,
 } from './FormatTools';
+import { playCountUnits } from '../service/LocalizationService';
 
 // 格式化播放时间 - 对应 src/utils/format.ts（实现统一在 FormatTools）
 export function formatPlayTime(time: number): string {
@@ -63,7 +64,8 @@ export function formatSinger(singerStr: string): string {
  * 各音源歌单列表里的播放量整整大 10 倍；这里改为委托统一实现。
  */
 export function formatPlayCount(num: number): string {
-  return formatPlayCountCore(num, '万', '亿');
+  // 单位按语言选择（中文 万/亿，英文 K/M），量级与文案一起换
+  return formatPlayCountCore(num, playCountUnits());
 }
 
 

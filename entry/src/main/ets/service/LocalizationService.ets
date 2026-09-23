@@ -3,6 +3,7 @@
 
 import hilog from '@ohos.hilog';
 import { settingsService } from './SettingsService';
+import type { PlayCountUnits } from '../utils/FormatTools';
 
 import { buildZhCN } from './localization/ZhCN';
 import { buildEnUS } from './localization/EnUS';
@@ -75,6 +76,28 @@ export function tf(key: string, args: string[]): string {
 /**
  * 音乐源展示名（各源文案在 i18n 中，这里做显式映射，便于静态检查与复用）
  */
+/**
+ * 播放量单位：中文用万/亿，其它语言用 K/M（量级一起换，不能只换文案）。
+ * 放在本地化服务里是因为「用哪个量级」本身就是语言相关的规则。
+ */
+export function playCountUnits(): PlayCountUnits {
+  const lang = AppStorage.get<string>('language') ?? 'zh-CN';
+  if (lang.startsWith('zh')) {
+    return {
+      smallBase: 10000,
+      smallLabel: t('ten_thousand_unit'),
+      largeBase: 100000000,
+      largeLabel: t('billion_unit'),
+    };
+  }
+  return {
+    smallBase: 1000,
+    smallLabel: t('ten_thousand_unit'),
+    largeBase: 1000000,
+    largeLabel: t('billion_unit'),
+  };
+}
+
 export function sourceLabel(source: string): string {
   switch (source) {
     case 'kw':

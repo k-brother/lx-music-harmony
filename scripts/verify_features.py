@@ -207,10 +207,14 @@ CHECKS = [
   r'buildCommentItem\('),
  # 播放量格式化曾经在 4 处各写一遍（阈值/空格/小数不同，真机出现过 8550.7）
  ('播放量格式化单一出口', 'utils/FormatTools.ets', r'export function formatPlayCount'),
- ('排行榜播放量走统一实现', 'pages/Home/Leaderboard/ChartCard.ets', r'formatPlayCount\(count, t\(',
+ ('排行榜播放量走统一实现', 'pages/Home/Leaderboard/ChartCard.ets', r'formatPlayCount\(count, playCountUnits\(\)\)',
   r"toFixed\(1\) \+ ' ' \+ t\('ten_thousand_unit'\)"),
- ('歌单卡片播放量走统一实现', 'pages/Home/SongList/SongListCard.ets', r'formatPlayCount\(num, t\(',
+ ('歌单卡片播放量走统一实现', 'pages/Home/SongList/SongListCard.ets', r'formatPlayCount\(num, playCountUnits\(\)\)',
   r"toFixed\(1\) \+ ' ' \+ t\('ten_thousand_unit'\)"),
+ # 播放量的量级与文案必须一起按语言切换（英文按 K/M，不能把「万」直接换成字母了事）
+ ('播放量单位按语言切换', 'service/LocalizationService.ets', r'export function playCountUnits'),
+ ('英文播放量使用 K/M 量级', 'service/localization/EnUS.ets',
+  r"m\.set\('ten_thousand_unit', 'K'\)[\s\S]{0,160}?m\.set\('billion_unit', 'M'\)"),
  # 提示/确认框统一出口：页面不再自己 getPromptAction().showDialog 拼按钮与颜色
  ('确认与提示统一走 DialogService', 'service/DialogService.ets', r'export async function appAlert'),
  ('日志页清空走统一确认', 'pages/LogPage.ets', r'appConfirm\(',

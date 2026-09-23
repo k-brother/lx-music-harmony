@@ -7,7 +7,7 @@
  */
 import { DesignTokens } from '../../../theme/DesignTokens';
 import { CoverPalette } from '../../../theme/CoverPalette';
-import { t, tf } from '../../../service/LocalizationService';
+import { t, tf, playCountUnits } from '../../../service/LocalizationService';
 import { formatPlayCount } from '../../../utils/FormatTools';
 import type { BoardMusicItem } from '../../../store/leaderboard/LeaderboardStoreState';
 
@@ -52,7 +52,7 @@ export struct ChartCard {
 
   private playCountText(): string {
     const count: number = this.playCount < 0 ? 0 : this.playCount;
-    return tf('count_plays', [formatPlayCount(count, t('ten_thousand_unit'), t('billion_unit'))]);
+    return tf('count_plays', [formatPlayCount(count, playCountUnits())]);
   }
 
   private placeholderGradientOptions(): LinearGradientOptions {

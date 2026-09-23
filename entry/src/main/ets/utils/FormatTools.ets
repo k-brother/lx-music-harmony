@@ -119,16 +119,28 @@ export function parsePlayTimeText(text: string | null | undefined): number {
  * 阈值、空格、小数位都不同（真机截图里出现过 `8550.7` 这种带小数的播放量）。
  * 单位文案由调用方传入，保持本模块是纯函数、不依赖 i18n。
  */
-export function formatPlayCount(
-  count: number, tenThousandUnit: string, billionUnit: string): string {
+/**
+ * 播放量单位（量级 + 文案）。
+ *
+ * 中文按万/亿（10^4 / 10^8），英文按 K/M（10^3 / 10^6）——不能只换文案不换量级：
+ * 「12.3 万」直译成「12.3 K」是错的（应为 123 K）。所以量级与文案一起传进来。
+ */
+export interface PlayCountUnits {
+  smallBase: number;
+  smallLabel: string;
+  largeBase: number;
+  largeLabel: string;
+}
+
+export function formatPlayCount(count: number, units: PlayCountUnits): string {
   if (!Number.isFinite(count) || count <= 0) {
     return '0';
   }
-  if (count >= 100000000) {
-    return `${(count / 100000000).toFixed(1)} ${billionUnit}`;
+  if (count >= units.largeBase) {
+    return `${(count / units.largeBase).toFixed(1)} ${units.largeLabel}`;
   }
-  if (count >= 10000) {
-    return `${(count / 10000).toFixed(1)} ${tenThousandUnit}`;
+  if (count >= units.smallBase) {
+    return `${(count / units.smallBase).toFixed(1)} ${units.smallLabel}`;
   }
   // 一万以下直接取整：接口偶尔给出小数（如 8550.7），展示成整数才自然
   return `${Math.round(count)}`;

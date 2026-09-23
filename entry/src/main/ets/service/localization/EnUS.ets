@@ -565,8 +565,10 @@ export function buildEnUS(): Map<string, string> {
   m.set('create_list_btn', 'Create');
   m.set('input_playlist_name', 'Enter playlist name');
   m.set('local_playlist', 'Local Playlist');
-  m.set('billion_unit', 'B');
+  // 英文按 K/M（千/百万）：量级与文案由 LocalizationService.playCountUnits 一起决定，
+  // 之前这里把 10^4 那档写成 K、10^8 那档写成 B，数字整体偏小（12.3 万被显示成 12.3 K）
   m.set('ten_thousand_unit', 'K');
+  m.set('billion_unit', 'M');
   m.set('download_confirm_title', 'Download Confirm');
   m.set('confirm_delete_title', 'Delete Playlist');
   m.set('restore_confirm_title', 'Confirm Restore');

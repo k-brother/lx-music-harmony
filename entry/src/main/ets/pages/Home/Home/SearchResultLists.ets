@@ -6,7 +6,7 @@
  * 空态统一 `StateView`。
  */
 import { DesignTokens } from '../../../theme/DesignTokens';
-import { t, sourceLabel } from '../../../service/LocalizationService';
+import { t, sourceLabel, playCountUnits } from '../../../service/LocalizationService';
 import { formatPlayCount } from '../../../utils/FormatTools';
 import { ListRow } from '../../../components/ui/ListRow';
 import { StateView } from '../../../components/ui/StateView';
@@ -99,7 +99,7 @@ export struct SearchSonglistResultList {
 
   /** 播放量：与首页其它位置同一实现（utils/FormatTools.formatPlayCount） */
   private formatPlayCountText(count: number): string {
-    return formatPlayCount(count, t('ten_thousand_unit'), t('billion_unit'));
+    return formatPlayCount(count, playCountUnits());
   }
 
   build() {
