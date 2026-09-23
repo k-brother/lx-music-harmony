@@ -333,6 +333,11 @@ CHECKS = [
  # 下载并发数此前只有进过设置页才生效，现在随启动写入下载引擎
  ('下载并发数启动即生效', 'service/index.ets',
   r'setMaxConcurrentDownloads\(settingsService\.get\(\)\.maxConcurrentDownloads\)'),
+ # 失败 ≠ 空：联网页拉取失败要有明确失败态与一键重试
+ ('榜单详情失败态可重试', 'pages/BoardDetailPage.ets', r"state: 'error'[\s\S]{0,220}?loadBoardDetail\(\)"),
+ ('排行榜失败态可重试', 'pages/Home/LeaderboardView.ets', r"state: 'error'[\s\S]{0,220}?loadBoardList\(\)"),
+ ('歌单广场失败态可重试', 'pages/Home/SongListView.ets', r"state: 'error'[\s\S]{0,220}?loadSongList\(true\)"),
+ ('评论失败态可重试', 'pages/CommentPage.ets', r"state: 'error'[\s\S]{0,220}?loadComments\(true\)"),
 ]
 
 fails = []

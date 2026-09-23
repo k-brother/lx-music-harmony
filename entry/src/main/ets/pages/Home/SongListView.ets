@@ -98,6 +98,8 @@ export struct SongListView {
   @State coverWindowEnd: number = 11;
   @State hasUserScrolledForPagination: boolean = false;
   @State isLoading: boolean = true;
+  /** 加载失败（与「暂无数据」区分，失败态给重试入口） */
+  @State hasError: boolean = false;
   @State isRefreshing: boolean = false;
   @State currentPage: number = 1;
   @State hasMore: boolean = true;
@@ -217,6 +219,7 @@ export struct SongListView {
 
       this.hasMore = pageResult.hasMore;
       this.currentPage++;
+      this.hasError = false;
     } catch (err) {
       // 检查版本是否过期
       if (currentEpoch !== this.requestEpoch) {
@@ -224,6 +227,10 @@ export struct SongListView {
       }
       const msg = this.describeError(err);
       hilog.error(0x0001, 'SongListView', 'Load song list failed: %{public}s', msg);
+      // 列表本来为空才算整体失败（失败态给重试入口）；已有内容时的翻页失败保留旧数据
+      if (this.songLists.length === 0) {
+        this.hasError = true;
+      }
     } finally {
       if (currentEpoch === this.requestEpoch) {
         this.isLoading = false;
@@ -370,6 +377,18 @@ export struct SongListView {
         this.FilterBar()
         if (this.isLoading && this.songLists.length === 0) {
           this.SkeletonGrid()
+        } else if (this.hasError && this.songLists.length === 0) {
+          // 拉歌单失败：明确失败并给重试（不再混进「暂无数据」）
+          StateView({
+            state: 'error',
+            message: t('load_failed_hint'),
+            actionText: t('retry'),
+            onAction: (): void => {
+              this.loadSongList(true);
+            },
+          })
+            .width('100%')
+            .layoutWeight(1)
         } else if (this.songLists.length === 0) {
           StateView({ state: 'empty', iconRes: $r('sys.symbol.music_note_list'), message: t('no_data') })
             .width('100%')

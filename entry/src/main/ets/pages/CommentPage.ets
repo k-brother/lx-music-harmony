@@ -16,6 +16,7 @@ import { CommentRow } from './Comment/CommentRow';
 import { SkeletonCommentItem } from '../components/common/SkeletonView';
 import { RefreshContainer } from '../components/ui/RefreshContainer';
 import { hapticService } from '../service/HapticService';
+import { appToast } from '../service/DialogService';
 import { StateView } from '../components/ui/StateView';
 import { SegmentedBar } from '../components/ui/SegmentedBar';
 import { PlayerBar } from '../components/player/PlayerBar';
@@ -56,6 +57,8 @@ export struct CommentPage {
   private commentSource: LazyDataSource<Comment> = new LazyDataSource<Comment>();
   @State isLoading: boolean = false;
   @State isRefreshing: boolean = false;
+  /** 拉取失败（与「暂无评论」区分，失败态给重试入口） */
+  @State hasError: boolean = false;
   @State hasMore: boolean = true;
   @State currentPage: number = 1;
   @State totalComments: number = 0;
@@ -118,6 +121,12 @@ export struct CommentPage {
     } catch (err) {
       const errorMsg: string = JSON.stringify(err);
       hilog.error(DOMAIN, TAG, 'Failed to load comments: %{public}s', errorMsg);
+      // 列表本来就是空的时候才算「整体失败」；已有评论的刷新失败保留旧数据（只提示）
+      if (this.comments.length === 0) {
+        this.hasError = true;
+      } else {
+        appToast(t('load_failed_hint'));
+      }
       // 失败也要收回加载态，否则下拉刷新一直转、上拉加载再也不触发
       this.endLoad(isRefresh);
     }
@@ -156,6 +165,7 @@ export struct CommentPage {
   /** 应用结果：刷新是替换、加载更多是追加；两种情况都要把加载态收回 */
   private applyLoadedComments(response: CommentResponse, isRefresh: boolean): void {
     const newComments = response.comments;
+    this.hasError = false;
     this.comments = isRefresh ? newComments : [...this.comments, ...newComments];
     this.commentSource.reload(this.comments);
     this.currentPage++;
@@ -323,17 +333,27 @@ export struct CommentPage {
 
   @Builder
   buildEmptyState() {
-    Column() {
+    // 拉取失败与「确实没有评论」分开：失败给重试入口（此前都显示成「暂无评论」）
+    if (this.hasError) {
+      StateView({
+        state: 'error',
+        message: t('load_failed_hint'),
+        actionText: t('retry'),
+        onAction: (): void => {
+          this.loadComments(true);
+        },
+      })
+        .width('100%')
+        .height('100%')
+    } else {
       StateView({
         state: 'empty',
         iconRes: $r('sys.symbol.music_note_list'),
         message: t('comment_no_data'),
       })
+        .width('100%')
+        .height('100%')
     }
-    .width('100%')
-    .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
   }
 
   build() {

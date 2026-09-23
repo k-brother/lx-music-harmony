@@ -56,6 +56,8 @@ export struct BoardDetailPage {
   @State isLoading: boolean = true;
   @State totalCount: number = 0;
   @State headerCompact: boolean = false;
+  /** 加载失败（与「空榜单」区分，失败态给重试入口） */
+  @State hasError: boolean = false;
   /** 设置 → 列表 → 记住列表滚动位置 */
   @StorageProp('rememberScrollPosition') rememberScrollPosition: boolean = true;
 
@@ -143,6 +145,7 @@ export struct BoardDetailPage {
 
   async loadBoardDetail() {
     this.isLoading = true;
+    this.hasError = false;
     // 榜单 id 只能在加载时确定：先把记忆 key 绑到这张榜单（换榜单不会串位置）
     this.scrollMemory.setKey(parameterizedPageScrollKey('board', this.boardId));
     hilog.info(0x0001, 'BoardDetail', 'Loading detail for source: %{public}s, id: %{public}s', this.boardSource, this.boardId);
@@ -182,6 +185,7 @@ export struct BoardDetailPage {
         this.songList = items;
         this.songListSource.reload(this.songList);
         this.totalCount = result.total || items.length;
+        this.hasError = false;
         // 数据进列表后：首次进入落回上次位置（下拉/重试不再重复恢复）
         this.scrollMemory.markLoaded();
         if (!this.scrollMemoryRestored) {
@@ -194,6 +198,8 @@ export struct BoardDetailPage {
       hilog.error(0x0001, 'BoardDetail', 'Failed to load: %{public}s', JSON.stringify(err));
       this.songList = [];
       this.songListSource.reload(this.songList);
+      // 失败态与空态分开：失败给重试入口，用户不必退回上一页再进来
+      this.hasError = true;
     } finally {
       this.isLoading = false;
     }
@@ -364,6 +370,18 @@ export struct BoardDetailPage {
       if (this.isLoading) {
         // 加载/空态统一走 StateView（与其它列表页同一套）
         StateView({ state: 'loading' })
+          .width('100%')
+          .layoutWeight(1)
+      } else if (this.hasError) {
+        // 失败与「真的没有数据」必须分开：失败给明确文案 + 重试入口（此前都落进空态）
+        StateView({
+          state: 'error',
+          message: t('load_failed_hint'),
+          actionText: t('retry'),
+          onAction: (): void => {
+            void this.loadBoardDetail();
+          },
+        })
           .width('100%')
           .layoutWeight(1)
       } else if (this.songList.length === 0) {

@@ -60,6 +60,8 @@ export struct LeaderboardView {
   @Prop @Watch("onReCreateKeyChange") reCreateKey: number = 0;
   @State boardList: BoardItem[] = [];
   @State isLoading: boolean = false;
+  /** 加载失败（与「该源确实没有榜单」区分，失败态给重试入口） */
+  @State hasError: boolean = false;
   /** 下拉刷新中（榜单列表重新拉取） */
   @State isRefreshing: boolean = false;
 
@@ -178,6 +180,7 @@ export struct LeaderboardView {
     // 不在 isLoading 时早退：否则切源时若前一次仍在 await，新一次被跳过且 finally 可能永远不置回 false。
     const currentEpoch = ++this.requestEpoch;
     this.isLoading = true;
+    this.hasError = false;
     hilog.info(0x0001, 'LeaderboardView', 'Loading boards for source: %{public}s, epoch: %{public}d', this.sourceId, currentEpoch);
     try {
       const boards = await getBoardsList(this.sourceId as BoardSource);
@@ -187,6 +190,7 @@ export struct LeaderboardView {
         return;
       }
       this.boardList = boards;
+      this.hasError = false;
       this.isFilterPinned = false;
       this.rebuildCategoryFilterOptions();
       this.rebuildBoardFilterOptions();
@@ -200,6 +204,7 @@ export struct LeaderboardView {
       this.boardList = [];
       this.filteredBoardList = [];
       this.cardStates = [];
+      this.hasError = true;
       this.categoryFilterOptions = [{ id: 'all', name: t('filter_all') }];
       this.selectedCategoryFilterId = 'all';
       this.boardFilterOptions = [{ id: 'all', name: t('filter_all_board') }];
@@ -760,13 +765,27 @@ export struct LeaderboardView {
         })
         this.LeaderboardFilterBar()
         if (this.cardStates.length === 0) {
-          StateView({
-            state: 'empty',
-            iconRes: $r('sys.symbol.list_number'),
-            message: this.boardList.length === 0 ? t('no_data') : t('search_no_result'),
-          })
-            .width('100%')
-            .layoutWeight(1)
+          if (this.hasError) {
+            // 拉榜单失败：明确说是失败并给重试，而不是含糊的「暂无数据」
+            StateView({
+              state: 'error',
+              message: t('load_failed_hint'),
+              actionText: t('retry'),
+              onAction: (): void => {
+                void this.loadBoardList();
+              },
+            })
+              .width('100%')
+              .layoutWeight(1)
+          } else {
+            StateView({
+              state: 'empty',
+              iconRes: $r('sys.symbol.list_number'),
+              message: this.boardList.length === 0 ? t('no_data') : t('search_no_result'),
+            })
+              .width('100%')
+              .layoutWeight(1)
+          }
         } else {
           this.CardsColumn()
         }
