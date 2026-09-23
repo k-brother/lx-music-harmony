@@ -127,6 +127,12 @@ export struct ListRow {
         this.onLongPress();
       }
     }))
+    // 2in1（PC 接鼠标）：右键等同长按，直接出同一套行菜单
+    .onMouse((event: MouseEvent): void => {
+      if (event.action === MouseAction.Press && event.button === MouseButton.Right && this.onLongPress) {
+        this.onLongPress();
+      }
+    })
     // 2in1（PC 接键盘）：列表行可聚焦，回车/空格等同于点一下
     .focusable(true)
     .onKeyEvent((event: KeyEvent): void => {

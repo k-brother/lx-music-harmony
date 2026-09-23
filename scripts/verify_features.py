@@ -307,6 +307,8 @@ CHECKS = [
  ('键盘激活判定统一实现', 'utils/KeyboardTools.ets', r'export function isConfirmKey'),
  ('统一列表行支持键盘激活', 'components/ui/ListRow.ets', r'isConfirmKey'),
  ('歌单卡片支持键盘激活', 'pages/Home/SongList/SongListCard.ets', r'isConfirmKey'),
+ # 2in1：接鼠标时右键等同长按（PC 上没人愿意按住不动）
+ ('列表行右键出菜单', 'components/ui/ListRow.ets', r'MouseButton\.Right'),
 ]
 
 fails = []
