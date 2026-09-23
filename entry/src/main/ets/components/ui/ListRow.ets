@@ -16,6 +16,7 @@
  */
 import { DesignTokens } from '../../theme/DesignTokens';
 import { isConfirmKey } from '../../utils/KeyboardTools';
+import { composeRowDurationText, composeRowSubtitle } from '../../core/list/RowTexts';
 
 @Component
 export struct ListRow {
@@ -23,11 +24,26 @@ export struct ListRow {
   /** 序号（showIndex 为 true 时展示；<=0 表示不展示） */
   @Prop index: number = 0;
   @Prop title: string = '';
+  /** 直传副标题（自定义文案，如下载状态）；与结构化字段二选一 */
   @Prop subtitle: string = '';
+  /**
+   * 结构化副标题：歌手 / 专辑 / 音源。
+   * 传了就由组件按「设置 → 列表 → 显示专辑 / 显示音源」统一裁剪，
+   * 各页面不用再各自拼字符串（此前只有一个页面响应这两个设置）。
+   */
+  @Prop singer: string = '';
+  @Prop album: string = '';
+  @Prop sourceId: string = '';
+  /** 结构化时长（秒）：传了就按「设置 → 列表 → 显示时长」决定是否显示 */
+  @Prop durationSeconds: number = 0;
   /** 封面地址（为空且 showIndex=false 时显示占位图标） */
   @Prop cover: string = '';
   /** 右侧附加文本（时长/来源等） */
   @Prop trailingText: string = '';
+  /** 设置 → 列表 */
+  @StorageProp('showListAlbum') showListAlbum: boolean = true;
+  @StorageProp('showListSource') showListSource: boolean = true;
+  @StorageProp('showListDuration') showListDuration: boolean = true;
   @Prop showIndex: boolean = true;
   /** 当前播放高亮 */
   @Prop active: boolean = false;
@@ -41,6 +57,22 @@ export struct ListRow {
   @Styles
   pressed() {
     .opacity(DesignTokens.pressedOpacity())
+  }
+
+  /** 副标题：结构化字段优先（带设置裁剪），否则用调用方直传的文本 */
+  private rowSubtitle(): string {
+    if (this.singer.length === 0 && this.album.length === 0 && this.sourceId.length === 0) {
+      return this.subtitle;
+    }
+    return composeRowSubtitle(this.singer, this.album, this.sourceId, this.showListAlbum, this.showListSource);
+  }
+
+  /** 右侧时长：结构化时长优先，否则用调用方直传的文本 */
+  private rowTrailingText(): string {
+    if (this.durationSeconds > 0) {
+      return composeRowDurationText(this.durationSeconds, this.showListDuration);
+    }
+    return this.trailingText;
   }
 
   build() {
@@ -78,8 +110,8 @@ export struct ListRow {
             .maxLines(this.twoLine ? 2 : 1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .width('100%')
-          if (this.subtitle.length > 0) {
-            Text(this.subtitle)
+          if (this.rowSubtitle().length > 0) {
+            Text(this.rowSubtitle())
               .fontSize(DesignTokens.fontCaption())
               .fontColor(DesignTokens.labelTertiary(this.theme))
               .maxLines(1)
@@ -91,8 +123,8 @@ export struct ListRow {
         .layoutWeight(1)
         .margin({ left: 10, right: 8 })
 
-        if (this.trailingText.length > 0) {
-          Text(this.trailingText)
+        if (this.rowTrailingText().length > 0) {
+          Text(this.rowTrailingText())
             .fontSize(DesignTokens.fontCaption())
             .fontColor(DesignTokens.labelTertiary(this.theme))
         }
@@ -103,7 +135,8 @@ export struct ListRow {
         }
       }
       .width('100%')
-      .height(this.twoLine || this.subtitle.length > 0 ? DesignTokens.rowHeightTwoLine() : DesignTokens.rowHeight())
+      .height(this.twoLine || this.rowSubtitle().length > 0
+        ? DesignTokens.rowHeightTwoLine() : DesignTokens.rowHeight())
       .alignItems(VerticalAlign.Center)
 
       if (this.divider) {

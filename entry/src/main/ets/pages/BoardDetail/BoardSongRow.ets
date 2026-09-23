@@ -8,6 +8,7 @@
 import { DesignTokens } from '../../theme/DesignTokens';
 import { isConfirmKey } from '../../utils/KeyboardTools';
 import { t } from '../../service/LocalizationService';
+import { composeRowDurationText, composeRowSubtitle } from '../../core/list/RowTexts';
 
 @Component
 export struct BoardSongRow {
@@ -15,11 +16,28 @@ export struct BoardSongRow {
   @Prop index: number = 0;
   @Prop title: string = '';
   @Prop singer: string = '';
+  @Prop album: string = '';
+  @Prop sourceId: string = '';
+  /** 时长（秒）：按「设置 → 列表 → 显示时长」决定是否展示 */
+  @Prop durationSeconds: number = 0;
   /** 是否是当前播放的那首（高亮） */
   @Prop active: boolean = false;
   @Prop divider: boolean = true;
+  /** 设置 → 列表 */
+  @StorageProp('showListAlbum') showListAlbum: boolean = true;
+  @StorageProp('showListSource') showListSource: boolean = true;
+  @StorageProp('showListDuration') showListDuration: boolean = true;
   onTap?: () => void;
   onDownload?: () => void;
+
+  /** 副标题与时长都走统一拼装（列表显示设置在这里生效） */
+  private subtitleText(): string {
+    return composeRowSubtitle(this.singer, this.album, this.sourceId, this.showListAlbum, this.showListSource);
+  }
+
+  private durationText(): string {
+    return composeRowDurationText(this.durationSeconds, this.showListDuration);
+  }
 
   build() {
     Column() {
@@ -37,16 +55,25 @@ export struct BoardSongRow {
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .width('100%')
-          Text(this.singer)
-            .fontSize(DesignTokens.fontCaption())
-            .fontColor(DesignTokens.labelSecondary(this.theme))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .width('100%')
+          if (this.subtitleText().length > 0) {
+            Text(this.subtitleText())
+              .fontSize(DesignTokens.fontCaption())
+              .fontColor(DesignTokens.labelSecondary(this.theme))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .width('100%')
+          }
         }
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
         .margin({ left: 10, right: 10 })
+
+        if (this.durationText().length > 0) {
+          Text(this.durationText())
+            .fontSize(DesignTokens.fontCaption())
+            .fontColor(DesignTokens.labelTertiary(this.theme))
+            .margin({ right: 6 })
+        }
 
         Stack() {
           Circle({ width: 28, height: 28 })

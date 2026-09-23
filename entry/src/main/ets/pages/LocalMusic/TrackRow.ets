@@ -6,19 +6,46 @@
  */
 import { DesignTokens } from '../../theme/DesignTokens';
 import { isConfirmKey } from '../../utils/KeyboardTools';
+import { composeRowDurationText, composeRowSubtitle } from '../../core/list/RowTexts';
 
 @Component
 export struct TrackRow {
   @StorageProp('theme') theme: string = 'light';
   @Prop title: string = '';
+  /** 直传副标题（自定义文案用） */
   @Prop subtitle: string = '';
+  /** 结构化副标题与时长：传了就按「设置 → 列表」统一裁剪 */
+  @Prop singer: string = '';
+  @Prop album: string = '';
+  @Prop sourceId: string = '';
+  @Prop durationSeconds: number = 0;
   @Prop durationText: string = '';
   /** 自定义封面 URL（为空则用占位图） */
   @Prop coverUrl: string = '';
   /** 当前正在播放这一行：标题用强调色 */
   @Prop active: boolean = false;
+  /** 设置 → 列表 */
+  @StorageProp('showListAlbum') showListAlbum: boolean = true;
+  @StorageProp('showListSource') showListSource: boolean = true;
+  @StorageProp('showListDuration') showListDuration: boolean = true;
   onTap?: () => void;
   onLongPress?: () => void;
+
+  /** 副标题：结构化字段优先（带设置裁剪），否则用调用方直传的文本 */
+  private subtitleText(): string {
+    if (this.singer.length === 0 && this.album.length === 0 && this.sourceId.length === 0) {
+      return this.subtitle;
+    }
+    return composeRowSubtitle(this.singer, this.album, this.sourceId, this.showListAlbum, this.showListSource);
+  }
+
+  /** 右侧时长：结构化时长优先（受设置控制），否则用调用方直传的文本 */
+  private trailingTimeText(): string {
+    if (this.durationSeconds > 0) {
+      return composeRowDurationText(this.durationSeconds, this.showListDuration);
+    }
+    return this.durationText;
+  }
 
   /** 按压反馈：整行变淡（与其它列表页同一套） */
   @Styles
@@ -52,22 +79,26 @@ export struct TrackRow {
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .width('100%')
           .textAlign(TextAlign.Start)
-        Text(this.subtitle)
-          .fontSize(DesignTokens.fontCaption())
-          .fontColor(DesignTokens.labelTertiary(this.theme))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .width('100%')
-          .textAlign(TextAlign.Start)
-          .margin({ top: 4 })
+        if (this.subtitleText().length > 0) {
+          Text(this.subtitleText())
+            .fontSize(DesignTokens.fontCaption())
+            .fontColor(DesignTokens.labelTertiary(this.theme))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .width('100%')
+            .textAlign(TextAlign.Start)
+            .margin({ top: 4 })
+        }
       }
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
       .margin({ left: 12 })
 
-      Text(this.durationText)
-        .fontSize(DesignTokens.fontCaption())
-        .fontColor(DesignTokens.labelTertiary(this.theme))
+      if (this.trailingTimeText().length > 0) {
+        Text(this.trailingTimeText())
+          .fontSize(DesignTokens.fontCaption())
+          .fontColor(DesignTokens.labelTertiary(this.theme))
+      }
     }
     .width('100%')
     .padding({

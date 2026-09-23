@@ -402,6 +402,9 @@ export struct BoardDetailPage {
             index: index + 1,
             title: song.name,
             singer: song.singer,
+            album: song.album,
+            sourceId: song.source,
+            durationSeconds: song.duration,
             active: song.isPlaying,
             divider: index < this.songList.length - 1,
             onTap: (): void => {

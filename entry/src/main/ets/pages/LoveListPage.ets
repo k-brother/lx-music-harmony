@@ -296,7 +296,11 @@ export struct LoveListPage {
             ListRow({
               index: index + 1,
               title: song.name,
-              subtitle: song.album ? `${song.singer} · ${song.album}` : song.singer,
+              // 结构化字段交给行组件按「设置 → 列表」拼装
+              singer: song.singer,
+              album: song.album,
+              sourceId: song.source,
+              durationSeconds: song.duration,
               active: song.id === this.playingId,
               divider: index < this.songs.length - 1,
               onTap: (): void => {

@@ -48,7 +48,9 @@ export struct SearchMusicResultList {
             ListRow({
               index: index + 1,
               title: item.name,
-              subtitle: item.album.length > 0 ? `${item.singer} · ${item.album}` : item.singer,
+              // 副标题走统一拼装（专辑是否显示跟随「设置 → 列表 → 显示专辑」）
+              singer: item.singer,
+              album: item.album,
               divider: index < this.results.length - 1,
               onTap: (): void => {
                 if (this.onPlay) {

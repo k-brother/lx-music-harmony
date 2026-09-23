@@ -319,6 +319,12 @@ CHECKS = [
  ('本地音乐记住滚动位置', 'pages/LocalMusicPage.ets', r'scrollMemory\.restore'),
  ('历史记住滚动位置', 'pages/HistoryListPage.ets', r'scrollMemory\.restore'),
  ('我喜欢记住滚动位置', 'pages/LoveListPage.ets', r'scrollMemory\.restore'),
+ # 「设置 → 列表」的三个显示开关此前只在歌单详情生效，现在由行组件统一执行
+ ('列表行副标题统一拼装', 'core/list/RowTexts.ets', r'export function composeRowSubtitle'),
+ ('列表行时长统一拼装', 'core/list/RowTexts.ets', r'export function composeRowDurationText'),
+ ('统一列表行响应显示设置', 'components/ui/ListRow.ets', r"@StorageProp\('showListAlbum'\)"),
+ ('本地音乐行响应显示设置', 'pages/LocalMusic/TrackRow.ets', r"@StorageProp\('showListDuration'\)"),
+ ('榜单歌曲行响应显示设置', 'pages/BoardDetail/BoardSongRow.ets', r"@StorageProp\('showListSource'\)"),
 ]
 
 fails = []

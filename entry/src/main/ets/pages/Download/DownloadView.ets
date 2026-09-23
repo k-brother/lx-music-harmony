@@ -15,6 +15,7 @@ import { t } from '../../service/LocalizationService';
 import type { DownloadTask } from '../../core/music/MusicFeatureEntry';
 import { DownloadStatus } from '../../core/music/MusicFeatureEntry';
 import { formatBytes } from '../../utils/FormatTools';
+import { composeRowSubtitle } from '../../core/list/RowTexts';
 
 /** 下载页筛选 Tab（与设置里的顺序一致） */
 export enum DownloadFilter {
@@ -157,12 +158,15 @@ export function downloadTasksSignature(tasks: DownloadTask[]): string {
   return signature;
 }
 
-/** 任务 → 行模型（页面唯一的映射入口） */
+/**
+ * 任务 → 行模型（页面唯一的映射入口）。
+ * showAlbum 来自「设置 → 列表 → 显示专辑」：下载列表也是列表，副标题口径与其它页一致。
+ */
 export function toDownloadRowModel(
-  task: DownloadTask, selected: boolean, selectMode: boolean): DownloadRowModel {
+  task: DownloadTask, selected: boolean, selectMode: boolean, showAlbum: boolean = true): DownloadRowModel {
   const info = task.musicInfo;
   const album = info.albumName || info.album || t('unknown_album');
-  const subtitle = `${info.singer || t('unknown_artist')} · ${album}`;
+  const subtitle = composeRowSubtitle(info.singer || t('unknown_artist'), album, '', showAlbum, false);
   const percentages = Math.max(0, Math.min(100, Math.round(task.progress)));
   const showProgress = task.status === DownloadStatus.DOWNLOADING || task.status === DownloadStatus.PAUSED;
   return {

@@ -297,8 +297,11 @@ export struct HistoryListPage {
             ListRow({
               index: index + 1,
               title: song.name,
-              subtitle: song.album ? `${song.singer} · ${song.album}` : song.singer,
-              trailingText: song.duration > 0 ? formatPlayTime(song.duration) : '',
+              // 结构化字段交给行组件按「设置 → 列表」拼装（显示专辑/音源/时长全应用一致）
+              singer: song.singer,
+              album: song.album,
+              sourceId: song.source,
+              durationSeconds: song.duration,
               divider: index < this.playHistory.length - 1,
               onTap: (): void => {
                 void this.playHistorySong(song);

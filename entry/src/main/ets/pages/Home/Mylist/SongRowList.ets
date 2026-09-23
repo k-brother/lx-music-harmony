@@ -20,7 +20,11 @@ export struct SongRowList {
         ListRow({
           index: index + 1,
           title: song.name,
-          subtitle: (song.album ?? '').length > 0 ? `${song.singer} · ${song.album}` : song.singer,
+          // 副标题与时长走统一拼装（「设置 → 列表」的显示专辑/音源/时长在这里同样生效）
+          singer: song.singer,
+          album: song.album ?? '',
+          sourceId: song.source,
+          durationSeconds: song.duration,
           divider: index < this.songs.length - 1,
           onTap: (): void => {
             if (this.onPlay) {

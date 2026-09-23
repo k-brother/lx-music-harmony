@@ -281,22 +281,6 @@ export struct LocalMusicPage {
     showAppToast(this.getUIContext(), message, TOAST_DURATION_SHORT);
   }
 
-
-  private formatDuration(ms: number): string {
-    const total = Math.floor(ms / 1000);
-    const m = Math.floor(total / 60);
-    const s = total % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  }
-
-  /** 行副标题：「歌手 · 专辑」，缺歌手时只显示专辑 */
-  private buildSubtitle(track: LocalMusicInfo): string {
-    if (track.singer.length === 0) {
-      return track.album;
-    }
-    return `${track.singer} · ${track.album}`;
-  }
-
   @Builder
   TopBar() {
     // 统一顶部栏：返回按钮触控区/标题字号/沉浸式安全区都由 NavBar 负责
@@ -407,8 +391,10 @@ export struct LocalMusicPage {
         ListItem() {
           TrackRow({
             title: track.name,
-            subtitle: this.buildSubtitle(track),
-            durationText: this.formatDuration(track.duration),
+            // 结构化字段交给行组件按「设置 → 列表」拼装（本地音乐与其它列表一致）
+            singer: track.singer,
+            album: track.album,
+            durationSeconds: Math.floor(track.duration / 1000),
             coverUrl: track.picUrl ?? '',
             active: this.playingId === track.id,
             onTap: (): void => {

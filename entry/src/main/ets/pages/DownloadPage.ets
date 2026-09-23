@@ -50,6 +50,8 @@ export struct DownloadPage {
   @StorageProp('theme') theme: string = 'light';
   /** 一多：窗口宽度（vp），大屏内容列居中 */
   @StorageProp('windowWidthVp') windowWidthVp: number = 360;
+  /** 设置 → 列表 → 显示专辑（下载列表副标题与其它列表同一口径） */
+  @StorageProp('showListAlbum') showListAlbum: boolean = true;
   @State downloadTasks: DownloadTask[] = [];
   @State rows: DownloadRowModel[] = [];
   @State selectedTasks: Set<string> = new Set();
@@ -130,7 +132,8 @@ export struct DownloadPage {
     const scope = filterDownloadTasks(this.downloadTasks, this.filter);
     const rows: DownloadRowModel[] = [];
     for (let i = 0; i < scope.length; i++) {
-      rows.push(toDownloadRowModel(scope[i], this.selectedTasks.has(scope[i].id), this.isSelectMode));
+      rows.push(toDownloadRowModel(scope[i], this.selectedTasks.has(scope[i].id), this.isSelectMode,
+        this.showListAlbum));
     }
     this.rows = rows;
     if (rows.length === 0 && this.isSelectMode) {

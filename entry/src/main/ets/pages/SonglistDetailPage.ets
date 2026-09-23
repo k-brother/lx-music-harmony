@@ -48,7 +48,6 @@ import {
 import { DesignTokens } from '../theme/DesignTokens';
 import { Breakpoints } from '../theme/Breakpoints';
 import { LazyDataSource } from '../utils/LazyDataSource';
-import { formatPlayTime } from '../utils/CommonUtils';
 import { scrollerOffsetY } from '../utils/ScrollTools';
 import { SkeletonListItem } from '../components/common/SkeletonView';
 import { StateView } from '../components/ui/StateView';
@@ -202,29 +201,6 @@ export struct SonglistDetailPage {
     void this.loadSonglistDetail(this.lastSourceId, this.lastListId, true);
   }
 
-  /** 列表副标题：歌手 [· 专辑] [· 音源]，按设置裁剪 */
-  private buildSubtitle(song: SongItem): string {
-    const parts: string[] = [];
-    if (song.singer && song.singer.length > 0) {
-      parts.push(song.singer);
-    }
-    if (this.showListAlbum && song.album && song.album.length > 0) {
-      parts.push(song.album);
-    }
-    if (this.showListSource && song.source && song.source.length > 0) {
-      parts.push(sourceLabel(song.source));
-    }
-    return parts.join(' · ');
-  }
-
-  /** 行尾时长（无时长信息时不显示占位） */
-  private formatSongDuration(song: SongItem): string {
-    if (!song.duration || song.duration <= 0) {
-      return '';
-    }
-    return formatPlayTime(song.duration);
-  }
-
   /** 滚动位置记忆的存储键（按歌单区分） */
   /** 退出页面时记住滚动位置（读写由 SonglistScrollMemory 负责） */
   private saveScrollPosition(): void {
@@ -335,8 +311,11 @@ export struct SonglistDetailPage {
           ListRow({
             index: index + 1,
             title: song.name,
-            subtitle: this.buildSubtitle(song),
-            trailingText: this.showListDuration ? this.formatSongDuration(song) : '',
+            // 副标题与时长都交给行组件按「设置 → 列表」拼装（与其它列表同一套规则）
+            singer: song.singer,
+            album: song.album,
+            sourceId: song.source,
+            durationSeconds: song.duration,
             active: song.isPlaying,
             divider: false,
             onTap: (): void => {
