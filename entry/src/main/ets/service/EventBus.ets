@@ -45,7 +45,7 @@ interface ListUpdatedData {
 }
 
 
-interface SettingChangedData {
+export interface SettingChangedData {
   key: string;
 }
 

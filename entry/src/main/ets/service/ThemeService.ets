@@ -8,6 +8,7 @@ import { getDefaultThemes, getThemeById, DEFAULT_THEME_ID } from '../core/theme/
 import { ActiveTheme } from '../types/ThemeTypes';
 import type { ThemeItem } from '../types/ThemeTypes';
 import { settingsService } from './SettingsService';
+import { on, EventTypes, type SettingChangedData } from './EventBus';
 
 const TAG = 'ThemeService';
 const DOMAIN = 0x0004;
@@ -143,6 +144,7 @@ function buildActiveTheme(themeItem: ThemeItem): ActiveTheme {
  */
 export async function initTheme(): Promise<void> {
   try {
+    bindThemeSettingsSync();
     const savedThemeId = await StorageService.getString(
       StorageService.StorageKeys.THEME_ID,
       DEFAULT_THEME_ID
@@ -153,6 +155,43 @@ export async function initTheme(): Promise<void> {
     hilog.error(DOMAIN, TAG, 'Failed to init theme: %{public}s', JSON.stringify(err));
     await applyThemeById(DEFAULT_THEME_ID);
   }
+}
+
+/** 与主题相关的设置项：这些 key 变化后需要重算当前主题 */
+const THEME_SETTING_KEYS: string[] = ['themeMode', 'themeId', 'autoTheme', 'themeLightId', 'themeDarkId'];
+let themeSettingsBound: boolean = false;
+
+/**
+ * 订阅设置变化并重算主题。
+ *
+ * 「恢复默认设置」「恢复备份」「同步下发」这些入口都是直接改设置（不走外观页），
+ * 此前改完主题不会生效、要重启才看到——现在统一在这里补一次应用：
+ * 自动跟随系统时按系统深浅色取主题，否则按设置里的 themeId（persist=false，避免回环）。
+ */
+function bindThemeSettingsSync(): void {
+  if (themeSettingsBound) {
+    return;
+  }
+  themeSettingsBound = true;
+  on(EventTypes.SETTING_CHANGED, (data?: Object): void => {
+    const key: string = data ? ((data as SettingChangedData).key ?? '') : '';
+    // 'all' 是整体初始化完成，也要按最新设置对齐一次
+    if (key.length > 0 && key !== 'all' && THEME_SETTING_KEYS.indexOf(key) < 0) {
+      return;
+    }
+    const settings = settingsService.get();
+    if (settings.autoTheme) {
+      applyAutoTheme().catch((err: Error) => {
+        hilog.warn(DOMAIN, TAG, 'applyAutoTheme after setting change failed: %{public}s', err.message);
+      });
+      return;
+    }
+    if (settings.themeId !== themeState.currentThemeId) {
+      applyThemeById(settings.themeId, false).catch((err: Error) => {
+        hilog.warn(DOMAIN, TAG, 'applyThemeById after setting change failed: %{public}s', err.message);
+      });
+    }
+  });
 }
 
 /**

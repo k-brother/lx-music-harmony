@@ -66,8 +66,11 @@ export struct AppearanceSection {
     try {
       await applyThemeById(themeId);
       this.themeId = themeId;
+      // 手动选主题意味着不再跟随系统（否则系统一变色/下一次同步就会把它覆盖掉）
+      this.autoTheme = false;
       await settingsService.update({
         themeId,
+        autoTheme: false,
         themeMode: this.theme === 'dark' ? 'dark' : 'light',
       });
     } catch (err) {

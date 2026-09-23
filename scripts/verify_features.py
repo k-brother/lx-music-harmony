@@ -400,6 +400,12 @@ CHECKS = [
   r'active: playKeyOfIds\(song\.source, song\.id, song\.id\) === this\.playingSongKey'),
  ('我喜欢高亮跟随播放器', 'pages/LoveListPage.ets', r"playingSongKey"),
  ('本地音乐高亮跟随播放器', 'pages/LocalMusicPage.ets', r"playingSongKey"),
+ # 'theme'（实际生效的深浅色）只由 ThemeService 写，且设置变化后要立即重算主题
+ ('主题键单一写入方', 'service/SettingsService.ets', r'private applyToAppStorage\(\): void',
+  r"setOrCreate\('theme',"),
+ ('主题跟随设置变化', 'service/ThemeService.ets', r'bindThemeSettingsSync'),
+ ('手动选主题退出自动跟随', 'pages/Home/Setting/AppearanceSection.ets',
+  r'private async applyTheme\(themeId: string\)[\s\S]{0,400}?autoTheme: false'),
  # 评论点赞落盘（源的评论接口没有登录态，只能本地记，但不能刷新就没）
  ('评论点赞本地持久化', 'service/comment/CommentLikeStore.ets', r'export async function loadLikedIds'),
  ('评论点赞打开时套用本地状态', 'pages/CommentPage.ets', r'applyLikedState\(newComments'),

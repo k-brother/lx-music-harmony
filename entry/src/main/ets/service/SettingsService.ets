@@ -336,7 +336,10 @@ class SettingsServiceImpl {
   /** 镜像到 AppStorage，驱动 @StorageProp / @StorageLink 组件刷新 */
   private applyToAppStorage(): void {
     AppStorage.setOrCreate('settingsReady', true);
-    AppStorage.setOrCreate('theme', this.values.themeMode);
+    // 注意：**不要**在这里镜像 'theme'。'theme' 是「实际生效的深浅色」，由 ThemeService
+    // 在应用主题时写入（含「自动跟随系统」推来的结果）：
+    // 早期这里写的是设置里的 themeMode，于是一旦开着自动跟随系统、系统是深色时，
+    // 用户改任意别的设置都会把界面刷回浅色（页面按 'theme' 判断配色）。
     AppStorage.setOrCreate('desktopLyricColor', this.values.desktopLyricColor);
     AppStorage.setOrCreate('desktopLyricBgAlpha', this.values.desktopLyricBgAlpha);
     AppStorage.setOrCreate('desktopLyricFontSize', this.values.desktopLyricFontSize);
