@@ -12,9 +12,24 @@ export struct LocalMusicActions {
   @Prop hasTracks: boolean = false;
   onRescan?: () => void;
   onImport?: () => void;
+  /** 播放全部（有曲目时显示） */
+  onPlayAll?: () => void;
 
   build() {
     Row({ space: 4 }) {
+      if (this.hasTracks) {
+        IconActionButton({
+          icon: $r('sys.symbol.play_circle'),
+          glyphColor: DesignTokens.accent(),
+          bgFill: DesignTokens.accentSoft(this.theme),
+          a11yLabel: t('play_all'),
+          onTap: (): void => {
+            if (this.onPlayAll) {
+              this.onPlayAll();
+            }
+          },
+        })
+      }
       if (this.hasTracks) {
         IconActionButton({
           icon: $r('sys.symbol.arrow_clockwise'),

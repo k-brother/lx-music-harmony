@@ -269,6 +269,9 @@ export struct LocalMusicPage {
       trailing: (): void => {
         LocalMusicActions({
           hasTracks: this.tracks.length > 0,
+          onPlayAll: (): void => {
+            void this.playTrack(0);
+          },
           onRescan: (): void => {
             void this.rescan();
           },
