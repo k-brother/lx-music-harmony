@@ -22,6 +22,11 @@ TARGETS = {
     'pages/BoardDetail/BoardSongRow.ets': '榜单/歌单歌曲行',
     'pages/Download/DownloadTaskRow.ets': '下载任务行',
     'pages/Home/SongList/SongListCard.ets': '歌单卡片',
+    # 面板里的可点行同理：PC 上只能靠鼠标/键盘
+    'components/ui/SelectSheet.ets': '选项面板行',
+    'pages/PlayDetail/MoreActionsSheet.ets': '播放页更多面板行',
+    'pages/PlayDetail/SourceSwitchSheet.ets': '换源候选行',
+    'pages/PlayDetail/QueueSheet.ets': '播放队列行',
 }
 
 
