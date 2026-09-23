@@ -1,6 +1,5 @@
 import { t, tf } from '../../service/LocalizationService';
 import { formatPlayCount } from '../../utils/FormatTools';
-import { SkeletonGridItem } from '../../components/common/SkeletonView';
 // 排行榜视图：纵向分组卡片 + 榜单内预览曲目 + 展开/收起与进入完整榜单
 // 信息架构：一屏浏览多个榜；弱打扰预览 3 条；展开看更多；右侧箭头进二级页
 
@@ -15,6 +14,8 @@ import { DesignTokens } from '../../theme/DesignTokens';
 import { SearchStrip, SearchStripActions } from '../../components/common/SearchStrip';
 import { FilterPillBar, type FilterPillOption } from './Home/FilterPillBar';
 import { RefreshContainer } from '../../components/ui/RefreshContainer';
+import { SkeletonBoards } from './Leaderboard/SkeletonBoards';
+import { LeaderboardSearchOverlay } from './Leaderboard/LeaderboardSearchOverlay';
 import { hapticService } from '../../service/HapticService';
 
 const PREVIEW_COLLAPSED = 3;
@@ -768,24 +769,12 @@ export struct LeaderboardView {
   }
 
   /** 榜单首屏骨架（与歌单页一致的加载观感） */
-  @Builder
-  SkeletonBoards() {
-    Column() {
-      ForEach([0, 1, 2], (index: number) => {
-        SkeletonGridItem()
-      }, (index: number) => `board_skeleton_${index}`)
-    }
-    .width('100%')
-    .layoutWeight(1)
-    .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter(), top: 12 })
-  }
-
   build() {
     Stack() {
       Column() {
         if (this.isLoading) {
           // 榜单首屏用骨架卡片占位，与歌单页保持一致
-          this.SkeletonBoards()
+          SkeletonBoards()
         } else {
           if (this.filteredBoardList.length < this.minPinCards) {
             Column() {
@@ -898,83 +887,18 @@ export struct LeaderboardView {
       .backgroundColor(this.pageBg())
 
       if (this.searchOverlayVisible) {
-        this.LeaderboardSearchOverlay()
-      }
-    }
-    .width('100%')
-    .height('100%')
-  }
-
-  @Builder
-  LeaderboardSearchOverlay() {
-    Column() {
-      Row() {
-        SearchStrip({
-          text: $overlaySearchText,
-          placeholder: t('search_board_hint'),
-          marginH: 0,
-          marginV: 0,
-          actions: this.leaderboardOverlaySearchActions,
+        LeaderboardSearchOverlay({
+          searchText: $overlaySearchText,
+          boards: this.filteredBoardList,
+          allEmpty: this.boardList.length === 0,
+          searchActions: this.leaderboardOverlaySearchActions,
+          onCancel: (): void => this.closeSearchOverlay(),
+          onOpenBoard: (board: BoardItem): void => this.navigateToBoardDetail(board),
         })
-        .layoutWeight(1)
-        Text(t('cancel'))
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(DesignTokens.accent())
-          .padding({ left: 12, right: 0, top: 8, bottom: 8 })
-          .onClick(() => {
-            this.closeSearchOverlay();
-          })
-      }
-      .width('100%')
-      .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter(), top: 10, bottom: 8 })
-      .alignItems(VerticalAlign.Center)
-
-      if (this.filteredBoardList.length === 0) {
-        Column() {
-          Text(this.boardList.length === 0 ? t('no_data') : t('no_data'))
-            .fontSize(15)
-            .fontColor(this.secondaryText())
-        }
-        .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-      } else {
-        List({ space: 0 }) {
-          ForEach(this.filteredBoardList, (board: BoardItem) => {
-            ListItem() {
-              Row() {
-                Text(board.name || t('board_item'))
-                  .layoutWeight(1)
-                  .fontSize(16)
-                  .fontColor(this.primaryText())
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                Text(t('leaderboard_title'))
-                  .fontSize(12)
-                  .fontColor(this.tertiaryText())
-                SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(17)
-                  .fontColor([this.tertiaryText()])
-                  .margin({ left: 6 })
-              }
-              .width('100%')
-              .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter(), top: 12, bottom: 12 })
-              .border({ width: { bottom: 0.33 }, color: DesignTokens.hairlineSeparator(this.theme) })
-              .onClick(() => {
-                this.closeSearchOverlay();
-                this.navigateToBoardDetail(board);
-              })
-            }
-          }, (board: BoardItem) => board.id)
-        }
-        .width('100%')
-        .layoutWeight(1)
       }
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.pageBg())
   }
 
   @Builder
