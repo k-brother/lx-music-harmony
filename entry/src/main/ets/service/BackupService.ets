@@ -6,7 +6,8 @@ import fs from '@ohos.file.fs';
 import filePicker from '@ohos.file.picker';
 import { common } from '@kit.AbilityKit';
 import preferences from '@ohos.data.preferences';
-import { utf8Encode, utf8Decode } from '../utils/TextCodec';
+import { encryptWithPassword, decryptWithPassword } from './crypto/AesPayload';
+import { utf8Decode } from '../utils/TextCodec';
 import {
   getUserList,
   getDefaultList,
@@ -608,68 +609,15 @@ export class BackupService {
   }
 
   // 加密数据
+  /** 备份载荷加密：实现在 service/crypto/AesPayload（随机 IV + SHA-256 派生密钥） */
   private async encryptData(data: string, password: string): Promise<string> {
-    try {
-      // 简化加密：在实际应用中应该使用真正的加密
-      // 这里为了简化，使用Base64编码
-      const dataBytes = utf8Encode(data);
-      const passwordBytes = utf8Encode(password);
-      
-      // 简单的XOR加密（仅用于演示，实际应用中应该使用真正的加密）
-      const encrypted = new Uint8Array(dataBytes.length);
-      for (let i = 0; i < dataBytes.length; i++) {
-        encrypted[i] = dataBytes[i] ^ passwordBytes[i % passwordBytes.length];
-      }
-      
-      // 添加标记表示这是加密数据
-      const marker = utf8Encode('ENC:');
-      const result = new Uint8Array(marker.length + encrypted.length);
-      result.set(marker);
-      result.set(encrypted, marker.length);
-      
-      return this.arrayBufferToBase64(result.buffer as ArrayBuffer);
-      
-    } catch (err) {
-      hilog.error(DOMAIN, TAG, 'Failed to encrypt data: %{public}s', JSON.stringify(err));
-      // 如果加密失败，返回原始数据
-      return data;
-    }
+    return encryptWithPassword(data, password);
   }
 
   // 解密数据
+  /** 备份载荷解密：新格式走 AES；历史 XOR 备份仍可恢复（见 AesPayload） */
   private async decryptData(encryptedData: string, password: string): Promise<string> {
-    try {
-      // 简化解密
-      const combined = this.base64ToArrayBuffer(encryptedData);
-      const combinedArray = new Uint8Array(combined);
-      
-      const markerBytes = combinedArray.slice(0, 4);
-      let marker = '';
-      for (let i = 0; i < markerBytes.length; i++) {
-        marker += String.fromCharCode(markerBytes[i]);
-      }
-      
-      if (marker !== 'ENC:') {
-        // 如果不是加密数据，返回原始数据
-        return encryptedData;
-      }
-      
-      const encrypted = combinedArray.slice(4);
-      const passwordBytes = utf8Encode(password);
-      
-      // 简单的XOR解密
-      const decrypted = new Uint8Array(encrypted.length);
-      for (let i = 0; i < encrypted.length; i++) {
-        decrypted[i] = encrypted[i] ^ passwordBytes[i % passwordBytes.length];
-      }
-      
-      return utf8Decode(decrypted);
-      
-    } catch (err) {
-      const errorMsg: string = err instanceof Error ? err.message : 'Unknown error';
-      hilog.error(DOMAIN, TAG, 'Failed to decrypt data: %{public}s', errorMsg);
-      throw new Error(`Failed to decrypt data: ${errorMsg}`);
-    }
+    return decryptWithPassword(encryptedData, password);
   }
 
   // 从密码派生密钥
@@ -825,24 +773,10 @@ export class BackupService {
   }
 
   // ArrayBuffer转Base64
-  private arrayBufferToBase64(buffer: ArrayBuffer): string {
-    const uint8Array = new Uint8Array(buffer);
-    let binary = '';
-    for (let i = 0; i < uint8Array.byteLength; i++) {
-      binary += String.fromCharCode(uint8Array[i]);
-    }
-    return this.btoa(binary);
-  }
+  // （旧 XOR 备份的 arrayBufferToBase64 已随加解密迁移到 AesPayload 移除）
 
   // Base64转ArrayBuffer
-  private base64ToArrayBuffer(base64: string): ArrayBuffer {
-    const binary = this.atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes.buffer;
-  }
+  // （旧 XOR 备份的 base64ToArrayBuffer 已随加解密迁移到 AesPayload 移除）
 
   // Base64编码 - 修复: 不使用索引访问
   private btoa(input: string): string {

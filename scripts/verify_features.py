@@ -215,6 +215,12 @@ CHECKS = [
  # 榜单封面不允许再拿「第一首歌的封面」冒充（不同榜单会长得一模一样）
  ('榜单封面只用榜单自己的图', 'pages/Home/LeaderboardView.ets', r'placeholderGradient',
   r'card\.topSongs\[i\]\.pic'),
+ # 备份曾经的「XOR + Base64」等于没加密（原注释自称仅供演示），现统一到 AES
+ ('备份加密用 AES 而非 XOR', 'service/crypto/AesPayload.ets', r'export async function encryptWithPassword',
+  r'XOR 加密（仅用于演示'),
+ ('备份兼容旧 XOR 格式解密', 'service/crypto/AesPayload.ets', r'legacyXorDecrypt'),
+ ('备份服务走统一加解密', 'service/BackupService.ets', r'decryptWithPassword\('),
+ ('同步加解密走同一实现', 'service/sync/SyncCrypto.ets', r"from '../crypto/AesPayload'"),
 ]
 
 fails = []
