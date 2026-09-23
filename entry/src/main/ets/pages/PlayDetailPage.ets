@@ -115,7 +115,6 @@ export struct PlayDetailPage {
   @State showQueueSheet: boolean = false;
   @State queueItems: SongInfo[] = [];
   @State queueIndex: number = -1;
-  @State pressedMoreActionIndex: number = -1;
 
   private unsubscribePlayState: (() => void) | null = null;
   private unsubscribeMusicInfo: (() => void) | null = null;

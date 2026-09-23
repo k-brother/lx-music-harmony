@@ -71,6 +71,19 @@ for p in files:
         if member_uses == 0 and all_uses - 1 <= 0:
             report.append(f'{p}:{i+1} unreferenced member: {line.strip()[:90]}')
 
+    # 只写不读的 @State（声明后在本文件内没有任何其它引用）
+    for i, line in enumerate(lines):
+        m = re.match(r'\s*@State\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*[:=]', line)
+        if not m:
+            continue
+        name = m.group(1)
+        others = 0
+        for j, other in enumerate(lines):
+            if j != i and re.search(r'\b' + re.escape(name) + r'\b', other):
+                others += 1
+        if others == 0:
+            report.append(f'{p}:{i+1} unused @State: {line.strip()[:90]}')
+
 print('\n'.join(report) if report else 'no unreferenced private/function declarations')
 print('total', len(report))
 sys.exit(1 if report else 0)
