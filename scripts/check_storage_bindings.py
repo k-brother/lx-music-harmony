@@ -24,6 +24,12 @@ def main():
     all_text = '\n'.join(p.read_text() for p in ROOT.rglob('*.ets'))
     bound = set(re.findall(r"@Storage(?:Prop|Link)\('([^']+)'\)", all_text))
     written = set(re.findall(r"AppStorage\.setOrCreate\('([^']+)'", all_text))
+    # 写入方也可能用常量当键（AppStorage.setOrCreate(KEY_X, ...)），把常量解析回来
+    const_defs = dict(re.findall(r"(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*:\s*string\s*=\s*'([^']+)'", all_text))
+    const_defs.update(dict(re.findall(r"(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*'([^']+)'", all_text)))
+    for ident in re.findall(r"AppStorage\.setOrCreate\(\s*([A-Za-z_$][\w$]*)", all_text):
+        if ident in const_defs:
+            written.add(const_defs[ident])
     read_directly = set(re.findall(r"AppStorage\.get<[^>]*>\('([^']+)'\)", all_text))
     read_directly |= set(re.findall(r"AppStorage\.get\('([^']+)'\)", all_text))
 
