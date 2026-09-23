@@ -99,81 +99,9 @@ export struct SonglistDetailHeader {
   build() {
     Column() {
       if (!this.compact) {
-        Row() {
-          Stack() {
-            if (!this.coverFailed && this.canRenderCover(this.cover)) {
-              Image(this.cover)
-                .width(106)
-                .height(106)
-                .borderRadius(12)
-                .objectFit(ImageFit.Cover)
-                .onError(() => {
-                  this.coverFailed = true;
-                })
-            } else {
-              Image($r('app.media.ic_player_cover_placeholder'))
-                .width(106)
-                .height(106)
-                .borderRadius(12)
-                .objectFit(ImageFit.Cover)
-            }
-            this.SourceBadge()
-          }
-          .width(106)
-          .height(106)
-          .align(Alignment.BottomEnd)
-
-          Column({ space: 8 }) {
-            Text(this.listName)
-              .fontSize(DesignTokens.fontTitle())
-              .fontColor(DesignTokens.labelPrimary(this.theme))
-              .fontWeight(FontWeight.Medium)
-              .maxLines(2)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-            Text(`${t('songlist_creator')}: ${this.creator.length > 0 ? this.creator : t('unknown')}`)
-              .fontSize(DesignTokens.fontCaption())
-              .fontColor(DesignTokens.labelSecondary(this.theme))
-              .maxLines(1)
-              .width('100%')
-
-            Row() {
-              Text(tf('count_play', [this.formatPlayCount(this.playCount)]))
-                .fontSize(DesignTokens.fontCaption())
-                .fontColor(DesignTokens.labelSecondary(this.theme))
-              Text(tf('count_songs', [this.songCount.toString()]))
-                .fontSize(DesignTokens.fontCaption())
-                .fontColor(DesignTokens.labelSecondary(this.theme))
-                .margin({ left: 8 })
-            }
-            .width('100%')
-          }
-          .alignItems(HorizontalAlign.Start)
-          .layoutWeight(1)
-          .margin({ left: 14, right: 10 })
-
-          Column({ space: 8 }) {
-            this.PlayAllButton()
-            this.CollectButton()
-          }
-          .alignItems(HorizontalAlign.End)
-        }
-        .width('100%')
+        this.ExpandedRow()
       } else {
-        Row() {
-          Row({ space: 8 }) {
-            this.PlayAllButton()
-            this.CollectButton()
-            this.SourceBadge()
-          }
-          Text(tf('count_songs', [this.songCount.toString()]))
-            .fontSize(DesignTokens.fontCaption())
-            .fontColor(DesignTokens.labelSecondary(this.theme))
-        }
-        .width('100%')
-        .margin({ top: 4 })
-        .justifyContent(FlexAlign.SpaceBetween)
-        .alignItems(VerticalAlign.Center)
+        this.CompactRow()
       }
 
       if (this.description.length > 0) {
@@ -191,4 +119,89 @@ export struct SonglistDetailHeader {
     .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
     .margin({ left: 12, right: 12, top: 8, bottom: 10 })
   }
+
+  /** 展开态：大封面 + 名称/作者/播放量 + 操作按钮列 */
+  @Builder
+  ExpandedRow() {
+    Row() {
+      Stack() {
+        if (!this.coverFailed && this.canRenderCover(this.cover)) {
+          Image(this.cover)
+            .width(106)
+            .height(106)
+            .borderRadius(12)
+            .objectFit(ImageFit.Cover)
+            .onError(() => {
+              this.coverFailed = true;
+            })
+        } else {
+          Image($r('app.media.ic_player_cover_placeholder'))
+            .width(106)
+            .height(106)
+            .borderRadius(12)
+            .objectFit(ImageFit.Cover)
+        }
+        this.SourceBadge()
+      }
+      .width(106)
+      .height(106)
+      .align(Alignment.BottomEnd)
+
+      Column({ space: 8 }) {
+        Text(this.listName)
+          .fontSize(DesignTokens.fontTitle())
+          .fontColor(DesignTokens.labelPrimary(this.theme))
+          .fontWeight(FontWeight.Medium)
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+        Text(`${t('songlist_creator')}: ${this.creator.length > 0 ? this.creator : t('unknown')}`)
+          .fontSize(DesignTokens.fontCaption())
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+          .maxLines(1)
+          .width('100%')
+
+        Row() {
+          Text(tf('count_play', [this.formatPlayCount(this.playCount)]))
+            .fontSize(DesignTokens.fontCaption())
+            .fontColor(DesignTokens.labelSecondary(this.theme))
+          Text(tf('count_songs', [this.songCount.toString()]))
+            .fontSize(DesignTokens.fontCaption())
+            .fontColor(DesignTokens.labelSecondary(this.theme))
+            .margin({ left: 8 })
+        }
+        .width('100%')
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+      .margin({ left: 14, right: 10 })
+
+      Column({ space: 8 }) {
+        this.PlayAllButton()
+        this.CollectButton()
+      }
+      .alignItems(HorizontalAlign.End)
+    }
+    .width('100%')
+  }
+
+  /** 收缩态：操作按钮 + 曲目数（滚动后替代大封面那一行） */
+  @Builder
+  CompactRow() {
+      Row() {
+        Row({ space: 8 }) {
+          this.PlayAllButton()
+          this.CollectButton()
+          this.SourceBadge()
+        }
+        Text(tf('count_songs', [this.songCount.toString()]))
+          .fontSize(DesignTokens.fontCaption())
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+      }
+      .width('100%')
+      .margin({ top: 4 })
+    .justifyContent(FlexAlign.SpaceBetween)
+    .alignItems(VerticalAlign.Center)
+  }
+
 }
