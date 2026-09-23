@@ -28,7 +28,11 @@ CHECKS = [
  ('日志落盘/回读', 'service/LogService.ets', r'restoreFromFile|exportToFile'),
  ('日志门面接入', 'core/log/AppLogger.ets', r'appLog'),
  ('缓存分项统计', 'service/CacheService.ets', r'getMetadataCacheInfo|getResourceCacheInfo'),
- ('主题 16 套', 'core/theme/themes.ets', r'themes'),
+ # 主题数据拆到 core/theme/{ThemeFactory,data/LightThemes,data/DarkThemes}，门面只留查询 API
+ ('主题 16 套（浅色）', 'core/theme/data/LightThemes.ets', r'LIGHT_THEMES: ThemeItem\[\]'),
+ ('主题 16 套（深色）', 'core/theme/data/DarkThemes.ets', r'DARK_THEMES: ThemeItem\[\]'),
+ ('主题工厂统一出口', 'core/theme/ThemeFactory.ets', r'export function createTheme\('),
+ ('主题门面保留查询 API', 'core/theme/themes.ets', r'export function getThemeById'),
  ('桌面歌词宽度/行数/动画/阴影', 'pages/DesktopLyricPage.ets', r'desktopLyricWidth|maxLines|lyricFontSize|shadowColor'),
  ('桌面歌词单行/文字位置/当前句色', 'pages/DesktopLyricPage.ets', r'singleLine|textPosX|playedColor'),
  ('音质四档', 'service/SettingsService.ets', r'playQuality'),

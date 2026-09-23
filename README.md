@@ -772,6 +772,9 @@ python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 | 播放量格式化在 4 处各写一遍（排行榜卡片/歌单卡片/歌单详情/搜索结果） | `utils/FormatTools.formatPlayCount(count, 万, 亿)` | 阈值、空格、小数位统一；单位文案由调用方注入，FormatTools 保持纯函数 |
 | 榜单卡片封面取「第一首歌的封面」兜底 | `LeaderboardView.placeholderGradient` | 没有榜单图时用按榜单 id 生成的渐变块 + 榜单图标：各榜颜色不同、不再误导成同一张榜 |
 | `LocalizationService` 1458 行（两张词条表占 1300 行） | 155 行服务 + `localization/{ZhCN,EnUS}.ets` | 中英各一份、各自演进；服务只留语言状态与查询 API，`check_i18n.py` 改读两张表 |
+| `SyncService` 1151 行（协议/加解密/数据映射/历史揉在一起） | 690 行服务 + `sync/{SyncTypes,SyncCrypto,SyncHistoryStore,SyncDataMapper}` | 类型、加解密（改用系统 Base64Helper，删掉 80 行手写编解码）、服务器历史、数据合并各自成文件；传输与状态机留在服务里 |
+| `PlayDetailPage` 里的分享/下载/收藏/加歌单/保存歌词封面/不喜欢/换源 | `PlayDetail/PlaySongActions` | 命令式动作只接收「当前歌曲 + toast 回调」，页面不再被 if-else 撑开（1589 → 1183 行） |
+| `themes.ets` 2622 行纯数据 | 35 行门面 + `theme/{ThemeFactory,data/LightThemes,data/DarkThemes}` | 工厂函数与明暗数据分开；门面保留 `getDefaultThemes/getThemeById/DEFAULT_THEME_ID`，调用方 import 不变 |
 
 ## 设备验收清单（需要真机确认，代码侧已按此实现）
 

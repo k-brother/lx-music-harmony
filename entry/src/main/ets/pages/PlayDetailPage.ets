@@ -5,29 +5,29 @@ import { playerService, MusicInfo, ProgressInfo, SongInfo } from '../service/Pla
 import { navigationService } from '../service/NavigationService';
 import { LyricView } from '../components/common/LyricView';
 import { RouteName, NavigationParams } from '../service/NavigationService';
-import {
-  getUserList,
-  LIST_IDS,
-  addMusicToList,
-  toggleLoveList,
-  isInLoveList,
-  MusicItem
-} from '../service/ListService';
-import { getLyricInfo, getPicPath, download, getOtherSource, getMusicUrl } from '../core/music/MusicFeatureEntry';
-import { parseLrc, getCurrentLyricIndex, LyricLine } from '../core/music/MusicParsingUtils';
-import { convertChinese } from '../core/lyric/ChineseConvert';
+import { isInLoveList } from '../service/ListService';
+import { getCurrentLyricIndex, LyricLine } from '../core/music/MusicParsingUtils';
 import { DesignTokens } from '../theme/DesignTokens';
 import { NavBackButton } from '../components/common/NavBackButton';
-import { t, tf, sourceLabel } from '../service/LocalizationService';
+import { t } from '../service/LocalizationService';
 import { settingsService, type PlayMode } from '../service/SettingsService';
 import { DesktopLyricManager } from '../components/common/DesktopLyric';
 import { sleepTimerService } from '../service/SleepTimerService';
 import type { SleepTimerState } from '../service/SleepTimerService';
 import { formatPlayTime } from '../utils/CommonUtils';
-import { mediaSaveService, type SaveResult } from '../service/MediaSaveService';
-import { dislikeList } from '../core/dislike/DislikeList';
 import { AlbumCover } from './PlayDetail/AlbumCover';
 import { PlayerControls } from './PlayDetail/PlayerControls';
+import {
+  addSongToPlaylist,
+  addToDislikeList,
+  downloadSong,
+  fetchSourceCandidates,
+  saveCoverToFile,
+  saveLyricToFile,
+  shareSong,
+  switchToSource,
+  toggleLoveSong,
+} from './PlayDetail/PlaySongActions';
 import {
   PlayMediaAssets,
   type CoverOutcome,
@@ -39,17 +39,10 @@ import { LyricOffsetSheet } from './PlayDetail/LyricOffsetSheet';
 import { QueueSheet } from './PlayDetail/QueueSheet';
 import { SourceSwitchSheet } from './PlayDetail/SourceSwitchSheet';
 import { SegmentedBar } from '../components/ui/SegmentedBar';
-import {
-  showSpeedMenu,
-  showLyricDisplayMenu,
-  showDislikeMenu,
-  speedToast,
-} from './PlayDetail/PlayDetailMenus';
+import { showSpeedMenu, showLyricDisplayMenu, speedToast } from './PlayDetail/PlayDetailMenus';
 import { toRoma } from '../utils/RomaConverter';
 import { hapticService } from '../service/HapticService';
 import { appActionMenu, appToast } from '../service/DialogService';
-import { buildShareText, getMusicDetailPageUrl } from '../core/music/MusicDetailUrl';
-import { shareText } from '../service/ShareService';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'PlayDetailPage';
@@ -397,6 +390,13 @@ export struct PlayDetailPage {
     showAppToast(this.getUIContext(), message, TOAST_DURATION_DEFAULT);
   }
 
+  /** 传给命令式动作的提示回调（与页面内提示同一出口） */
+  private toast(): (message: string) => void {
+    return (message: string): void => {
+      this.showToast(message);
+    };
+  }
+
   private async loadPlaySettings(): Promise<void> {
     try {
       // 从 PlayerService 读取播放模式（已在 init 时从偏好设置加载）
@@ -477,48 +477,9 @@ export struct PlayDetailPage {
     this.showToast(`${t('toast_sleep_set')} ${mins} ${t('toast_sleep_start')}`);
   }
 
+  /** 加入歌单：命令式动作在 PlayDetail/PlaySongActions，页面只负责取当前歌曲与提示 */
   private async addToPlaylist(): Promise<void> {
-    const currentMusicInfo = playerService.getCurrentMusicInfo();
-    if (!currentMusicInfo || !currentMusicInfo.name) {
-      this.showToast(t('player_no_song'));
-      return;
-    }
-    const options: PlaylistOptionRow[] = [];
-    options.push({ id: LIST_IDS.DEFAULT, name: t('default_list_label') });
-    options.push({ id: LIST_IDS.LOVE, name: t('love_title') });
-    const userLists = getUserList();
-    for (let i = 0; i < userLists.length; i++) {
-      options.push({ id: userLists[i].id, name: userLists[i].name });
-    }
-    const maxCount = Math.min(5, options.length);
-    if (maxCount <= 0) {
-      this.showToast(t('no_playlist_available'));
-      return;
-    }
-    const display = options.slice(0, maxCount);
-    const labels: string[] = display.map((option: PlaylistOptionRow) => option.name);
-    const ix = await appActionMenu(t('player_add_to_list'), labels);
-    if (ix < 0 || ix >= display.length) {
-      return;
-    }
-    const target = display[ix];
-    try {
-      const musicItem: MusicItem = {
-        id: currentMusicInfo.id || currentMusicInfo.songmid || '',
-        name: currentMusicInfo.name,
-        singer: currentMusicInfo.singer,
-        album: currentMusicInfo.album ?? currentMusicInfo.albumName ?? '',
-        albumId: null,
-        duration: 0,
-        source: currentMusicInfo.source,
-        pic: currentMusicInfo.pic || currentMusicInfo.img || '',
-        lrc: null,
-      };
-      await addMusicToList(target.id, musicItem);
-      this.showToast(tf('toast_added_quoted', [target.name]));
-    } catch (e) {
-      this.showToast(t('toast_add_list_fail'));
-    }
+    await addSongToPlaylist(playerService.getCurrentMusicInfo(), this.toast());
   }
 
   private showMoreActions(): void {
@@ -700,33 +661,11 @@ export struct PlayDetailPage {
   }
 
   /** 不喜欢：按粒度写入屏蔽规则（播放时自动跳过） */
+  /** 不喜欢（歌曲/歌手/歌名三种粒度） */
   private async pickDislike(): Promise<void> {
-    const info = playerService.getCurrentMusicInfo();
-    if (!info.name) {
-      this.showToast(t('player_no_song'));
-      return;
-    }
-    const level = await showDislikeMenu();
-    if (level === null) {
-      return;
-    }
-    try {
-      await dislikeList.load();
-      if (level === 'song') {
-        await dislikeList.add(info.name, info.singer);
-      } else if (level === 'singer') {
-        await dislikeList.add('', info.singer);
-      } else {
-        await dislikeList.add(info.name, '');
-      }
-      this.showToast(tf('dislike_added', [dislikeList.count().toString()]));
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'pickDislike failed: %{public}s', JSON.stringify(err));
-      this.showToast(t('toast_operation_failed'));
-    }
+    await addToDislikeList(playerService.getCurrentMusicInfo(), this.toast());
   }
 
-  /** 音量调节（对齐安卓版播放页 SettingPopup → SettingVolume，含静音切换） */
   private applyVolume(value: number): void {
     const next = Math.max(0, Math.min(100, Math.round(value)));
     this.volumeDraft = next;
@@ -790,44 +729,13 @@ export struct PlayDetailPage {
   /** 歌词偏移：正值让歌词更早出现，负值延后 */
 
   /** 保存当前歌词到本地文件 */
+  /** 保存歌词 / 保存封面：动作实现在 PlaySongActions */
   private async saveLyricToFile(): Promise<void> {
-    const info = playerService.getCurrentMusicInfo();
-    if (!info || !info.name) {
-      this.showToast(t('player_no_song'));
-      return;
-    }
-    if (!this.lyricRawText) {
-      this.showToast(t('media_lyric_empty'));
-      return;
-    }
-    try {
-      const result: SaveResult = await mediaSaveService.saveLyricToFile(info, this.lyricRawText);
-      this.showToast(result.success ? t('media_save_success') : (result.error || t('media_save_fail')));
-    } catch (err) {
-      hilog.error(DOMAIN, TAG, 'saveLyricToFile failed: %{public}s', JSON.stringify(err));
-      this.showToast(t('media_save_fail'));
-    }
+    await saveLyricToFile(playerService.getCurrentMusicInfo(), this.lyricRawText, this.toast());
   }
 
-  /** 保存当前封面到本地文件 */
   private async saveCoverToFile(): Promise<void> {
-    const info = playerService.getCurrentMusicInfo();
-    if (!info || !info.name) {
-      this.showToast(t('player_no_song'));
-      return;
-    }
-    const imageUrl = info.pic || info.img || '';
-    if (!imageUrl) {
-      this.showToast(t('media_url_empty'));
-      return;
-    }
-    try {
-      const result: SaveResult = await mediaSaveService.saveCoverToFile(info, imageUrl);
-      this.showToast(result.success ? t('media_save_success') : (result.error || t('media_save_fail')));
-    } catch (err) {
-      hilog.error(DOMAIN, TAG, 'saveCoverToFile failed: %{public}s', JSON.stringify(err));
-      this.showToast(t('media_save_fail'));
-    }
+    await saveCoverToFile(playerService.getCurrentMusicInfo(), this.toast());
   }
 
   private viewComments(): void {
@@ -1194,75 +1102,20 @@ export struct PlayDetailPage {
     }
   }
 
-  /** 收藏 / 取消收藏当前歌曲 */
+  /** 收藏 / 下载 / 分享：命令式动作在 PlaySongActions */
   private async toggleLoveCurrent(): Promise<void> {
-    const info = playerService.getCurrentMusicInfo();
-    if (!info.id || !info.name) {
-      this.showToast(t('player_no_song'));
-      return;
-    }
-    try {
-      const loved = await toggleLoveList({
-        id: info.id,
-        name: info.name,
-        singer: info.singer,
-        album: info.album ?? info.albumName ?? '',
-        albumId: info.albumId ?? null,
-        duration: 0,
-        source: info.source ?? '',
-        pic: info.pic ?? info.img ?? '',
-        lrc: null,
-      });
-      this.showToast(loved ? t('player_loved') : t('player_unloved_ok'));
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'toggleLoveCurrent failed: %{public}s', JSON.stringify(err));
-      this.showToast(t('toast_operation_failed'));
-    }
+    await toggleLoveSong(playerService.getCurrentMusicInfo(), this.toast());
   }
 
-  /** 下载当前歌曲（走统一下载服务，下载页可见） */
   private async downloadCurrent(): Promise<void> {
-    const info = playerService.getCurrentMusicInfo();
-    if (!info.id || !info.name) {
-      this.showToast(t('player_no_song'));
-      return;
-    }
-    try {
-      const taskId = await download.startDownload({ musicInfo: info });
-      hilog.info(DOMAIN, TAG, 'download started: %{public}s', taskId);
-      this.showToast(tf('toast_download_start_song', [info.name]));
-    } catch (err) {
-      hilog.error(DOMAIN, TAG, 'downloadCurrent failed: %{public}s', JSON.stringify(err));
-      this.showToast(t('toast_download_failed_network'));
-    }
+    await downloadSong(playerService.getCurrentMusicInfo(), this.toast());
   }
 
-  /** 分享：按「设置 → 分享方式」走系统分享，失败自动回退剪贴板 */
   private async shareCurrent(): Promise<void> {
-    const info = playerService.getCurrentMusicInfo();
-    if (!info.name) {
-      this.showToast(t('player_no_song'));
-      return;
-    }
-    // 附上当前播放位置 + 平台详情页链接（与安卓版分享内容一致）
-    const progress = playerService.getProgress();
-    const extra = progress.nowPlayTime > 0 ? progress.nowPlayTimeStr : '';
-    const withPosition = `[${sourceLabel(info.source ?? '')}] ${buildShareText(info, extra)}`;
-    try {
-      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-      const result = await shareText(context, withPosition, info.name, getMusicDetailPageUrl(info));
-      if (result === 'clipboard') {
-        this.showToast(t('toast_share_copy'));
-      } else if (result === 'failed') {
-        this.showToast(t('toast_operation_failed'));
-      }
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'shareCurrent failed: %{public}s', JSON.stringify(err));
-      this.showToast(t('toast_operation_failed'));
-    }
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    await shareSong(playerService.getCurrentMusicInfo(), context, this.toast());
   }
 
-  /** 底部控制条：进度 + 上一首/播放/下一首 + 三个入口（组件在 PlayDetail/PlayerControls） */
   @Builder
   PlayerControls() {
     PlayerControls({
@@ -1301,8 +1154,8 @@ export struct PlayDetailPage {
   }
 
   /**
-   * 手动换源：列出同一首歌在其它源的匹配结果，选中后切源重新取链播放。
-   * 候选来自 ResolvePlayback.getOtherSource（跨源搜索 + 相似度排序）。
+   * 手动换源：候选来自 PlaySongActions.fetchSourceCandidates（跨源搜索 + 相似度排序，
+   * 每个源只留最靠前的一条），这里只负责打开面板。
    */
   private async showSourceSwitchMenu(): Promise<void> {
     const current = playerService.getCurrentMusicInfo();
@@ -1311,83 +1164,18 @@ export struct PlayDetailPage {
       return;
     }
     this.showToast(t('switch_source_searching'));
-    let candidates: MusicInfo[] = [];
-    try {
-      candidates = await getOtherSource(current);
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'getOtherSource failed: %{public}s', JSON.stringify(err));
-    }
-    if (candidates.length === 0) {
-      this.showToast(t('switch_source_empty'));
-      return;
-    }
-    // 每个源只保留排序最靠前的一个（ActionMenu 最多 6 个按钮，含取消）
-    const picked: MusicInfo[] = [];
-    const usedSources: Set<string> = new Set();
-    for (let i = 0; i < candidates.length && picked.length < 5; i++) {
-      const item = candidates[i];
-      const src = item.source ?? '';
-      if (src.length === 0 || usedSources.has(src)) {
-        continue;
-      }
-      usedSources.add(src);
-      picked.push(item);
-    }
+    const picked = await fetchSourceCandidates(current);
     if (picked.length === 0) {
       this.showToast(t('switch_source_empty'));
       return;
     }
-
-    // 候选项数量是动态的（ActionMenu 固定最多 6 项放不下），用自定义弹窗列表展示
     this.sourceCandidates = picked;
     this.showSourceDialog = true;
   }
 
   /** 切到指定源的匹配结果并播放 */
   private async switchToSource(target: MusicInfo): Promise<void> {
-    try {
-      const url = await getMusicUrl({ musicInfo: target, allowToggleSource: false });
-      if (!url || url.length === 0) {
-        this.showToast(t('switch_source_failed'));
-        return;
-      }
-      const durationSec = target.interval ? this.parseIntervalSeconds(target.interval) : 0;
-      const song: SongInfo = {
-        id: target.id || target.songmid || '',
-        songmid: target.songmid || target.id,
-        url: url,
-        title: target.name,
-        artist: target.singer,
-        album: target.album ?? target.albumName ?? '',
-        artwork: target.pic ?? target.img ?? null,
-        duration: durationSec,
-        source: target.source,
-        hash: target.hash,
-        strMediaMid: target.strMediaMid,
-        songId: target.songId,
-        albumId: target.albumId,
-        copyrightId: target.copyrightId,
-      };
-      playerService.setPlayList([song], 0);
-      await playerService.playFromSelection(song, url, durationSec);
-      this.showToast(`${t('switch_source')}: ${sourceLabel(target.source ?? '')}`);
-    } catch (err) {
-      hilog.error(DOMAIN, TAG, 'switchToSource failed: %{public}s', JSON.stringify(err));
-      this.showToast(t('switch_source_failed'));
-    }
-  }
-
-  /** "mm:ss" → 秒 */
-  private parseIntervalSeconds(interval: string): number {
-    const parts = interval.split(':');
-    let seconds = 0;
-    for (let i = 0; i < parts.length; i++) {
-      const value = parseInt(parts[i], 10);
-      if (!isNaN(value)) {
-        seconds = seconds * 60 + value;
-      }
-    }
-    return seconds;
+    await switchToSource(target, this.toast());
   }
 
   /** 不喜欢：按 歌曲 / 歌手 / 歌名 三种粒度加入屏蔽（播放时自动跳过） */
