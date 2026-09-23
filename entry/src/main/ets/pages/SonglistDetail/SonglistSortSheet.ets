@@ -76,7 +76,7 @@ export struct SonglistSortSheet {
         ForEach(this.orderOptions(), (option: SettingOption) => {
           Text(option.label)
             .fontSize(DesignTokens.fontCallout())
-            .fontColor(this.draftOrder === option.value ? '#FFFFFF' : DesignTokens.labelPrimary(this.theme))
+            .fontColor(this.draftOrder === option.value ? DesignTokens.onAccent() : DesignTokens.labelPrimary(this.theme))
             .backgroundColor(this.draftOrder === option.value
               ? DesignTokens.accent()
               : DesignTokens.mutedFill(this.theme))
@@ -108,7 +108,7 @@ export struct SonglistSortSheet {
           .layoutWeight(1)
           .height(DesignTokens.touchTarget())
           .fontSize(DesignTokens.fontTitle())
-          .fontColor('#FFFFFF')
+          .fontColor(DesignTokens.onAccent())
           .backgroundColor(DesignTokens.accent())
           .onClick(() => {
             this.visible = false;

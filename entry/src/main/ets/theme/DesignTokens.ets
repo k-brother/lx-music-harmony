@@ -105,6 +105,19 @@ export class DesignTokens {
     return 'rgba(0, 0, 0, 0.40)';
   }
 
+  /**
+   * 全屏图片预览上的半透明按钮底（评论大图预览的「关闭」胶囊）。
+   * 图片内容不可控，用中性半透明白保证按钮边界可见。
+   */
+  static translucentOnImage(): string {
+    return 'rgba(255, 255, 255, 0.20)';
+  }
+
+  /** 桌面歌词子窗口的透明底（窗口级 API 需要 #AARRGGBB 形态） */
+  static transparent(): string {
+    return '#00000000';
+  }
+
   /** 中性信息（已完成的历史条目） */
   static info(): string {
     return '#0A84FF';
@@ -113,6 +126,64 @@ export class DesignTokens {
   /** 强调色底上的文字色 */
   static onAccent(): string {
     return '#FFFFFF';
+  }
+
+  // ==================== 歌词文字层次（播放页 / 桌面歌词共用） ====================
+  // 之前这些灰阶写死在 LyricView 内部，深浅色各一套；收成 token 后歌词样式可统一调整。
+
+  /** 非当前歌词行（深色主题） */
+  static lyricDimDark(): string {
+    return '#8A8A93';
+  }
+
+  /** 非当前歌词行（浅色主题） */
+  static lyricDimLight(): string {
+    return '#8E8E93';
+  }
+
+  /** 歌词空状态文案色（深 / 浅） */
+  static lyricPlaceholderDark(): string {
+    return '#8A8A93';
+  }
+
+  static lyricPlaceholderLight(): string {
+    return '#9A9AA0';
+  }
+
+  /** 当前行的罗马音（深 / 浅） */
+  static lyricRomaActiveDark(): string {
+    return '#9E9EA6';
+  }
+
+  static lyricRomaActiveLight(): string {
+    return '#8E8E93';
+  }
+
+  /** 非当前行罗马音（深 / 浅） */
+  static lyricRomaDimDark(): string {
+    return '#6E6E78';
+  }
+
+  static lyricRomaDimLight(): string {
+    return '#B0B0B6';
+  }
+
+  /** 当前行翻译（深 / 浅） */
+  static lyricTransActiveDark(): string {
+    return '#D0A0A5';
+  }
+
+  static lyricTransActiveLight(): string {
+    return '#B75A62';
+  }
+
+  /** 非当前行翻译（深 / 浅） */
+  static lyricTransDimDark(): string {
+    return '#6E6E78';
+  }
+
+  static lyricTransDimLight(): string {
+    return '#A0A0AA';
   }
 
   /** 禁用态填充/文字 */

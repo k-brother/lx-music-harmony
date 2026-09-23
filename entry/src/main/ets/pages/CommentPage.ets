@@ -259,7 +259,7 @@ export struct CommentPage {
           .fontSize(DesignTokens.fontBody())
           .fontColor(DesignTokens.onAccent())
           .padding({ left: 14, right: 14, top: 8, bottom: 8 })
-          .backgroundColor('rgba(255,255,255,0.20)')
+          .backgroundColor(DesignTokens.translucentOnImage())
           .borderRadius(18)
       }
       .align(Alignment.TopEnd)

@@ -9,6 +9,7 @@
  */
 
 import hilog from '@ohos.hilog';
+import { DesignTokens } from '../../theme/DesignTokens';
 import window from '@ohos.window';
 import { display } from '@kit.ArkUI';
 import { BusinessError } from '@kit.BasicServicesKit';
@@ -154,7 +155,7 @@ class DesktopLyricWindow {
       await win.moveWindowTo(winX, winY);
       await win.resize(winWidth, winHeight);
       await win.setUIContent('pages/DesktopLyricPage');
-      await win.setWindowBackgroundColor('#00000000');
+      await win.setWindowBackgroundColor(DesignTokens.transparent());
       await win.setWindowFocusable(false); // 不抢主窗口焦点
       await DesktopLyricWindow.applyTouchable(settings.desktopLyricLocked);
       await win.showWindow();

@@ -107,7 +107,7 @@ export struct LyricView {
       Column() {
         Text(t('no_lyric'))
           .fontSize(DesignTokens.fontBody())
-          .fontColor(this.theme === 'dark' ? '#8A8A93' : '#9A9AA0')
+          .fontColor(this.theme === 'dark' ? DesignTokens.lyricPlaceholderDark() : DesignTokens.lyricPlaceholderLight())
       }
       .width('100%')
       .height('100%')
@@ -123,7 +123,7 @@ export struct LyricView {
                 .fontSize(index === this.currentLyricIndex ? this.lyricFontSize + 4 : this.lyricFontSize)
                 .fontColor(index === this.currentLyricIndex
                   ? this.accentColor()
-                  : (this.theme === 'dark' ? '#8A8A93' : '#8E8E93'))
+                  : (this.theme === 'dark' ? DesignTokens.lyricDimDark() : DesignTokens.lyricDimLight()))
                 .fontWeight(index === this.currentLyricIndex ? FontWeight.Bold : FontWeight.Normal)
                 .opacity(this.lineOpacity(index))
                 .textAlign(this.alignMode())
@@ -134,8 +134,8 @@ export struct LyricView {
                 Text(this.romaLines[index])
                   .fontSize(index === this.currentLyricIndex ? 12 : 10)
                   .fontColor(index === this.currentLyricIndex
-                    ? (this.theme === 'dark' ? '#9E9EA6' : '#8E8E93')
-                    : (this.theme === 'dark' ? '#6E6E78' : '#B0B0B6'))
+                    ? (this.theme === 'dark' ? DesignTokens.lyricRomaActiveDark() : DesignTokens.lyricRomaActiveLight())
+                    : (this.theme === 'dark' ? DesignTokens.lyricRomaDimDark() : DesignTokens.lyricRomaDimLight()))
                   .opacity(this.lineOpacity(index))
                   .textAlign(this.alignMode())
                   .width('100%')
@@ -145,8 +145,8 @@ export struct LyricView {
                 Text(this.secondaryLyricLines[index])
                   .fontSize(index === this.currentLyricIndex ? 13 : 11)
                   .fontColor(index === this.currentLyricIndex
-                    ? (this.theme === 'dark' ? '#D0A0A5' : '#B75A62')
-                    : (this.theme === 'dark' ? '#6E6E78' : '#A0A0AA'))
+                    ? (this.theme === 'dark' ? DesignTokens.lyricTransActiveDark() : DesignTokens.lyricTransActiveLight())
+                    : (this.theme === 'dark' ? DesignTokens.lyricTransDimDark() : DesignTokens.lyricTransDimLight()))
                   .opacity(this.lineOpacity(index))
                   .textAlign(TextAlign.Center)
                   .width('100%')

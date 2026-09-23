@@ -72,7 +72,7 @@ export struct SonglistBatchBar {
             .layoutWeight(1)
             .height(DesignTokens.touchTarget())
             .fontSize(DesignTokens.fontCallout())
-            .fontColor('#FFFFFF')
+            .fontColor(DesignTokens.onAccent())
             .backgroundColor(DesignTokens.danger())
             .enabled(!this.busy)
             .onClick(() => {

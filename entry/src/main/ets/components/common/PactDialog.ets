@@ -180,7 +180,7 @@ export struct PactDialog {
           .layoutWeight(1)
           .height(42)
           .fontSize(DesignTokens.fontBody())
-          .fontColor(this.countdown > 0 ? DesignTokens.labelTertiary(this.theme) : '#FFFFFF')
+          .fontColor(this.countdown > 0 ? DesignTokens.labelTertiary(this.theme) : DesignTokens.onAccent())
           .backgroundColor(this.countdown > 0 ? DesignTokens.mutedFill(this.theme) : DesignTokens.accent())
           .enabled(this.countdown === 0)
           .onClick(() => {
