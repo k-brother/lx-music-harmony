@@ -169,7 +169,8 @@ assert_log "换源后按新源拉取（无空态）" "SongListView" 1
 log "== 3. 歌单详情 =="
 tap 173 997          # 第一张歌单卡片
 sleep 7
-assert_log "歌单详情加载出歌曲" "SonglistDetail: API returned: [1-9][0-9]* songs"
+# 详情加载拆分到 SonglistDetail/SonglistLoader 后，日志 TAG 也随之变化
+assert_log "歌单详情加载出歌曲" "SonglistLoader: API returned: [1-9][0-9]* songs"
 key Back
 sleep 3
 
