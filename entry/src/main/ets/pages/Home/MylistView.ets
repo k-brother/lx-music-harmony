@@ -197,148 +197,148 @@ export struct MylistView {
 
   /** 左列：快捷入口 + 本地音乐 + 我喜欢 */
   @Builder
-  LeftSections() {
-            // 快捷入口：我喜欢 / 播放历史
-            Row({ space: 10 }) {
-              MylistQuickCard({
-                title: t('my_love'),
-                subtitle: `${this.loveList?.count ?? 0} ${t('songlist_total')}`,
-                icon: $r('sys.symbol.heart_fill'),
-                iconColor: DesignTokens.accent(),
-                onTap: (): void => {
-                  navigationService.navigateTo(RouteName.LOVE_LIST);
-                },
-              })
-              MylistQuickCard({
-                title: t('my_history'),
-                subtitle: `${this.playHistory.length} ${t('songlist_total')}`,
-                icon: $r('sys.symbol.music_note_list'),
-                iconColor: DesignTokens.labelSecondary(this.theme),
-                onTap: (): void => {
-                  navigationService.navigateTo(RouteName.HISTORY_LIST);
-                },
-              })
-            }
-            .width('100%')
-            .padding({
-              left: DesignTokens.spaceGutter(),
-              right: DesignTokens.spaceGutter(),
-              top: 12,
-              bottom: 6,
-            })
-
-            // 本地音乐入口
-            MylistEntryRow({
-              icon: $r('sys.symbol.folder'),
-              title: t('local_music'),
-              subtitle: t('local_music_desc'),
-              onTap: (): void => {
-                navigationService.navigateTo(RouteName.LOCAL_MUSIC);
-              },
-            })
-              .padding({
-                left: DesignTokens.spaceGutter(),
-                right: DesignTokens.spaceGutter(),
-              })
-
-            // 我喜欢
-            MylistSectionHeader({
+LeftSections() {
+          // 快捷入口：我喜欢 / 播放历史
+          Row({ space: 10 }) {
+            MylistQuickCard({
               title: t('my_love'),
-              subtitle: t('mylist_loved_songs'),
-              actionText: this.loveList && this.loveList.musicList.length > 0 ? t('view_all') : '',
-              onAction: (): void => {
+              subtitle: `${this.loveList?.count ?? 0} ${t('songlist_total')}`,
+              icon: $r('sys.symbol.heart_fill'),
+              iconColor: DesignTokens.accent(),
+              onTap: (): void => {
                 navigationService.navigateTo(RouteName.LOVE_LIST);
               },
             })
-            if (!this.loveList || this.loveList.musicList.length === 0) {
-              StateView({ state: 'empty', iconRes: $r('sys.symbol.heart'), message: t('love_empty_hint') })
-                .width('100%')
-                .height(140)
-            } else {
-              SongRowList({
-                songs: this.loveList.musicList.slice(0, 6),
-                onPlay: (song: MyListSongRow): void => {
-                  void this.playHistorySong(song);
-                },
-              })
-            }
-  }
-
-  /** 右列：播放历史 + 自建歌单 */
-  @Builder
-  RightSections() {
-            // 播放历史
-            MylistSectionHeader({
+            MylistQuickCard({
               title: t('my_history'),
-              subtitle: t('history_empty_hint'),
-              actionText: this.playHistory.length > 0 ? t('view_all') : '',
-              topPadding: 12,
-              onAction: (): void => {
+              subtitle: `${this.playHistory.length} ${t('songlist_total')}`,
+              icon: $r('sys.symbol.music_note_list'),
+              iconColor: DesignTokens.labelSecondary(this.theme),
+              onTap: (): void => {
                 navigationService.navigateTo(RouteName.HISTORY_LIST);
               },
             })
-            if (this.playHistory.length === 0) {
-              StateView({ state: 'empty', iconRes: $r('sys.symbol.clock'), message: t('history_empty_hint') })
-                .width('100%')
-                .height(140)
-            } else {
-              SongRowList({
-                songs: this.playHistory.slice(0, 6),
-                onPlay: (song: MyListSongRow): void => {
-                  void this.playHistorySong(song);
-                },
-              })
-            }
+          }
+          .width('100%')
+          .padding({
+            left: DesignTokens.spaceGutter(),
+            right: DesignTokens.spaceGutter(),
+            top: 12,
+            bottom: 6,
+          })
 
-            // 自建歌单
-            MylistSectionHeader({
-              title: t('songlist_title'),
-              subtitle: t('mylist_local_hint'),
-              actionText: t('view_all'),
-              showPrimaryAction: true,
-              primaryText: t('my_create_list'),
-              topPadding: 12,
-              onAction: (): void => {
-                navigationService.navigateTo(RouteName.USER_LISTS);
-              },
-              onPrimaryAction: (): void => {
-                this.newListName = '';
-                this.showCreateSheet = true;
+          // 本地音乐入口
+          MylistEntryRow({
+            icon: $r('sys.symbol.folder'),
+            title: t('local_music'),
+            subtitle: t('local_music_desc'),
+            onTap: (): void => {
+              navigationService.navigateTo(RouteName.LOCAL_MUSIC);
+            },
+          })
+            .padding({
+              left: DesignTokens.spaceGutter(),
+              right: DesignTokens.spaceGutter(),
+            })
+
+          // 我喜欢
+          MylistSectionHeader({
+            title: t('my_love'),
+            subtitle: t('mylist_loved_songs'),
+            actionText: this.loveList && this.loveList.musicList.length > 0 ? t('view_all') : '',
+            onAction: (): void => {
+              navigationService.navigateTo(RouteName.LOVE_LIST);
+            },
+          })
+          if (!this.loveList || this.loveList.musicList.length === 0) {
+            StateView({ state: 'empty', iconRes: $r('sys.symbol.heart'), message: t('love_empty_hint') })
+              .width('100%')
+              .height(140)
+          } else {
+            SongRowList({
+              songs: this.loveList.musicList.slice(0, 6),
+              onPlay: (song: MyListSongRow): void => {
+                void this.playHistorySong(song);
               },
             })
-            if (this.userLists.length === 0) {
-              StateView({ state: 'empty', iconRes: $r('sys.symbol.folder'), message: t('mylist_empty_hint') })
-                .width('100%')
-                .height(180)
-            } else {
-              Column({ space: 10 }) {
-                ForEach(this.userLists, (list: UserListRow) => {
-                  UserPlaylistCard({
-                    name: list.name,
-                    count: list.count,
-                    pic: list.pic,
-                    bindingSource: list.bindingSource,
-                    bindingListId: list.bindingListId,
-                    onOpen: (): void => {
-                      this.navigateToList(list.id, list.name, 'local');
-                    },
-                    onPlay: (): void => {
-                      void this.playList(list);
-                    },
-                    onSync: (): void => {
-                      void this.syncList(list);
-                    },
-                    onMenu: (): void => {
-                      void this.openListMenu(list);
-                    },
-                  })
-                    .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter() })
-                }, (list: UserListRow) => list.id)
-              }
+          }
+}
+
+  /** 右列：播放历史 + 自建歌单 */
+  @Builder
+RightSections() {
+          // 播放历史
+          MylistSectionHeader({
+            title: t('my_history'),
+            subtitle: t('history_empty_hint'),
+            actionText: this.playHistory.length > 0 ? t('view_all') : '',
+            topPadding: 12,
+            onAction: (): void => {
+              navigationService.navigateTo(RouteName.HISTORY_LIST);
+            },
+          })
+          if (this.playHistory.length === 0) {
+            StateView({ state: 'empty', iconRes: $r('sys.symbol.clock'), message: t('history_empty_hint') })
               .width('100%')
-              .padding({ bottom: 32 })
+              .height(140)
+          } else {
+            SongRowList({
+              songs: this.playHistory.slice(0, 6),
+              onPlay: (song: MyListSongRow): void => {
+                void this.playHistorySong(song);
+              },
+            })
+          }
+
+          // 自建歌单
+          MylistSectionHeader({
+            title: t('songlist_title'),
+            subtitle: t('mylist_local_hint'),
+            actionText: t('view_all'),
+            showPrimaryAction: true,
+            primaryText: t('my_create_list'),
+            topPadding: 12,
+            onAction: (): void => {
+              navigationService.navigateTo(RouteName.USER_LISTS);
+            },
+            onPrimaryAction: (): void => {
+              this.newListName = '';
+              this.showCreateSheet = true;
+            },
+          })
+          if (this.userLists.length === 0) {
+            StateView({ state: 'empty', iconRes: $r('sys.symbol.folder'), message: t('mylist_empty_hint') })
+              .width('100%')
+              .height(180)
+          } else {
+            Column({ space: 10 }) {
+              ForEach(this.userLists, (list: UserListRow) => {
+                UserPlaylistCard({
+                  name: list.name,
+                  count: list.count,
+                  pic: list.pic,
+                  bindingSource: list.bindingSource,
+                  bindingListId: list.bindingListId,
+                  onOpen: (): void => {
+                    this.navigateToList(list.id, list.name, 'local');
+                  },
+                  onPlay: (): void => {
+                    void this.playList(list);
+                  },
+                  onSync: (): void => {
+                    void this.syncList(list);
+                  },
+                  onMenu: (): void => {
+                    void this.openListMenu(list);
+                  },
+                })
+                  .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter() })
+              }, (list: UserListRow) => list.id)
             }
-  }
+            .width('100%')
+            .padding({ bottom: 32 })
+          }
+}
 
   build() {
     Stack() {
