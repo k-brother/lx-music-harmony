@@ -176,11 +176,22 @@ export struct UserListsPage {
   }
 
   @Builder
-  ListCard(list: UserListRow) {
+  ListCard(index: number) {
+    // 规则（实测结论）：@Builder 参数不随状态刷新；歌单首数与「来自xxx」角标都会变，
+    // 所以只传 index，内容从 this.userLists 读，同步后卡片才会跟着更新。
+    if (index < 0 || index >= this.userLists.length) {
+      Blank()
+    } else {
+      this.ListCardBody(index)
+    }
+  }
+
+  @Builder
+  ListCardBody(index: number) {
     Row() {
       Stack() {
-        if (list.pic) {
-          Image(list.pic)
+        if (this.userLists[index].pic) {
+          Image(this.userLists[index].pic)
             .width(52)
             .height(52)
             .borderRadius(10)
@@ -200,18 +211,18 @@ export struct UserListsPage {
       }
 
       Column() {
-        Text(list.name)
+        Text(this.userLists[index].name)
           .fontSize(16)
           .fontWeight(FontWeight.Medium)
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
         Row() {
-          Text(tf('count_songs_unit', [list.count.toString()]))
+          Text(tf('count_songs_unit', [this.userLists[index].count.toString()]))
             .fontSize(13)
             .fontColor(DesignTokens.labelTertiary(this.theme))
-          if (list.bindingListId.length > 0) {
-            Text(tf('list_bound_online', [sourceLabel(list.bindingSource)]))
+          if (this.userLists[index].bindingListId.length > 0) {
+            Text(tf('list_bound_online', [sourceLabel(this.userLists[index].bindingSource)]))
               .fontSize(11)
               .fontColor(DesignTokens.accent())
               .padding({ left: 6, right: 6, top: 2, bottom: 2 })
@@ -226,13 +237,13 @@ export struct UserListsPage {
       .padding({ left: 14 })
       .alignItems(HorizontalAlign.Start)
 
-      if (list.bindingListId.length > 0) {
+      if (this.userLists[index].bindingListId.length > 0) {
         Text(t('list_sync_content'))
           .fontSize(13)
           .fontColor(DesignTokens.accent())
           .padding({ left: 10, right: 10, top: 6, bottom: 6 })
           .onClick(() => {
-            void this.syncList(list);
+            void this.syncList(this.userLists[index]);
           })
       }
 
@@ -248,7 +259,7 @@ export struct UserListsPage {
       .width(DesignTokens.touchTarget())
       .height(DesignTokens.touchTarget())
       .onClick(() => {
-        void this.openListMenu(list);
+        void this.openListMenu(this.userLists[index]);
       })
     }
     .width('100%')
@@ -258,8 +269,8 @@ export struct UserListsPage {
     .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
     .onClick(() => {
       navigationService.navigateTo(RouteName.SONGLIST_DETAIL, {
-        songListId: list.id,
-        songListName: list.name,
+        songListId: this.userLists[index].id,
+        songListName: this.userLists[index].name,
         songListSource: 'local',
       });
     })
@@ -395,9 +406,9 @@ export struct UserListsPage {
         } else {
           Scroll() {
             Column({ space: 10 }) {
-              ForEach(this.userLists, (list: UserListRow) => {
-                this.ListCard(list)
-              }, (list: UserListRow) => list.id)
+              ForEach(this.userLists, (list: UserListRow, index: number) => {
+                this.ListCard(index)
+              }, (list: UserListRow) => `${list.id}_${list.count}_${list.bindingListId}`)
             }
             .width('100%')
             .padding({ left: 16, right: 16, top: 8, bottom: 20 })
