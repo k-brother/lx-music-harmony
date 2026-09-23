@@ -30,96 +30,11 @@ export struct UserPlaylistCard {
 
   build() {
     Row() {
-      if (this.pic.length > 0) {
-        Image(this.pic)
-          .width(52)
-          .height(52)
-          .borderRadius(DesignTokens.radiusCover())
-          .objectFit(ImageFit.Cover)
-      } else {
-        Column() {
-          SymbolGlyph($r('sys.symbol.music_note_list'))
-            .fontSize(DesignTokens.fontCoverIcon())
-            .fontColor([DesignTokens.labelTertiary(this.theme)])
-        }
-        .width(52)
-        .height(52)
-        .borderRadius(DesignTokens.radiusCover())
-        .backgroundColor(DesignTokens.mutedFill(this.theme))
-        .justifyContent(FlexAlign.Center)
-      }
+      this.Cover()
 
-      Column({ space: 6 }) {
-        Text(this.name)
-          .fontSize(DesignTokens.fontTitle())
-          .fontWeight(FontWeight.Medium)
-          .fontColor(DesignTokens.labelPrimary(this.theme))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .width('100%')
+      this.Info()
 
-        Row() {
-          Text(tf('count_songs_unit', [this.count.toString()]))
-            .fontSize(DesignTokens.fontCallout())
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-          if (this.bindingListId.length > 0) {
-            Text(tf('list_bound_online', [sourceLabel(this.bindingSource)]))
-              .fontSize(DesignTokens.fontMicro())
-              .fontColor(DesignTokens.accent())
-              .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-              .borderRadius(8)
-              .border({ width: 1, color: DesignTokens.accent() })
-              .margin({ left: 8 })
-          }
-        }
-      }
-      .layoutWeight(1)
-      .padding({ left: 14 })
-      .alignItems(HorizontalAlign.Start)
-
-      if (this.bindingListId.length > 0) {
-        SymbolGlyph($r('sys.symbol.arrow_clockwise'))
-          .fontSize(DesignTokens.fontDisplay())
-          .fontColor([DesignTokens.accent()])
-          .padding(10)
-          .responseRegion(DesignTokens.touchRegion(40))
-          .accessibilityText(t('a11y_refresh'))
-          .onClick(() => {
-            if (this.onSync) {
-              this.onSync();
-            }
-          })
-      }
-
-      SymbolGlyph($r('sys.symbol.play_circle'))
-        .fontSize(DesignTokens.fontDisplayHuge())
-        .fontColor([DesignTokens.accent()])
-        .responseRegion(DesignTokens.touchRegion(30))
-        .accessibilityText(t('a11y_play'))
-        .onClick(() => {
-          if (this.onPlay) {
-            this.onPlay();
-          }
-        })
-
-      SymbolGlyph($r('sys.symbol.chevron_right'))
-        .fontSize(DesignTokens.fontHeadline())
-        .fontColor([DesignTokens.labelTertiary(this.theme)])
-        .margin({ left: 8 })
-
-      // 更多操作：此前卡片只有「播放/同步」，重命名与删除只能去「全部歌单」页操作
-      Image($r('app.media.ic_pd_more'))
-        .width(18)
-        .height(18)
-        .fillColor(DesignTokens.labelSecondary(this.theme))
-        .margin({ left: 6 })
-        .responseRegion(DesignTokens.touchRegion(20))
-        .accessibilityText(t('a11y_more'))
-        .onClick(() => {
-          if (this.onMenu) {
-            this.onMenu();
-          }
-        })
+      this.Actions()
     }
     .width('100%')
     .padding(16)
@@ -134,4 +49,110 @@ export struct UserPlaylistCard {
       }
     })
   }
+
+  /** 封面（无图时用音符占位） */
+  @Builder
+  Cover() {
+    if (this.pic.length > 0) {
+      Image(this.pic)
+        .width(52)
+        .height(52)
+        .borderRadius(DesignTokens.radiusCover())
+        .objectFit(ImageFit.Cover)
+    } else {
+      Column() {
+        SymbolGlyph($r('sys.symbol.music_note_list'))
+          .fontSize(DesignTokens.fontCoverIcon())
+          .fontColor([DesignTokens.labelTertiary(this.theme)])
+      }
+      .width(52)
+      .height(52)
+      .borderRadius(DesignTokens.radiusCover())
+      .backgroundColor(DesignTokens.mutedFill(this.theme))
+      .justifyContent(FlexAlign.Center)
+    }
+
+  }
+
+  /** 名称 / 曲目数 / 「已绑定在线歌单」角标 */
+  @Builder
+  Info() {
+    Column({ space: 6 }) {
+      Text(this.name)
+        .fontSize(DesignTokens.fontTitle())
+        .fontWeight(FontWeight.Medium)
+        .fontColor(DesignTokens.labelPrimary(this.theme))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width('100%')
+
+      Row() {
+        Text(tf('count_songs_unit', [this.count.toString()]))
+          .fontSize(DesignTokens.fontCallout())
+          .fontColor(DesignTokens.labelTertiary(this.theme))
+        if (this.bindingListId.length > 0) {
+          Text(tf('list_bound_online', [sourceLabel(this.bindingSource)]))
+            .fontSize(DesignTokens.fontMicro())
+            .fontColor(DesignTokens.accent())
+            .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+            .borderRadius(8)
+            .border({ width: 1, color: DesignTokens.accent() })
+            .margin({ left: 8 })
+        }
+      }
+    }
+    .layoutWeight(1)
+    .padding({ left: 14 })
+    .alignItems(HorizontalAlign.Start)
+
+  }
+
+  /** 同步 / 播放 / 进入 / 更多 */
+  @Builder
+  Actions() {
+    if (this.bindingListId.length > 0) {
+      SymbolGlyph($r('sys.symbol.arrow_clockwise'))
+        .fontSize(DesignTokens.fontDisplay())
+        .fontColor([DesignTokens.accent()])
+        .padding(10)
+        .responseRegion(DesignTokens.touchRegion(40))
+        .accessibilityText(t('a11y_refresh'))
+        .onClick(() => {
+          if (this.onSync) {
+            this.onSync();
+          }
+        })
+    }
+
+    SymbolGlyph($r('sys.symbol.play_circle'))
+      .fontSize(DesignTokens.fontDisplayHuge())
+      .fontColor([DesignTokens.accent()])
+      .responseRegion(DesignTokens.touchRegion(30))
+      .accessibilityText(t('a11y_play'))
+      .onClick(() => {
+        if (this.onPlay) {
+          this.onPlay();
+        }
+      })
+
+    SymbolGlyph($r('sys.symbol.chevron_right'))
+      .fontSize(DesignTokens.fontHeadline())
+      .fontColor([DesignTokens.labelTertiary(this.theme)])
+      .margin({ left: 8 })
+
+    // 更多操作：此前卡片只有「播放/同步」，重命名与删除只能去「全部歌单」页操作
+    Image($r('app.media.ic_pd_more'))
+      .width(18)
+      .height(18)
+      .fillColor(DesignTokens.labelSecondary(this.theme))
+      .margin({ left: 6 })
+      .responseRegion(DesignTokens.touchRegion(20))
+      .accessibilityText(t('a11y_more'))
+      .onClick(() => {
+        if (this.onMenu) {
+          this.onMenu();
+        }
+      })
+  }
+
 }
