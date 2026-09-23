@@ -11,6 +11,7 @@ import { playerService, SongInfo } from '../service/PlayerService';
 import { getMusicUrl, download } from '../core/music/MusicFeatureEntry';
 import type { MusicInfo } from '../types/MusicTypes';
 import { navigationService, NavigationParams } from '../service/NavigationService';
+import { playKeyOfIds } from '../service/PlayerService';
 import { DesignTokens } from '../theme/DesignTokens';
 import { NavBar } from '../components/ui/NavBar';
 import { StateView } from '../components/ui/StateView';
@@ -42,6 +43,8 @@ interface BoardSongItem {
 @Component
 export struct BoardDetailPage {
   @StorageProp('theme') theme: string = 'light';
+  /** 正在播放的那首的全局 key（源|songmid），列表高亮据此计算 */
+  @StorageProp('playingSongKey') playingSongKey: string = '';
   /** 一多：窗口宽度（vp），大屏内容列居中 */
   @StorageProp('windowWidthVp') windowWidthVp: number = 360;
 
@@ -216,11 +219,6 @@ export struct BoardDetailPage {
     if (!song) return;
     hilog.info(0x0001, 'BoardDetail', 'Playing song: %{public}s, source: %{public}s, id: %{public}s', song.name, song.source, song.id);
 
-    // 更新 UI 播放状态
-    for (let i = 0; i < this.songList.length; i++) {
-      this.songList[i].isPlaying = (i === index);
-    }
-    this.songListSource.reload(this.songList);
 
     try {
       const musicInfo: MusicInfo = {
@@ -423,7 +421,7 @@ export struct BoardDetailPage {
             album: song.album,
             sourceId: song.source,
             durationSeconds: song.duration,
-            active: song.isPlaying,
+            active: playKeyOfIds(song.source, song.id, song.id) === this.playingSongKey,
             divider: index < this.songList.length - 1,
             onTap: (): void => {
               this.playSong(index);
@@ -434,8 +432,8 @@ export struct BoardDetailPage {
           })
         }
       },
-        // key 带上播放态：状态变化时确保行重建（否则高亮可能不刷新）
-        (song: BoardSongItem, index: number): string => `${song.id}_${index}_${song.isPlaying}`)
+        // 高亮改由 @StorageProp('playingSongKey') 驱动，key 不再需要带播放态
+        (song: BoardSongItem, index: number): string => `${song.id}_${index}`)
     }
     .width('100%')
     .layoutWeight(1)

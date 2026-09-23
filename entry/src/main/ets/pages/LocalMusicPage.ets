@@ -24,6 +24,7 @@ import { TrackRow } from './LocalMusic/TrackRow';
 import { Breakpoints } from '../theme/Breakpoints';
 import { LazyDataSource } from '../utils/LazyDataSource';
 import { pageScrollKey, ScrollMemoryHandle } from '../service/ScrollMemoryService';
+import { playKeyOfIds } from '../service/PlayerService';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'LocalMusicPage';
@@ -40,7 +41,8 @@ export struct LocalMusicPage {
   /** LazyForEach 数据源：长列表只创建可视区的行 */
   private trackSource: LazyDataSource<LocalMusicInfo> = new LazyDataSource<LocalMusicInfo>();
   @State isLoading: boolean = false;
-  @State playingId: string = '';
+  /** 正在播放的那首的全局 key（源|songmid），列表高亮据此计算 */
+  @StorageProp('playingSongKey') playingSongKey: string = '';
   /** 下拉刷新中（重新扫描曲库时保留当前列表） */
   @State isRefreshing: boolean = false;
   /** 元数据编辑弹窗 */
@@ -159,9 +161,6 @@ export struct LocalMusicPage {
     playerService.setPlayList(queue, index);
     try {
       await playerService.playSelectedFromPlayList(index);
-      this.playingId = this.tracks[index].id;
-      // 高亮依赖页面的 playingId（不在行数据里）：显式通知该行重建
-      this.trackSource.notifyChanged(index);
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'playTrack failed: %{public}s', JSON.stringify(err));
       this.showToast(t('toast_play_failed'));
@@ -396,7 +395,7 @@ export struct LocalMusicPage {
             album: track.album,
             durationSeconds: Math.floor(track.duration / 1000),
             coverUrl: track.picUrl ?? '',
-            active: this.playingId === track.id,
+            active: playKeyOfIds('local', track.id, track.id) === this.playingSongKey,
             onTap: (): void => {
               void this.playTrack(index);
             },

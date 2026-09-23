@@ -21,6 +21,7 @@ import { RefreshContainer } from '../components/ui/RefreshContainer';
 import { hapticService } from '../service/HapticService';
 import { PlayerBar } from '../components/player/PlayerBar';
 import { navigationService, RouteName } from '../service/NavigationService';
+import { playKeyOfIds } from '../service/PlayerService';
 import { pageScrollKey, ScrollMemoryHandle } from '../service/ScrollMemoryService';
 
 const DOMAIN = 0x0001;
@@ -57,7 +58,8 @@ export struct LoveListPage {
   private scrollMemory: ScrollMemoryHandle = new ScrollMemoryHandle(pageScrollKey('love'), this.listScroller);
   private scrollMemoryRestored: boolean = false;
   /** 正在播放的曲目 id（高亮行） */
-  @State playingId: string = '';
+  /** 正在播放的那首的全局 key（源|songmid），列表高亮据此计算 */
+  @StorageProp('playingSongKey') playingSongKey: string = '';
 
   aboutToAppear() {
     this.loadSongs();
@@ -141,7 +143,6 @@ export struct LoveListPage {
         });
       }
       playerService.setPlayList(songInfos, index);
-      this.playingId = this.songs[index]?.id ?? '';
       await playerService.playSelectedFromPlayList(index);
     } catch (err) {
       hilog.warn(DOMAIN, TAG, 'playSong failed: %{public}s', JSON.stringify(err));
@@ -311,7 +312,7 @@ export struct LoveListPage {
               album: song.album,
               sourceId: song.source,
               durationSeconds: song.duration,
-              active: song.id === this.playingId,
+              active: playKeyOfIds(song.source, song.id, song.id) === this.playingSongKey,
               divider: index < this.songs.length - 1,
               onTap: (): void => {
                 void this.playSong(index);

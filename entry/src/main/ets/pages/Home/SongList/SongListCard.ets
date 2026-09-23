@@ -8,7 +8,7 @@
  * 卡片数据（封面/播放量）变化时不会重建；@Prop 在父组件重渲染时会更新。
  */
 import { DesignTokens } from '../../../theme/DesignTokens';
-import { t, playCountUnits } from '../../../service/LocalizationService';
+import { playCountUnits } from '../../../service/LocalizationService';
 import { formatPlayCount } from '../../../utils/FormatTools';
 import { isConfirmKey } from '../../../utils/KeyboardTools';
 import type { SongListItemData } from '../SongListTypes';

@@ -22,17 +22,11 @@ const DOMAIN: number = 0x0001;
  */
 export type SonglistPlayResult = 'ok' | 'no-url' | 'empty';
 
-/** 就地置播放态；调用方需重新赋值数组（`this.songList = this.songList`）才会刷新 */
-export function markPlayingRow(rows: SongItem[], index: number): void {
-  for (let i = 0; i < rows.length; i++) {
-    rows[i].isPlaying = i === index;
-  }
-}
-
-/** 清掉所有行的播放态（取地址失败时回滚，避免"看起来在播但没声音"） */
-export function clearPlayingRows(rows: SongItem[]): void {
-  markPlayingRow(rows, -1);
-}
+/**
+ * 列表「正在播放」高亮不再由页面对数据打标（那会在自动切歌后停在旧行），
+ * 统一改为比较播放器发布的全局 key：AppStorage['playingSongKey']（PlayerService.playKeyOfIds）。
+ * 这里保留说明，避免后来者又加回一份本地播放态。
+ */
 
 /**
  * 播放已加载列表里的第 index 首。

@@ -6,7 +6,7 @@ import { showAppToast, TOAST_DURATION_SHORT } from '../utils/Toast';
 import { PlayerBar } from '../components/player/PlayerBar';
 import { setDownloadContext } from '../core/music/MusicFeatureEntry';
 import { NavigationParams } from '../service/NavigationService';
-import { playerService } from '../service/PlayerService';
+import { playerService, playKeyOfIds } from '../service/PlayerService';
 import { navigationService } from '../service/NavigationService';
 import { common } from '@kit.AbilityKit';
 import { getUserListMusic } from '../service/ListService';
@@ -68,8 +68,6 @@ import {
   sourceDetailUrl,
 } from './SonglistDetail/SonglistRowActions';
 import {
-  clearPlayingRows,
-  markPlayingRow,
   playAllRows,
   playSongRow,
 } from './SonglistDetail/SonglistPlayActions';
@@ -125,6 +123,8 @@ export struct SonglistDetailPage {
   /** 下拉刷新中（刷新时保留当前列表，不整屏换成骨架） */
   @State isRefreshing: boolean = false;
   @State headerCompact: boolean = false;
+  /** 正在播放的那首的全局 key（源|songmid），列表高亮据此计算 */
+  @StorageProp('playingSongKey') playingSongKey: string = '';
   @State listCoverLoadFailed: boolean = false;
 
   // ===== 列表能力：多选 / 排序 / 去重（对齐安卓版歌单菜单）=====
@@ -316,7 +316,8 @@ export struct SonglistDetailPage {
             album: song.album,
             sourceId: song.source,
             durationSeconds: song.duration,
-            active: song.isPlaying,
+            // 高亮口径统一到播放器的全局 key：自动切歌/播控中心切歌时列表也会跟着变
+            active: playKeyOfIds(song.source, song.songmid, song.id) === this.playingSongKey,
             divider: false,
             onTap: (): void => {
               if (this.selectMode) {
@@ -337,7 +338,7 @@ export struct SonglistDetailPage {
         }
         .stateStyles({ pressed: this.pressDim })
       // key 带上播放态：某一行开始/停止播放时强制重建该行，高亮一定刷新
-      }, (song: SongItem, index: number) => `${song.id}_${song.source}_${index}_${song.isPlaying}`)
+      }, (song: SongItem, index: number) => `${song.id}_${song.source}_${index}`)
     }
     .width('100%')
     .layoutWeight(1)
@@ -465,14 +466,9 @@ export struct SonglistDetailPage {
     if (this.songList.length === 0) {
       return;
     }
-    markPlayingRow(this.songList, index);
-    this.songListSource.reload(this.songList);
-
     const result = await playSongRow(this.songList, index, this.listInfo, this.listClickPlay);
     if (result === 'no-url') {
-      // 回滚播放态，避免列表看起来"在播但没声音"
-      clearPlayingRows(this.songList);
-      this.songListSource.reload(this.songList);
+      // 高亮由播放器的全局 key 驱动，这里只负责提示失败
       this.showToast(t('toast_play_url_failed'));
     }
   }
@@ -486,10 +482,6 @@ export struct SonglistDetailPage {
     if (result === 'no-url') {
       this.showToast(t('toast_play_url_failed'));
       return;
-    }
-    if (result === 'ok') {
-      markPlayingRow(this.songList, 0);
-      this.songListSource.reload(this.songList);
     }
   }
 

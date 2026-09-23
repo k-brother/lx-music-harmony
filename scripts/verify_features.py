@@ -391,6 +391,15 @@ CHECKS = [
  ('播放历史在开播时记录', 'service/PlayerService.ets',
   r'async play\(\)[\s\S]{0,1600}?this\.recordPlayedSongIfNeeded\(\)'),
  ('播放历史按歌曲去重', 'service/PlayerService.ets', r'recordedSongKey'),
+ # 「正在播放」高亮单一真相源：播放器发布全局 key，各列表页比较它（自动切歌也跟随）
+ ('播放 key 统一实现', 'service/PlayerService.ets', r'export function playKeyOfIds'),
+ ('播放器发布正在播放 key', 'service/PlayerService.ets', r"AppStorage\.setOrCreate\('playingSongKey'"),
+ ('歌单详情高亮跟随播放器', 'pages/SonglistDetailPage.ets',
+  r'active: playKeyOfIds\(song\.source, song\.songmid, song\.id\) === this\.playingSongKey'),
+ ('榜单详情高亮跟随播放器', 'pages/BoardDetailPage.ets',
+  r'active: playKeyOfIds\(song\.source, song\.id, song\.id\) === this\.playingSongKey'),
+ ('我喜欢高亮跟随播放器', 'pages/LoveListPage.ets', r"playingSongKey"),
+ ('本地音乐高亮跟随播放器', 'pages/LocalMusicPage.ets', r"playingSongKey"),
  # 评论点赞落盘（源的评论接口没有登录态，只能本地记，但不能刷新就没）
  ('评论点赞本地持久化', 'service/comment/CommentLikeStore.ets', r'export async function loadLikedIds'),
  ('评论点赞打开时套用本地状态', 'pages/CommentPage.ets', r'applyLikedState\(newComments'),

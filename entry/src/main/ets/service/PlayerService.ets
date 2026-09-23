@@ -820,6 +820,9 @@ export class PlayerService {
 
   // 通知音乐信息变化
   private notifyMusicInfoChange(): void {
+    // 把「正在播放的那首」发布成全局键：各列表页据此高亮，避免每页各存一份 playingId
+    // （此前只有本页点播才会高亮，自动下一首/播控中心切歌后高亮会停在旧行上）
+    AppStorage.setOrCreate('playingSongKey', playKeyOf(playerStateData.musicInfo));
     playbackEvents.musicInfo.emit((listener: MusicInfoListener): void => {
       listener(this.getCurrentMusicInfo());
     });
@@ -1295,6 +1298,7 @@ export class PlayerService {
     return `${playerStateData.musicInfo.source ?? ''}_${playerStateData.musicInfo.songmid ?? playerStateData.musicInfo.id ?? ''}`;
   }
 
+
   /**
    * 订阅"当前歌词行"变化。
    * 系统播控、桌面歌词、播放页都从这里取，避免各自解析 LRC、各自跑时间轴。
@@ -1471,5 +1475,28 @@ export class PlayerService {
 
 // 导出单例
 export const playerService = new PlayerService();
+
+/**
+ * 歌曲身份 key（`源|songmid或id`）：列表高亮的统一口径。
+ *
+ * 各列表页此前各自维护 playingId / isPlaying，自动切歌后高亮会停在旧行；
+ * 现在统一写进 AppStorage['playingSongKey']，页面用 @StorageProp 读它比较即可。
+ */
+export function playKeyOfIds(
+  source: string | undefined, songmid: string | undefined, id: string | undefined): string {
+  const primary: string = songmid && songmid.length > 0 ? songmid : (id ?? '');
+  if (primary.length === 0) {
+    return '';
+  }
+  return `${source ?? ''}|${primary}`;
+}
+
+/** MusicInfo 版本（播控/播放服务内部用） */
+export function playKeyOf(info: MusicInfo | null | undefined): string {
+  if (!info) {
+    return '';
+  }
+  return playKeyOfIds(info.source, info.songmid, info.id);
+}
 
 export default playerService;
