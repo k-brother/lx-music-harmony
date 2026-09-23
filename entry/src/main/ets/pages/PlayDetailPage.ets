@@ -479,6 +479,8 @@ export struct PlayDetailPage {
       sleepWaitingTrackEnd: this.sleepWaitingTrackEnd,
       currentTab: this.currentTab,
       desktopLyricOn: this.showDesktopLyric,
+      // 宽屏封面与歌词同屏，「切换封面/歌词」这一项没有意义
+      wideLayout: Breakpoints.isWide(this.breakpoint),
     });
   }
 

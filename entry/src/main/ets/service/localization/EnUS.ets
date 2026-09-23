@@ -108,6 +108,7 @@ export function buildEnUS(): Map<string, string> {
   m.set('a11y_drag_handle', 'Drag to reorder');
   m.set('a11y_expand', 'Expand');
   m.set('a11y_open_board', 'View full chart');
+  m.set('a11y_open_player', 'Open player');
   m.set('a11y_collapse', 'Collapse');
   m.set('toast_restore_running', 'Reading backup…');
   m.set('my_love', 'Favorites');

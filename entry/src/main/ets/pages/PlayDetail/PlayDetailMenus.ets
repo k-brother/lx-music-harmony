@@ -6,7 +6,7 @@
  */
 import { t, tf } from '../../service/LocalizationService';
 import { appActionMenu } from '../../service/DialogService';
-import type { PlayActionSection } from './MoreActionsSheet';
+import type { PlayActionRow, PlayActionSection } from './MoreActionsSheet';
 
 /** 倍速选项（0.5x - 2.0x） */
 const SPEED_RATES: string[] = ['0.5', '0.75', '1.0', '1.25', '1.5', '2.0'];
@@ -103,9 +103,29 @@ export interface PlayActionState {
   /** 0=封面页，1=歌词页 */
   currentTab: number;
   desktopLyricOn: boolean;
+  /** 宽屏封面/歌词同屏，此时不再提供「切换封面/歌词」动作 */
+  wideLayout: boolean;
 }
 
 export function buildPlayActionSections(state: PlayActionState): PlayActionSection[] {
+  const lyricRows: PlayActionRow[] = [
+    { key: 'lyricOffset', icon: $r('app.media.ic_pd_lyric'), label: t('lyric_offset') },
+    { key: 'lyricDisplay', icon: $r('app.media.ic_pd_lyric'), label: t('lyric_display') },
+    {
+      key: 'desktopLyric',
+      icon: $r('app.media.ic_pd_lyric'),
+      label: state.desktopLyricOn ? t('close_desktop_lyric') : t('open_desktop_lyric'),
+    },
+  ];
+  if (!state.wideLayout) {
+    // 窄屏才需要「封面/歌词」二选一，大屏两个都在屏幕上
+    lyricRows.unshift({
+      key: 'switchTab',
+      icon: $r('app.media.ic_pd_lyric'),
+      label: state.currentTab === 0 ? t('switch_to_lyric') : t('switch_to_cover'),
+    });
+  }
+
   return [
     {
       title: t('player_action_group_song'),
@@ -131,20 +151,7 @@ export function buildPlayActionSections(state: PlayActionState): PlayActionSecti
     },
     {
       title: t('player_action_group_lyric'),
-      rows: [
-        {
-          key: 'switchTab',
-          icon: $r('app.media.ic_pd_lyric'),
-          label: state.currentTab === 0 ? t('switch_to_lyric') : t('switch_to_cover'),
-        },
-        { key: 'lyricOffset', icon: $r('app.media.ic_pd_lyric'), label: t('lyric_offset') },
-        { key: 'lyricDisplay', icon: $r('app.media.ic_pd_lyric'), label: t('lyric_display') },
-        {
-          key: 'desktopLyric',
-          icon: $r('app.media.ic_pd_lyric'),
-          label: state.desktopLyricOn ? t('close_desktop_lyric') : t('open_desktop_lyric'),
-        },
-      ],
+      rows: lyricRows,
     },
     {
       title: t('player_action_group_save'),

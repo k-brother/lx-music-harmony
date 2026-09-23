@@ -232,6 +232,11 @@ export struct PlayerBar {
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
       .margin({ left: 12 })
+      // 点歌名/歌手区域也进播放页（主流迷你播放条都是「点哪都能进详情」）
+      .accessibilityText(t('a11y_open_player'))
+      .onClick(() => {
+        this.navigateToPlayDetailSafely();
+      })
 
       Row({ space: 10 }) {
         Stack() {

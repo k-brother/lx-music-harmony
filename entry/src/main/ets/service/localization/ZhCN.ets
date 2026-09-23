@@ -118,6 +118,7 @@ export function buildZhCN(): Map<string, string> {
   m.set('a11y_drag_handle', '拖动调整顺序');
   m.set('a11y_expand', '展开');
   m.set('a11y_open_board', '查看完整榜单');
+  m.set('a11y_open_player', '打开播放页');
   m.set('a11y_collapse', '收起');
   m.set('toast_restore_running', '正在读取备份…');
   m.set('my_love', '我喜欢');
