@@ -11,7 +11,7 @@ import { playerService, SongInfo } from '../service/PlayerService';
 import { navigationService } from '../service/NavigationService';
 import { common } from '@kit.AbilityKit';
 import { addMusicToList, getUserList, getUserListMusic, LIST_IDS, MusicItem, ListInfo } from '../service/ListService';
-import { createUserList, moveMusicInList, removeMusicsFromList, replaceUserListMusic } from '../service/ListService';
+import { createUserList, replaceUserListMusic } from '../service/ListService';
 import { emitSearchRequest } from '../service/EventBus';
 import { buildShareText, getMusicDetailPageUrl } from '../core/music/MusicDetailUrl';
 import { shareText } from '../service/ShareService';
@@ -19,6 +19,12 @@ import { dislikeList } from '../core/dislike/DislikeList';
 import { showSongItemMenu, showSonglistMoreMenu } from './SonglistDetail/SonglistMenus';
 import { songRowToListItem, songRowToMusicInfo, songRowToQueueItem } from '../core/list/SongMappers';
 import { loadLocalSonglist, loadOnlineSonglist, type SonglistLoadOutcome } from './SonglistDetail/SonglistLoader';
+import {
+  applyMovePosition,
+  applyMoveToList,
+  buildMoveTargetOptions,
+  positionOf,
+} from './SonglistDetail/SonglistMoveActions';
 import { appActionMenu, appConfirm } from '../service/DialogService';
 import { ListRow } from '../components/ui/ListRow';
 import { NavBar } from '../components/ui/NavBar';
@@ -914,32 +920,16 @@ export struct SonglistDetailPage {
   }
 
   /** 可移动的目标列表（排除当前列表） */
+  /** 可移动的目标歌单（实现在 SonglistDetail/SonglistMoveActions） */
   private buildMoveTargetOptions(): SettingOption[] {
-    const options: SettingOption[] = [];
-    const lists: ListInfo[] = getUserList();
-    for (const list of lists) {
-      if (list.id === this.listInfo.id) {
-        continue;
-      }
-      options.push({ label: list.name, value: list.id });
-    }
-    return options;
+    return buildMoveTargetOptions(this.listInfo.id);
   }
-
   /** 调整位置：面板默认填当前所在位置 */
   private openMovePosition(song: SongItem): void {
-    let index = -1;
-    for (let i = 0; i < this.songList.length; i++) {
-      if (this.songList[i].id === song.id) {
-        index = i;
-        break;
-      }
-    }
     this.movePositionTarget = song;
-    this.movePositionValue = (index + 1).toString();
+    this.movePositionValue = positionOf(this.songList, song.id).toString();
     this.showMovePositionSheet = true;
   }
-
   /** 应用位置调整 */
   private async applyMovePosition(value: string): Promise<void> {
     const song = this.movePositionTarget;
@@ -947,23 +937,11 @@ export struct SonglistDetailPage {
     if (!song) {
       return;
     }
-
-    const position = parseInt(value.trim(), 10);
-    if (isNaN(position) || position < 1 || position > this.songList.length) {
-      this.showToast(tf('list_position_invalid', [this.songList.length.toString()]));
-      return;
-    }
-
-    try {
-      const moved = await moveMusicInList(this.listInfo.id, song.id, position);
+    const ok = await applyMovePosition(this.listInfo.id, song, value, this.songList, this.toast());
+    if (ok) {
       this.refreshLocalRows();
-      this.showToast(moved ? tf('list_position_moved', [position.toString()]) : t('list_position_unchanged'));
-    } catch (err) {
-      hilog.error(0x0001, 'SonglistDetail', 'applyMovePosition failed: %{public}s', JSON.stringify(err));
-      this.showToast(t('toast_operation_failed'));
     }
   }
-
   /** 移动到其他列表 */
   private openMoveToList(song: SongItem): void {
     const options = this.buildMoveTargetOptions();
@@ -980,21 +958,14 @@ export struct SonglistDetailPage {
   private async applyMoveToList(listId: string): Promise<void> {
     const song = this.moveToListTarget;
     this.moveToListTarget = null;
-    if (!song || listId.length === 0) {
+    if (!song) {
       return;
     }
-
-    try {
-      await addMusicToList(listId, songRowToListItem(song));
-      await removeMusicsFromList(this.listInfo.id, [song.id]);
+    const ok = await applyMoveToList(this.listInfo.id, song, listId, this.toast());
+    if (ok) {
       this.refreshLocalRows();
-      this.showToast(t('list_move_done'));
-    } catch (err) {
-      hilog.error(0x0001, 'SonglistDetail', 'applyMoveToList failed: %{public}s', JSON.stringify(err));
-      this.showToast(t('toast_operation_failed'));
     }
   }
-
   // 添加到歌单
   private async addToPlaylist(song: SongItem): Promise<void> {
     try {
