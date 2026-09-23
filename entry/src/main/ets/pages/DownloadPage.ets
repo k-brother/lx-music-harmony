@@ -519,8 +519,9 @@ export struct DownloadPage {
     Column() {
       NavBar({
         title: t('download_title'),
-        // 下载管理是底部导航的一级页，没有上一级可返回，不显示返回箭头
+        // 下载管理是底部导航的一级页：没有上一级可返回，标题按一级页贴左
         showBack: false,
+        titleAlign: 'start',
         trailing: (): void => {
           this.NavTrailing();
         },

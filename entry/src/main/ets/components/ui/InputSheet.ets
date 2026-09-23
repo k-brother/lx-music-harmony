@@ -37,17 +37,12 @@ export struct InputSheet {
     this.draft = this.value;
   }
 
-  /** 输入面板高度：标题行 + 输入框 + 确认按钮，正好装下内容（取消收进右上角） */
-  private sheetHeightVp(): number {
-    return 196;
-  }
 
   build() {
     BottomSheet({
       visible: $visible,
       // 标题自绘（左对齐 + 右上角关闭）
       title: '',
-      sheetHeightVp: this.sheetHeightVp(),
       onDismiss: (): void => {
         this.cancel();
       },

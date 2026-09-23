@@ -22,22 +22,17 @@ export struct SelectSheet {
   /** 关闭（点遮罩/取消）：调用方据此按「未修改」处理 */
   onCancel?: () => void;
 
-  /** 一屏最多展示多少行（更多则在面板内滚动） */
+  /**
+   * 一屏最多展示多少行（更多则面板内滚动）。
+   * 面板整体高度由 BottomSheet 的 FIT_CONTENT 按内容量出来：选项 2-4 个就矮，
+   * 主题这种 16 个的按 8 行封顶，再高在面板里滚动。
+   */
   private static readonly MAX_VISIBLE_ROWS: number = 8;
 
-  /** 行区高度 */
+  /** 行区高度：按选项数（上限 8 行）算，面板不会出现大片空白 */
   private listHeight(): number {
     const visible: number = Math.min(this.options.length, SelectSheet.MAX_VISIBLE_ROWS);
     return visible * DesignTokens.touchTarget();
-  }
-
-  /**
-   * 面板高度 = 标题行 + 行区 + 上下留白。
-   * 不写死高度：选项只有 2-4 个时（音质/主题/下载文件名格式…）下面不该留一大片空白。
-   */
-  private sheetHeightVp(): number {
-    const titleHeight: number = this.title.length > 0 ? 40 : 8;
-    return titleHeight + this.listHeight() + 34;
   }
 
   private cancel(): void {
@@ -49,7 +44,6 @@ export struct SelectSheet {
       visible: $visible,
       // 标题自绘（左对齐 + 右上角关闭），不用 BottomSheet 的居中标题栏
       title: '',
-      sheetHeightVp: this.sheetHeightVp(),
       onDismiss: (): void => {
         this.cancel();
       },
@@ -113,7 +107,7 @@ export struct SelectSheet {
       }, (option: SettingOption) => option.value)
     }
     .width('100%')
-    .constraintSize({ maxHeight: '50%' })
+    .height(this.listHeight())
     .scrollBar(BarState.Off)
     .margin({ top: 4 })
 

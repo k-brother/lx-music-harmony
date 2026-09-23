@@ -232,12 +232,12 @@ CHECKS = [
  # 动作菜单/确认框统一走底部面板 MenuSheet：每行左图标 + 右文案，取消行只有一处
  ('动作菜单用面板渲染（每行左图标+右文案）', 'components/ui/MenuSheet.ets',
   r'SymbolGlyph\(row\.icon\)|SheetRow'),
- # 面板高度必须按行数算：内容列写死 height('100%') 会把面板顶成整屏（选项少时下方全白）
- ('面板高度按行数自适应', 'components/ui/MenuSheet.ets', r'sheetHeightVp\(',
-  r"height..100%.."),
- ('BottomSheet 支持明确高度', 'components/ui/BottomSheet.ets', r'sheetHeightVp'),
- ('选择面板高度按选项数自适应', 'components/ui/SelectSheet.ets', r'sheetHeightVp'),
- ('输入面板高度按内容自适应', 'components/ui/InputSheet.ets', r'sheetHeightVp'),
+ # 面板高度必须跟着内容走：内容列写死 height('100%') 会把面板顶成整屏（选项少时下方全白）
+ # 现在统一由 BottomSheet 的 FIT_CONTENT 量内容高度，列表类面板再把行区高度按行数（上限 8 行）固定住
+ ('面板高度跟内容自适应', 'components/ui/BottomSheet.ets', r'SheetSize\.FIT_CONTENT',
+  r"\.height\('100%'\)"),
+ ('选择面板行区按选项数（上限 8 行）', 'components/ui/SelectSheet.ets', r'height\(this\.listHeight\(\)\)'),
+ ('输入面板不写死高度', 'components/ui/InputSheet.ets', r'SheetHeader\(', r'sheetHeightVp'),
  ('退出确认用系统对话框', 'service/DialogService.ets', r'appConfirmSystem'),
  ('菜单图标按关键字映射到系统符号', 'utils/MenuIcons.ets', r'export function menuIconFor'),
  ('动作菜单不再受系统 6 项限制', 'service/DialogService.ets', r'sheetService\.menu\(',

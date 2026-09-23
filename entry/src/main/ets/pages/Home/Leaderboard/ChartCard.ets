@@ -6,6 +6,7 @@
  * 页面按 index 读状态并映射成 props（@Prop 会随父组件重渲染更新），两边职责更清楚。
  */
 import { DesignTokens } from '../../../theme/DesignTokens';
+import { composeRowDurationText, composeRowSubtitle } from '../../../core/list/RowTexts';
 import { CoverPalette } from '../../../theme/CoverPalette';
 import { t, tf, playCountUnits } from '../../../service/LocalizationService';
 import { formatPlayCount } from '../../../utils/FormatTools';
@@ -25,6 +26,10 @@ export struct ChartCard {
   /** idle / loading / ready / err */
   @Prop loadState: string = 'idle';
   @Prop expanded: boolean = false;
+  /** 设置 → 列表（与其它列表页同一套开关） */
+  @StorageProp('showListAlbum') showListAlbum: boolean = true;
+  @StorageProp('showListSource') showListSource: boolean = true;
+  @StorageProp('showListDuration') showListDuration: boolean = true;
   onToggleExpand?: () => void;
   onOpenBoard?: () => void;
   onPlaySong?: (song: BoardMusicItem) => void;
@@ -42,6 +47,16 @@ export struct ChartCard {
       return DesignTokens.info();
     }
     return DesignTokens.labelTertiary(this.theme);
+  }
+
+  /** 副标题：与歌单/榜单详情同一出口（歌手 · 专辑 · 音源，受「设置 → 列表」控制） */
+  private subtitleOf(song: BoardMusicItem): string {
+    return composeRowSubtitle(song.singer, song.album, song.source, this.showListAlbum, this.showListSource);
+  }
+
+  /** 行尾时长文本（关闭「显示时长」返回空串） */
+  private durationOf(song: BoardMusicItem): string {
+    return composeRowDurationText(song.duration, this.showListDuration);
   }
 
   /** 按压反馈：可点的行/卡片变淡（与列表页同一套） */
@@ -159,21 +174,33 @@ export struct ChartCard {
               .fontColor(this.rankColor(si + 1))
               .width(32)
               .textAlign(TextAlign.Center)
-            Column() {
+            Column({ space: 3 }) {
               Text(song.name.length > 0 ? song.name : '—')
                 .fontSize(DesignTokens.fontSubhead())
                 .fontColor(DesignTokens.labelPrimary(this.theme))
                 .maxLines(1)
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
-              Text(song.singer.length > 0 ? song.singer : '')
-                .fontSize(DesignTokens.fontCaption())
-                .fontColor(DesignTokens.labelSecondary(this.theme))
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-                .margin({ top: 3 })
+                .width('100%')
+              // 副标题与歌单详情同一套口径：歌手 · 专辑 · 音源（受「设置 → 列表」控制）
+              if (this.subtitleOf(song).length > 0) {
+                Text(this.subtitleOf(song))
+                  .fontSize(DesignTokens.fontCaption())
+                  .fontColor(DesignTokens.labelSecondary(this.theme))
+                  .maxLines(1)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  .width('100%')
+              }
             }
             .layoutWeight(1)
             .alignItems(HorizontalAlign.Start)
+
+            // 时长：与歌单详情一致（关闭「显示时长」时不占位）
+            if (this.durationOf(song).length > 0) {
+              Text(this.durationOf(song))
+                .fontSize(DesignTokens.fontCaption())
+                .fontColor(DesignTokens.labelTertiary(this.theme))
+                .margin({ left: 8 })
+            }
           }
           .width('100%')
           .padding({ left: 12, right: 12, top: 12, bottom: 12 })

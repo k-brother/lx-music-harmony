@@ -35,10 +35,12 @@ export struct BottomSheet {
   @Prop title: string = '';
   /** 标题栏右侧动作（可空）：面板里常用的「定位到当前/清空」等入口 */
   @BuilderParam trailing?: () => void;
-  /** 展开高度档位：medium（半屏，默认）/ large（接近全屏） */
-  @Prop sheetSize: string = 'medium';
-  /** 明确高度（vp）：>0 时优先于档位，用于「按内容行数自适应」的面板 */
-  @Prop sheetHeightVp: number = 0;
+  /**
+   * 展开高度档位：
+   * - content（默认）：高度 = 内容高度（选项/表单有几行就是多高，不留白）
+   * - large：接近全屏（队列、更多操作、换源这类内容多的面板）
+   */
+  @Prop sheetSize: string = 'content';
   /** 被关闭（点遮罩/下拉）时的回调，用于区分「取消」与「完成」 */
   onDismiss?: () => void;
 
@@ -65,9 +67,9 @@ export struct BottomSheet {
       this.content()
       }
       .width('100%')
-      // 内容高度：自适应面板（按行数算出高度）不能写死 100%，
-      // 否则会把面板顶到最大高度，选项少时下面留一大片空白
-      .height(this.sheetHeightVp > 0 ? this.sheetHeightVp : '100%')
+      // 内容高度交给内容自己决定：
+      // 写死 height('100%') 会把面板顶成整屏（选项少时下面一大片空白）；
+      // 面板整体高度由 bindSheet 的 FIT_CONTENT 按这里的内容量出来。
       .padding({ left: 16, right: 16, top: 4, bottom: 16 })
   }
 
@@ -79,10 +81,8 @@ export struct BottomSheet {
       .height(1)
       .opacity(0)
       .bindSheet($$this.visible, this.SheetContent(), {
-        // 传了明确高度就用它（动作菜单按行数算），否则用档位
-        height: this.sheetHeightVp > 0
-          ? this.sheetHeightVp
-          : (this.sheetSize === 'large' ? SheetSize.LARGE : SheetSize.MEDIUM),
+        // 高度 = 内容高度；声明 large 的面板仍按大面板展示
+        height: this.sheetSize === 'large' ? SheetSize.LARGE : SheetSize.FIT_CONTENT,
         dragBar: true,
         showClose: false,
         backgroundColor: DesignTokens.card(this.theme),

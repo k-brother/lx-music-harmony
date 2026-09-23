@@ -21,6 +21,8 @@ export struct NavBar {
   @Prop showBack: boolean = true;
   /** 滚动收缩态：true 时用常规标题 + 分隔线 */
   @Prop collapsed: boolean = false;
+  /** 标题对齐：center（默认，二级页）/ start（一级 Tab 页，标题贴左） */
+  @Prop titleAlign: string = 'center';
   /** 右侧动作区 */
   @BuilderParam trailing?: () => void;
 
@@ -61,8 +63,8 @@ export struct NavBar {
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .layoutWeight(1)
-          .textAlign(TextAlign.Center)
-          .margin({ left: 4, right: 4 })
+          .textAlign(this.titleAlign === 'start' ? TextAlign.Start : TextAlign.Center)
+          .margin({ left: this.titleAlign === 'start' ? 8 : 4, right: 4 })
       }
 
       if (this.trailing) {

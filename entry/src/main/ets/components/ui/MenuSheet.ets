@@ -37,19 +37,6 @@ export struct MenuSheet {
     return visible * DesignTokens.touchTarget();
   }
 
-  /**
-   * 面板整体高度 = 标题行 + 说明（可选）+ 行区 + 上下留白。
-   *
-   * bindSheet 的 FIT_CONTENT 会被「内容 100% 高度」顶成整屏，所以这里直接算明确高度：
-   * 选项少时面板就矮（不留白），选项多时最多 8 行、再高就在面板里滚动。
-   */
-  private sheetHeightVp(): number {
-    const titleHeight: number = this.title.length > 0 ? 40 : 8;
-    const messageHeight: number = this.message.length > 0 ? 22 : 0;
-    // 上下内边距（BottomSheet 的 4 + 16）+ 拖拽条留白
-    const padding: number = 44;
-    return titleHeight + messageHeight + this.contentHeight() + padding;
-  }
 
   private cancel(): void {
     this.visible = dismissSheet(this.onCancel);
@@ -79,7 +66,6 @@ export struct MenuSheet {
       // 标题自己画（左对齐），不用 BottomSheet 的居中标题栏
       title: '',
       // 高度按行数算（此前固定 medium，选项少时下面一大片空白）
-      sheetHeightVp: this.sheetHeightVp(),
       onDismiss: (): void => {
         this.cancel();
       },
