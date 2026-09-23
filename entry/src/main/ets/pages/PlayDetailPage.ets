@@ -10,7 +10,7 @@ import { playedWordCount, type WordLyricLine } from '../core/lyric/WordLyric';
 import { DesignTokens } from '../theme/DesignTokens';
 import { Breakpoints } from '../theme/Breakpoints';
 import { t } from '../service/LocalizationService';
-import { settingsService, type PlayMode } from '../service/SettingsService';
+import { settingsService } from '../service/SettingsService';
 import { DesktopLyricManager } from '../components/common/DesktopLyric';
 import { sleepTimerService } from '../service/SleepTimerService';
 import type { SleepTimerState } from '../service/SleepTimerService';

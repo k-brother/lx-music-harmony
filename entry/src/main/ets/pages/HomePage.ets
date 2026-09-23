@@ -15,7 +15,7 @@ import { getHotSearch, getTipListInfo, HotSearchItem, Source } from '../core/sea
 import { PlayerBar } from '../components/player/PlayerBar';
 import { appActionMenu, appToast } from '../service/DialogService';
 import { showSongItemMenu } from './SonglistDetail/SonglistMenus';
-import { songRowToQueueItem, type SongRowLike } from '../core/list/SongMappers';
+import { songRowToQueueItem } from '../core/list/SongMappers';
 import {
   addRowToDefaultList,
   addRowToDislike,
@@ -26,6 +26,8 @@ import {
 } from './SonglistDetail/SonglistRowActions';
 import type { SongItem } from './SonglistDetail/SonglistTypes';
 import type { ShareResult } from '../service/ShareService';
+import { getStorageService } from '../core/interfaces/IStorageService';
+import { isBuiltinSourceId } from '../core/music/MusicSourceRegistry';
 import { stateEvent } from '../event/StateEvent';
 import { SongListView } from './Home/SongListView';
 import { LeaderboardView } from './Home/LeaderboardView';
@@ -55,6 +57,8 @@ import { on, EventTypes } from '../service/EventBus';
 
 /** 搜索输入框的焦点键（供 FocusController 定位，浮层出现时自动聚焦） */
 const SEARCH_INPUT_KEY: string = 'homeSearchInput';
+/** 首页「上次选中的音源」存储键（与「设置 → 默认搜索源」分开，避免临时切换改写设置） */
+const HOME_SOURCE_KEY: string = 'home.lastSource';
 
 // 音乐信息类型
 export interface MusicInfoType {
@@ -222,6 +226,32 @@ export struct HomePage {
     }
     this.showHotSearchSetting = settings.showHotSearch;
     this.showSearchHistorySetting = settings.showSearchHistory;
+    // 首页顶部选过的音源优先（设置里的「默认搜索源」只在还没选过时生效）
+    void this.restoreLastSource();
+  }
+
+  /**
+   * 恢复用户上次在首页选的音源。
+   *
+   * 与「设置 → 搜索 → 默认搜索源」分开存：设置项是用户显式声明的默认值，
+   * 不该被首页的一次临时切换静默改写；这里单独记「上次看的源」。
+   */
+  private async restoreLastSource(): Promise<void> {
+    try {
+      const saved: string = await getStorageService().getString(HOME_SOURCE_KEY, '');
+      if (isBuiltinSourceId(saved)) {
+        this.currentSource = saved;
+      }
+    } catch (err) {
+      hilog.warn(0x0001, 'HomePage', 'restoreLastSource failed: %{public}s', JSON.stringify(err));
+    }
+  }
+
+  /** 记住首页选中的音源（失败只告警：不影响本次浏览） */
+  private persistLastSource(id: string): void {
+    getStorageService().setString(HOME_SOURCE_KEY, id).catch((err: Error) => {
+      hilog.warn(0x0001, 'HomePage', 'persistLastSource failed: %{public}s', err.message);
+    });
   }
 
   private async loadSearchHistory(): Promise<void> {
@@ -579,6 +609,7 @@ export struct HomePage {
     this.sourceSwitchLocked = true;
     this.sourceContentEpoch++;
     this.currentSource = id;
+    this.persistLastSource(id);
     setTimeout((): void => {
       this.sourceSwitchLocked = false;
     }, 180);
