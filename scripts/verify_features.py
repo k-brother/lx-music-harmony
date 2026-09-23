@@ -192,6 +192,15 @@ CHECKS = [
  ('评论行 Builder 只接收 index', 'pages/CommentPage.ets', r'buildCommentItem\(index: number\)',
   r'buildCommentItem\(comment:'),
  ('评论点赞态读组件状态', 'pages/CommentPage.ets', r'this\.comments\[index\]\.isLiked'),
+ # 播放量格式化曾经在 4 处各写一遍（阈值/空格/小数不同，真机出现过 8550.7）
+ ('播放量格式化单一出口', 'utils/FormatTools.ets', r'export function formatPlayCount'),
+ ('排行榜播放量走统一实现', 'pages/Home/LeaderboardView.ets', r'formatPlayCount\(count, t\(',
+  r"toFixed\(1\) \+ ' ' \+ t\('ten_thousand_unit'\)"),
+ ('歌单卡片播放量走统一实现', 'pages/Home/SongListView.ets', r'formatPlayCount\(num, t\(',
+  r"toFixed\(1\) \+ ' ' \+ t\('ten_thousand_unit'\)"),
+ # 榜单封面不允许再拿「第一首歌的封面」冒充（不同榜单会长得一模一样）
+ ('榜单封面只用榜单自己的图', 'pages/Home/LeaderboardView.ets', r'placeholderGradient',
+  r'card\.topSongs\[i\]\.pic'),
 ]
 
 fails = []

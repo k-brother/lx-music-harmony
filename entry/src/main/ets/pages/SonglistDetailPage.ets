@@ -3,6 +3,7 @@
 
 import hilog from '@ohos.hilog';
 import { showAppToast, TOAST_DURATION_SHORT } from '../utils/Toast';
+import { formatPlayCount } from '../utils/FormatTools';
 import { PlayerBar } from '../components/player/PlayerBar';
 import { getSongListDetail, setDownloadContext, download, type SongListDetailResult } from '../core/music/MusicFeatureEntry';
 import { NavigationParams } from '../service/NavigationService';
@@ -507,13 +508,9 @@ export struct SonglistDetailPage {
     return 0;
   }
 
+  /** 播放量格式统一在 utils/FormatTools */
   formatPlayCountDisplay(count: number): string {
-    if (count >= 100000000) {
-      return (count / 100000000).toFixed(1) + ' ' + t('billion_unit');
-    } else if (count >= 10000) {
-      return (count / 10000).toFixed(1) + ' ' + t('ten_thousand_unit');
-    }
-    return count.toString();
+    return formatPlayCount(count, t('ten_thousand_unit'), t('billion_unit'));
   }
 
   // 播放单首歌曲

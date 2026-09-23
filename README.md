@@ -713,6 +713,8 @@ python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 | 「应用启动」冒烟偶发假失败 | 断言只看初始化日志，紧跟清理日志之后可能已滚出缓冲 | 增加「进程真的在跑（`pidof`）」的等价判据 |
 | 播放页进度条两端显示同一个时间 | 右侧标签误写成 `currentTime`（应为总时长） | 改为 `totalTime`，真机验证 01:18 / 03:25；并加静态判据防回归（截图走查才发现） |
 | 点「播放模式」没反应（其实模式已切换并落库） | 动态文案/图标当 `@Builder` 参数传入，状态变化不会刷新 Builder 内容 | 按钮 Builder 只收静态参数（图标 + 动作标识），会变的内容在 Builder 内读 `this.*`；评论行点赞态同类问题一并修（`buildCommentItem` 改为只收 index） |
+| 歌单卡片播放量出现 `8550.7` 这种带小数的值 | 4 处各自实现的格式化，一万以下直接 `toString()` | 统一到 `FormatTools.formatPlayCount` 并取整；真机复验 8551 / 4.1 万 / 5.5 万 |
+| 排行榜里不同榜单卡片封面一模一样 | 没有榜单图时拿「第一首歌的封面」兜底，两个榜 #1 相同就完全一样 | 改为按榜单 id 生成的渐变占位块（每榜一色）+ 榜单图标；真机复验 流行指数榜=红、热歌榜=琥珀 |
 
 > **两条实测结论（都做过对照实验）**
 >
@@ -756,6 +758,8 @@ python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 | `PlayDetailPage` 1589 行里 12 个「请求守卫」字段 + 200 行加载逻辑 | `PlayDetail/PlayMediaAssets` 类 | 封面与歌词共用同一套守卫（进行中跳过 / 同曲失败跳过 / 序号过期丢弃 / 退避重试），页面只负责把结果写进 @State |
 | `PlayDetailPage` 底部控制条（~130 行 @Builder） | `PlayDetail/PlayerControls` 组件 | 组件只认「显示值 + 回调」，seek 判定留在页面；按钮 Builder 只收静态参数、动态内容在 Builder 内读状态（见下方实测结论） |
 | 评论行 `@Builder buildCommentItem(comment, index)` | `buildCommentItem(index)` + `CommentBody(index)` | 评论对象不进参数（点赞态属于会变的状态），Builder 内从 `this.comments[index]` 读 |
+| 播放量格式化在 4 处各写一遍（排行榜卡片/歌单卡片/歌单详情/搜索结果） | `utils/FormatTools.formatPlayCount(count, 万, 亿)` | 阈值、空格、小数位统一；单位文案由调用方注入，FormatTools 保持纯函数 |
+| 榜单卡片封面取「第一首歌的封面」兜底 | `LeaderboardView.placeholderGradient` | 没有榜单图时用按榜单 id 生成的渐变块 + 榜单图标：各榜颜色不同、不再误导成同一张榜 |
 
 ## 设备验收清单（需要真机确认，代码侧已按此实现）
 

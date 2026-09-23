@@ -7,6 +7,7 @@
  */
 import { DesignTokens } from '../../../theme/DesignTokens';
 import { t, sourceLabel } from '../../../service/LocalizationService';
+import { formatPlayCount } from '../../../utils/FormatTools';
 import { ListRow } from '../../../components/ui/ListRow';
 import { StateView } from '../../../components/ui/StateView';
 
@@ -87,15 +88,9 @@ export struct SearchSonglistResultList {
   @Prop results: SearchSonglistRow[] = [];
   onOpen?: (index: number) => void;
 
-  /** 播放量：亿/万分级（与首页其它位置口径一致） */
-  private formatPlayCount(count: number): string {
-    if (count >= 100000000) {
-      return `${(count / 100000000).toFixed(1)}${t('billion_unit')}`;
-    }
-    if (count >= 10000) {
-      return `${(count / 10000).toFixed(1)}${t('ten_thousand_unit')}`;
-    }
-    return count.toString();
+  /** 播放量：与首页其它位置同一实现（utils/FormatTools.formatPlayCount） */
+  private formatPlayCountText(count: number): string {
+    return formatPlayCount(count, t('ten_thousand_unit'), t('billion_unit'));
   }
 
   build() {
@@ -136,7 +131,7 @@ export struct SearchSonglistResultList {
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
                   .width('100%')
                 Text(item.playCount > 0
-                  ? `${item.author} · ${this.formatPlayCount(item.playCount)}`
+                  ? `${item.author} · ${this.formatPlayCountText(item.playCount)}`
                   : item.author)
                   .fontSize(DesignTokens.fontCaption())
                   .fontColor(DesignTokens.labelTertiary(this.theme))

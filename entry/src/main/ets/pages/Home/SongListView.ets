@@ -1,4 +1,5 @@
 import { t } from '../../service/LocalizationService';
+import { formatPlayCount } from '../../utils/FormatTools';
 import { EmptyView } from '../../components/common/EmptyView';
 // SongList 视图 - 歌单列表视图
 // 优化：字体放大、标签筛选、下拉刷新
@@ -721,7 +722,7 @@ export struct SongListView {
           SymbolGlyph($r('sys.symbol.play_fill'))
             .fontSize(12)
             .fontColor(['#FFFFFF'])
-          Text(this.formatPlayCount(item.play_count))
+          Text(this.formatPlayCountValue(item.play_count))
             .fontSize(10)
             .fontColor('#FFFFFF')
             .margin({ left: 3 })
@@ -766,11 +767,12 @@ export struct SongListView {
     })
   }
 
-  private formatPlayCount(count: string): string {
+  /** 播放量格式统一在 utils/FormatTools（接口给的是字符串，这里负责解析） */
+  private formatPlayCountValue(count: string): string {
     const num = parseFloat(count);
-    if (isNaN(num)) return '0';
-    if (num >= 100000000) return (num / 100000000).toFixed(1) + ' ' + t('billion_unit');
-    if (num >= 10000) return (num / 10000).toFixed(1) + ' ' + t('ten_thousand_unit');
-    return num.toString();
+    if (isNaN(num)) {
+      return '0';
+    }
+    return formatPlayCount(num, t('ten_thousand_unit'), t('billion_unit'));
   }
 }

@@ -1,4 +1,5 @@
 import { t, tf } from '../../service/LocalizationService';
+import { formatPlayCount } from '../../utils/FormatTools';
 import { SkeletonGridItem } from '../../components/common/SkeletonView';
 // 排行榜视图：纵向分组卡片 + 榜单内预览曲目 + 展开/收起与进入完整榜单
 // 信息架构：一屏浏览多个榜；弱打扰预览 3 条；展开看更多；右侧箭头进二级页
@@ -665,27 +666,42 @@ export struct LeaderboardView {
     });
   }
 
+  /** 播放量格式统一在 utils/FormatTools（单位文案由调用方注入，保持纯函数） */
   formatPlayCount(count: number): string {
-    if (count >= 100000000) {
-      return (count / 100000000).toFixed(1) + ' ' + t('billion_unit');
-    }
-    if (count >= 10000) {
-      return (count / 10000).toFixed(1) + ' ' + t('ten_thousand_unit');
-    }
-    return count.toString();
+    return formatPlayCount(count, t('ten_thousand_unit'), t('billion_unit'));
   }
 
+  /**
+   * 榜单封面：只用榜单自己的图。
+   *
+   * 之前拿「第一首歌的封面」兜底（真机截图里流行指数榜和热歌榜都是同一张专辑图），
+   * 不同榜单看起来一模一样、还会让人误以为是同一张榜 —— 那是误导，不是封面。
+   * 没有榜单图时返回空，交给下方按榜单 id 生成的渐变占位块（每个榜颜色不同）。
+   */
   resolveCardCover(card: LeaderboardCardState): string {
     if (card.board.pic && card.board.pic.length > 0) {
       return this.normalizePicUrl(card.board.pic);
     }
-    for (let i = 0; i < card.topSongs.length; i++) {
-      const p = card.topSongs[i].pic;
-      if (p && p.length > 0) {
-        return this.normalizePicUrl(p);
-      }
-    }
     return '';
+  }
+
+  /** 无榜单图时的占位：按榜单 id 稳定取一组品牌色渐变，保证各榜视觉可区分 */
+  private placeholderGradient(card: LeaderboardCardState): LinearGradientOptions {
+    const palettes: string[][] = [
+      ['#E63946', '#B5171F'],
+      ['#F2845C', '#C9552E'],
+      ['#5C7CFA', '#3B54B8'],
+      ['#2FA36B', '#1C7248'],
+      ['#8E5CF2', '#5F35B8'],
+      ['#E0A33B', '#B27322'],
+    ];
+    const key = `${card.board.source}__${card.board.id}`;
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) {
+      hash = (hash * 31 + key.charCodeAt(i)) % 9973;
+    }
+    const pair = palettes[hash % palettes.length];
+    return { angle: 135, colors: [[pair[0], 0.0], [pair[1], 1.0]] };
   }
 
   /** 按索引读封面，供列表项 build 直接订阅 cardStates，避免 @Builder 传入整卡快照不刷新 */
@@ -986,11 +1002,18 @@ export struct LeaderboardView {
                 .borderRadius(14)
                 .objectFit(ImageFit.Cover)
             } else {
-              Image($r('app.media.ic_player_cover_placeholder'))
+              // 没有榜单图：用按榜单 id 生成的渐变块 + 榜单图标（各榜颜色不同，不再是同一张专辑图）
+              Column() {
+                SymbolGlyph($r('sys.symbol.list_number'))
+                  .fontSize(30)
+                  .fontColor([DesignTokens.onAccent()])
+              }
               .width(72)
               .height(72)
               .borderRadius(14)
-              .objectFit(ImageFit.Cover)
+              .justifyContent(FlexAlign.Center)
+              .alignItems(HorizontalAlign.Center)
+              .linearGradient(this.placeholderGradient(this.cardStates[index]))
             }
           }
           .width(72)

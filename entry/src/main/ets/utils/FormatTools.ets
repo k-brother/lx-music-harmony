@@ -59,3 +59,25 @@ export function formatDuration(seconds: number): string {
   const pad = (value: number): string => (value < 10 ? `0${value}` : `${value}`);
   return `${pad(minute)}:${pad(second)}`;
 }
+
+/**
+ * 播放量/播放次数：`8550` / `5.5 万` / `1.2 亿`
+ *
+ * 之前这段逻辑在排行榜卡片、歌单卡片、歌单详情、搜索结果里各写了一遍，
+ * 阈值、空格、小数位都不同（真机截图里出现过 `8550.7` 这种带小数的播放量）。
+ * 单位文案由调用方传入，保持本模块是纯函数、不依赖 i18n。
+ */
+export function formatPlayCount(
+  count: number, tenThousandUnit: string, billionUnit: string): string {
+  if (!Number.isFinite(count) || count <= 0) {
+    return '0';
+  }
+  if (count >= 100000000) {
+    return `${(count / 100000000).toFixed(1)} ${billionUnit}`;
+  }
+  if (count >= 10000) {
+    return `${(count / 10000).toFixed(1)} ${tenThousandUnit}`;
+  }
+  // 一万以下直接取整：接口偶尔给出小数（如 8550.7），展示成整数才自然
+  return `${Math.round(count)}`;
+}
