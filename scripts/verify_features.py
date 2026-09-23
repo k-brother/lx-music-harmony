@@ -218,6 +218,10 @@ CHECKS = [
  # 下载失败原因会显示在任务行里：必须走词条，不能写死中文
  ('下载失败原因走词条', 'core/music/download/DownloadFiles.ets', r"t\('media_save_fail'\)"),
  ('网络不可用提示走词条', 'core/music/sources/kw/kwAlbumPic.ets', r"t\('error_network_unavailable'\)"),
+ # 死控件与空实现清理：浮层放大镜可用、单曲菜单的列表动作改为「有实现才出现」
+ ('排行榜浮层放大镜可用', 'pages/Home/LeaderboardView.ets',
+  r'leaderboardOverlaySearchActions\.onMagnifierClick[\s\S]{0,140}?onSearchChange\(this\.overlaySearchText\)'),
+ ('单曲菜单列表动作可选', 'pages/SonglistDetail/SonglistMenus.ets', r'onMovePosition\?:'),
  # 提示/确认框统一出口：页面不再自己 getPromptAction().showDialog 拼按钮与颜色
  ('确认与提示统一走 DialogService', 'service/DialogService.ets', r'export async function appAlert'),
  ('日志页清空走统一确认', 'pages/LogPage.ets', r'appConfirm\(',

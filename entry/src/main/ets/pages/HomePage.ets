@@ -184,7 +184,7 @@ export struct HomePage {
     this.globalSearchStripActions.onSubmit = (): void => {
       void this.submitGlobalSearchFromStrip();
     };
-    this.globalSearchStripActions.onTextChange = (_t: string): void => {};
+    // 搜索条只负责「点开浮层」，条内文字变化不需要处理（SearchStripActions 默认空实现）
 
     // 设置下载上下文
     this.setDownloadContext();
@@ -856,8 +856,6 @@ export struct HomePage {
       onViewAlbum: (target: SongItem): void => {
         this.startSearchFromMenu(target.album);
       },
-      onMovePosition: (): void => {},
-      onMoveToList: (): void => {},
     }, {
       // 搜索结果没有「所属列表」，因此不提供改位置/移动/多选
       canEditPosition: false,

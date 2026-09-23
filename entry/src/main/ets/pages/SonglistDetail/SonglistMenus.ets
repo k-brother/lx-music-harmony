@@ -23,10 +23,10 @@ export interface SongItemMenuHandlers {
   onSourceDetail: (song: SongItem) => void;
   onViewArtist: (song: SongItem) => void;
   onViewAlbum: (song: SongItem) => void;
-  /** 调整歌曲在该列表中的位置（仅本地/自建列表可用） */
-  onMovePosition: (song: SongItem) => void;
-  /** 把歌曲移动到另一个自建列表 */
-  onMoveToList: (song: SongItem) => void;
+  /** 调整歌曲在该列表中的位置（仅本地/自建列表可用；不传则菜单不出现该项） */
+  onMovePosition?: (song: SongItem) => void;
+  /** 把歌曲移动到另一个自建列表（同上） */
+  onMoveToList?: (song: SongItem) => void;
 }
 
 /**
@@ -67,10 +67,15 @@ export async function showSongItemMenu(
   }
 
   if (options?.canEditPosition) {
-    entries.push({ key: 'move_position', label: t('list_change_position') });
+    // 能力开关与回调必须同时具备：只有开关没有实现时，菜单里会出现点了没反应的项
+    if (handlers.onMovePosition) {
+      entries.push({ key: 'move_position', label: t('list_change_position') });
+    }
   }
   if (options?.canMoveToList) {
-    entries.push({ key: 'move_to_list', label: t('list_move_to') });
+    if (handlers.onMoveToList) {
+      entries.push({ key: 'move_to_list', label: t('list_move_to') });
+    }
   }
 
   entries.push({ key: 'dislike', label: t('dislike_title') });
@@ -111,10 +116,14 @@ export async function showSongItemMenu(
       }
       break;
     case 'move_position':
-      handlers.onMovePosition(song);
+      if (handlers.onMovePosition) {
+        handlers.onMovePosition(song);
+      }
       break;
     case 'move_to_list':
-      handlers.onMoveToList(song);
+      if (handlers.onMoveToList) {
+        handlers.onMoveToList(song);
+      }
       break;
     case 'dislike':
       handlers.onDislike(song);

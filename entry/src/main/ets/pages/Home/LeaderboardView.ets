@@ -111,7 +111,7 @@ export struct LeaderboardView {
   aboutToAppear() {
     this.scrollTopDefer.start();
     this.coverInteractionUnlocked = true;
-    this.leaderboardSearchActions.onTextChange = (_t: string): void => {};
+    // 条本身只用来打开浮层，文字变化不需要处理（SearchStripActions 默认就是空实现）
     this.leaderboardSearchActions.onMagnifierClick = (): void => {
       this.openSearchOverlay();
     };
@@ -122,7 +122,10 @@ export struct LeaderboardView {
     this.leaderboardOverlaySearchActions.onTextChange = (t: string): void => {
       this.onSearchChange(t);
     };
-    this.leaderboardOverlaySearchActions.onMagnifierClick = (): void => {};
+    // 浮层里的放大镜此前是空实现（点了没反应）：按「提交」一样触发筛选
+    this.leaderboardOverlaySearchActions.onMagnifierClick = (): void => {
+      this.onSearchChange(this.overlaySearchText);
+    };
     this.leaderboardOverlaySearchActions.onSubmit = (): void => {
       this.onSearchChange(this.overlaySearchText);
     };
