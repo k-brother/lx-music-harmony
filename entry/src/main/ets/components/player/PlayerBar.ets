@@ -188,114 +188,11 @@ export struct PlayerBar {
   @Builder
   private BarCore() {
     Row() {
-      if (this.canRenderMiniCover(this.pic)) {
-        Image(this.pic)
-          .width(48)
-          .height(48)
-          .borderRadius(DesignTokens.radiusCover())
-          .objectFit(ImageFit.Cover)
-          .onError(() => {
-            this.pic = '';
-          })
-          // 无障碍：迷你条封面点进去就是播放页
-          .accessibilityText(t('a11y_play'))
-          .onClick(() => {
-            this.navigateToPlayDetailSafely();
-          })
-          .animation({ duration: this.showAnimation ? 200 : 0, curve: Curve.EaseOut })
-      } else {
-        Image($r('app.media.ic_player_cover_placeholder'))
-          .width(48)
-          .height(48)
-          .borderRadius(DesignTokens.radiusCover())
-          .objectFit(ImageFit.Cover)
-          .accessibilityText(t('a11y_play'))
-          .onClick(() => {
-            this.navigateToPlayDetailSafely();
-          })
-      }
+      this.MiniCover()
 
-      Column() {
-        Text(this.musicName || t('not_playing_text'))
-          .fontSize(DesignTokens.fontBody())
-          .fontWeight(FontWeight.Medium)
-          .fontColor(DesignTokens.labelPrimary(this.theme))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(this.singer || t('select_song_hint'))
-          .fontSize(DesignTokens.fontCaption())
-          .fontColor(DesignTokens.labelSecondary(this.theme))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .margin({ top: 3 })
-      }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
-      .margin({ left: 12 })
-      // 点歌名/歌手区域也进播放页（主流迷你播放条都是「点哪都能进详情」）
-      .accessibilityText(t('a11y_open_player'))
-      .onClick(() => {
-        this.navigateToPlayDetailSafely();
-      })
+      this.MiniTitle()
 
-      Row({ space: 10 }) {
-        Stack() {
-          Circle({ width: DesignTokens.ctrlSm(), height: DesignTokens.ctrlSm() })
-            .fill(DesignTokens.mutedFill(this.theme))
-          Image($r('app.media.ic_pd_prev'))
-            .width(DesignTokens.iconSm())
-            .height(DesignTokens.iconSm())
-            .fillColor(DesignTokens.labelPrimary(this.theme))
-        }
-        .scale({ x: 0.95, y: 0.95 })
-        .responseRegion({ x: -7, y: -7, width: 44, height: 44 })
-        .stateStyles({ pressed: this.pressDim })
-        .accessibilityText(t('a11y_previous'))
-        .onClick(() => {
-          void this.playPrev();
-        })
-
-        Stack() {
-          Circle({ width: 36, height: 36 })
-            .fill(DesignTokens.accent())
-          if (this.isPlay) {
-            Image($r('app.media.ic_pd_pause'))
-              .width(13)
-              .height(13)
-              .fillColor(DesignTokens.onAccent())
-          } else {
-            Image($r('app.media.ic_pd_play'))
-              .width(13)
-              .height(13)
-              .fillColor(DesignTokens.onAccent())
-              .margin({ left: 1 })
-          }
-        }
-        .scale({ x: 0.9, y: 0.9 })
-        .responseRegion({ x: -4, y: -4, width: 44, height: 44 })
-        .stateStyles({ pressed: this.pressDim })
-        .accessibilityText(t('a11y_play'))
-        .onClick(() => {
-          void this.togglePlay();
-        })
-
-        Stack() {
-          Circle({ width: DesignTokens.ctrlSm(), height: DesignTokens.ctrlSm() })
-            .fill(DesignTokens.mutedFill(this.theme))
-          Image($r('app.media.ic_pd_next'))
-            .width(DesignTokens.iconSm())
-            .height(DesignTokens.iconSm())
-            .fillColor(DesignTokens.labelPrimary(this.theme))
-        }
-        .scale({ x: 0.95, y: 0.95 })
-        .responseRegion({ x: -7, y: -7, width: 44, height: 44 })
-        .stateStyles({ pressed: this.pressDim })
-        .accessibilityText(t('a11y_next'))
-        .onClick(() => {
-          void this.playNext();
-        })
-      }
-      .alignItems(VerticalAlign.Center)
+      this.MiniControls()
     }
     .width('100%')
     .height(62)
@@ -310,6 +207,128 @@ export struct PlayerBar {
     .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
     .shadow(DesignTokens.floatingShadow())
     .alignItems(VerticalAlign.Center)
+  }
+
+  /** 迷你条封面：点击进入播放页；加载失败回退占位图 */
+  @Builder
+  private MiniCover() {
+    if (this.canRenderMiniCover(this.pic)) {
+      Image(this.pic)
+        .width(48)
+        .height(48)
+        .borderRadius(DesignTokens.radiusCover())
+        .objectFit(ImageFit.Cover)
+        .onError(() => {
+          this.pic = '';
+        })
+        // 无障碍：迷你条封面点进去就是播放页
+        .accessibilityText(t('a11y_play'))
+        .onClick(() => {
+          this.navigateToPlayDetailSafely();
+        })
+        .animation({ duration: this.showAnimation ? 200 : 0, curve: Curve.EaseOut })
+    } else {
+      Image($r('app.media.ic_player_cover_placeholder'))
+        .width(48)
+        .height(48)
+        .borderRadius(DesignTokens.radiusCover())
+        .objectFit(ImageFit.Cover)
+        .accessibilityText(t('a11y_play'))
+        .onClick(() => {
+          this.navigateToPlayDetailSafely();
+        })
+    }
+
+  }
+
+  /** 歌名 / 歌手（整块可点进播放页） */
+  @Builder
+  private MiniTitle() {
+    Column() {
+      Text(this.musicName || t('not_playing_text'))
+        .fontSize(DesignTokens.fontBody())
+        .fontWeight(FontWeight.Medium)
+        .fontColor(DesignTokens.labelPrimary(this.theme))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Text(this.singer || t('select_song_hint'))
+        .fontSize(DesignTokens.fontCaption())
+        .fontColor(DesignTokens.labelSecondary(this.theme))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .margin({ top: 3 })
+    }
+    .alignItems(HorizontalAlign.Start)
+    .layoutWeight(1)
+    .margin({ left: 12 })
+    // 点歌名/歌手区域也进播放页（主流迷你播放条都是「点哪都能进详情」）
+    .accessibilityText(t('a11y_open_player'))
+    .onClick(() => {
+      this.navigateToPlayDetailSafely();
+    })
+
+  }
+
+  /** 上一首 / 播放暂停 / 下一首 */
+  @Builder
+  private MiniControls() {
+    Row({ space: 10 }) {
+      Stack() {
+        Circle({ width: DesignTokens.ctrlSm(), height: DesignTokens.ctrlSm() })
+          .fill(DesignTokens.mutedFill(this.theme))
+        Image($r('app.media.ic_pd_prev'))
+          .width(DesignTokens.iconSm())
+          .height(DesignTokens.iconSm())
+          .fillColor(DesignTokens.labelPrimary(this.theme))
+      }
+      .scale({ x: 0.95, y: 0.95 })
+      .responseRegion({ x: -7, y: -7, width: 44, height: 44 })
+      .stateStyles({ pressed: this.pressDim })
+      .accessibilityText(t('a11y_previous'))
+      .onClick(() => {
+        void this.playPrev();
+      })
+
+      Stack() {
+        Circle({ width: 36, height: 36 })
+          .fill(DesignTokens.accent())
+        if (this.isPlay) {
+          Image($r('app.media.ic_pd_pause'))
+            .width(13)
+            .height(13)
+            .fillColor(DesignTokens.onAccent())
+        } else {
+          Image($r('app.media.ic_pd_play'))
+            .width(13)
+            .height(13)
+            .fillColor(DesignTokens.onAccent())
+            .margin({ left: 1 })
+        }
+      }
+      .scale({ x: 0.9, y: 0.9 })
+      .responseRegion({ x: -4, y: -4, width: 44, height: 44 })
+      .stateStyles({ pressed: this.pressDim })
+      .accessibilityText(t('a11y_play'))
+      .onClick(() => {
+        void this.togglePlay();
+      })
+
+      Stack() {
+        Circle({ width: DesignTokens.ctrlSm(), height: DesignTokens.ctrlSm() })
+          .fill(DesignTokens.mutedFill(this.theme))
+        Image($r('app.media.ic_pd_next'))
+          .width(DesignTokens.iconSm())
+          .height(DesignTokens.iconSm())
+          .fillColor(DesignTokens.labelPrimary(this.theme))
+      }
+      .scale({ x: 0.95, y: 0.95 })
+      .responseRegion({ x: -7, y: -7, width: 44, height: 44 })
+      .stateStyles({ pressed: this.pressDim })
+      .accessibilityText(t('a11y_next'))
+      .onClick(() => {
+        void this.playNext();
+      })
+    }
   }
 
   /**
