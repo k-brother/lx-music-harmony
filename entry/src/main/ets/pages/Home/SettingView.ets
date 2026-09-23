@@ -30,25 +30,61 @@ export struct SettingView {
   @StorageProp('theme') theme: string = 'light';
   /** 一多：窗口宽度（vp），大屏时内容列居中 */
   @StorageProp('windowWidthVp') windowWidthVp: number = 360;
+  /** 一多：断点（lg 时设置分组分两列，避免单列拉得过长） */
+  @StorageProp('breakpoint') breakpoint: string = 'sm';
+
+  /** 左列分组（常用项） */
+  @Builder
+  LeftSections() {
+    BasicSection()
+    PlaybackSection()
+    DownloadSection()
+    SearchSection()
+    ListSection()
+    StorageSection()
+  }
+
+  /** 右列分组（进阶项） */
+  @Builder
+  RightSections() {
+    BackupSection()
+    SyncSection()
+    AppearanceSection()
+    DesktopLyricSection()
+    CustomSourceSection()
+    AboutSection()
+  }
 
   build() {
     Scroll() {
       Column() {
-        BasicSection()
-        PlaybackSection()
-        DownloadSection()
-        SearchSection()
-        ListSection()
-        StorageSection()
-        BackupSection()
-        SyncSection()
-        AppearanceSection()
-        DesktopLyricSection()
-        CustomSourceSection()
-        AboutSection()
+        // 平板横屏 / PC：分成两列，一屏能看到更多分组（与 iPad 版设置页的密度接近）
+        if (Breakpoints.isLarge(this.breakpoint)) {
+          Row({ space: 0 }) {
+            Column() {
+              this.LeftSections()
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Start)
+
+            Column() {
+              this.RightSections()
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Start)
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Top)
+        } else {
+          Column() {
+            this.LeftSections()
+            this.RightSections()
+          }
+          .width('100%')
+        }
       }
       .width('100%')
-      // 分组卡片左右留白（8pt 网格，和商业化设置页一致）；大屏额外居中，避免卡片被拉满整屏
+      // 分组卡片左右留白（8pt 网格）；大屏额外居中，避免卡片被拉满整屏
       .padding({
         left: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
         right: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),

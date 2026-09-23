@@ -17,6 +17,11 @@ export class Breakpoints {
     return bp === 'md' || bp === 'lg';
   }
 
+  /** 只看最大档（>=840vp）：设置页分两列、内容列居中用它 */
+  static isLarge(bp: string): boolean {
+    return bp === 'lg';
+  }
+
   /**
    * 内容两侧留白：窗口比内容列宽时均分多余空间。
    * 直接给列表容器加这个 padding，就能在大屏上得到居中的内容列，
