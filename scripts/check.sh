@@ -47,6 +47,9 @@ python3 "${SCRIPT_DIR}/check_subscription_cleanup.py"
 echo "== 设计 token 收口 =="
 python3 "${SCRIPT_DIR}/check_design_tokens.py"
 
+echo "== 资源引用 =="
+python3 "${SCRIPT_DIR}/check_resources.py"
+
 echo "== 系统符号渲染（SymbolGlyph）=="
 python3 "${SCRIPT_DIR}/check_symbols.py"
 

@@ -17,36 +17,8 @@
       "value": "需要网络权限来获取音乐数据"
     },
     {
-      "name": "datasync_permission_reason",
-      "value": "需要分布式数据同步权限来在多设备间同步音乐数据"
-    },
-    {
-      "name": "read_media_permission_reason",
-      "value": "需要读取媒体权限来访问音乐文件"
-    },
-    {
-      "name": "write_media_permission_reason",
-      "value": "需要写入媒体权限来保存音乐文件"
-    },
-    {
-      "name": "media_location_permission_reason",
-      "value": "需要媒体位置权限来获取音乐文件位置信息"
-    },
-    {
-      "name": "access_udid_permission_reason",
-      "value": "需要设备标识权限来识别设备信息"
-    },
-    {
-      "name": "get_bundle_info_permission_reason",
-      "value": "需要获取应用信息权限"
-    },
-    {
       "name": "network_info_permission_reason",
       "value": "需要获取网络信息权限来检测网络状态"
-    },
-    {
-      "name": "network_state_permission_reason",
-      "value": "需要访问网络状态权限来检测网络连接状态"
     },
     {
       "name": "background_permission_reason",
