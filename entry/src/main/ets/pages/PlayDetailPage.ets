@@ -27,6 +27,7 @@ import { formatPlayTime } from '../utils/CommonUtils';
 import { mediaSaveService, type SaveResult } from '../service/MediaSaveService';
 import { dislikeList } from '../core/dislike/DislikeList';
 import { AlbumCover } from './PlayDetail/AlbumCover';
+import { PlayerControls } from './PlayDetail/PlayerControls';
 import {
   PlayMediaAssets,
   type CoverOutcome,
@@ -433,6 +434,8 @@ export struct PlayDetailPage {
     const idx = modes.indexOf(this.playMode);
     const nextIdx = idx >= 0 ? (idx + 1) % modes.length : 0;
     this.playMode = modes[nextIdx];
+    hilog.info(DOMAIN, TAG, 'play mode -> %{public}s (label=%{public}s)',
+      this.playMode, this.getPlayModeText());
     // 同步到 PlayerService（由 PlayerService 同步到 AVSession）
     playerService.setPlayMode(this.playMode as 'listLoop' | 'singleLoop' | 'random' | 'sequential');
     void this.savePlaySettings();
@@ -833,6 +836,7 @@ export struct PlayDetailPage {
       this.showToast(t('player_no_song'));
       return;
     }
+    hilog.info(DOMAIN, TAG, 'open comments: %{public}s', currentMusicInfo.name);
     const params: NavigationParams = {
       musicId: currentMusicInfo.id || currentMusicInfo.songmid,
       musicName: currentMusicInfo.name,
@@ -1258,126 +1262,44 @@ export struct PlayDetailPage {
     }
   }
 
+  /** 底部控制条：进度 + 上一首/播放/下一首 + 三个入口（组件在 PlayDetail/PlayerControls） */
   @Builder
   PlayerControls() {
-    Column() {
-      Row() {
-        Text(this.currentTime)
-          .fontSize(DesignTokens.fontMicro())
-          .fontColor(DesignTokens.labelTertiary(this.theme))
-          .width(44)
-          .textAlign(TextAlign.Center)
-        Slider({
-          // 拖动中显示手指位置（previewProgress），松手才真正 seek
-          value: (this.isSeeking ? this.previewProgress : this.progress) * 100,
-          min: 0,
-          max: 100,
-          style: SliderStyle.OutSet,
-        })
-          .width('calc(100% - 88vp)')
-          .height(24)
-          .blockColor(DesignTokens.accent())
-          .trackColor(DesignTokens.mutedFill(this.theme))
-          .selectedColor(DesignTokens.accent())
-          .onChange((value: number, mode: SliderChangeMode) => {
-            this.handleSeekChange(value, mode);
-          })
-        // 右侧是「总时长」：之前误写成 currentTime，两端显示同一个值（真机截图才发现）
-        Text(this.isSeeking ? this.previewTimeText() : this.totalTime)
-          .fontSize(DesignTokens.fontMicro())
-          .fontColor(this.isSeeking ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
-          .width(44)
-          .textAlign(TextAlign.Center)
-      }
-      .width('100%')
-      .padding({ left: 14, right: 14 })
-
-      Row({ space: 26 }) {
-        Stack() {
-          Circle({ width: DesignTokens.ctrlMd(), height: DesignTokens.ctrlMd() })
-            .fill(DesignTokens.mutedFill(this.theme))
-          Image($r('app.media.ic_pd_prev'))
-            .width(DesignTokens.iconLg())
-            .height(DesignTokens.iconLg())
-            .fillColor(DesignTokens.labelPrimary(this.theme))
-        }
-        .onClick(() => void this.playPrev())
-        Stack() {
-          Circle({ width: DesignTokens.ctrlLg(), height: DesignTokens.ctrlLg() })
-            .fill(DesignTokens.accent())
-          if (this.isPlaying) {
-            Image($r('app.media.ic_pd_pause'))
-              .width(20)
-              .height(20)
-              .fillColor(DesignTokens.onAccent())
-          } else {
-            Image($r('app.media.ic_pd_play'))
-              .width(20)
-              .height(20)
-              .fillColor(DesignTokens.onAccent())
-              .margin({ left: 1 })
-          }
-        }
-        .onClick(() => void this.togglePlay())
-        Stack() {
-          Circle({ width: DesignTokens.ctrlMd(), height: DesignTokens.ctrlMd() })
-            .fill(DesignTokens.mutedFill(this.theme))
-          Image($r('app.media.ic_pd_next'))
-            .width(DesignTokens.iconLg())
-            .height(DesignTokens.iconLg())
-            .fillColor(DesignTokens.labelPrimary(this.theme))
-        }
-        .onClick(() => void this.playNext())
-      }
-      .width('100%')
-      .height(92)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(VerticalAlign.Center)
-
-      Row() {
-        this.buildMenuButton($r('app.media.ic_pd_playlist'), t('player_add_to_list'), () => void this.addToPlaylist())
-        this.buildMenuButton($r('app.media.ic_pd_loop'), this.getPlayModeText(), () => this.togglePlayMode())
-        this.buildMenuButton($r('app.media.ic_pd_comment'), t('player_comment'), () => this.viewComments())
-      }
-      .width('100%')
-      .height(78)
-      .justifyContent(FlexAlign.SpaceAround)
-      .alignItems(VerticalAlign.Center)
-      .padding({ left: 10, right: 10 })
-
-      Blank()
-        .width('100%')
-        .height(12)
-    }
-    .width('100%')
-    .padding({ bottom: 8 })
-    .backgroundColor(DesignTokens.pageBg(this.theme))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    PlayerControls({
+      isPlaying: this.isPlaying,
+      currentTime: this.currentTime,
+      totalTime: this.totalTime,
+      progress: this.progress,
+      isSeeking: this.isSeeking,
+      previewProgress: this.previewProgress,
+      previewTime: this.previewTimeText(),
+      playModeText: this.getPlayModeText(),
+      addToListText: t('player_add_to_list'),
+      commentText: t('player_comment'),
+      onSeekChange: (value: number, mode: SliderChangeMode): void => {
+        this.handleSeekChange(value, mode);
+      },
+      onPrev: (): void => {
+        void this.playPrev();
+      },
+      onTogglePlay: (): void => {
+        void this.togglePlay();
+      },
+      onNext: (): void => {
+        void this.playNext();
+      },
+      onAddToList: (): void => {
+        void this.addToPlaylist();
+      },
+      onToggleMode: (): void => {
+        this.togglePlayMode();
+      },
+      onComment: (): void => {
+        this.viewComments();
+      },
+    })
   }
 
-  @Builder
-  private buildMenuButton(icon: Resource, label: string, onClick: () => void) {
-    Column({ space: 5 }) {
-      Stack() {
-        Circle({ width: 30, height: 30 })
-          .fill(DesignTokens.mutedFill(this.theme))
-        Image(icon)
-          .width(DesignTokens.iconSm())
-          .height(DesignTokens.iconSm())
-          .fillColor(DesignTokens.labelSecondary(this.theme))
-      }
-      Text(label)
-        .fontSize(DesignTokens.fontMicro())
-        .fontColor(DesignTokens.labelSecondary(this.theme))
-        .maxLines(1)
-        .textAlign(TextAlign.Center)
-    }
-    .width(68)
-    .height(60)
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
-    .onClick(onClick)
-  }
   /**
    * 手动换源：列出同一首歌在其它源的匹配结果，选中后切源重新取链播放。
    * 候选来自 ResolvePlayback.getOtherSource（跨源搜索 + 相似度排序）。

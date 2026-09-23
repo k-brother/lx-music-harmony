@@ -7,6 +7,8 @@ def read(rel):
     p = root / rel
     return p.read_text() if p.exists() else ''
 
+# 每个检查项： (名称, 相对 ets 根目录的路径, 必须匹配的正则 [, 禁止出现的正则])
+# 负向断言用于记录「真机上踩过坑、不允许再出现的写法」。
 CHECKS = [
  ('不喜欢列表（屏蔽+跳过）', 'core/dislike/DislikeList.ets', r'dislikeList'),
  ('保存播放进度/续播', 'service/PlayerService.ets', r'restoreLastPlayback|saveProgress'),
@@ -86,7 +88,9 @@ CHECKS = [
  ('封面歌词共用同一套守卫', 'pages/PlayDetail/PlayMediaAssets.ets', r'MAX_RETRY'),
  ('封面 URL 规则单一出口', 'pages/PlayDetailPage.ets', r'PlayMediaAssets\.normalizeCoverUrl'),
  # 进度条两端必须分别是「当前时间 / 总时长」：曾经误写成两端都显示 currentTime
- ('播放页进度两侧为当前/总时长', 'pages/PlayDetailPage.ets', r'\? this\.previewTimeText\(\) : this\.totalTime'),
+ # 控制条抽成组件后，判据指到组件（右侧必须是总时长，不能用 currentTime）
+ ('播放页进度两侧为当前/总时长', 'pages/PlayDetail/PlayerControls.ets', r'\? this\.previewTime : this\.totalTime'),
+ ('播放页控制条抽成组件', 'pages/PlayDetailPage.ets', r'PlayerControls\(\{'),
  # 下载域拆成 download/{Types,Context,Files,Storage,Queue} 后，判据指向对应分层文件
  ('下载不打断用户（默认不进选择器）', 'core/music/download/DownloadFiles.ets', r'downloadUseFilePicker'),
  ('下载任务用真实落盘路径', 'core/music/download/DownloadQueue.ets', r'task\.filePath = savedPath'),
@@ -178,12 +182,23 @@ CHECKS = [
  ('队列移除', 'service/PlayerService.ets', r'removeFromQueue'),
  ('动作菜单不再重复“取消”', 'service/DialogService.ets', r'不再自己追加'),
  ('更多操作面板标题用歌曲', 'pages/PlayDetailPage.ets', r'title: this\.singer\.length > 0'),
+ # 真机踩坑 1：底栏挂了 expandSafeArea 后整条控制栏点不动（触控区不生效）
+ ('播放页底栏可点(不吞触控)', 'pages/PlayDetail/PlayerControls.ets', r'dispatch\(',
+  r'expandSafeArea'),
+ # 真机踩坑 2：把动态文案/图标当 @Builder 参数传，状态变了界面不变（看起来像点了没反应）
+ ('底栏动态文案不走 @Builder 参数', 'pages/PlayDetail/PlayerControls.ets', r'Text\(this\.playModeText\)',
+  r'@Builder\s+(MenuButton|TransportButton)'),
 ]
 
 fails = []
-for name, rel, pattern in CHECKS:
+for check in CHECKS:
+    name, rel, pattern = check[0], check[1], check[2]
+    forbidden = check[3] if len(check) > 3 else None
     text = read(rel)
     ok = bool(text) and re.search(pattern, text) is not None
+    if ok and forbidden is not None and re.search(forbidden, text) is not None:
+        print(f'（{name}：出现了禁止写法 /{forbidden}/）')
+        ok = False
     print(('PASS ' if ok else 'FAIL ') + name)
     if not ok:
         fails.append(name)

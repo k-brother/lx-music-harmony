@@ -712,6 +712,8 @@ python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 | 手柄拖一行却回到原位 | 触摸事件里的 `screenY` 单位是 vp，而代码按 px 乘了密度去算行高（跨行数被低估 3 倍） | 行高直接用 vp（真机实测 240px 注入 ≈ 71vp ≈ 1.1 行，比例正好是 1/密度） |
 | 「应用启动」冒烟偶发假失败 | 断言只看初始化日志，紧跟清理日志之后可能已滚出缓冲 | 增加「进程真的在跑（`pidof`）」的等价判据 |
 | 播放页进度条两端显示同一个时间 | 右侧标签误写成 `currentTime`（应为总时长） | 改为 `totalTime`，真机验证 01:18 / 03:25；并加静态判据防回归（截图走查才发现） |
+| 播放页底栏（添加到歌单/播放模式/评论、上一首下一首）整条点不动 | 底栏挂了 `expandSafeArea([SYSTEM],[BOTTOM])`，该区域的触控判定失效 | 去掉底栏的 expandSafeArea；加负向静态判据（该文件不允许再出现 expandSafeArea） |
+| 点「播放模式」没反应（其实模式已切换） | 动态文案/图标当 `@Builder` 参数传入，状态变化不会刷新 Builder 内容 | 把播放模式文案与播放/暂停图标改为内联渲染；加负向判据（不允许再抽成带参数的按钮 Builder） |
 | 设置里选完选项，右侧「当前值」不变 | 设置分组 `ForEach` 的 key 只带 `title+index`，行被复用不重建 | key 加入 `type/value`，选完即刷新（真机复验：选「原名」立刻变） |
 | 改「下载文件名」后下载仍按旧格式命名 | `settingsService.get()` 返回的是 `copyOf()` 手工逐字段快照，新字段漏拷 → 运行时拿到默认值 | 补 `copyOf` 字段，并加 `scripts/check_settings_copy.py` 把「加设置漏拷贝」变成可自动拦截的规则 |
 
@@ -741,6 +743,7 @@ python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 | 下载状态色写死 `#FFA500/#4CAF50/…` | `DesignTokens.success() / warning() / info()` | 语义状态色进设计系统，页面不再出现魔法十六进制 |
 | `RunMusicDownloads` 991 行（队列+文件+持久化混在一起） | 128 行门面 + `download/{DownloadTypes,DownloadContext,DownloadFiles,DownloadStorage,DownloadQueue}` | 类型 / 上下文 / 文件传输 / 历史持久化 / 任务状态机各自成文件，任务表只由队列持有 |
 | `PlayDetailPage` 1589 行里 12 个「请求守卫」字段 + 200 行加载逻辑 | `PlayDetail/PlayMediaAssets` 类 | 封面与歌词共用同一套守卫（进行中跳过 / 同曲失败跳过 / 序号过期丢弃 / 退避重试），页面只负责把结果写进 @State |
+| `PlayDetailPage` 底部控制条（~130 行 @Builder） | `PlayDetail/PlayerControls` 组件 | 组件只认「显示值 + 回调」，seek 判定留在页面；动态文案/图标内联渲染（见下方真机坑） |
 
 ## 设备验收清单（需要真机确认，代码侧已按此实现）
 
