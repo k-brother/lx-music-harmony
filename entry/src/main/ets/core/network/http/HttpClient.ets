@@ -200,6 +200,29 @@ function doRequest<T>(
   });
 }
 
+/**
+ * 把调用方传入的 config 字段合并进目标配置。
+ *
+ * GET/POST/PUT/DELETE 与二进制请求此前各自复制了一遍同样的 10 行字段拷贝：
+ * 一旦 HttpRequestConfig 新增字段，很容易漏改其中一处（编译器不会提醒）。
+ */
+function mergeRequestConfig(target: HttpRequestConfig, source?: HttpRequestConfig): HttpRequestConfig {
+  if (!source) {
+    return target;
+  }
+  target.headers = source.headers;
+  target.header = source.header;
+  target.params = source.params;
+  target.data = source.data;
+  target.timeout = source.timeout;
+  target.connectTimeout = source.connectTimeout;
+  target.readTimeout = source.readTimeout;
+  target.responseType = source.responseType;
+  target.retryCount = source.retryCount;
+  target.loggingEnabled = source.loggingEnabled;
+  return target;
+}
+
 // ============ HTTP 客户端类 ============
 
 export class HttpClient {
@@ -215,18 +238,7 @@ export class HttpClient {
    */
   get<T>(url: string, config?: HttpRequestConfig): Promise<HttpResponse<T>> {
     const cfg: HttpRequestConfig = { method: 'GET' };
-    if (config) {
-      cfg.headers = config.headers;
-      cfg.header = config.header;
-      cfg.params = config.params;
-      cfg.data = config.data;
-      cfg.timeout = config.timeout;
-      cfg.connectTimeout = config.connectTimeout;
-      cfg.readTimeout = config.readTimeout;
-      cfg.responseType = config.responseType;
-      cfg.retryCount = config.retryCount;
-      cfg.loggingEnabled = config.loggingEnabled;
-    }
+    mergeRequestConfig(cfg, config);
     return doRequest<T>(url, cfg);
   }
 
@@ -235,18 +247,7 @@ export class HttpClient {
    */
   post<T>(url: string, data?: string | Object, config?: HttpRequestConfig): Promise<HttpResponse<T>> {
     const cfg: HttpRequestConfig = { method: 'POST' };
-    if (config) {
-      cfg.headers = config.headers;
-      cfg.header = config.header;
-      cfg.params = config.params;
-      cfg.data = config.data;
-      cfg.timeout = config.timeout;
-      cfg.connectTimeout = config.connectTimeout;
-      cfg.readTimeout = config.readTimeout;
-      cfg.responseType = config.responseType;
-      cfg.retryCount = config.retryCount;
-      cfg.loggingEnabled = config.loggingEnabled;
-    }
+    mergeRequestConfig(cfg, config);
     if (data !== undefined) {
       cfg.extraData = typeof data === 'string' ? data : JSON.stringify(data);
     }
@@ -268,18 +269,10 @@ export const httpClient = new HttpClient();
  * @returns ArrayBuffer；响应不是二进制时返回 null
  */
 export function httpRequestBinary(url: string, config?: HttpRequestConfig): Promise<ArrayBuffer | null> {
-  const cfg: HttpRequestConfig = {
-    method: config?.method ?? 'GET',
-    responseType: 'arraybuffer',
-  };
-  if (config) {
-    cfg.headers = config.headers;
-    cfg.header = config.header;
-    cfg.params = config.params;
-    cfg.timeout = config.timeout;
-    cfg.connectTimeout = config.connectTimeout;
-    cfg.readTimeout = config.readTimeout;
-  }
+  const cfg: HttpRequestConfig = { method: config?.method ?? 'GET' };
+  mergeRequestConfig(cfg, config);
+  // 二进制请求强制 arraybuffer：必须在合并之后设置，否则调用方的 responseType 会把它覆盖掉
+  cfg.responseType = 'arraybuffer';
 
   return doRequest<ArrayBuffer>(url, cfg).then((response: HttpResponse<ArrayBuffer>) => {
     const raw = response.result;
@@ -321,18 +314,7 @@ export function httpRequest(url: string, config?: HttpRequestConfig): HttpTask<O
  */
 export function httpGet(url: string, config?: HttpRequestConfig): HttpTask<Object> {
   const cfg: HttpRequestConfig = { method: 'GET' };
-  if (config) {
-    cfg.headers = config.headers;
-    cfg.header = config.header;
-    cfg.params = config.params;
-    cfg.data = config.data;
-    cfg.timeout = config.timeout;
-    cfg.connectTimeout = config.connectTimeout;
-    cfg.readTimeout = config.readTimeout;
-    cfg.responseType = config.responseType;
-    cfg.retryCount = config.retryCount;
-    cfg.loggingEnabled = config.loggingEnabled;
-  }
+  mergeRequestConfig(cfg, config);
   return httpRequest(url, cfg);
 }
 
@@ -341,18 +323,7 @@ export function httpGet(url: string, config?: HttpRequestConfig): HttpTask<Objec
  */
 export function httpPost(url: string, data?: string, config?: HttpRequestConfig): HttpTask<Object> {
   const cfg: HttpRequestConfig = { method: 'POST' };
-  if (config) {
-    cfg.headers = config.headers;
-    cfg.header = config.header;
-    cfg.params = config.params;
-    cfg.data = config.data;
-    cfg.timeout = config.timeout;
-    cfg.connectTimeout = config.connectTimeout;
-    cfg.readTimeout = config.readTimeout;
-    cfg.responseType = config.responseType;
-    cfg.retryCount = config.retryCount;
-    cfg.loggingEnabled = config.loggingEnabled;
-  }
+  mergeRequestConfig(cfg, config);
   if (data !== undefined) {
     cfg.extraData = data;
   }
