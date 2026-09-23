@@ -11,6 +11,7 @@ import { dislikeList } from '../../../core/dislike/DislikeList';
 import { Subscription } from '../../../service/Subscription';
 import { SettingsSection } from '../../../components/ui/SettingsSection';
 import type { SettingOption, SettingSectionItem } from '../../../components/ui/SettingsTypes';
+import { toggleRow, selectRow, buttonRow } from '../../../components/ui/SettingsRows';
 
 const DOMAIN = 0x0001;
 const TAG = 'ListSection';
@@ -94,88 +95,45 @@ export struct ListSection {
 
     const items: SettingSectionItem[] = [];
 
-    items.push({
-      type: 'select',
-      title: t('settings_add_location'),
-      value: this.addMusicLocation,
-      options: locationOptions,
-      onChange: (value: string): void => {
-        this.addMusicLocation = value;
-        void settingsService.update({ addMusicLocation: value as AddMusicLocation });
-        appToast(value === 'top' ? t('toast_add_top') : t('toast_add_bottom'));
-      },
-    });
+    items.push(selectRow(t('settings_add_location'), this.addMusicLocation, locationOptions, (value: string): void => {
+      this.addMusicLocation = value;
+      void settingsService.update({ addMusicLocation: value as AddMusicLocation });
+      appToast(value === 'top' ? t('toast_add_top') : t('toast_add_bottom'));
+    }));
 
-    items.push({
-      type: 'button',
-      title: t('dislike_title'),
-      description: tf('dislike_count', [this.dislikeCount.toString()]),
-      onClick: (): void => {
-        void this.manageDislikeList();
-      },
-    });
+    items.push(buttonRow(t('dislike_title'), (): void => {
+      void this.manageDislikeList();
+    }, { description: tf('dislike_count', [this.dislikeCount.toString()]) }));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_auto_clean'),
-      value: this.autoCleanPlayedList,
-      onChangeToggle: (value: boolean): void => {
-        this.autoCleanPlayedList = value;
-        void settingsService.update({ autoCleanPlayedList: value });
-      },
-    });
+    items.push(toggleRow(t('settings_auto_clean'), this.autoCleanPlayedList, (value: boolean): void => {
+      this.autoCleanPlayedList = value;
+      void settingsService.update({ autoCleanPlayedList: value });
+    }));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_list_click_play'),
-      description: t('settings_list_click_play_desc'),
-      value: this.listClickPlay,
-      onChangeToggle: (value: boolean): void => {
-        this.listClickPlay = value;
-        void settingsService.update({ listClickPlay: value });
-      },
-    });
+    items.push(toggleRow(t('settings_list_click_play'), this.listClickPlay, (value: boolean): void => {
+      this.listClickPlay = value;
+      void settingsService.update({ listClickPlay: value });
+    }, t('settings_list_click_play_desc')));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_show_source'),
-      value: this.showListSource,
-      onChangeToggle: (value: boolean): void => {
-        this.showListSource = value;
-        void settingsService.update({ showListSource: value });
-      },
-    });
+    items.push(toggleRow(t('settings_show_source'), this.showListSource, (value: boolean): void => {
+      this.showListSource = value;
+      void settingsService.update({ showListSource: value });
+    }));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_show_album'),
-      value: this.showListAlbum,
-      onChangeToggle: (value: boolean): void => {
-        this.showListAlbum = value;
-        void settingsService.update({ showListAlbum: value });
-      },
-    });
+    items.push(toggleRow(t('settings_show_album'), this.showListAlbum, (value: boolean): void => {
+      this.showListAlbum = value;
+      void settingsService.update({ showListAlbum: value });
+    }));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_show_duration'),
-      value: this.showListDuration,
-      onChangeToggle: (value: boolean): void => {
-        this.showListDuration = value;
-        void settingsService.update({ showListDuration: value });
-      },
-    });
+    items.push(toggleRow(t('settings_show_duration'), this.showListDuration, (value: boolean): void => {
+      this.showListDuration = value;
+      void settingsService.update({ showListDuration: value });
+    }));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_remember_scroll'),
-      description: t('settings_remember_scroll_desc'),
-      value: this.rememberScrollPosition,
-      onChangeToggle: (value: boolean): void => {
-        this.rememberScrollPosition = value;
-        void settingsService.update({ rememberScrollPosition: value });
-      },
-    });
+    items.push(toggleRow(t('settings_remember_scroll'), this.rememberScrollPosition, (value: boolean): void => {
+      this.rememberScrollPosition = value;
+      void settingsService.update({ rememberScrollPosition: value });
+    }, t('settings_remember_scroll_desc')));
 
     return items;
   }

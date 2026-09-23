@@ -13,6 +13,7 @@ import { sleepTimerService, type SleepTimerState } from '../../../service/SleepT
 import { Subscription } from '../../../service/Subscription';
 import { SettingsSection } from '../../../components/ui/SettingsSection';
 import { labelOfOption, type SettingOption, type SettingSectionItem } from '../../../components/ui/SettingsTypes';
+import { toggleRow, selectRow, inputRow } from '../../../components/ui/SettingsRows';
 import type { Quality } from '../../../types/MusicTypes';
 
 const DOMAIN = 0x0001;
@@ -104,151 +105,83 @@ export struct PlaybackSection {
 
     const items: SettingSectionItem[] = [];
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_auto_play'),
-      value: this.autoPlay,
-      onChangeToggle: (value: boolean): void => {
-        this.autoPlay = value;
-        void settingsService.update({ autoPlay: value });
-      },
-    });
+    items.push(toggleRow(t('settings_auto_play'), this.autoPlay, (value: boolean): void => {
+      this.autoPlay = value;
+      void settingsService.update({ autoPlay: value });
+    }));
 
-    items.push({
-      type: 'select',
-      title: t('settings_high_quality'),
-      description: t('settings_high_quality_desc'),
-      value: this.playQuality,
-      options: qualityOptions,
-      onChange: (value: string): void => {
-        this.playQuality = value;
-        void settingsService.update({ playQuality: value as Quality });
-        appToast(`${t('settings_high_quality')}: ${labelOfOption(qualityOptions, value)}`);
-      },
-    });
+    items.push(selectRow(t('settings_high_quality'), this.playQuality, qualityOptions, (value: string): void => {
+      this.playQuality = value;
+      void settingsService.update({ playQuality: value as Quality });
+      appToast(`${t('settings_high_quality')}: ${labelOfOption(qualityOptions, value)}`);
+    }, t('settings_high_quality_desc')));
 
-    items.push({
-      type: 'select',
-      title: t('settings_play_mode'),
-      value: this.playMode,
-      options: playModeOptions,
-      onChange: (value: string): void => {
-        this.playMode = value;
-        playerService.setPlayMode(value as PlayMode);
-        void settingsService.update({ playMode: value as PlayMode });
-        appToast(t('toast_mode_changed'));
-      },
-    });
+    items.push(selectRow(t('settings_play_mode'), this.playMode, playModeOptions, (value: string): void => {
+      this.playMode = value;
+      playerService.setPlayMode(value as PlayMode);
+      void settingsService.update({ playMode: value as PlayMode });
+      appToast(t('toast_mode_changed'));
+    }));
 
-    items.push({
-      type: 'input',
-      title: t('settings_volume'),
-      description: t('settings_volume_desc'),
-      value: this.volume.toString(),
-      onChange: (value: string): void => {
-        const volume = parseInt(value);
-        if (isNaN(volume) || volume < 0 || volume > 100) {
-          appToast(t('settings_volume_desc'));
-          return;
-        }
-        this.volume = volume;
-        void settingsService.update({ volume });
-        playerService.setVolume(volume / 100).catch((err: Error) => {
-          hilog.warn(DOMAIN, TAG, 'setVolume failed: %{public}s', err.message);
-        });
-        appToast(`${t('toast_volume_set')} ${volume}`);
-      },
-    });
+    items.push(inputRow(t('settings_volume'), this.volume.toString(), (value: string): void => {
+      const volume = parseInt(value);
+      if (isNaN(volume) || volume < 0 || volume > 100) {
+        appToast(t('settings_volume_desc'));
+        return;
+      }
+      this.volume = volume;
+      void settingsService.update({ volume });
+      playerService.setVolume(volume / 100).catch((err: Error) => {
+        hilog.warn(DOMAIN, TAG, 'setVolume failed: %{public}s', err.message);
+      });
+      appToast(`${t('toast_volume_set')} ${volume}`);
+    }, t('settings_volume_desc')));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_save_play_time'),
-      description: t('settings_save_play_time_desc'),
-      value: this.savePlayTime,
-      onChangeToggle: (value: boolean): void => {
-        this.savePlayTime = value;
-        void settingsService.update({ savePlayTime: value });
-        if (!value) {
-          playerService.clearSavedProgress();
-        }
-      },
-    });
+    items.push(toggleRow(t('settings_save_play_time'), this.savePlayTime, (value: boolean): void => {
+      this.savePlayTime = value;
+      void settingsService.update({ savePlayTime: value });
+      if (!value) {
+        playerService.clearSavedProgress();
+      }
+    }, t('settings_save_play_time_desc')));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_audio_focus'),
-      description: t('settings_audio_focus_desc'),
-      value: this.audioFocus,
-      onChangeToggle: (value: boolean): void => {
-        this.audioFocus = value;
-        void settingsService.update({ audioFocus: value });
-      },
-    });
+    items.push(toggleRow(t('settings_audio_focus'), this.audioFocus, (value: boolean): void => {
+      this.audioFocus = value;
+      void settingsService.update({ audioFocus: value });
+    }, t('settings_audio_focus_desc')));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_audio_offload'),
-      description: t('settings_audio_offload_desc'),
-      value: this.audioOffload,
-      onChangeToggle: (value: boolean): void => {
-        this.audioOffload = value;
-        void settingsService.update({ audioOffload: value });
-      },
-    });
+    items.push(toggleRow(t('settings_audio_offload'), this.audioOffload, (value: boolean): void => {
+      this.audioOffload = value;
+      void settingsService.update({ audioOffload: value });
+    }, t('settings_audio_offload_desc')));
 
-    items.push({
-      type: 'select',
-      title: t('settings_cache_size'),
-      description: t('settings_cache_size_desc'),
-      value: this.playerCacheSizeMb.toString(),
-      options: cacheOptions,
-      onChange: (value: string): void => {
-        const mb = parseInt(value);
-        if (isNaN(mb)) {
-          return;
-        }
-        this.playerCacheSizeMb = mb;
-        void settingsService.update({ playerCacheSizeMb: mb });
-        appToast(`${t('settings_cache_size')}: ${mb} MB`);
-      },
-    });
+    items.push(selectRow(t('settings_cache_size'), this.playerCacheSizeMb.toString(), cacheOptions, (value: string): void => {
+      const mb = parseInt(value);
+      if (isNaN(mb)) {
+        return;
+      }
+      this.playerCacheSizeMb = mb;
+      void settingsService.update({ playerCacheSizeMb: mb });
+      appToast(`${t('settings_cache_size')}: ${mb} MB`);
+    }, t('settings_cache_size_desc')));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_notification_image'),
-      description: t('settings_notification_image_desc'),
-      value: this.showNotificationImage,
-      onChangeToggle: (value: boolean): void => {
-        this.showNotificationImage = value;
-        void settingsService.update({ showNotificationImage: value });
-      },
-    });
+    items.push(toggleRow(t('settings_notification_image'), this.showNotificationImage, (value: boolean): void => {
+      this.showNotificationImage = value;
+      void settingsService.update({ showNotificationImage: value });
+    }, t('settings_notification_image_desc')));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_bluetooth_lyric'),
-      description: t('settings_bluetooth_lyric_desc'),
-      value: this.showBluetoothLyric,
-      onChangeToggle: (value: boolean): void => {
-        this.showBluetoothLyric = value;
-        void settingsService.update({ showBluetoothLyric: value });
-      },
-    });
+    items.push(toggleRow(t('settings_bluetooth_lyric'), this.showBluetoothLyric, (value: boolean): void => {
+      this.showBluetoothLyric = value;
+      void settingsService.update({ showBluetoothLyric: value });
+    }, t('settings_bluetooth_lyric_desc')));
 
-    items.push({
-      type: 'select',
-      title: t('settings_s2t'),
-      description: t('settings_s2t_desc'),
-      value: this.s2tMode,
-      options: s2tOptions,
-      onChange: (value: string): void => {
-        this.s2tMode = value;
-        void settingsService.update({ s2tMode: value === 's2t' ? 's2t' : (value === 't2s' ? 't2s' : 'off') });
-        // 正在播放时立即生效，无需重新请求歌词
-        playerService.applyLyricConversion();
-        appToast(`${t('settings_s2t')}: ${labelOfOption(s2tOptions, value)}`);
-      },
-    });
+    items.push(selectRow(t('settings_s2t'), this.s2tMode, s2tOptions, (value: string): void => {
+      this.s2tMode = value;
+      void settingsService.update({ s2tMode: value === 's2t' ? 's2t' : (value === 't2s' ? 't2s' : 'off') });
+      // 正在播放时立即生效，无需重新请求歌词
+      playerService.applyLyricConversion();
+      appToast(`${t('settings_s2t')}: ${labelOfOption(s2tOptions, value)}`);
+    }, t('settings_s2t_desc')));
 
     return items;
   }
@@ -257,59 +190,41 @@ export struct PlaybackSection {
   private buildSleepItems(): SettingSectionItem[] {
     const items: SettingSectionItem[] = [];
 
-    items.push({
-      type: 'toggle',
-      title: this.waitingTrackEnd ? t('sleep_cancel_wait') : t('settings_sleep_timer'),
-      description: this.waitingTrackEnd ? t('sleep_waiting_track') : '',
-      value: this.sleepTimerEnabled,
-      onChangeToggle: (value: boolean): void => {
-        if (this.waitingTrackEnd) {
-          // 等待播完时，开关语义是"取消退出"
-          sleepTimerService.cancelPendingExit();
-          this.waitingTrackEnd = false;
-          this.sleepTimerEnabled = false;
-          appToast(t('toast_sleep_cancel'));
-          return;
-        }
-        this.sleepTimerEnabled = value;
-        if (value) {
-          sleepTimerService.start(this.sleepTimerMinutes);
-          appToast(`${t('toast_sleep_set')} ${this.sleepTimerMinutes} ${t('toast_sleep_start')}`);
-        } else {
-          sleepTimerService.stop();
-          appToast(t('toast_sleep_cancel'));
-        }
-      },
-    });
+    items.push(toggleRow(this.waitingTrackEnd ? t('sleep_cancel_wait') : t('settings_sleep_timer'), this.sleepTimerEnabled, (value: boolean): void => {
+      if (this.waitingTrackEnd) {
+        // 等待播完时，开关语义是"取消退出"
+        sleepTimerService.cancelPendingExit();
+        this.waitingTrackEnd = false;
+        this.sleepTimerEnabled = false;
+        appToast(t('toast_sleep_cancel'));
+        return;
+      }
+      this.sleepTimerEnabled = value;
+      if (value) {
+        sleepTimerService.start(this.sleepTimerMinutes);
+        appToast(`${t('toast_sleep_set')} ${this.sleepTimerMinutes} ${t('toast_sleep_start')}`);
+      } else {
+        sleepTimerService.stop();
+        appToast(t('toast_sleep_cancel'));
+      }
+    }, this.waitingTrackEnd ? t('sleep_waiting_track') : ''));
 
-    items.push({
-      type: 'input',
-      title: t('settings_sleep_minutes'),
-      description: t('settings_sleep_minutes_desc'),
-      value: this.sleepTimerMinutes.toString(),
-      onChange: (value: string): void => {
-        const minutes = parseInt(value);
-        if (isNaN(minutes) || minutes <= 0) {
-          appToast(t('settings_sleep_minutes_desc'));
-          return;
-        }
-        this.sleepTimerMinutes = minutes;
-        void settingsService.update({ sleepTimerMinutes: minutes });
-        sleepTimerService.setMinutes(minutes);
-        appToast(`${t('toast_sleep_set')} ${minutes} ${t('settings_sleep_minutes')}`);
-      },
-    });
+    items.push(inputRow(t('settings_sleep_minutes'), this.sleepTimerMinutes.toString(), (value: string): void => {
+      const minutes = parseInt(value);
+      if (isNaN(minutes) || minutes <= 0) {
+        appToast(t('settings_sleep_minutes_desc'));
+        return;
+      }
+      this.sleepTimerMinutes = minutes;
+      void settingsService.update({ sleepTimerMinutes: minutes });
+      sleepTimerService.setMinutes(minutes);
+      appToast(`${t('toast_sleep_set')} ${minutes} ${t('settings_sleep_minutes')}`);
+    }, t('settings_sleep_minutes_desc')));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_sleep_wait_track'),
-      description: t('settings_sleep_wait_track_desc'),
-      value: this.sleepWaitTrackEnd,
-      onChangeToggle: (value: boolean): void => {
-        this.sleepWaitTrackEnd = value;
-        void settingsService.update({ sleepTimerWaitTrackEnd: value });
-      },
-    });
+    items.push(toggleRow(t('settings_sleep_wait_track'), this.sleepWaitTrackEnd, (value: boolean): void => {
+      this.sleepWaitTrackEnd = value;
+      void settingsService.update({ sleepTimerWaitTrackEnd: value });
+    }, t('settings_sleep_wait_track_desc')));
 
     return items;
   }

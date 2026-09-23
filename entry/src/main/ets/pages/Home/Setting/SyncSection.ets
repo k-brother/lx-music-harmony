@@ -13,6 +13,7 @@ import type { SyncStatusInfo } from '../../../service/sync/SyncTypes';
 import { Subscription } from '../../../service/Subscription';
 import { SettingsSection } from '../../../components/ui/SettingsSection';
 import type { SettingOption, SettingSectionItem } from '../../../components/ui/SettingsTypes';
+import { toggleRow, selectRow, buttonRow, inputRow, infoRow } from '../../../components/ui/SettingsRows';
 
 const DOMAIN = 0x0005;
 const TAG = 'SyncSection';
@@ -143,137 +144,84 @@ export struct SyncSection {
     const items: SettingSectionItem[] = [];
 
     // 只读状态行：把 SyncService 的连接/同步状态显示出来（此前状态只在服务内部流转）
-    items.push({
-      type: 'info',
-      title: t('settings_sync_status'),
-      description: this.lastSyncText.length > 0
+    items.push(infoRow(t('settings_sync_status'), this.syncStatusText, this.lastSyncText.length > 0
         ? `${t('settings_sync_last_time')}: ${this.lastSyncText}`
-        : undefined,
-      value: this.syncStatusText,
-    });
+        : undefined));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_sync_enable'),
-      value: this.syncEnable,
-      onChangeToggle: (value: boolean): void => {
-        this.syncEnable = value;
-        syncService.updateConfig({ enabled: value }).catch((err: Error) => {
-          hilog.error(0x0005, TAG, 'update enabled failed: %{public}s', err.message);
+    items.push(toggleRow(t('settings_sync_enable'), this.syncEnable, (value: boolean): void => {
+      this.syncEnable = value;
+      syncService.updateConfig({ enabled: value }).catch((err: Error) => {
+        hilog.error(0x0005, TAG, 'update enabled failed: %{public}s', err.message);
+      });
+    }));
+
+    items.push(inputRow(t('settings_sync_server'), this.syncServer, (value: string): void => {
+      this.syncServer = value;
+      syncService.updateConfig({ serverUrl: value }).catch((err: Error) => {
+        hilog.error(0x0005, TAG, 'update server failed: %{public}s', err.message);
+      });
+    }, t('settings_sync_server_desc')));
+
+    items.push(inputRow(t('settings_sync_key'), this.syncKey, (value: string): void => {
+      this.syncKey = value;
+      syncService.updateConfig({ syncKey: value }).catch((err: Error) => {
+        hilog.error(0x0005, TAG, 'update key failed: %{public}s', err.message);
+      });
+    }, t('settings_sync_key_desc')));
+
+    items.push(selectRow(t('settings_sync_mode'), this.syncMode, modeOptions, (value: string): void => {
+      this.syncMode = value;
+      syncService.updateConfig({ mode: value === 'server' ? SyncMode.SERVER : SyncMode.CLIENT })
+        .catch((err: Error) => {
+          hilog.error(0x0005, TAG, 'update mode failed: %{public}s', err.message);
         });
-      },
-    });
+    }));
 
-    items.push({
-      type: 'input',
-      title: t('settings_sync_server'),
-      description: t('settings_sync_server_desc'),
-      value: this.syncServer,
-      onChange: (value: string): void => {
-        this.syncServer = value;
-        syncService.updateConfig({ serverUrl: value }).catch((err: Error) => {
-          hilog.error(0x0005, TAG, 'update server failed: %{public}s', err.message);
-        });
-      },
-    });
+    items.push(toggleRow(t('settings_sync_auto'), this.syncAutoSync, (value: boolean): void => {
+      this.syncAutoSync = value;
+      syncService.updateConfig({ autoSync: value }).catch((err: Error) => {
+        hilog.error(0x0005, TAG, 'update autoSync failed: %{public}s', err.message);
+      });
+      if (value && this.syncEnable) {
+        syncService.startAutoSync();
+      } else {
+        syncService.stopAutoSync();
+      }
+    }));
 
-    items.push({
-      type: 'input',
-      title: t('settings_sync_key'),
-      description: t('settings_sync_key_desc'),
-      value: this.syncKey,
-      onChange: (value: string): void => {
-        this.syncKey = value;
-        syncService.updateConfig({ syncKey: value }).catch((err: Error) => {
-          hilog.error(0x0005, TAG, 'update key failed: %{public}s', err.message);
-        });
-      },
-    });
-
-    items.push({
-      type: 'select',
-      title: t('settings_sync_mode'),
-      value: this.syncMode,
-      options: modeOptions,
-      onChange: (value: string): void => {
-        this.syncMode = value;
-        syncService.updateConfig({ mode: value === 'server' ? SyncMode.SERVER : SyncMode.CLIENT })
-          .catch((err: Error) => {
-            hilog.error(0x0005, TAG, 'update mode failed: %{public}s', err.message);
-          });
-      },
-    });
-
-    items.push({
-      type: 'toggle',
-      title: t('settings_sync_auto'),
-      value: this.syncAutoSync,
-      onChangeToggle: (value: boolean): void => {
-        this.syncAutoSync = value;
-        syncService.updateConfig({ autoSync: value }).catch((err: Error) => {
-          hilog.error(0x0005, TAG, 'update autoSync failed: %{public}s', err.message);
-        });
-        if (value && this.syncEnable) {
-          syncService.startAutoSync();
-        } else {
-          syncService.stopAutoSync();
-        }
-      },
-    });
-
-    items.push({
-      type: 'button',
-      title: t('settings_sync_now'),
-      onClick: (): void => {
-        void this.syncNow();
-      },
-    });
+    items.push(buttonRow(t('settings_sync_now'), (): void => {
+      void this.syncNow();
+    }));
 
     // 自动同步开启时才需要间隔；两端都落库并立刻重启计时器（不必等下次进页面）
     if (this.syncAutoSync) {
-      items.push({
-        type: 'input',
-        title: t('settings_sync_interval'),
-        description: t('settings_sync_interval_desc'),
-        value: this.syncInterval.toString(),
-        onChange: (value: string): void => {
-          const minutes = parseInt(value);
-          if (isNaN(minutes) || minutes < 1 || minutes > 1440) {
-            appToast(t('settings_sync_interval_desc'));
-            return;
-          }
-          this.syncInterval = minutes;
-          syncService.updateConfig({ syncInterval: minutes }).then((): void => {
-            syncService.startAutoSync();
-          }).catch((err: Error) => {
-            hilog.error(0x0005, TAG, 'update syncInterval failed: %{public}s', err.message);
-          });
-          appToast(`${t('settings_sync_interval')}: ${minutes}`);
-        },
-      });
+      items.push(inputRow(t('settings_sync_interval'), this.syncInterval.toString(), (value: string): void => {
+        const minutes = parseInt(value);
+        if (isNaN(minutes) || minutes < 1 || minutes > 1440) {
+          appToast(t('settings_sync_interval_desc'));
+          return;
+        }
+        this.syncInterval = minutes;
+        syncService.updateConfig({ syncInterval: minutes }).then((): void => {
+          syncService.startAutoSync();
+        }).catch((err: Error) => {
+          hilog.error(0x0005, TAG, 'update syncInterval failed: %{public}s', err.message);
+        });
+        appToast(`${t('settings_sync_interval')}: ${minutes}`);
+      }, t('settings_sync_interval_desc')));
     }
 
-    items.push({
-      type: 'button',
-      title: t('settings_sync_history'),
-      description: this.historyCount > 0
+    items.push(buttonRow(t('settings_sync_history'), (): void => {
+  void this.openHistory();
+}, { description: this.historyCount > 0
         ? tf('sync_history_count', [this.historyCount.toString()])
-        : t('toast_never_sync'),
-      onClick: (): void => {
-        void this.openHistory();
-      },
-    });
+        : t('toast_never_sync') }));
 
     // 清空历史单独成行（此前混在「使用历史服务器」同一个菜单里，语义容易混）
     if (this.historyCount > 0) {
-      items.push({
-        type: 'button',
-        title: t('settings_sync_history_clear'),
-        danger: true,
-        onClick: (): void => {
-          void this.clearHistory();
-        },
-      });
+      items.push(buttonRow(t('settings_sync_history_clear'), (): void => {
+        void this.clearHistory();
+      }, { danger: true }));
     }
 
     return items;

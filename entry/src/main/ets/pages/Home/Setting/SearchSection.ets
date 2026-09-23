@@ -7,6 +7,7 @@ import { appToast } from '../../../service/DialogService';
 import { Subscription } from '../../../service/Subscription';
 import { SettingsSection } from '../../../components/ui/SettingsSection';
 import type { SettingOption, SettingSectionItem } from '../../../components/ui/SettingsTypes';
+import { toggleRow, selectRow, inputRow } from '../../../components/ui/SettingsRows';
 
 @Component
 export struct SearchSection {
@@ -48,54 +49,31 @@ export struct SearchSection {
 
     const items: SettingSectionItem[] = [];
 
-    items.push({
-      type: 'select',
-      title: t('settings_search_source'),
-      value: this.searchSource,
-      options: sourceOptions,
-      onChange: (value: string): void => {
-        this.searchSource = value;
-        void settingsService.update({ searchSource: value });
-      },
-    });
+    items.push(selectRow(t('settings_search_source'), this.searchSource, sourceOptions, (value: string): void => {
+      this.searchSource = value;
+      void settingsService.update({ searchSource: value });
+    }));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_show_hot'),
-      value: this.showHotSearch,
-      onChangeToggle: (value: boolean): void => {
-        this.showHotSearch = value;
-        void settingsService.update({ showHotSearch: value });
-      },
-    });
+    items.push(toggleRow(t('settings_show_hot'), this.showHotSearch, (value: boolean): void => {
+      this.showHotSearch = value;
+      void settingsService.update({ showHotSearch: value });
+    }));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_show_history'),
-      description: t('settings_show_history_desc'),
-      value: this.showSearchHistory,
-      onChangeToggle: (value: boolean): void => {
-        this.showSearchHistory = value;
-        void settingsService.update({ showSearchHistory: value });
-      },
-    });
+    items.push(toggleRow(t('settings_show_history'), this.showSearchHistory, (value: boolean): void => {
+      this.showSearchHistory = value;
+      void settingsService.update({ showSearchHistory: value });
+    }, t('settings_show_history_desc')));
 
-    items.push({
-      type: 'input',
-      title: t('settings_search_history'),
-      description: t('settings_search_history_desc'),
-      value: this.searchHistoryCount.toString(),
-      onChange: (value: string): void => {
-        const count = parseInt(value);
-        if (isNaN(count) || count <= 0) {
-          appToast(t('unknown_error'));
-          return;
-        }
-        this.searchHistoryCount = count;
-        void settingsService.update({ searchHistoryCount: count });
-        appToast(tf('toast_history_max', [count.toString()]));
-      },
-    });
+    items.push(inputRow(t('settings_search_history'), this.searchHistoryCount.toString(), (value: string): void => {
+      const count = parseInt(value);
+      if (isNaN(count) || count <= 0) {
+        appToast(t('unknown_error'));
+        return;
+      }
+      this.searchHistoryCount = count;
+      void settingsService.update({ searchHistoryCount: count });
+      appToast(tf('toast_history_max', [count.toString()]));
+    }, t('settings_search_history_desc')));
 
     return items;
   }

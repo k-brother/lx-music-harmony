@@ -6,6 +6,7 @@
  * 外观类改动统一调用 DesktopLyricManager.applyAppearance() 让子窗口立即重算。
  */
 import hilog from '@ohos.hilog';
+import { selectRow, toggleRow, infoRow } from '../../../components/ui/SettingsRows';
 import {
   settingsService,
   type DesktopLyricPosition,
@@ -105,7 +106,43 @@ export struct DesktopLyricSection {
         ];
   }
 
+  /** 分组装配：状态说明 / 位置颜色 / 文字样式 / 行为（原 272 行单函数按用途拆开） */
   private buildItems(): SettingSectionItem[] {
+    const items: SettingSectionItem[] = [];
+    this.appendStatusItems(items);
+    this.appendPositionItems(items);
+    this.appendTextItems(items);
+    this.appendBehaviorItems(items);
+    return items;
+  }
+
+  /** 当前是系统原生歌词还是内置浮窗 + 总开关 */
+  private appendStatusItems(items: SettingSectionItem[]): void {
+    // 系统原生歌词接管时，外观项由系统统一控制（跟随系统主题/位置），
+    // 这里给用户一句明确说明，避免"改了字号颜色却没反应"的困惑。
+    if (this.lyricEnabled) {
+      items.push(infoRow(
+        this.usingSystemLyric ? t('desktop_lyric_system_mode') : t('desktop_lyric_builtin_mode'),
+        '',
+        this.usingSystemLyric ? t('desktop_lyric_system_mode_desc') : t('desktop_lyric_builtin_mode_desc'),
+      ));
+    }
+
+    items.push(toggleRow(t('desktop_lyric'), this.lyricEnabled, (value: boolean): void => {
+      this.lyricEnabled = value;
+      this.usingSystemLyric = false;
+      void settingsService.update({ showDesktopLyric: value });
+      DesktopLyricManager.setEnabled(value).then((): void => {
+        this.usingSystemLyric = DesktopLyricManager.isUsingSystemLyric();
+      }).catch((err: Error) => {
+        hilog.warn(DOMAIN, TAG, 'toggle desktop lyric failed: %{public}s', err.message);
+      });
+      appToast(value ? t('toast_desktop_on') : t('toast_desktop_off'));
+    }, t('desktop_lyric_desc')));
+  }
+
+  /** 位置与颜色：窗口位置 / 未播放色 / 已播放色 / 文字水平与垂直对齐 */
+  private appendPositionItems(items: SettingSectionItem[]): void {
     const positionOptions: SettingOption[] = [
       { label: t('lyric_pos_top'), value: 'top' },
       { label: t('lyric_pos_middle'), value: 'middle' },
@@ -121,6 +158,40 @@ export struct DesktopLyricSection {
       { label: t('lyric_text_pos_middle'), value: 'middle' },
       { label: t('lyric_text_pos_bottom'), value: 'bottom' },
     ];
+
+    items.push(selectRow(t('lyric_pos_title'), this.lyricPosition, positionOptions, (value: string): void => {
+      this.lyricPosition = value;
+      void settingsService.update({ desktopLyricPosition: value as DesktopLyricPosition });
+      DesktopLyricManager.applyPosition(value as DesktopLyricPosition);
+    }));
+
+    items.push(selectRow(t('lyric_color_title'), this.unplayColor, this.colorOptions(false), (value: string): void => {
+      this.unplayColor = value;
+      this.persistAppearance({ desktopLyricColor: value });
+    }));
+
+    items.push(selectRow(t('lyric_played_color_title'), this.playedColor, this.colorOptions(true), (value: string): void => {
+      this.playedColor = value;
+      this.persistAppearance({ desktopLyricPlayedColor: value });
+    }));
+
+    items.push(selectRow(t('lyric_text_position_x'), this.textPosX, textPosXOptions, (value: string): void => {
+      this.textPosX = value;
+      this.persistAppearance({
+        desktopLyricTextPositionX: value === 'right' ? 'right' : (value === 'left' ? 'left' : 'center'),
+      });
+    }));
+
+    items.push(selectRow(t('lyric_text_position_y'), this.textPosY, textPosYOptions, (value: string): void => {
+      this.textPosY = value;
+      this.persistAppearance({
+        desktopLyricTextPositionY: value === 'top' ? 'top' : (value === 'bottom' ? 'bottom' : 'middle'),
+      });
+    }));
+  }
+
+  /** 文字样式：不透明度 / 背景 / 字号 / 下一句 / 单行 / 宽度 / 最大行数 */
+  private appendTextItems(items: SettingSectionItem[]): void {
     const opacityOptions: SettingOption[] = [
       { label: '100%', value: '100' },
       { label: '85%', value: '85' },
@@ -150,232 +221,86 @@ export struct DesktopLyricSection {
       { label: '2', value: '2' },
       { label: '3', value: '3' },
     ];
+
+    items.push(selectRow(t('lyric_text_opacity'), this.textOpacity.toString(), opacityOptions, (value: string): void => {
+      const opacity = parseInt(value);
+      if (isNaN(opacity)) {
+        return;
+      }
+      this.textOpacity = opacity;
+      this.persistAppearance({ desktopLyricTextOpacity: opacity });
+    }));
+
+    items.push(selectRow(t('lyric_bg_title'), this.bgAlpha.toString(), bgOptions, (value: string): void => {
+      const alpha = parseInt(value);
+      if (isNaN(alpha)) {
+        return;
+      }
+      this.bgAlpha = alpha;
+      this.persistAppearance({ desktopLyricBgAlpha: alpha });
+    }));
+
+    items.push(selectRow(t('lyric_size_title'), this.lyricFontSize.toString(), sizeOptions, (value: string): void => {
+      const size = parseInt(value);
+      if (isNaN(size)) {
+        return;
+      }
+      this.lyricFontSize = size;
+      this.persistAppearance({ desktopLyricFontSize: size });
+    }));
+
+    items.push(toggleRow(t('lyric_show_next'), this.showNext, (value: boolean): void => {
+      this.showNext = value;
+      this.persistAppearance({ desktopLyricShowNext: value });
+    }));
+
+    items.push(toggleRow(t('lyric_single_line'), this.singleLine, (value: boolean): void => {
+      this.singleLine = value;
+      this.persistAppearance({ desktopLyricSingleLine: value });
+    }, t('lyric_single_line_desc')));
+
+    items.push(selectRow(t('lyric_width'), this.lyricWidth.toString(), widthOptions, (value: string): void => {
+      const width = parseInt(value);
+      if (isNaN(width)) {
+        return;
+      }
+      this.lyricWidth = width;
+      this.persistAppearance({ desktopLyricWidth: width });
+    }));
+
+    items.push(selectRow(t('lyric_max_lines'), this.lyricMaxLines.toString(), lineOptions, (value: string): void => {
+      const lines = parseInt(value);
+      if (isNaN(lines)) {
+        return;
+      }
+      this.lyricMaxLines = lines;
+      this.persistAppearance({ desktopLyricMaxLines: lines });
+    }));
+  }
+
+  /** 行为：动画 / 文字阴影 / 锁定穿透 */
+  private appendBehaviorItems(items: SettingSectionItem[]): void {
     const shadowOptions: SettingOption[] = [
       { label: t('lyric_shadow_black'), value: '#99000000' },
       { label: t('lyric_shadow_none'), value: '#00000000' },
       { label: t('lyric_shadow_white'), value: '#99FFFFFF' },
     ];
 
-    const items: SettingSectionItem[] = [];
+    items.push(toggleRow(t('lyric_anim'), this.animEnabled, (value: boolean): void => {
+      this.animEnabled = value;
+      void settingsService.update({ desktopLyricAnim: value });
+    }));
 
-    // 系统原生歌词接管时，外观项由系统统一控制（跟随系统主题/位置），
-    // 这里给用户一句明确说明，避免"改了字号颜色却没反应"的困惑。
-    if (this.lyricEnabled) {
-      items.push({
-        type: 'info',
-        title: this.usingSystemLyric ? t('desktop_lyric_system_mode') : t('desktop_lyric_builtin_mode'),
-        description: this.usingSystemLyric ? t('desktop_lyric_system_mode_desc') : t('desktop_lyric_builtin_mode_desc'),
-      });
-    }
+    items.push(selectRow(t('lyric_shadow_title'), this.lyricShadowColor, shadowOptions, (value: string): void => {
+      this.lyricShadowColor = value;
+      this.persistAppearance({ desktopLyricShadowColor: value });
+    }));
 
-    items.push({
-      type: 'toggle',
-      title: t('desktop_lyric'),
-      description: t('desktop_lyric_desc'),
-      value: this.lyricEnabled,
-      onChangeToggle: (value: boolean): void => {
-        this.lyricEnabled = value;
-        this.usingSystemLyric = false;
-        void settingsService.update({ showDesktopLyric: value });
-        DesktopLyricManager.setEnabled(value).then((): void => {
-          this.usingSystemLyric = DesktopLyricManager.isUsingSystemLyric();
-        }).catch((err: Error) => {
-          hilog.warn(DOMAIN, TAG, 'toggle desktop lyric failed: %{public}s', err.message);
-        });
-        appToast(value ? t('toast_desktop_on') : t('toast_desktop_off'));
-      },
-    });
-
-    items.push({
-      type: 'select',
-      title: t('lyric_pos_title'),
-      value: this.lyricPosition,
-      options: positionOptions,
-      onChange: (value: string): void => {
-        this.lyricPosition = value;
-        void settingsService.update({ desktopLyricPosition: value as DesktopLyricPosition });
-        DesktopLyricManager.applyPosition(value as DesktopLyricPosition);
-      },
-    });
-
-    items.push({
-      type: 'select',
-      title: t('lyric_color_title'),
-      value: this.unplayColor,
-      options: this.colorOptions(false),
-      onChange: (value: string): void => {
-        this.unplayColor = value;
-        this.persistAppearance({ desktopLyricColor: value });
-      },
-    });
-
-    items.push({
-      type: 'select',
-      title: t('lyric_played_color_title'),
-      value: this.playedColor,
-      options: this.colorOptions(true),
-      onChange: (value: string): void => {
-        this.playedColor = value;
-        this.persistAppearance({ desktopLyricPlayedColor: value });
-      },
-    });
-
-    items.push({
-      type: 'select',
-      title: t('lyric_text_position_x'),
-      value: this.textPosX,
-      options: textPosXOptions,
-      onChange: (value: string): void => {
-        this.textPosX = value;
-        this.persistAppearance({
-          desktopLyricTextPositionX: value === 'right' ? 'right' : (value === 'left' ? 'left' : 'center'),
-        });
-      },
-    });
-
-    items.push({
-      type: 'select',
-      title: t('lyric_text_position_y'),
-      value: this.textPosY,
-      options: textPosYOptions,
-      onChange: (value: string): void => {
-        this.textPosY = value;
-        this.persistAppearance({
-          desktopLyricTextPositionY: value === 'top' ? 'top' : (value === 'bottom' ? 'bottom' : 'middle'),
-        });
-      },
-    });
-
-    items.push({
-      type: 'select',
-      title: t('lyric_text_opacity'),
-      value: this.textOpacity.toString(),
-      options: opacityOptions,
-      onChange: (value: string): void => {
-        const opacity = parseInt(value);
-        if (isNaN(opacity)) {
-          return;
-        }
-        this.textOpacity = opacity;
-        this.persistAppearance({ desktopLyricTextOpacity: opacity });
-      },
-    });
-
-    items.push({
-      type: 'select',
-      title: t('lyric_bg_title'),
-      value: this.bgAlpha.toString(),
-      options: bgOptions,
-      onChange: (value: string): void => {
-        const alpha = parseInt(value);
-        if (isNaN(alpha)) {
-          return;
-        }
-        this.bgAlpha = alpha;
-        this.persistAppearance({ desktopLyricBgAlpha: alpha });
-      },
-    });
-
-    items.push({
-      type: 'select',
-      title: t('lyric_size_title'),
-      value: this.lyricFontSize.toString(),
-      options: sizeOptions,
-      onChange: (value: string): void => {
-        const size = parseInt(value);
-        if (isNaN(size)) {
-          return;
-        }
-        this.lyricFontSize = size;
-        this.persistAppearance({ desktopLyricFontSize: size });
-      },
-    });
-
-    items.push({
-      type: 'toggle',
-      title: t('lyric_show_next'),
-      value: this.showNext,
-      onChangeToggle: (value: boolean): void => {
-        this.showNext = value;
-        this.persistAppearance({ desktopLyricShowNext: value });
-      },
-    });
-
-    items.push({
-      type: 'toggle',
-      title: t('lyric_single_line'),
-      description: t('lyric_single_line_desc'),
-      value: this.singleLine,
-      onChangeToggle: (value: boolean): void => {
-        this.singleLine = value;
-        this.persistAppearance({ desktopLyricSingleLine: value });
-      },
-    });
-
-    items.push({
-      type: 'select',
-      title: t('lyric_width'),
-      value: this.lyricWidth.toString(),
-      options: widthOptions,
-      onChange: (value: string): void => {
-        const width = parseInt(value);
-        if (isNaN(width)) {
-          return;
-        }
-        this.lyricWidth = width;
-        this.persistAppearance({ desktopLyricWidth: width });
-      },
-    });
-
-    items.push({
-      type: 'select',
-      title: t('lyric_max_lines'),
-      value: this.lyricMaxLines.toString(),
-      options: lineOptions,
-      onChange: (value: string): void => {
-        const lines = parseInt(value);
-        if (isNaN(lines)) {
-          return;
-        }
-        this.lyricMaxLines = lines;
-        this.persistAppearance({ desktopLyricMaxLines: lines });
-      },
-    });
-
-    items.push({
-      type: 'toggle',
-      title: t('lyric_anim'),
-      value: this.animEnabled,
-      onChangeToggle: (value: boolean): void => {
-        this.animEnabled = value;
-        void settingsService.update({ desktopLyricAnim: value });
-      },
-    });
-
-    items.push({
-      type: 'select',
-      title: t('lyric_shadow_title'),
-      value: this.lyricShadowColor,
-      options: shadowOptions,
-      onChange: (value: string): void => {
-        this.lyricShadowColor = value;
-        this.persistAppearance({ desktopLyricShadowColor: value });
-      },
-    });
-
-    items.push({
-      type: 'toggle',
-      title: t('lyric_lock_title'),
-      description: t('lyric_lock_desc'),
-      value: this.locked,
-      onChangeToggle: (value: boolean): void => {
-        this.locked = value;
-        void settingsService.update({ desktopLyricLocked: value });
-        DesktopLyricManager.setLocked(value);
-      },
-    });
-
-    return items;
+    items.push(toggleRow(t('lyric_lock_title'), this.locked, (value: boolean): void => {
+      this.locked = value;
+      void settingsService.update({ desktopLyricLocked: value });
+      DesktopLyricManager.setLocked(value);
+    }, t('lyric_lock_desc')));
   }
 
   build() {

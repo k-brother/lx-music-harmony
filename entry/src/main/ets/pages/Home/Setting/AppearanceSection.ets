@@ -13,6 +13,7 @@ import { DEFAULT_THEME_ID } from '../../../core/theme/themes';
 import { Subscription } from '../../../service/Subscription';
 import { SettingsSection } from '../../../components/ui/SettingsSection';
 import { labelOfOption, type SettingOption, type SettingSectionItem } from '../../../components/ui/SettingsTypes';
+import { toggleRow, selectRow, inputRow } from '../../../components/ui/SettingsRows';
 import type { ThemeItem } from '../../../types/ThemeTypes';
 
 const DOMAIN = 0x0001;
@@ -91,125 +92,67 @@ export struct AppearanceSection {
 
     const items: SettingSectionItem[] = [];
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_auto_theme'),
-      description: t('settings_auto_theme_desc'),
-      value: this.autoTheme,
-      onChangeToggle: (value: boolean): void => {
-        this.autoTheme = value;
-        void settingsService.update({ autoTheme: value }).then((): void => {
-          void applyAutoTheme();
-        });
-      },
-    });
+    items.push(toggleRow(t('settings_auto_theme'), this.autoTheme, (value: boolean): void => {
+      this.autoTheme = value;
+      void settingsService.update({ autoTheme: value }).then((): void => {
+        void applyAutoTheme();
+      });
+    }, t('settings_auto_theme_desc')));
 
     if (this.autoTheme) {
-      items.push({
-        type: 'select',
-        title: t('settings_theme_light'),
-        value: this.themeLightId,
-        options: lightOptions,
-        onChange: (value: string): void => {
-          this.themeLightId = value;
-          void settingsService.update({ themeLightId: value }).then((): void => {
-            void applyAutoTheme();
-          });
-        },
-      });
-      items.push({
-        type: 'select',
-        title: t('settings_theme_dark'),
-        value: this.themeDarkId,
-        options: darkOptions,
-        onChange: (value: string): void => {
-          this.themeDarkId = value;
-          void settingsService.update({ themeDarkId: value }).then((): void => {
-            void applyAutoTheme();
-          });
-        },
-      });
+      items.push(selectRow(t('settings_theme_light'), this.themeLightId, lightOptions, (value: string): void => {
+        this.themeLightId = value;
+        void settingsService.update({ themeLightId: value }).then((): void => {
+          void applyAutoTheme();
+        });
+      }));
+      items.push(selectRow(t('settings_theme_dark'), this.themeDarkId, darkOptions, (value: string): void => {
+        this.themeDarkId = value;
+        void settingsService.update({ themeDarkId: value }).then((): void => {
+          void applyAutoTheme();
+        });
+      }));
     } else {
-      items.push({
-        type: 'toggle',
-        title: t('settings_dark_mode'),
-        value: this.theme === 'dark',
-        onChangeToggle: (value: boolean): void => {
-          void this.applyTheme(value ? DARK_THEME_ID : DEFAULT_THEME_ID);
-          appToast(value ? t('toast_theme_dark') : t('toast_theme_light'));
-        },
-      });
-      items.push({
-        type: 'select',
-        title: t('settings_theme'),
-        value: this.themeId,
-        options: allOptions,
-        onChange: (value: string): void => {
-          void this.applyTheme(value);
-          appToast(`${t('settings_theme')}: ${labelOfOption(allOptions, value)}`);
-        },
-      });
+      items.push(toggleRow(t('settings_dark_mode'), this.theme === 'dark', (value: boolean): void => {
+        void this.applyTheme(value ? DARK_THEME_ID : DEFAULT_THEME_ID);
+        appToast(value ? t('toast_theme_dark') : t('toast_theme_light'));
+      }));
+      items.push(selectRow(t('settings_theme'), this.themeId, allOptions, (value: string): void => {
+        void this.applyTheme(value);
+        appToast(`${t('settings_theme')}: ${labelOfOption(allOptions, value)}`);
+      }));
     }
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_dynamic_bg'),
-      description: t('settings_dynamic_bg_desc'),
-      value: this.dynamicBg,
-      onChangeToggle: (value: boolean): void => {
-        this.dynamicBg = value;
-        void settingsService.update({ dynamicBg: value });
-      },
-    });
+    items.push(toggleRow(t('settings_dynamic_bg'), this.dynamicBg, (value: boolean): void => {
+      this.dynamicBg = value;
+      void settingsService.update({ dynamicBg: value });
+    }, t('settings_dynamic_bg_desc')));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_font_shadow'),
-      description: t('settings_font_shadow_desc'),
-      value: this.fontShadow,
-      onChangeToggle: (value: boolean): void => {
-        this.fontShadow = value;
-        void settingsService.update({ fontShadow: value });
-      },
-    });
+    items.push(toggleRow(t('settings_font_shadow'), this.fontShadow, (value: boolean): void => {
+      this.fontShadow = value;
+      void settingsService.update({ fontShadow: value });
+    }, t('settings_font_shadow_desc')));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_hide_bg_dark'),
-      description: t('settings_hide_bg_dark_desc'),
-      value: this.hideBgDark,
-      onChangeToggle: (value: boolean): void => {
-        this.hideBgDark = value;
-        void settingsService.update({ hideBgDark: value });
-      },
-    });
+    items.push(toggleRow(t('settings_hide_bg_dark'), this.hideBgDark, (value: boolean): void => {
+      this.hideBgDark = value;
+      void settingsService.update({ hideBgDark: value });
+    }, t('settings_hide_bg_dark_desc')));
 
-    items.push({
-      type: 'input',
-      title: t('settings_font_size'),
-      description: t('settings_font_size_desc'),
-      value: this.fontSize.toString(),
-      onChange: (value: string): void => {
-        const size = parseInt(value);
-        if (isNaN(size) || size < 12 || size > 20) {
-          appToast(t('settings_font_size_desc'));
-          return;
-        }
-        this.fontSize = size;
-        void settingsService.update({ fontSize: size });
-        appToast(`${t('toast_font_set')}: ${size}`);
-      },
-    });
+    items.push(inputRow(t('settings_font_size'), this.fontSize.toString(), (value: string): void => {
+      const size = parseInt(value);
+      if (isNaN(size) || size < 12 || size > 20) {
+        appToast(t('settings_font_size_desc'));
+        return;
+      }
+      this.fontSize = size;
+      void settingsService.update({ fontSize: size });
+      appToast(`${t('toast_font_set')}: ${size}`);
+    }, t('settings_font_size_desc')));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_anim'),
-      value: this.showAnimation,
-      onChangeToggle: (value: boolean): void => {
-        this.showAnimation = value;
-        void settingsService.update({ showAnimation: value });
-      },
-    });
+    items.push(toggleRow(t('settings_anim'), this.showAnimation, (value: boolean): void => {
+      this.showAnimation = value;
+      void settingsService.update({ showAnimation: value });
+    }));
 
     return items;
   }

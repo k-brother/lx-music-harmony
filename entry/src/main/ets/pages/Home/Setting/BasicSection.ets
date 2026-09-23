@@ -14,6 +14,7 @@ import { appToast } from '../../../service/DialogService';
 import { Subscription } from '../../../service/Subscription';
 import { SettingsSection } from '../../../components/ui/SettingsSection';
 import { labelOfOption, type SettingOption, type SettingSectionItem } from '../../../components/ui/SettingsTypes';
+import { toggleRow, selectRow } from '../../../components/ui/SettingsRows';
 
 @Component
 export struct BasicSection {
@@ -71,89 +72,46 @@ export struct BasicSection {
 
     const items: SettingSectionItem[] = [];
 
-    items.push({
-      type: 'select',
-      title: t('settings_language'),
-      value: this.language,
-      options: languageOptions,
-      onChange: (value: string): void => {
-        setLanguage(value);
-        this.language = value;
-        void settingsService.update({ language: value });
-        appToast(value === 'zh-CN' ? t('toast_lang_zh') : 'Switched to English');
-        // 语言切换后回到首页触发整树重建，避免残留旧文案
-        navigationService.backTo(RouteName.HOME);
-      },
-    });
+    items.push(selectRow(t('settings_language'), this.language, languageOptions, (value: string): void => {
+      setLanguage(value);
+      this.language = value;
+      void settingsService.update({ language: value });
+      appToast(value === 'zh-CN' ? t('toast_lang_zh') : 'Switched to English');
+      // 语言切换后回到首页触发整树重建，避免残留旧文案
+      navigationService.backTo(RouteName.HOME);
+    }));
 
-    items.push({
-      type: 'select',
-      title: t('settings_startup_page'),
-      value: this.startupPage,
-      options: startupOptions,
-      onChange: (value: string): void => {
-        this.startupPage = value;
-        void settingsService.update({ startupPage: value as StartupPage });
-      },
-    });
+    items.push(selectRow(t('settings_startup_page'), this.startupPage, startupOptions, (value: string): void => {
+      this.startupPage = value;
+      void settingsService.update({ startupPage: value as StartupPage });
+    }));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_exit_confirm'),
-      value: this.showExitDialog,
-      onChangeToggle: (value: boolean): void => {
-        this.showExitDialog = value;
-        void settingsService.update({ showExitDialog: value });
-      },
-    });
+    items.push(toggleRow(t('settings_exit_confirm'), this.showExitDialog, (value: boolean): void => {
+      this.showExitDialog = value;
+      void settingsService.update({ showExitDialog: value });
+    }));
 
-    items.push({
-      type: 'select',
-      title: t('settings_source_name'),
-      description: t('settings_source_name_desc'),
-      value: this.sourceNameType,
-      options: sourceNameOptions,
-      onChange: (value: string): void => {
-        this.sourceNameType = value;
-        void settingsService.update({ sourceNameType: value as SourceNameType });
-        appToast(`${t('settings_source_name')}: ${labelOfOption(sourceNameOptions, value)}`);
-      },
-    });
+    items.push(selectRow(t('settings_source_name'), this.sourceNameType, sourceNameOptions, (value: string): void => {
+      this.sourceNameType = value;
+      void settingsService.update({ sourceNameType: value as SourceNameType });
+      appToast(`${t('settings_source_name')}: ${labelOfOption(sourceNameOptions, value)}`);
+    }, t('settings_source_name_desc')));
 
-    items.push({
-      type: 'select',
-      title: t('settings_share_type'),
-      description: t('settings_share_type_desc'),
-      value: this.shareType,
-      options: shareOptions,
-      onChange: (value: string): void => {
-        this.shareType = value;
-        void settingsService.update({ shareType: value as ShareType });
-        appToast(`${t('settings_share_type')}: ${labelOfOption(shareOptions, value)}`);
-      },
-    });
+    items.push(selectRow(t('settings_share_type'), this.shareType, shareOptions, (value: string): void => {
+      this.shareType = value;
+      void settingsService.update({ shareType: value as ShareType });
+      appToast(`${t('settings_share_type')}: ${labelOfOption(shareOptions, value)}`);
+    }, t('settings_share_type_desc')));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_allow_seek'),
-      description: t('settings_allow_seek_desc'),
-      value: this.allowProgressBarSeek,
-      onChangeToggle: (value: boolean): void => {
-        this.allowProgressBarSeek = value;
-        void settingsService.update({ allowProgressBarSeek: value });
-      },
-    });
+    items.push(toggleRow(t('settings_allow_seek'), this.allowProgressBarSeek, (value: boolean): void => {
+      this.allowProgressBarSeek = value;
+      void settingsService.update({ allowProgressBarSeek: value });
+    }, t('settings_allow_seek_desc')));
 
-    items.push({
-      type: 'toggle',
-      title: t('settings_haptic'),
-      description: t('settings_haptic_desc'),
-      value: this.hapticFeedback,
-      onChangeToggle: (value: boolean): void => {
-        this.hapticFeedback = value;
-        void settingsService.update({ hapticFeedback: value });
-      },
-    });
+    items.push(toggleRow(t('settings_haptic'), this.hapticFeedback, (value: boolean): void => {
+      this.hapticFeedback = value;
+      void settingsService.update({ hapticFeedback: value });
+    }, t('settings_haptic_desc')));
 
     return items;
   }

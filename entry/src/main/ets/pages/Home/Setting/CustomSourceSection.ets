@@ -19,6 +19,7 @@ import { BottomSheet } from '../../../components/ui/BottomSheet';
 import { Subscription } from '../../../service/Subscription';
 import { SettingsSection } from '../../../components/ui/SettingsSection';
 import type { SettingSectionItem } from '../../../components/ui/SettingsTypes';
+import { buttonRow } from '../../../components/ui/SettingsRows';
 
 const DOMAIN = 0x0001;
 const TAG = 'CustomSourceSection';
@@ -123,25 +124,15 @@ export struct CustomSourceSection {
 
   private buildItems(): SettingSectionItem[] {
     const items: SettingSectionItem[] = [];
-    items.push({
-      type: 'button',
-      title: t('settings_custom_source'),
-      description: this.loadedName.length > 0
+    items.push(buttonRow(t('settings_custom_source'), (): void => {
+  navigationService.navigateTo(RouteName.CUSTOM_SOURCE);
+}, { description: this.loadedName.length > 0
         ? `${t('custom_source_in_use')}: ${this.loadedName}`
-        : t('settings_custom_source_desc'),
-      onClick: (): void => {
-        navigationService.navigateTo(RouteName.CUSTOM_SOURCE);
-      },
-    });
-    items.push({
-      type: 'button',
-      title: t('custom_source_quick_import'),
-      description: t('custom_source_online_js') + ' / ' + t('custom_source_local_js'),
-      onClick: (): void => {
-        this.error = '';
-        this.showImport = true;
-      },
-    });
+        : t('settings_custom_source_desc') }));
+    items.push(buttonRow(t('custom_source_quick_import'), (): void => {
+      this.error = '';
+      this.showImport = true;
+    }, { description: t('custom_source_online_js') + ' / ' + t('custom_source_local_js') }));
     return items;
   }
 
