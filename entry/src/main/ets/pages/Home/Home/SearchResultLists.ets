@@ -35,6 +35,8 @@ export struct SearchMusicResultList {
   @StorageProp('theme') theme: string = 'light';
   @Prop results: SearchMusicRow[] = [];
   onPlay?: (index: number) => void;
+  /** 长按行 → 与歌单详情同一套单曲菜单（下一首播放 / 收藏 / 下载 / 分享 / 不喜欢…） */
+  onLongPress?: (index: number) => void;
 
   build() {
     if (this.results.length === 0) {
@@ -55,6 +57,11 @@ export struct SearchMusicResultList {
               onTap: (): void => {
                 if (this.onPlay) {
                   this.onPlay(index);
+                }
+              },
+              onLongPress: (): void => {
+                if (this.onLongPress) {
+                  this.onLongPress(index);
                 }
               },
               trailing: (): void => {

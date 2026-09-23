@@ -351,6 +351,10 @@ CHECKS = [
  # 播放页不得用页面里的旧状态覆盖定时开关（定时器的唯一所有者是 SleepTimerService）
  ('播放页不越权写定时开关', 'pages/PlayDetailPage.ets', r'private async savePlaySettings',
   r'sleepTimerEnabled: this\.timeoutExitEnabled'),
+ # 搜索结果也能长按出单曲菜单（此前只能点一下播放）
+ ('搜索结果长按出单曲菜单', 'pages/HomePage.ets', r'openSearchResultMenu'),
+ ('搜索结果复用歌单详情单曲菜单', 'pages/HomePage.ets', r'showSongItemMenu\(row'),
+ ('单曲菜单多选项可选', 'pages/SonglistDetail/SonglistMenus.ets', r'onSelectMode\?:'),
 ]
 
 fails = []

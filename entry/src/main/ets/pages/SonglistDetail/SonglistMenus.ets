@@ -17,7 +17,8 @@ export interface SongItemMenuHandlers {
   onAddToList: (song: SongItem) => void;
   onDownload: (song: SongItem) => void;
   onShare: (song: SongItem) => void;
-  onSelectMode: (song: SongItem) => void;
+  /** 进入多选：调用方不需要多选时不传，菜单里也不会出现这一项（如搜索结果） */
+  onSelectMode?: (song: SongItem) => void;
   onDislike: (song: SongItem) => void;
   onSourceDetail: (song: SongItem) => void;
   onViewArtist: (song: SongItem) => void;
@@ -59,8 +60,11 @@ export async function showSongItemMenu(
     { key: 'add_to_list', label: t('player_add_to_list') },
     { key: 'download', label: t('player_download') },
     { key: 'share', label: t('player_share') },
-    { key: 'select_mode', label: t('list_select_mode') },
   ];
+  // 多选只在「有列表上下文」的地方有意义（歌单详情），搜索结果不给这个入口
+  if (handlers.onSelectMode) {
+    entries.push({ key: 'select_mode', label: t('list_select_mode') });
+  }
 
   if (options?.canEditPosition) {
     entries.push({ key: 'move_position', label: t('list_change_position') });
@@ -102,7 +106,9 @@ export async function showSongItemMenu(
       handlers.onShare(song);
       break;
     case 'select_mode':
-      handlers.onSelectMode(song);
+      if (handlers.onSelectMode) {
+        handlers.onSelectMode(song);
+      }
       break;
     case 'move_position':
       handlers.onMovePosition(song);

@@ -13,6 +13,19 @@ import { getHotSearch, getTipListInfo, HotSearchItem, Source } from '../core/sea
 
 // 导入播放器栏组件
 import { PlayerBar } from '../components/player/PlayerBar';
+import { appActionMenu, appToast } from '../service/DialogService';
+import { showSongItemMenu } from './SonglistDetail/SonglistMenus';
+import { songRowToQueueItem, type SongRowLike } from '../core/list/SongMappers';
+import {
+  addRowToDefaultList,
+  addRowToDislike,
+  downloadRow,
+  openInBrowser,
+  shareSongRow,
+  sourceDetailUrl,
+} from './SonglistDetail/SonglistRowActions';
+import type { SongItem } from './SonglistDetail/SonglistTypes';
+import type { ShareResult } from '../service/ShareService';
 import { stateEvent } from '../event/StateEvent';
 import { SongListView } from './Home/SongListView';
 import { LeaderboardView } from './Home/LeaderboardView';
@@ -28,7 +41,7 @@ import { DesignTokens } from '../theme/DesignTokens';
 import { SearchStripActions } from '../components/common/SearchStrip';
 import { Breakpoints } from '../theme/Breakpoints';
 import { requestFocusSafe } from '../utils/FocusTools';
-import { t, sourceLabel } from '../service/LocalizationService';
+import { t, tf, sourceLabel } from '../service/LocalizationService';
 import { settingsService } from '../service/SettingsService';
 import {
   addHistoryWord,
@@ -722,11 +735,133 @@ export struct HomePage {
               void this.playSearchResult(this.searchResults[index]);
             }
           },
+          onLongPress: (index: number): void => {
+            if (index >= 0 && index < this.searchResults.length) {
+              void this.openSearchResultMenu(this.searchResults[index]);
+            }
+          },
         })
       }
     }
     .width('100%')
     .layoutWeight(1)
+  }
+
+  /** 搜索结果行 → 队列歌曲（取到播放地址后再回填 url / duration） */
+  /**
+   * 长按搜索结果 → 与歌单详情同一套单曲菜单。
+   *
+   * 搜索结果以前只能点一下播放，想「下一首播放 / 收藏 / 下载 / 分享 / 不喜欢」得先点进
+   * 歌单详情才行。这里复用 SonglistMenus + SonglistRowActions，菜单文案与动作实现都只有一份。
+   */
+  private async openSearchResultMenu(item: SearchResultItem): Promise<void> {
+    const row: SongItem = {
+      id: item.id,
+      name: item.name,
+      singer: item.singer,
+      album: item.album,
+      duration: item.duration > 0 ? item.duration : 0,
+      source: item.source,
+      pic: item.pic ?? '',
+      albumId: item.albumId,
+      songmid: item.songmid,
+      strMediaMid: item.strMediaMid,
+      hash: item.hash,
+      copyrightId: item.copyrightId,
+      isPlaying: false,
+    };
+    await showSongItemMenu(row, {
+      onPlayLater: (target: SongItem): void => {
+        playerService.insertNext(songRowToQueueItem(target));
+        appToast(tf('toast_play_later_added', [target.name]));
+      },
+      onAddToList: (target: SongItem): void => {
+        void this.addSearchRowToDefaultList(target);
+      },
+      onDownload: (target: SongItem): void => {
+        void this.downloadSearchRow(target);
+      },
+      onShare: (target: SongItem): void => {
+        void this.shareSearchRow(target);
+      },
+      onDislike: (target: SongItem): void => {
+        void this.dislikeSearchRow(target);
+      },
+      onSourceDetail: (target: SongItem): void => {
+        if (!openInBrowser(this.hostContext(), sourceDetailUrl(target))) {
+          appToast(t('toast_operation_failed'));
+        }
+      },
+      onViewArtist: (target: SongItem): void => {
+        this.startSearchFromMenu(target.singer);
+      },
+      onViewAlbum: (target: SongItem): void => {
+        this.startSearchFromMenu(target.album);
+      },
+      onMovePosition: (): void => {},
+      onMoveToList: (): void => {},
+    }, {
+      // 搜索结果没有「所属列表」，因此不提供改位置/移动/多选
+      canEditPosition: false,
+      canMoveToList: false,
+    });
+  }
+
+  /** 收藏到默认歌单（我喜欢） */
+  private async addSearchRowToDefaultList(row: SongItem): Promise<void> {
+    const error: string = await addRowToDefaultList(row);
+    appToast(error.length === 0
+      ? tf('toast_added_to_default', [row.name]) : t('toast_operation_failed'));
+  }
+
+  /** 下载单曲 */
+  private async downloadSearchRow(row: SongItem): Promise<void> {
+    const error: string = await downloadRow(row);
+    appToast(error.length === 0
+      ? tf('toast_download_start_song', [row.name]) : t('toast_operation_failed'));
+  }
+
+  /** 分享单曲（按设置走系统分享，失败回退剪贴板） */
+  private async shareSearchRow(row: SongItem): Promise<void> {
+    const result: ShareResult = await shareSongRow(this.hostContext(), row, sourceLabel(row.source));
+    if (result === 'clipboard') {
+      appToast(t('toast_share_copy'));
+    } else if (result === 'failed') {
+      appToast(t('toast_operation_failed'));
+    }
+  }
+
+  /** 不喜欢（歌曲 / 歌手 / 歌名三种粒度） */
+  private async dislikeSearchRow(row: SongItem): Promise<void> {
+    const picked: number = await appActionMenu(t('dislike_title'), [
+      t('dislike_song'),
+      t('dislike_singer'),
+      t('dislike_name'),
+    ]);
+    if (picked < 0) {
+      return;
+    }
+    try {
+      const count: number = await addRowToDislike(row, picked);
+      appToast(tf('dislike_added', [count.toString()]));
+    } catch (err) {
+      hilog.warn(0x0001, 'HomePage', 'dislike failed: %{public}s', JSON.stringify(err));
+      appToast(t('toast_operation_failed'));
+    }
+  }
+
+  /** 菜单里的「查看歌手 / 专辑」：沿用详情页做法，直接发起一次搜索 */
+  private startSearchFromMenu(keyword: string): void {
+    if (!keyword || keyword.length === 0) {
+      appToast(t('toast_operation_failed'));
+      return;
+    }
+    this.searchText = keyword;
+    void this.doSearch();
+  }
+
+  private hostContext(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext;
   }
 
   /** 搜索结果行 → 队列歌曲（取到播放地址后再回填 url / duration） */
