@@ -738,15 +738,82 @@ export struct LeaderboardView {
   }
 
   /** 榜单首屏骨架（与歌单页一致的加载观感） */
-  build() {
-    Stack() {
+  /** 首屏骨架（与歌单页同一套骨架卡片） */
+  @Builder
+  LoadingSkeleton() {
+    // 榜单首屏用骨架卡片占位，与歌单页保持一致
+    SkeletonBoards()
+  }
+
+  /** 榜单区：搜索条/筛选条吸顶占位 + 卡片列表 + 空态 */
+  @Builder
+  BoardArea() {
+    if (this.filteredBoardList.length < this.minPinCards) {
       Column() {
-        if (this.isLoading) {
-          // 榜单首屏用骨架卡片占位，与歌单页保持一致
-          SkeletonBoards()
+        SearchStrip({
+          text: $searchText,
+          placeholder: t('search_board_hint'),
+          marginH: DesignTokens.spaceGutter(),
+          marginV: DesignTokens.spaceUnit(),
+          tapToOpenOnly: true,
+          actions: this.leaderboardSearchActions,
+        })
+        this.LeaderboardFilterBar()
+        if (this.cardStates.length === 0) {
+          StateView({
+            state: 'empty',
+            iconRes: $r('sys.symbol.list_number'),
+            message: this.boardList.length === 0 ? t('no_data') : t('search_no_result'),
+          })
+            .width('100%')
+            .layoutWeight(1)
         } else {
-          if (this.filteredBoardList.length < this.minPinCards) {
+          Column() {
+            ForEach(this.cardStates, (card: LeaderboardCardState, index: number) => {
+              ChartCard({
+                cardId: this.cardStates[index].board.id,
+                title: this.cardStates[index].board.name,
+                playCount: this.cardStates[index].board.playCount ?? -1,
+                coverUrl: this.resolveCardCoverAt(index),
+                placeholderColors: this.placeholderPair(index),
+                songs: this.cardStates[index].displayList,
+                loadState: this.cardStates[index].loadState,
+                expanded: this.cardStates[index].expanded,
+                onToggleExpand: (): void => this.toggleExpand(index),
+                onOpenBoard: (): void => this.navigateToBoardDetail(this.cardStates[index].board),
+                onPlaySong: (song: BoardMusicItem): void => {
+                  void this.playPreviewSong(song);
+                },
+                onRetry: (): void => this.retryPreview(index),
+              })
+              .width('100%')
+              .padding({ left: 12, right: 12 })
+              .onAppear(() => {
+                this.ensurePreviewAtIndex(index);
+              })
+            }, (card: LeaderboardCardState, index: number) => `${card.board.source}_${card.board.id}_${index}`)
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .padding({ bottom: 16 })
+        }
+      }
+      .width('100%')
+      .layoutWeight(1)
+    } else {
+      Column() {
+        if (this.isFilterPinned) {
+          this.LeaderboardFilterBar()
+        }
+        RefreshContainer({
+          refreshing: $isRefreshing,
+          onRefresh: (): void => {
+            this.reloadBoards();
+          },
+        }) {
+          Scroll(this.leaderboardScroller) {
             Column() {
+            if (!this.isFilterPinned) {
               SearchStrip({
                 text: $searchText,
                 placeholder: t('search_board_hint'),
@@ -755,129 +822,75 @@ export struct LeaderboardView {
                 tapToOpenOnly: true,
                 actions: this.leaderboardSearchActions,
               })
+            } else {
+              Blank()
+                .width('100%')
+                .height(this.searchStripHostHeight)
+            }
+            if (!this.isFilterPinned) {
               this.LeaderboardFilterBar()
-              if (this.cardStates.length === 0) {
-                StateView({
-                  state: 'empty',
-                  iconRes: $r('sys.symbol.list_number'),
-                  message: this.boardList.length === 0 ? t('no_data') : t('search_no_result'),
-                })
-                  .width('100%')
-                  .layoutWeight(1)
-              } else {
-                Column() {
-                  ForEach(this.cardStates, (card: LeaderboardCardState, index: number) => {
-                    ChartCard({
-                      cardId: this.cardStates[index].board.id,
-                      title: this.cardStates[index].board.name,
-                      playCount: this.cardStates[index].board.playCount ?? -1,
-                      coverUrl: this.resolveCardCoverAt(index),
-                      placeholderColors: this.placeholderPair(index),
-                      songs: this.cardStates[index].displayList,
-                      loadState: this.cardStates[index].loadState,
-                      expanded: this.cardStates[index].expanded,
-                      onToggleExpand: (): void => this.toggleExpand(index),
-                      onOpenBoard: (): void => this.navigateToBoardDetail(this.cardStates[index].board),
-                      onPlaySong: (song: BoardMusicItem): void => {
-                        void this.playPreviewSong(song);
-                      },
-                      onRetry: (): void => this.retryPreview(index),
-                    })
-                    .width('100%')
-                    .padding({ left: 12, right: 12 })
-                    .onAppear(() => {
-                      this.ensurePreviewAtIndex(index);
-                    })
-                  }, (card: LeaderboardCardState, index: number) => `${card.board.source}_${card.board.id}_${index}`)
-                }
+            } else {
+              Blank()
                 .width('100%')
-                .layoutWeight(1)
-                .padding({ bottom: 16 })
-              }
+                .height(this.filterBarPinnedHeight)
             }
-            .width('100%')
-            .layoutWeight(1)
-          } else {
             Column() {
-              if (this.isFilterPinned) {
-                this.LeaderboardFilterBar()
-              }
-              RefreshContainer({
-                refreshing: $isRefreshing,
-                onRefresh: (): void => {
-                  this.reloadBoards();
-                },
-              }) {
-                Scroll(this.leaderboardScroller) {
-                  Column() {
-                  if (!this.isFilterPinned) {
-                    SearchStrip({
-                      text: $searchText,
-                      placeholder: t('search_board_hint'),
-                      marginH: DesignTokens.spaceGutter(),
-                      marginV: DesignTokens.spaceUnit(),
-                      tapToOpenOnly: true,
-                      actions: this.leaderboardSearchActions,
-                    })
-                  } else {
-                    Blank()
-                      .width('100%')
-                      .height(this.searchStripHostHeight)
-                  }
-                  if (!this.isFilterPinned) {
-                    this.LeaderboardFilterBar()
-                  } else {
-                    Blank()
-                      .width('100%')
-                      .height(this.filterBarPinnedHeight)
-                  }
-                  Column() {
-                    ForEach(this.cardStates, (card: LeaderboardCardState, index: number) => {
-                      ChartCard({
-                        cardId: this.cardStates[index].board.id,
-                        title: this.cardStates[index].board.name,
-                        playCount: this.cardStates[index].board.playCount ?? -1,
-                        coverUrl: this.resolveCardCoverAt(index),
-                        placeholderColors: this.placeholderPair(index),
-                        songs: this.cardStates[index].displayList,
-                        loadState: this.cardStates[index].loadState,
-                        expanded: this.cardStates[index].expanded,
-                        onToggleExpand: (): void => this.toggleExpand(index),
-                        onOpenBoard: (): void => this.navigateToBoardDetail(this.cardStates[index].board),
-                        onPlaySong: (song: BoardMusicItem): void => {
-                          void this.playPreviewSong(song);
-                        },
-                        onRetry: (): void => this.retryPreview(index),
-                      })
-                      .width('100%')
-                      // 大屏内容列居中（榜单卡片在 PC 上不拉满整屏）
-                      .padding({
-                        left: 12 + Breakpoints.contentInset(this.windowWidthVp),
-                        right: 12 + Breakpoints.contentInset(this.windowWidthVp),
-                      })
-                      .onAppear(() => {
-                        this.ensurePreviewAtIndex(index);
-                      })
-                    }, (card: LeaderboardCardState, index: number) => `${card.board.source}_${card.board.id}_${index}`)
-                  }
-                  .width('100%')
-                  .padding({ bottom: 16 })
-                  }
-                  .width('100%')
-                }
-                .layoutWeight(1)
-                .width('100%')
-                .scrollable(ScrollDirection.Vertical)
-                .scrollBar(BarState.Off)
-                .edgeEffect(EdgeEffect.None)
-                .onDidScroll(() => {
-                  this.syncFilterPinnedByOffset();
+              ForEach(this.cardStates, (card: LeaderboardCardState, index: number) => {
+                ChartCard({
+                  cardId: this.cardStates[index].board.id,
+                  title: this.cardStates[index].board.name,
+                  playCount: this.cardStates[index].board.playCount ?? -1,
+                  coverUrl: this.resolveCardCoverAt(index),
+                  placeholderColors: this.placeholderPair(index),
+                  songs: this.cardStates[index].displayList,
+                  loadState: this.cardStates[index].loadState,
+                  expanded: this.cardStates[index].expanded,
+                  onToggleExpand: (): void => this.toggleExpand(index),
+                  onOpenBoard: (): void => this.navigateToBoardDetail(this.cardStates[index].board),
+                  onPlaySong: (song: BoardMusicItem): void => {
+                    void this.playPreviewSong(song);
+                  },
+                  onRetry: (): void => this.retryPreview(index),
                 })
-              }
+                .width('100%')
+                // 大屏内容列居中（榜单卡片在 PC 上不拉满整屏）
+                .padding({
+                  left: 12 + Breakpoints.contentInset(this.windowWidthVp),
+                  right: 12 + Breakpoints.contentInset(this.windowWidthVp),
+                })
+                .onAppear(() => {
+                  this.ensurePreviewAtIndex(index);
+                })
+              }, (card: LeaderboardCardState, index: number) => `${card.board.source}_${card.board.id}_${index}`)
             }
             .width('100%')
-            .layoutWeight(1)
+            .padding({ bottom: 16 })
+            }
+            .width('100%')
           }
+          .layoutWeight(1)
+          .width('100%')
+          .scrollable(ScrollDirection.Vertical)
+          .scrollBar(BarState.Off)
+          .edgeEffect(EdgeEffect.None)
+          .onDidScroll(() => {
+            this.syncFilterPinnedByOffset();
+          })
+        }
+      }
+      .width('100%')
+      .layoutWeight(1)
+    }
+  }
+
+
+  build() {
+    Stack() {
+      Column() {
+        if (this.isLoading) {
+          this.LoadingSkeleton()
+        } else {
+          this.BoardArea()
         }
       }
       .width('100%')
