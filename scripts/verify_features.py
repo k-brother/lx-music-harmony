@@ -82,8 +82,12 @@ CHECKS = [
  ('歌单详情滚动记忆模块', 'pages/SonglistDetail/SonglistScrollMemory.ets', r'saveScrollOffset'),
  ('封面请求防风暴守卫', 'pages/PlayDetailPage.ets', r'coverAttemptKey'),
  ('歌词请求防风暴守卫', 'pages/PlayDetailPage.ets', r'lyricFailedKey'),
- ('下载不打断用户（默认不进选择器）', 'core/music/RunMusicDownloads.ets', r'downloadUseFilePicker'),
- ('下载任务用真实落盘路径', 'core/music/RunMusicDownloads.ets', r'task\.filePath = savedPath'),
+ # 下载域拆成 download/{Types,Context,Files,Storage,Queue} 后，判据指向对应分层文件
+ ('下载不打断用户（默认不进选择器）', 'core/music/download/DownloadFiles.ets', r'downloadUseFilePicker'),
+ ('下载任务用真实落盘路径', 'core/music/download/DownloadQueue.ets', r'task\.filePath = savedPath'),
+ ('下载历史只存完成/失败', 'core/music/download/DownloadStorage.ets', r'pickHistoricTasks'),
+ ('下载队列唯一持有任务表', 'core/music/download/DownloadQueue.ets', r'const downloadTasks: Map<string, DownloadTask> = new Map\(\)'),
+ ('下载文件名规则单一出口', 'core/music/download/DownloadFiles.ets', r'buildMusicFileStem'),
  ('下载文件选择器开关设置项', 'pages/Home/Setting/DownloadSection.ets', r'downloadUseFilePicker'),
  # 设置服务拆分：类型/默认值、存储加载与旧数据迁移各自成文件，主文件只负责写与广播
  ('设置类型与默认值模块', 'service/settings/SettingsTypes.ets', r'export function createDefaultSettings'),

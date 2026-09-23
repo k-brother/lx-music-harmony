@@ -738,6 +738,7 @@ python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 | `DownloadPage` 832 行（唯一没收口 UI Kit 的页面） | 433 行 + `Download/{DownloadView,DownloadTaskRow,DownloadSelectionBar}` | 纯逻辑（筛选/计数/状态文案与配色/行模型）与视图分离，顶栏/空态/分段/下拉刷新全走 UI Kit |
 | 4 份字节格式化 + 2 份时长格式化 | `utils/FormatTools`（`formatBytes` / `formatBytesCompact` / `formatDuration`） | `LocalPlayback`、`CommonUtils`、`CacheService`、`ListTools` 全部改为委托，规则只有一处 |
 | 下载状态色写死 `#FFA500/#4CAF50/…` | `DesignTokens.success() / warning() / info()` | 语义状态色进设计系统，页面不再出现魔法十六进制 |
+| `RunMusicDownloads` 991 行（队列+文件+持久化混在一起） | 128 行门面 + `download/{DownloadTypes,DownloadContext,DownloadFiles,DownloadStorage,DownloadQueue}` | 类型 / 上下文 / 文件传输 / 历史持久化 / 任务状态机各自成文件，任务表只由队列持有 |
 
 ## 设备验收清单（需要真机确认，代码侧已按此实现）
 
@@ -751,6 +752,8 @@ python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 
 ### 本地音乐
 - [ ] 「我的 → 本地音乐」导入设备音频后列表出现曲目，标题/歌手/时长正确
+      （**当前测试设备上无选择器可见的音频文件，且 shell 无权写入应用沙箱，
+      这条链路尚未真机走查过**：需要在有本地音频的设备上点一次「导入」）
 - [ ] 内嵌封面能显示（首次会解码并缓存为 `*.cover.jpg`）
 - [ ] 点击直接播放（`file://`，不依赖网络）；长按出现「播放 / 从本地曲库移除」
 
