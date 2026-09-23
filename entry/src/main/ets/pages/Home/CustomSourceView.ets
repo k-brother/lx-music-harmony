@@ -374,246 +374,23 @@ export struct CustomSourceView {
 
   build() {
     Column() {
-      // 标题栏
-      Row() {
-        NavBackButton()
-
-        Text(t('custom_sources'))
-          .fontSize(DesignTokens.fontTitle())
-          .fontWeight(FontWeight.Medium)
-          .fontColor(DesignTokens.labelPrimary(this.theme))
-          .layoutWeight(1)
-          .margin({ left: 12 })
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
-      .width('100%')
-      .height(60)
-      .padding({ left: 14, right: 14, top: 8, bottom: 6 })
-      .backgroundColor(DesignTokens.chromeBar(this.theme))
-      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
+      this.TopBar()
 
       Scroll() {
         Column() {
-          // 内置源
-          this.buildHeader(t('builtin_sources'))
+          this.BuiltinSection()
 
-          ForEach(DEFAULT_SOURCES, (item: SourceItem) => {
-            this.buildSourceItem(item)
-          })
+          this.SavedSourcesSection()
 
-          // 自定义源
-          this.buildHeader(t('custom_sources'))
+          this.CustomEntrySection()
 
-          // 已保存的自定义源列表：启用/停用、更新、删除（对齐安卓版 userApi 管理）
-          if (this.customSources.length > 0) {
-            ForEach(this.customSources, (source: StoredCustomSource) => {
-              CustomSourceRow({
-                sourceId: source.id,
-                sourceName: source.name,
-                sourceUrl: source.url,
-                version: source.version,
-                author: source.author,
-                isEnabled: source.enabled,
-                busy: this.busySourceId.length > 0,
-                onToggle: (sourceId: string, enabled: boolean): void => {
-                  void this.toggleSourceEnabledById(sourceId, enabled);
-                },
-                onUpdate: (sourceId: string): void => {
-                  void this.updateSourceById(sourceId);
-                },
-                onRemove: (sourceId: string): void => {
-                  void this.removeSourceById(sourceId);
-                },
-              })
-            }, (source: StoredCustomSource) => `${source.id}_${source.enabled}_${source.version}`)
-          }
+          this.UrlImportSection()
 
-          // 自定义源入口
-          Row() {
-            Column() {
-              Text(t('custom_source_online_js'))
-                .fontSize(DesignTokens.fontSubhead())
-                .fontColor(DesignTokens.labelPrimary(this.theme))
-              Text(t('custom_source_url_placeholder'))
-                .fontSize(DesignTokens.fontMicro())
-                .fontColor(DesignTokens.labelSecondary(this.theme))
-                .margin({ top: 2 })
-            }
-            .alignItems(HorizontalAlign.Start)
-            .layoutWeight(1)
+          this.LocalImportSection()
 
-            if (this.selectedSource === 'custom') {
-              SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
-                .fontSize(DesignTokens.fontDisplayLarge())
-                .fontColor([DesignTokens.accent()])
-            }
-          }
-          .width('100%')
-          .height(56)
-          .padding({ left: 16, right: 16 })
-          .backgroundColor(DesignTokens.card(this.theme))
-          .accessibilityText(t('a11y_select_all'))
-          .onClick(() => {
-            this.selectSource('custom');
-          })
-
-          // URL输入区域
-          if (this.selectedSource === 'custom') {
-            Column() {
-              Text(t('custom_source_js_url'))
-                .fontSize(DesignTokens.fontCallout())
-                .fontColor(DesignTokens.labelSecondary(this.theme))
-                .padding({ left: 16, top: 12, bottom: 8 })
-
-              TextInput({ placeholder: t('plugin_url_hint'), text: this.customSourceUrl })
-                .width('100%')
-                .height(44)
-                .fontSize(DesignTokens.fontBody())
-                .backgroundColor(DesignTokens.mutedFill(this.theme))
-                .borderRadius(8)
-                .padding({ left: 12, right: 12 })
-                .onChange((value: string) => {
-                  this.customSourceUrl = value;
-                })
-
-              // 示例地址提示
-              Text(t('custom_source_hint'))
-                .fontSize(DesignTokens.fontMicro())
-                .fontColor(DesignTokens.labelSecondary(this.theme))
-                .padding({ left: 16, top: 8, right: 16 })
-                .width('100%')
-
-              // 加载按钮
-              Button(t('plugin_load_btn'))
-                .width('100%')
-                .height(44)
-                .fontSize(DesignTokens.fontSubhead())
-                .backgroundColor(this.isLoading ? DesignTokens.disabled(this.theme) : DesignTokens.accent())
-                .fontColor(DesignTokens.onAccent())
-                .borderRadius(8)
-                .margin({ top: 16, left: 16, right: 16 })
-                .enabled(!this.isLoading)
-                .onClick(() => {
-                  this.loadPlugin();
-                })
-
-              // 状态显示
-              if (this.loadStatus) {
-                Text(this.loadStatus)
-                  .fontSize(DesignTokens.fontCallout())
-                  .fontColor(DesignTokens.accent())
-                  .padding({ left: 16, top: 8 })
-                  .width('100%')
-              }
-
-              if (this.errorMessage) {
-                Text(this.errorMessage)
-                  .fontSize(DesignTokens.fontCallout())
-                  .fontColor(DesignTokens.danger())
-                  .padding({ left: 16, top: 8 })
-                  .width('100%')
-              }
-
-              // 插件信息
-              if (this.pluginInfo) {
-                Column() {
-                  Text(t('custom_source_plugin_info'))
-                    .fontSize(DesignTokens.fontCallout())
-                    .fontColor(DesignTokens.labelSecondary(this.theme))
-                    .padding({ left: 16, top: 16, bottom: 8 })
-
-                  Row() {
-                    Text(t('label_name_colon'))
-                      .fontSize(DesignTokens.fontCallout())
-                      .fontColor(DesignTokens.labelSecondary(this.theme))
-                      .width(60)
-                    Text(this.pluginInfo.name)
-                      .fontSize(DesignTokens.fontCallout())
-                      .fontColor(DesignTokens.labelPrimary(this.theme))
-                  }
-                  .width('100%')
-                  .padding({ left: 16, right: 16 })
-
-                  Row() {
-                    Text(t('label_version_colon'))
-                      .fontSize(DesignTokens.fontCallout())
-                      .fontColor(DesignTokens.labelSecondary(this.theme))
-                      .width(60)
-                    Text(this.pluginInfo.version)
-                      .fontSize(DesignTokens.fontCallout())
-                      .fontColor(DesignTokens.labelPrimary(this.theme))
-                  }
-                  .width('100%')
-                  .padding({ left: 16, right: 16, top: 4 })
-
-                  Row() {
-                    Text(t('label_author_colon'))
-                      .fontSize(DesignTokens.fontCallout())
-                      .fontColor(DesignTokens.labelSecondary(this.theme))
-                      .width(60)
-                    Text(this.pluginInfo.author)
-                      .fontSize(DesignTokens.fontCallout())
-                      .fontColor(DesignTokens.labelPrimary(this.theme))
-                  }
-                  .width('100%')
-                  .padding({ left: 16, right: 16, top: 4 })
-                  .margin({ bottom: 16 })
-                }
-                .width('100%')
-                .backgroundColor(DesignTokens.card(this.theme))
-                .borderRadius(8)
-                .margin({ left: 16, right: 16, top: 16 })
-              }
-            }
-            .width('100%')
-            .backgroundColor(DesignTokens.pageBg(this.theme))
-          }
-
-          // 本地 JS 文件导入（与在线链接导入并列，对齐安卓版脚本导入）
-          Row() {
-            Column() {
-              Text(t('custom_source_local_js'))
-                .fontSize(DesignTokens.fontSubhead())
-                .fontColor(DesignTokens.labelPrimary(this.theme))
-              Text(t('custom_source_local_js_desc'))
-                .fontSize(DesignTokens.fontMicro())
-                .fontColor(DesignTokens.labelSecondary(this.theme))
-                .margin({ top: 2 })
-            }
-            .alignItems(HorizontalAlign.Start)
-            .layoutWeight(1)
-
-            SymbolGlyph($r('sys.symbol.folder'))
-              .fontSize(DesignTokens.fontIconXl())
-              .fontColor([DesignTokens.accent()])
-          }
-          .width('100%')
-          .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-          .backgroundColor(DesignTokens.card(this.theme))
-          .borderRadius(10)
-          .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
-          .margin({ left: 16, right: 16, top: 8 })
-          .stateStyles({ pressed: this.pressed })
-          .onClick(() => {
-            void this.importFromLocalFile();
-          })
-
-          // 使用说明
-          Column() {
-            Text(t('custom_source_help_title'))
-              .fontSize(DesignTokens.fontCallout())
-              .fontColor(DesignTokens.labelSecondary(this.theme))
-              .padding({ left: 16, top: 20, bottom: 8 })
-
-            Text(t('custom_source_help_body'))
-              .fontSize(DesignTokens.fontCaption())
-              .fontColor(DesignTokens.labelSecondary(this.theme))
-              .padding({ left: 16, right: 16, bottom: 20 })
-              .lineHeight(20)
-          }
-          .width('100%')
+          this.HelpSection()
         }
+        .width('100%')
       }
       .width('100%')
       .layoutWeight(1)
@@ -624,4 +401,276 @@ export struct CustomSourceView {
     .backgroundColor(DesignTokens.pageBg(this.theme))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
   }
+
+  /** 标题栏 */
+  @Builder
+  TopBar() {
+    Row() {
+      NavBackButton()
+
+      Text(t('custom_sources'))
+        .fontSize(DesignTokens.fontTitle())
+        .fontWeight(FontWeight.Medium)
+        .fontColor(DesignTokens.labelPrimary(this.theme))
+        .layoutWeight(1)
+        .margin({ left: 12 })
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+  }
+
+  /** 内置音源列表 */
+  @Builder
+  BuiltinSection() {
+    // 内置源
+    this.buildHeader(t('builtin_sources'))
+
+    ForEach(DEFAULT_SOURCES, (item: SourceItem) => {
+      this.buildSourceItem(item)
+    })
+
+  }
+
+  /** 已导入的自定义源（启用/停用、更新、删除） */
+  @Builder
+  SavedSourcesSection() {
+    // 自定义源
+    this.buildHeader(t('custom_sources'))
+
+    // 已保存的自定义源列表：启用/停用、更新、删除（对齐安卓版 userApi 管理）
+    if (this.customSources.length > 0) {
+      ForEach(this.customSources, (source: StoredCustomSource) => {
+        CustomSourceRow({
+          sourceId: source.id,
+          sourceName: source.name,
+          sourceUrl: source.url,
+          version: source.version,
+          author: source.author,
+          isEnabled: source.enabled,
+          busy: this.busySourceId.length > 0,
+          onToggle: (sourceId: string, enabled: boolean): void => {
+            void this.toggleSourceEnabledById(sourceId, enabled);
+          },
+          onUpdate: (sourceId: string): void => {
+            void this.updateSourceById(sourceId);
+          },
+          onRemove: (sourceId: string): void => {
+            void this.removeSourceById(sourceId);
+          },
+        })
+      }, (source: StoredCustomSource) => `${source.id}_${source.enabled}_${source.version}`)
+    }
+
+  }
+
+  /** 自定义源入口行 */
+  @Builder
+  CustomEntrySection() {
+    // 自定义源入口
+    Row() {
+      Column() {
+        Text(t('custom_source_online_js'))
+          .fontSize(DesignTokens.fontSubhead())
+          .fontColor(DesignTokens.labelPrimary(this.theme))
+        Text(t('custom_source_url_placeholder'))
+          .fontSize(DesignTokens.fontMicro())
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+          .margin({ top: 2 })
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+
+      if (this.selectedSource === 'custom') {
+        SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
+          .fontSize(DesignTokens.fontDisplayLarge())
+          .fontColor([DesignTokens.accent()])
+      }
+    }
+    .width('100%')
+    .height(56)
+    .padding({ left: 16, right: 16 })
+    .backgroundColor(DesignTokens.card(this.theme))
+    .accessibilityText(t('a11y_select_all'))
+    .onClick(() => {
+      this.selectSource('custom');
+    })
+
+  }
+
+  /** 在线 JS 链接导入区（输入 + 加载 + 状态 + 插件信息） */
+  @Builder
+  UrlImportSection() {
+    // URL输入区域
+    if (this.selectedSource === 'custom') {
+      Column() {
+        Text(t('custom_source_js_url'))
+          .fontSize(DesignTokens.fontCallout())
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+          .padding({ left: 16, top: 12, bottom: 8 })
+
+        TextInput({ placeholder: t('plugin_url_hint'), text: this.customSourceUrl })
+          .width('100%')
+          .height(44)
+          .fontSize(DesignTokens.fontBody())
+          .backgroundColor(DesignTokens.mutedFill(this.theme))
+          .borderRadius(8)
+          .padding({ left: 12, right: 12 })
+          .onChange((value: string) => {
+            this.customSourceUrl = value;
+          })
+
+        // 示例地址提示
+        Text(t('custom_source_hint'))
+          .fontSize(DesignTokens.fontMicro())
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+          .padding({ left: 16, top: 8, right: 16 })
+          .width('100%')
+
+        // 加载按钮
+        Button(t('plugin_load_btn'))
+          .width('100%')
+          .height(44)
+          .fontSize(DesignTokens.fontSubhead())
+          .backgroundColor(this.isLoading ? DesignTokens.disabled(this.theme) : DesignTokens.accent())
+          .fontColor(DesignTokens.onAccent())
+          .borderRadius(8)
+          .margin({ top: 16, left: 16, right: 16 })
+          .enabled(!this.isLoading)
+          .onClick(() => {
+            this.loadPlugin();
+          })
+
+        // 状态显示
+        if (this.loadStatus) {
+          Text(this.loadStatus)
+            .fontSize(DesignTokens.fontCallout())
+            .fontColor(DesignTokens.accent())
+            .padding({ left: 16, top: 8 })
+            .width('100%')
+        }
+
+        if (this.errorMessage) {
+          Text(this.errorMessage)
+            .fontSize(DesignTokens.fontCallout())
+            .fontColor(DesignTokens.danger())
+            .padding({ left: 16, top: 8 })
+            .width('100%')
+        }
+
+        // 插件信息
+        this.PluginInfoCard()
+      }
+      .width('100%')
+      .backgroundColor(DesignTokens.pageBg(this.theme))
+    }
+
+  }
+
+  /** 插件信息卡片（名称/版本/作者） */
+  @Builder
+  PluginInfoCard() {
+    if (this.pluginInfo) {
+      Column() {
+        Text(t('custom_source_plugin_info'))
+          .fontSize(DesignTokens.fontCallout())
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+          .padding({ left: 16, top: 16, bottom: 8 })
+
+        Row() {
+          Text(t('label_name_colon'))
+            .fontSize(DesignTokens.fontCallout())
+            .fontColor(DesignTokens.labelSecondary(this.theme))
+            .width(60)
+          Text(this.pluginInfo.name)
+            .fontSize(DesignTokens.fontCallout())
+            .fontColor(DesignTokens.labelPrimary(this.theme))
+        }
+        .width('100%')
+        .padding({ left: 16, right: 16 })
+
+        Row() {
+          Text(t('label_version_colon'))
+            .fontSize(DesignTokens.fontCallout())
+            .fontColor(DesignTokens.labelSecondary(this.theme))
+            .width(60)
+          Text(this.pluginInfo.version)
+            .fontSize(DesignTokens.fontCallout())
+            .fontColor(DesignTokens.labelPrimary(this.theme))
+        }
+        .width('100%')
+        .padding({ left: 16, right: 16, top: 4 })
+
+        Row() {
+          Text(t('label_author_colon'))
+            .fontSize(DesignTokens.fontCallout())
+            .fontColor(DesignTokens.labelSecondary(this.theme))
+            .width(60)
+          Text(this.pluginInfo.author)
+            .fontSize(DesignTokens.fontCallout())
+            .fontColor(DesignTokens.labelPrimary(this.theme))
+        }
+        .width('100%')
+        .padding({ left: 16, right: 16, top: 4 })
+        .margin({ bottom: 16 })
+      }
+      .width('100%')
+      .backgroundColor(DesignTokens.card(this.theme))
+      .borderRadius(8)
+      .margin({ left: 16, right: 16, top: 16 })
+    }
+  }
+
+  /** 本地 JS 文件导入 */
+  @Builder
+  LocalImportSection() {
+    // 本地 JS 文件导入（与在线链接导入并列，对齐安卓版脚本导入）
+    Row() {
+      Column() {
+        Text(t('custom_source_local_js'))
+          .fontSize(DesignTokens.fontSubhead())
+          .fontColor(DesignTokens.labelPrimary(this.theme))
+        Text(t('custom_source_local_js_desc'))
+          .fontSize(DesignTokens.fontMicro())
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+          .margin({ top: 2 })
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+
+      SymbolGlyph($r('sys.symbol.folder'))
+        .fontSize(DesignTokens.fontIconXl())
+        .fontColor([DesignTokens.accent()])
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .backgroundColor(DesignTokens.card(this.theme))
+    .borderRadius(10)
+    .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
+    .margin({ left: 16, right: 16, top: 8 })
+    .stateStyles({ pressed: this.pressed })
+    .onClick(() => {
+      void this.importFromLocalFile();
+    })
+
+  }
+
+  /** 使用说明 */
+  @Builder
+  HelpSection() {
+    // 使用说明
+    Column() {
+      Text(t('custom_source_help_title'))
+        .fontSize(DesignTokens.fontCallout())
+        .fontColor(DesignTokens.labelSecondary(this.theme))
+        .padding({ left: 16, top: 20, bottom: 8 })
+
+      Text(t('custom_source_help_body'))
+        .fontSize(DesignTokens.fontCaption())
+        .fontColor(DesignTokens.labelSecondary(this.theme))
+        .padding({ left: 16, right: 16, bottom: 20 })
+        .lineHeight(20)
+    }
+    .width('100%')
+  }
+
 }
