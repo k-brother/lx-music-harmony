@@ -14,6 +14,7 @@ import { navigationService, NavigationParams } from '../service/NavigationServic
 import { DesignTokens } from '../theme/DesignTokens';
 import { NavBar } from '../components/ui/NavBar';
 import { StateView } from '../components/ui/StateView';
+import { BoardDetailHeader } from './Board/BoardDetailHeader';
 import { scrollerOffsetY } from '../utils/ScrollTools';
 
 interface BoardDetailParams {
@@ -48,7 +49,6 @@ export struct BoardDetailPage {
   @State isLoading: boolean = true;
   @State totalCount: number = 0;
   @State headerCompact: boolean = false;
-  @State boardCoverLoadFailed: boolean = false;
 
   // 标记是否已加载数据（用于区分首次加载和参数更新）
   private hasLoadedData: boolean = false;
@@ -66,11 +66,6 @@ export struct BoardDetailPage {
       }
     }
     return '';
-  }
-
-  private canRenderCover(url: string): boolean {
-    const value = (url ?? '').trim();
-    return value.startsWith('http://') || value.startsWith('https://') || value.startsWith('//');
   }
 
   aboutToAppear() {
@@ -176,7 +171,6 @@ export struct BoardDetailPage {
           });
         }
         this.songList = items;
-        this.boardCoverLoadFailed = false;
         this.totalCount = result.total || items.length;
         hilog.info(0x0001, 'BoardDetail', 'Loaded %{public}d songs', items.length);
       }
@@ -360,7 +354,15 @@ export struct BoardDetailPage {
           .width('100%')
           .layoutWeight(1)
       } else {
-        this.BoardHeaderCard()
+        BoardDetailHeader({
+          cover: this.getBoardCover(),
+          sourceTag: this.boardSource,
+          songCount: this.totalCount,
+          compact: this.headerCompact,
+          onPlayAll: (): void => {
+            void this.playAll();
+          },
+        })
         this.SongList()
       }
 
@@ -371,117 +373,6 @@ export struct BoardDetailPage {
     .height('100%')
     .backgroundColor(DesignTokens.pageBg(this.theme))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-  }
-
-  @Builder
-  BoardHeaderCard() {
-    Column({ space: this.headerCompact ? 6 : 10 }) {
-      if (!this.headerCompact) {
-        Row() {
-          Column({ space: 6 }) {
-            Stack() {
-              if (!this.boardCoverLoadFailed && this.canRenderCover(this.getBoardCover())) {
-                Image(this.getBoardCover())
-                  .width(106)
-                  .height(106)
-                  .borderRadius(12)
-                  .objectFit(ImageFit.Cover)
-                  .onError(() => {
-                    this.boardCoverLoadFailed = true;
-                  })
-              } else {
-                Image($r('app.media.ic_player_cover_placeholder'))
-                .width(106)
-                .height(106)
-                .borderRadius(12)
-                .objectFit(ImageFit.Cover)
-              }
-
-              Text(this.boardSource.toUpperCase())
-                .fontSize(10)
-                .fontColor(DesignTokens.onAccent())
-                .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-                .backgroundColor(DesignTokens.accent())
-                .borderRadius(9)
-                .margin({ right: 4, bottom: 4 })
-            }
-            .width(106)
-            .height(106)
-            .align(Alignment.BottomEnd)
-          }
-
-          Column({ space: 10 }) {
-            Row({ space: 5 }) {
-              Image($r('app.media.ic_pd_play'))
-                .width(14)
-                .height(14)
-                .fillColor(DesignTokens.onAccent())
-              Text(t('play_all'))
-                .fontSize(DesignTokens.fontBody())
-                .fontColor(DesignTokens.onAccent())
-                .fontWeight(FontWeight.Medium)
-            }
-            .height(38)
-            .width(112)
-            .backgroundColor(DesignTokens.accent())
-            .borderRadius(19)
-            .justifyContent(FlexAlign.Center)
-            .onClick(() => {
-              void this.playAll();
-            })
-
-            Text(tf('count_songs', [this.totalCount.toString()]))
-              .fontSize(DesignTokens.fontCaption())
-              .fontColor(DesignTokens.labelSecondary(this.theme))
-          }
-          .alignItems(HorizontalAlign.End)
-          .layoutWeight(1)
-          .margin({ left: 14 })
-        }
-        .width('100%')
-      }
-
-      Row() {
-        Row({ space: 8 }) {
-          Row({ space: 5 }) {
-            Image($r('app.media.ic_pd_play'))
-              .width(14)
-              .height(14)
-              .fillColor(DesignTokens.onAccent())
-            Text(t('play_all'))
-              .fontSize(DesignTokens.fontBody())
-              .fontColor(DesignTokens.onAccent())
-              .fontWeight(FontWeight.Medium)
-          }
-          .height(38)
-          .width(112)
-          .backgroundColor(DesignTokens.accent())
-          .borderRadius(19)
-          .justifyContent(FlexAlign.Center)
-          .onClick(() => {
-            void this.playAll();
-          })
-
-          Text(this.boardSource.toUpperCase())
-            .fontSize(10)
-            .fontColor(DesignTokens.onAccent())
-            .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-            .backgroundColor(DesignTokens.accent())
-            .borderRadius(9)
-        }
-      }
-      .width('100%')
-      .justifyContent(FlexAlign.Start)
-      .alignItems(VerticalAlign.Center)
-      .opacity(this.headerCompact ? 1 : 0)
-      .height(this.headerCompact ? 38 : 0)
-    }
-    .width('100%')
-    .padding(14)
-    .backgroundColor(DesignTokens.card(this.theme))
-    .borderRadius(14)
-    .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
-    .margin({ left: 12, right: 12, top: 4, bottom: 8 })
   }
 
   @Builder
