@@ -222,6 +222,12 @@ CHECKS = [
  ('排行榜浮层放大镜可用', 'pages/Home/LeaderboardView.ets',
   r'leaderboardOverlaySearchActions\.onMagnifierClick[\s\S]{0,140}?onSearchChange\(this\.overlaySearchText\)'),
  ('单曲菜单列表动作可选', 'pages/SonglistDetail/SonglistMenus.ets', r'onMovePosition\?:'),
+ # 歌词手动翻阅后停止自动跟随，并给「回到当前」入口（主流播放器做法）
+ ('歌词手动滚动暂停跟随', 'components/common/LyricView.ets',
+  r'onUserScroll\(\): void[\s\S]{0,200}?this\.userScrolled = true'),
+ ('歌词回到当前句入口', 'components/common/LyricView.ets', r'ResumeFollowButton'),
+ ('点歌词行恢复跟随', 'components/common/LyricView.ets',
+  r'onClick\(\(\) => \{[\s\S]{0,140}?this\.userScrolled = false'),
  # 提示/确认框统一出口：页面不再自己 getPromptAction().showDialog 拼按钮与颜色
  ('确认与提示统一走 DialogService', 'service/DialogService.ets', r'export async function appAlert'),
  ('日志页清空走统一确认', 'pages/LogPage.ets', r'appConfirm\(',

@@ -38,6 +38,13 @@ export struct LyricView {
   private lineHeight: number = 62;
   private pendingScrollTimer: number = -1;
   private alive: boolean = false;
+  /**
+   * 用户手动滑动过歌词（此时停止自动跟随，并显示「回到当前」）。
+   * 主流播放器都这么做：用户往上翻看歌词时，不应该被下一句强行拽回来。
+   */
+  @State userScrolled: boolean = false;
+  /** 程序化滚动的「保护期」：这段时间内的滚动事件不算用户操作 */
+  private selfScrollUntil: number = 0;
 
   aboutToAppear(): void {
     this.alive = true;
@@ -53,6 +60,12 @@ export struct LyricView {
 
   private onCurrentLyricIndexChanged(): void {
     if (this.currentLyricIndex < 0 || this.lyricLines.length === 0) {
+      // 换歌/清空：回到「跟随」状态
+      this.userScrolled = false;
+      return;
+    }
+    // 用户正在自己翻歌词：让位给用户，只更新高亮不强制滚动
+    if (this.userScrolled) {
       return;
     }
     if (this.pendingScrollTimer !== -1) {
@@ -64,18 +77,39 @@ export struct LyricView {
         this.pendingScrollTimer = -1;
         return;
       }
-      const targetOffset = Math.max(0, this.currentLyricIndex * this.lineHeight - this.lineHeight * 3);
-      try {
-        this.lyricScroller.scrollTo({
-          xOffset: 0,
-          yOffset: targetOffset,
-          animation: true,
-        });
-      } catch (_err) {
-        // Ignore single scroll failure to avoid UI crash loops.
-      }
+      this.scrollToCurrentLine(true);
       this.pendingScrollTimer = -1;
     }, 60);
+  }
+
+  /** 滚动到当前句（动画可选）。程序化滚动会被打上时间戳，避免被误判成用户操作 */
+  private scrollToCurrentLine(animation: boolean): void {
+    if (this.currentLyricIndex < 0 || this.currentLyricIndex >= this.lyricLines.length) {
+      return;
+    }
+    const targetOffset = Math.max(0, this.currentLyricIndex * this.lineHeight - this.lineHeight * 3);
+    this.selfScrollUntil = Date.now() + 400;
+    try {
+      this.lyricScroller.scrollTo({ xOffset: 0, yOffset: targetOffset, animation });
+    } catch (_err) {
+      // Ignore single scroll failure to avoid UI crash loops.
+    }
+  }
+
+  /** 手动滚动 → 退出跟随；程序化滚动期间的事件忽略 */
+  private onUserScroll(): void {
+    if (Date.now() < this.selfScrollUntil) {
+      return;
+    }
+    if (!this.userScrolled) {
+      this.userScrolled = true;
+    }
+  }
+
+  /** 回到当前句：恢复跟随并滚回去 */
+  private resumeFollow(): void {
+    this.userScrolled = false;
+    this.scrollToCurrentLine(true);
   }
 
   /** 设置里的对齐方式 → ArkUI 对齐枚举 */
@@ -162,20 +196,56 @@ export struct LyricView {
     if (this.lyricLines.length === 0) {
       this.EmptyPlaceholder()
     } else {
-      Scroll(this.lyricScroller) {
-        Column() {
-          ForEach(this.lyricLines, (line: string, index: number) => {
-            this.LineRow(line, index)
-          })
+      // Stack 承载「回到当前」浮层：歌词区自身是滚动容器，按钮要浮在上面
+      Stack({ alignContent: Alignment.BottomEnd }) {
+        Scroll(this.lyricScroller) {
+          Column() {
+            ForEach(this.lyricLines, (line: string, index: number) => {
+              this.LineRow(line, index)
+            })
+          }
+          .width('100%')
+          .padding({ left: 16, right: 16, top: 120, bottom: 120 })
         }
         .width('100%')
-        .padding({ left: 16, right: 16, top: 120, bottom: 120 })
+        .height('100%')
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.None)
+        // 用户手动滚动 → 退出自动跟随（程序化滚动期间的事件由时间戳过滤）
+        .onDidScroll(() => {
+          this.onUserScroll();
+        })
+
+        if (this.userScrolled) {
+          this.ResumeFollowButton()
+        }
       }
       .width('100%')
       .height('100%')
-      .scrollBar(BarState.Off)
-      .edgeEffect(EdgeEffect.None)
     }
+  }
+
+  /** 「回到当前句」：用户翻看歌词后一键回到正在唱的那句（主流播放器的通用入口） */
+  @Builder
+  ResumeFollowButton() {
+    Row({ space: 4 }) {
+      SymbolGlyph($r('sys.symbol.arrow_down_to_line'))
+        .fontSize(DesignTokens.fontSubhead())
+        .fontColor([DesignTokens.accent()])
+      Text(t('lyric_resume_follow'))
+        .fontSize(DesignTokens.fontCaption())
+        .fontColor(DesignTokens.accent())
+    }
+    .padding({ left: 12, right: 12, top: 7, bottom: 7 })
+    .backgroundColor(DesignTokens.chromeBar(this.theme))
+    .borderRadius(DesignTokens.radiusSearch())
+    .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
+    .shadow(DesignTokens.floatingShadow())
+    .margin({ right: 16, bottom: 24 })
+    .accessibilityText(t('lyric_resume_follow'))
+    .onClick(() => {
+      this.resumeFollow();
+    })
   }
 
   /** 无歌词占位 */
@@ -207,6 +277,8 @@ export struct LyricView {
     // 点哪句跳到哪句（主流音乐播放器的通用交互）；PC 上补悬停反馈
     .hoverEffect(HoverEffect.Highlight)
     .onClick(() => {
+      // 点某句 = 想跳到这句听：恢复跟随，随后的索引变化会把视图带过去
+      this.userScrolled = false;
       if (this.onLineTap) {
         this.onLineTap(index);
       }

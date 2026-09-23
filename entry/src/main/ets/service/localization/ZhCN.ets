@@ -108,6 +108,7 @@ export function buildZhCN(): Map<string, string> {
   m.set('a11y_back', '返回');
   m.set('a11y_more', '更多');
   m.set('a11y_scroll_to_current', '定位到当前播放');
+  m.set('lyric_resume_follow', '回到当前');
   m.set('a11y_previous', '上一首');
   m.set('a11y_next', '下一首');
   m.set('a11y_play', '播放');
