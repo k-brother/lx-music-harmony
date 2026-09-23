@@ -64,6 +64,7 @@ import type {
   TrackCompletedListener,
 } from './player/PlaybackEvents';
 import type { PlayStatus, ProgressInfo } from './player/PlaybackTypes';
+import { songInfoToMusicInfo, validatePlayUrl } from './player/PlaybackInputs';
 
 
 export type { MusicInfo } from '../types/MusicTypes';
@@ -603,12 +604,13 @@ export class PlayerService {
       listener(position, duration);
     });
 
+    // 快照直接复用上面已算好的字段，避免同一组时长格式化两次
     const progressInfo: ProgressInfo = {
-      nowPlayTime: position,
-      maxPlayTime: duration,
-      progress: duration ? position / duration : 0,
-      nowPlayTimeStr: formatPlayTime(position),
-      maxPlayTimeStr: formatPlayTime(duration)
+      nowPlayTime: playerStateData.progress.nowPlayTime,
+      maxPlayTime: playerStateData.progress.maxPlayTime,
+      progress: playerStateData.progress.progress,
+      nowPlayTimeStr: playerStateData.progress.nowPlayTimeStr,
+      maxPlayTimeStr: playerStateData.progress.maxPlayTimeStr,
     };
 
     // 歌词当前行跟随播放位置推进（内部做了"行未变化不通知"的判断）
@@ -628,20 +630,14 @@ export class PlayerService {
       await this.init();
     }
 
-    // 检查URL是否有效
-    if (!url || url.trim().length === 0) {
-      hilog.error(DOMAIN, TAG, 'Invalid URL: empty or null for song: %{public}s', song.title);
+    // 地址先校验：错误信息能指明是哪首歌、什么问题
+    const urlError: string = validatePlayUrl(url, song.title);
+    if (urlError.length > 0) {
+      hilog.error(DOMAIN, TAG, 'invalid play url for %{public}s: %{public}s',
+        song.title, url.substring(0, 50));
       this.currentStatus = 'error';
       this.notifyStateChange();
-      throw new Error(`Invalid URL for song: ${song.title}`);
-    }
-
-    // 检查URL格式
-    if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('fd://') && !url.startsWith('file://')) {
-      hilog.error(DOMAIN, TAG, 'Invalid URL format: %{public}s for song: %{public}s', url.substring(0, 50), song.title);
-      this.currentStatus = 'error';
-      this.notifyStateChange();
-      throw new Error(`Invalid URL format for song: ${song.title}`);
+      throw new Error(urlError);
     }
 
     hilog.info(DOMAIN, TAG, 'Setting source: %{public}s, url: %{public}s', song.title, url);
@@ -649,27 +645,7 @@ export class PlayerService {
     this.currentStatus = 'loading';
     this.notifyStateChange();
 
-    const src: MusicSource = (song.source ?? 'local') as MusicSource;
-    const art: string | undefined = song.artwork !== null && song.artwork.length > 0 ? song.artwork : undefined;
-    const alb: string | undefined = song.album.length > 0 ? song.album : undefined;
-    const musicInfo: MusicInfo = {
-      id: song.id,
-      songmid: song.songmid || song.id,
-      hash: song.hash,
-      strMediaMid: song.strMediaMid,
-      songId: song.songId,
-      albumId: song.albumId,
-      copyrightId: song.copyrightId,
-      img: art ?? null,
-      pic: art,
-      lrc: null,
-      name: song.title,
-      singer: song.artist,
-      source: src,
-      interval: song.duration > 0 ? formatPlayTime(song.duration) : null,
-      albumName: alb,
-      album: alb,
-    };
+    const musicInfo: MusicInfo = songInfoToMusicInfo(song);
     playerStateData.musicInfo = musicInfo;
     this.notifyMusicInfoChange();
     // 切歌后异步加载歌词：既喂给系统（锁屏/控制中心/灵动岛），也供桌面歌词使用
@@ -1266,24 +1242,8 @@ export class PlayerService {
       this.currentSong = song;
       this.playList = [song];
       this.currentIndex = 0;
-      playerStateData.musicInfo = {
-        id: song.id,
-        songmid: song.songmid ?? song.id,
-        hash: song.hash,
-        strMediaMid: song.strMediaMid,
-        songId: song.songId,
-        albumId: song.albumId,
-        copyrightId: song.copyrightId,
-        name: song.title,
-        singer: song.artist,
-        album: song.album,
-        albumName: song.album,
-        source: (song.source ?? 'kw') as MusicSource,
-        interval: song.duration > 0 ? formatPlayTime(song.duration) : null,
-        img: song.artwork ?? null,
-        pic: song.artwork ?? undefined,
-        lrc: null,
-      };
+      // 与 setSource 用同一份映射（此前这里手写了一遍，字段口径已经出现偏差）
+      playerStateData.musicInfo = songInfoToMusicInfo(song);
       playerStateData.progress.nowPlayTime = snapshot.position;
       playerStateData.progress.nowPlayTimeStr = formatPlayTime(snapshot.position);
       playerStateData.progress.progress = 0;
