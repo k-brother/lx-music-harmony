@@ -266,79 +266,90 @@ LeftSections() {
 
   /** 右列：播放历史 + 自建歌单 */
   @Builder
-RightSections() {
-          // 播放历史
-          MylistSectionHeader({
-            title: t('my_history'),
-            subtitle: t('history_empty_hint'),
-            actionText: this.playHistory.length > 0 ? t('view_all') : '',
-            topPadding: 12,
-            onAction: (): void => {
-              navigationService.navigateTo(RouteName.HISTORY_LIST);
-            },
-          })
-          if (this.playHistory.length === 0) {
-            StateView({ state: 'empty', iconRes: $r('sys.symbol.clock'), message: t('history_empty_hint') })
-              .width('100%')
-              .height(140)
-          } else {
-            SongRowList({
-              songs: this.playHistory.slice(0, 6),
-              onPlay: (song: MyListSongRow): void => {
-                void this.playHistorySong(song);
-              },
-            })
-          }
+  RightSections() {
+    this.HistorySection()
+    this.UserListsSection()
+  }
 
-          // 自建歌单
-          MylistSectionHeader({
-            title: t('songlist_title'),
-            subtitle: t('mylist_local_hint'),
-            actionText: t('view_all'),
-            showPrimaryAction: true,
-            primaryText: t('my_create_list'),
-            topPadding: 12,
-            onAction: (): void => {
-              navigationService.navigateTo(RouteName.USER_LISTS);
+  /** 播放历史：有记录时展示最近 6 首，没有则给空态（标题右侧「查看全部」进历史页） */
+  @Builder
+  HistorySection() {
+    // 播放历史
+    MylistSectionHeader({
+      title: t('my_history'),
+      subtitle: t('history_empty_hint'),
+      actionText: this.playHistory.length > 0 ? t('view_all') : '',
+      topPadding: 12,
+      onAction: (): void => {
+        navigationService.navigateTo(RouteName.HISTORY_LIST);
+      },
+    })
+    if (this.playHistory.length === 0) {
+      StateView({ state: 'empty', iconRes: $r('sys.symbol.clock'), message: t('history_empty_hint') })
+        .width('100%')
+        .height(140)
+    } else {
+      SongRowList({
+        songs: this.playHistory.slice(0, 6),
+        onPlay: (song: MyListSongRow): void => {
+          void this.playHistorySong(song);
+        },
+      })
+    }
+  }
+
+  /** 自建歌单：无歌单给空态，有则列出卡片（打开 / 播放 / 同步 / 菜单） */
+  @Builder
+  UserListsSection() {
+    // 自建歌单
+    MylistSectionHeader({
+      title: t('songlist_title'),
+      subtitle: t('mylist_local_hint'),
+      actionText: t('view_all'),
+      showPrimaryAction: true,
+      primaryText: t('my_create_list'),
+      topPadding: 12,
+      onAction: (): void => {
+        navigationService.navigateTo(RouteName.USER_LISTS);
+      },
+      onPrimaryAction: (): void => {
+        this.newListName = '';
+        this.showCreateSheet = true;
+      },
+    })
+    if (this.userLists.length === 0) {
+      StateView({ state: 'empty', iconRes: $r('sys.symbol.folder'), message: t('mylist_empty_hint') })
+        .width('100%')
+        .height(180)
+    } else {
+      Column({ space: 10 }) {
+        ForEach(this.userLists, (list: UserListRow) => {
+          UserPlaylistCard({
+            name: list.name,
+            count: list.count,
+            pic: list.pic,
+            bindingSource: list.bindingSource,
+            bindingListId: list.bindingListId,
+            onOpen: (): void => {
+              this.navigateToList(list.id, list.name, 'local');
             },
-            onPrimaryAction: (): void => {
-              this.newListName = '';
-              this.showCreateSheet = true;
+            onPlay: (): void => {
+              void this.playList(list);
+            },
+            onSync: (): void => {
+              void this.syncList(list);
+            },
+            onMenu: (): void => {
+              void this.openListMenu(list);
             },
           })
-          if (this.userLists.length === 0) {
-            StateView({ state: 'empty', iconRes: $r('sys.symbol.folder'), message: t('mylist_empty_hint') })
-              .width('100%')
-              .height(180)
-          } else {
-            Column({ space: 10 }) {
-              ForEach(this.userLists, (list: UserListRow) => {
-                UserPlaylistCard({
-                  name: list.name,
-                  count: list.count,
-                  pic: list.pic,
-                  bindingSource: list.bindingSource,
-                  bindingListId: list.bindingListId,
-                  onOpen: (): void => {
-                    this.navigateToList(list.id, list.name, 'local');
-                  },
-                  onPlay: (): void => {
-                    void this.playList(list);
-                  },
-                  onSync: (): void => {
-                    void this.syncList(list);
-                  },
-                  onMenu: (): void => {
-                    void this.openListMenu(list);
-                  },
-                })
-                  .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter() })
-              }, (list: UserListRow) => list.id)
-            }
-            .width('100%')
-            .padding({ bottom: 32 })
-          }
-}
+            .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter() })
+        }, (list: UserListRow) => list.id)
+      }
+      .width('100%')
+      .padding({ bottom: 32 })
+    }
+  }
 
   build() {
     Stack() {

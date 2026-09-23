@@ -162,77 +162,93 @@ export struct AboutView {
   @Builder
   VersionGroup() {
     ListItemGroup({ header: this.buildGroupHeader(t('settings_version')) }) {
-      ListItem() {
+      this.CurrentVersionItem()
+      this.CheckVersionItem()
+      if (this.versionStatus === 'newer') {
+        this.OpenReleaseItem()
+      }
+    }
+  }
+
+  /** 当前版本号 */
+  @Builder
+  CurrentVersionItem() {
+    ListItem() {
+      Row() {
+        Text(t('version_current'))
+          .fontSize(DesignTokens.fontSubhead())
+        Blank()
+        Text(`v${APP_VERSION}`)
+          .fontSize(DesignTokens.fontBody())
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+    }
+  }
+
+  /** 检查更新：状态行（检查中转圈 / 其余给刷新图标）+ 结果文案 + 新版说明 */
+  @Builder
+  CheckVersionItem() {
+    ListItem() {
+      Column() {
         Row() {
-          Text(t('version_current'))
+          Text(t('version_check'))
             .fontSize(DesignTokens.fontSubhead())
           Blank()
-          Text(`v${APP_VERSION}`)
-            .fontSize(DesignTokens.fontBody())
-            .fontColor(DesignTokens.labelSecondary(this.theme))
+          if (this.versionStatus === 'checking') {
+            LoadingProgress()
+              .width(16)
+              .height(16)
+              .color(DesignTokens.accent())
+          } else {
+            SymbolGlyph($r('sys.symbol.arrow_clockwise'))
+              .fontSize(DesignTokens.fontIconLg())
+              .fontColor([DesignTokens.accent()])
+          }
         }
         .width('100%')
-        .padding({ left: 16, right: 16, top: 12, bottom: 12 })
-      }
 
-      ListItem() {
-        Column() {
-          Row() {
-            Text(t('version_check'))
-              .fontSize(DesignTokens.fontSubhead())
-            Blank()
-            if (this.versionStatus === 'checking') {
-              LoadingProgress()
-                .width(16)
-                .height(16)
-                .color(DesignTokens.accent())
-            } else {
-              SymbolGlyph($r('sys.symbol.arrow_clockwise'))
-                .fontSize(DesignTokens.fontIconLg())
-                .fontColor([DesignTokens.accent()])
-            }
-          }
+        Text(this.versionTip())
+          .fontSize(DesignTokens.fontCaption())
+          .fontColor(this.versionStatus === 'newer' ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
+          .margin({ top: 4 })
           .width('100%')
 
-          Text(this.versionTip())
+        if (this.versionStatus === 'newer' && this.remoteDesc.length > 0) {
+          Text(this.remoteDesc)
             .fontSize(DesignTokens.fontCaption())
-            .fontColor(this.versionStatus === 'newer' ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
+            .fontColor(DesignTokens.labelSecondary(this.theme))
             .margin({ top: 4 })
             .width('100%')
-
-          if (this.versionStatus === 'newer' && this.remoteDesc.length > 0) {
-            Text(this.remoteDesc)
-              .fontSize(DesignTokens.fontCaption())
-              .fontColor(DesignTokens.labelSecondary(this.theme))
-              .margin({ top: 4 })
-              .width('100%')
-          }
-        }
-        .width('100%')
-        .padding({ left: 16, right: 16, top: 12, bottom: 12 })
-        .onClick(() => {
-          void this.runVersionCheck();
-        })
-      }
-
-      if (this.versionStatus === 'newer') {
-        ListItem() {
-          Row() {
-            Text(t('version_open_release'))
-              .fontSize(DesignTokens.fontSubhead())
-              .fontColor(DesignTokens.accent())
-            Blank()
-            SymbolGlyph($r('sys.symbol.chevron_right'))
-              .fontSize(DesignTokens.fontIconLg())
-              .fontColor([DesignTokens.labelSecondary(this.theme)])
-          }
-          .width('100%')
-          .padding({ left: 16, right: 16, top: 12, bottom: 12 })
-          .onClick(() => {
-            this.openUrl('https://github.com/lyswhut/lx-music-mobile/releases');
-          })
         }
       }
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+      .onClick(() => {
+        void this.runVersionCheck();
+      })
+    }
+  }
+
+  /** 有新版本时：打开发布页 */
+  @Builder
+  OpenReleaseItem() {
+    ListItem() {
+      Row() {
+        Text(t('version_open_release'))
+          .fontSize(DesignTokens.fontSubhead())
+          .fontColor(DesignTokens.accent())
+        Blank()
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(DesignTokens.fontIconLg())
+          .fontColor([DesignTokens.labelSecondary(this.theme)])
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+      .onClick(() => {
+        this.openUrl('https://github.com/lyswhut/lx-music-mobile/releases');
+      })
     }
   }
 

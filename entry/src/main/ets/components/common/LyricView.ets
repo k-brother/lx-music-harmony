@@ -196,48 +196,9 @@ export struct LyricView {
   @Builder
   LineRow(line: string, index: number) {
     Column({ space: 2 }) {
-      if (this.canRenderKaraoke(index)) {
-        // 有逐字数据的当前行：逐字高亮（已唱/未唱两色）
-        this.KaraokeLine(index)
-      } else {
-        Text(line)
-          // 当前行放大加粗、非当前行降对比，是最主流的歌词视觉层次；
-          // 基准字号与对齐方式来自「歌词显示」设置
-          .fontSize(index === this.currentLyricIndex ? this.lyricFontSize + 4 : this.lyricFontSize)
-          .fontColor(index === this.currentLyricIndex
-            ? this.accentColor()
-            : (this.theme === 'dark' ? DesignTokens.lyricDimDark() : DesignTokens.lyricDimLight()))
-          .fontWeight(index === this.currentLyricIndex ? FontWeight.Bold : FontWeight.Normal)
-          .opacity(this.lineOpacity(index))
-          .textAlign(this.alignMode())
-          .width('100%')
-          .maxLines(1)
-          .textShadow(this.fontShadow ? DesignTokens.textShadowOnArtwork() : undefined)
-      }
-      if (this.showLyricRoma && index < this.romaLines.length
-        && this.romaLines[index] && this.romaLines[index].length > 0) {
-        Text(this.romaLines[index])
-          .fontSize(index === this.currentLyricIndex ? 12 : 10)
-          .fontColor(index === this.currentLyricIndex
-            ? (this.theme === 'dark' ? DesignTokens.lyricRomaActiveDark() : DesignTokens.lyricRomaActiveLight())
-            : (this.theme === 'dark' ? DesignTokens.lyricRomaDimDark() : DesignTokens.lyricRomaDimLight()))
-          .opacity(this.lineOpacity(index))
-          .textAlign(this.alignMode())
-          .width('100%')
-          .maxLines(1)
-      }
-      if (this.showLyricTranslation && index < this.secondaryLyricLines.length
-        && this.secondaryLyricLines[index] && this.secondaryLyricLines[index].length > 0) {
-        Text(this.secondaryLyricLines[index])
-          .fontSize(index === this.currentLyricIndex ? 13 : 11)
-          .fontColor(index === this.currentLyricIndex
-            ? (this.theme === 'dark' ? DesignTokens.lyricTransActiveDark() : DesignTokens.lyricTransActiveLight())
-            : (this.theme === 'dark' ? DesignTokens.lyricTransDimDark() : DesignTokens.lyricTransDimLight()))
-          .opacity(this.lineOpacity(index))
-          .textAlign(TextAlign.Center)
-          .width('100%')
-          .maxLines(1)
-      }
+      this.MainLineText(line, index)
+      this.RomaLine(index)
+      this.TranslationLine(index)
     }
     .width('100%')
     .height(this.lineHeight)
@@ -269,5 +230,62 @@ export struct LyricView {
       // 「设置 -> 外观 -> 动画效果」关闭时不做滚动动画
       duration: this.showAnimation ? 300 : 0,
     })
+  }
+
+  /** 主句：有逐字数据走逐字高亮，否则整句高亮（当前行放大加粗、其余降对比） */
+  @Builder
+  MainLineText(line: string, index: number) {
+    if (this.canRenderKaraoke(index)) {
+      // 有逐字数据的当前行：逐字高亮（已唱/未唱两色）
+      this.KaraokeLine(index)
+    } else {
+      Text(line)
+        // 当前行放大加粗、非当前行降对比，是最主流的歌词视觉层次；
+        // 基准字号与对齐方式来自「歌词显示」设置
+        .fontSize(index === this.currentLyricIndex ? this.lyricFontSize + 4 : this.lyricFontSize)
+        .fontColor(index === this.currentLyricIndex
+          ? this.accentColor()
+          : (this.theme === 'dark' ? DesignTokens.lyricDimDark() : DesignTokens.lyricDimLight()))
+        .fontWeight(index === this.currentLyricIndex ? FontWeight.Bold : FontWeight.Normal)
+        .opacity(this.lineOpacity(index))
+        .textAlign(this.alignMode())
+        .width('100%')
+        .maxLines(1)
+        .textShadow(this.fontShadow ? DesignTokens.textShadowOnArtwork() : undefined)
+    }
+  }
+
+  /** 罗马音（拼音）行：设置开启且该行有内容时才渲染 */
+  @Builder
+  RomaLine(index: number) {
+    if (this.showLyricRoma && index < this.romaLines.length
+      && this.romaLines[index] && this.romaLines[index].length > 0) {
+      Text(this.romaLines[index])
+        .fontSize(index === this.currentLyricIndex ? 12 : 10)
+        .fontColor(index === this.currentLyricIndex
+          ? (this.theme === 'dark' ? DesignTokens.lyricRomaActiveDark() : DesignTokens.lyricRomaActiveLight())
+          : (this.theme === 'dark' ? DesignTokens.lyricRomaDimDark() : DesignTokens.lyricRomaDimLight()))
+        .opacity(this.lineOpacity(index))
+        .textAlign(this.alignMode())
+        .width('100%')
+        .maxLines(1)
+    }
+  }
+
+  /** 译文行：设置开启且该行有内容时才渲染 */
+  @Builder
+  TranslationLine(index: number) {
+    if (this.showLyricTranslation && index < this.secondaryLyricLines.length
+      && this.secondaryLyricLines[index] && this.secondaryLyricLines[index].length > 0) {
+      Text(this.secondaryLyricLines[index])
+        .fontSize(index === this.currentLyricIndex ? 13 : 11)
+        .fontColor(index === this.currentLyricIndex
+          ? (this.theme === 'dark' ? DesignTokens.lyricTransActiveDark() : DesignTokens.lyricTransActiveLight())
+          : (this.theme === 'dark' ? DesignTokens.lyricTransDimDark() : DesignTokens.lyricTransDimLight()))
+        .opacity(this.lineOpacity(index))
+        .textAlign(TextAlign.Center)
+        .width('100%')
+        .maxLines(1)
+    }
   }
 }

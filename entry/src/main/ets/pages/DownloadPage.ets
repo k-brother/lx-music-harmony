@@ -424,43 +424,7 @@ export struct DownloadPage {
             .margin({ top: 40 })
         } else {
           ForEach(this.rows, (row: DownloadRowModel): void => {
-            DownloadTaskRow({
-              row: row,
-              onToggleSelect: (): void => this.toggleTaskSelection(row.id),
-              onPrimaryAction: (): void => {
-                const task = this.findTask(row.id);
-                if (!task) {
-                  appToast(t('task_not_found'));
-                  return;
-                }
-                if (task.status === DownloadStatus.FAILED) {
-                  void this.retryTask(task);
-                } else if (task.status === DownloadStatus.DOWNLOADING) {
-                  download.pauseDownload(task.id);
-                  this.reload();
-                } else {
-                  void this.startTask(task);
-                }
-              },
-              onDelete: (): void => {
-                if (!this.findTask(row.id)) {
-                  appToast(t('task_not_found'));
-                  return;
-                }
-                download.cancelDownload(row.id);
-                this.lastSignature = '';
-                this.reload();
-              },
-              onPlay: (): void => {
-                const task = this.findTask(row.id);
-                if (!task) {
-                  appToast(t('task_not_found'));
-                  return;
-                }
-                void this.playTask(task);
-              },
-            })
-              .margin({ left: 12, right: 12, top: 8 })
+            this.TaskRow(row)
             // key 带上「会影响外观的状态」：对象型 @Prop 在节点复用时不一定触发重绘
             // （设置页 ForEach 就是踩过这个坑），进度按 5% 分桶避免每个百分点都重建。
           }, (row: DownloadRowModel): string =>
@@ -481,6 +445,51 @@ export struct DownloadPage {
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
     .align(Alignment.TopStart)
+  }
+
+  /**
+   * 单个下载任务行（含四个回调）。
+   * 四个动作都先按 id 找任务：列表可能在等待期间被刷新，找不到就提示而不是静默失败。
+   */
+  @Builder
+  TaskRow(row: DownloadRowModel) {
+    DownloadTaskRow({
+      row: row,
+      onToggleSelect: (): void => this.toggleTaskSelection(row.id),
+      onPrimaryAction: (): void => {
+        const task = this.findTask(row.id);
+        if (!task) {
+          appToast(t('task_not_found'));
+          return;
+        }
+        if (task.status === DownloadStatus.FAILED) {
+          void this.retryTask(task);
+        } else if (task.status === DownloadStatus.DOWNLOADING) {
+          download.pauseDownload(task.id);
+          this.reload();
+        } else {
+          void this.startTask(task);
+        }
+      },
+      onDelete: (): void => {
+        if (!this.findTask(row.id)) {
+          appToast(t('task_not_found'));
+          return;
+        }
+        download.cancelDownload(row.id);
+        this.lastSignature = '';
+        this.reload();
+      },
+      onPlay: (): void => {
+        const task = this.findTask(row.id);
+        if (!task) {
+          appToast(t('task_not_found'));
+          return;
+        }
+        void this.playTask(task);
+      },
+    })
+      .margin({ left: 12, right: 12, top: 8 })
   }
 
   build() {
