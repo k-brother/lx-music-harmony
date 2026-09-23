@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# 提交前跑一遍全量自检，红了就不让提交。
+#
+# 为什么要这个钩子：本轮出现过一次「管道吃掉了退出码」的事故——
+# 命令写成 `./scripts/check.sh | tail -3 && git commit ...`，管道的退出码是 tail 的，
+# 于是自检其实失败了、提交照样发生，提交信息里还写着「全绿」。
+#
+# 用法：在 harmony/ 目录执行一次 `git config core.hooksPath .githooks` 启用。
+# 需要临时跳过（例如只改文档且确认无影响）时：SKIP_CHECKS=1 git commit ...
+set -uo pipefail
+
+if [ "${SKIP_CHECKS:-0}" = "1" ]; then
+  echo "[pre-commit] SKIP_CHECKS=1，跳过自检"
+  exit 0
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${SCRIPT_DIR}"
+
+if ! ./scripts/check.sh > /tmp/lxmusic-precommit.log 2>&1; then
+  echo "[pre-commit] 自检未通过，已阻止提交："
+  tail -20 /tmp/lxmusic-precommit.log
+  echo "[pre-commit] 完整输出：/tmp/lxmusic-precommit.log（确认无影响可用 SKIP_CHECKS=1 git commit ...）"
+  exit 1
+fi
+
+echo "[pre-commit] 自检通过"

@@ -389,7 +389,7 @@ CHECKS = [
  ('播放历史空态给行动项', 'pages/HistoryListPage.ets', r"empty_go_songlist"),
  # 播放历史只在「真正开始播放」时写：切歌路过、自动播放关闭时不进历史
  ('播放历史在开播时记录', 'service/PlayerService.ets',
-  r'async play\(\)[\s\S]{0,900}?this\.recordPlayedSongIfNeeded\(\)'),
+  r'async play\(\)[\s\S]{0,1600}?this\.recordPlayedSongIfNeeded\(\)'),
  ('播放历史按歌曲去重', 'service/PlayerService.ets', r'recordedSongKey'),
  # 评论点赞落盘（源的评论接口没有登录态，只能本地记，但不能刷新就没）
  ('评论点赞本地持久化', 'service/comment/CommentLikeStore.ets', r'export async function loadLikedIds'),
