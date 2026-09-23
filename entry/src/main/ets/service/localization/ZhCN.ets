@@ -447,6 +447,7 @@ export function buildZhCN(): Map<string, string> {
   m.set('comment_title', '评论');
   m.set('comment_hot', '热门');
   m.set('comment_new', '最新');
+  m.set('comment_reply', '回复');
   m.set('comment_no_data', '暂无评论');
   m.set('history_title', '播放历史');
   m.set('history_count', '共 {0} 首历史记录');

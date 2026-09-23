@@ -170,12 +170,16 @@ export struct CommentRow {
             
             // 回复按钮
             Row() {
-              SymbolGlyph($r('sys.symbol.music_note_list'))
+              // 气泡图标才是「回复」的语义（此前误用了音符列表图标）
+              SymbolGlyph($r('sys.symbol.text_bubble_left_2'))
                 .fontSize(19)
                 .fontColor([DesignTokens.labelSecondary(this.theme)])
                 .margin({ left: 16, right: 4 })
               
-              Text(this.comment.replyCount > 0 ? this.comment.replyCount.toString() : t('comment_new'))
+              // 没有回复时不再塞一个「最新」占位（那是评论类型标签，不是数量）
+              Text(this.comment.replyCount > 0
+                ? this.comment.replyCount.toString()
+                : t('comment_reply'))
                 .fontSize(12)
                 .fontColor(DesignTokens.labelSecondary(this.theme))
             }

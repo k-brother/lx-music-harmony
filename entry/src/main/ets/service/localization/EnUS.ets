@@ -444,6 +444,7 @@ export function buildEnUS(): Map<string, string> {
   m.set('comment_title', 'Comments');
   m.set('comment_hot', 'Hot');
   m.set('comment_new', 'New');
+  m.set('comment_reply', 'Reply');
   m.set('comment_no_data', 'No comments');
   m.set('history_title', 'History');
   m.set('history_count', '{0} songs in history');
