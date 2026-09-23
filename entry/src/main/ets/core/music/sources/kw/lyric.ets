@@ -44,6 +44,8 @@ const EMPTY_LYRIC: LyricInfo = {
 const LRC_TIME_EXP = /^\[([\d:.]*)\]/;
 /** 酷我逐字标记：<起始, 时长>（时长可能为负数） */
 const WORD_TAG_EXP = /<\d+,-?\d+>/g;
+/** 判断某一行是否带逐字标记（不带 /g，避免 lastIndex 副作用） */
+const WORD_TAG_TEST_EXP = /<\d+,-?\d+>/;
 /** 标签行：[ti:] / [ar:] / [by:] 等 */
 const TAG_LINE_EXP = /^\[[a-z]+:/i;
 /** 是否含有效时间轴 */
@@ -239,6 +241,8 @@ function parseLrcText(lrc: string): LyricInfo {
   const lines = lrc.split(/\r\n|\r|\n/);
   const tags: string[] = [];
   const entries: LyricLine[] = [];
+  // 逐字歌词原样留一份：主歌词要抹掉标记，逐字渲染需要标记
+  const wordLines: string[] = [];
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
@@ -251,6 +255,9 @@ function parseLrcText(lrc: string): LyricInfo {
       // .xx -> .xxx，统一到毫秒
       if (/\.\d\d$/.test(time)) {
         time += '0';
+      }
+      if (WORD_TAG_TEST_EXP.test(line)) {
+        wordLines.push(line);
       }
       const text = line.replace(LRC_TIME_EXP, '').replace(WORD_TAG_EXP, '').trim();
       entries.push({ time, text });
@@ -266,7 +273,7 @@ function parseLrcText(lrc: string): LyricInfo {
   const info: LyricInfo = {
     lyric: hasTimeTag(mainText) ? mainText : EMPTY_LYRIC.lyric,
     tlyric: split.trans.length > 0 ? decodeHtmlEntities(joinLrc([], split.trans)) : '',
-    lxlyric: '',
+    lxlyric: wordLines.length > 0 ? decodeHtmlEntities(wordLines.join('\n')) : '',
   };
   return info;
 }

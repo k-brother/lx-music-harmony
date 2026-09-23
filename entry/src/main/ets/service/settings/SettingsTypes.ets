@@ -80,6 +80,8 @@ export interface AppSettings {
   showLyricTranslation: boolean;
   /** 歌词是否显示罗马音（拼音） */
   showLyricRoma: boolean;
+  /** 逐字歌词：有逐字数据的歌按字高亮（卡拉OK 效果） */
+  wordLyric: boolean;
   /** 歌词字号（14-24） */
   lyricFontSize: number;
   /** 歌词对齐：center | left | right */
@@ -211,6 +213,8 @@ export interface SettingsPatch {
   showBluetoothLyric?: boolean;
   showLyricTranslation?: boolean;
   showLyricRoma?: boolean;
+  /** 逐字歌词（卡拉OK 高亮） */
+  wordLyric?: boolean;
   lyricFontSize?: number;
   lyricAlign?: string;
   showLyricProgress?: boolean;
@@ -302,6 +306,7 @@ export function createDefaultSettings(): AppSettings {
     showNotificationImage: true,
     showBluetoothLyric: false,
     showLyricTranslation: true,
+    wordLyric: true,
     showLyricRoma: false,
     lyricFontSize: 16,
     lyricAlign: 'center',

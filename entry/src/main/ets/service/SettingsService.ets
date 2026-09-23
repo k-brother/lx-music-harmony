@@ -134,6 +134,7 @@ class SettingsServiceImpl {
     copy.showBluetoothLyric = source.showBluetoothLyric;
     copy.showLyricTranslation = source.showLyricTranslation;
     copy.showLyricRoma = source.showLyricRoma;
+    copy.wordLyric = source.wordLyric;
     copy.lyricFontSize = source.lyricFontSize;
     copy.lyricAlign = source.lyricAlign;
     copy.showLyricProgress = source.showLyricProgress;
@@ -265,6 +266,7 @@ class SettingsServiceImpl {
       showBluetoothLyric: defaults.showBluetoothLyric,
       showLyricTranslation: defaults.showLyricTranslation,
       showLyricRoma: defaults.showLyricRoma,
+      wordLyric: defaults.wordLyric,
       lyricFontSize: defaults.lyricFontSize,
       lyricAlign: defaults.lyricAlign,
       showLyricProgress: defaults.showLyricProgress,
@@ -342,6 +344,7 @@ class SettingsServiceImpl {
     AppStorage.setOrCreate('showAnimation', this.values.showAnimation);
     AppStorage.setOrCreate('showLyricTranslation', this.values.showLyricTranslation);
     AppStorage.setOrCreate('showLyricRoma', this.values.showLyricRoma);
+    AppStorage.setOrCreate('wordLyric', this.values.wordLyric);
     AppStorage.setOrCreate('lyricFontSize', this.values.lyricFontSize);
     AppStorage.setOrCreate('lyricAlign', this.values.lyricAlign);
     AppStorage.setOrCreate('showLyricProgress', this.values.showLyricProgress);

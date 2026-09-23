@@ -179,6 +179,7 @@ export async function loadSettingsFromStorage(): Promise<AppSettings> {
     settings.showLyricTranslation = await storage.getBoolean(
       StorageKeys.LYRIC_SHOW_TRANSLATION, defaults.showLyricTranslation);
     settings.showLyricRoma = await storage.getBoolean(StorageKeys.LYRIC_SHOW_ROMA, defaults.showLyricRoma);
+    settings.wordLyric = await storage.getBoolean(StorageKeys.LYRIC_SHOW_WORD, defaults.wordLyric);
     settings.lyricFontSize = clampNumber(
       await storage.getNumber(StorageKeys.LYRIC_FONT_SIZE, defaults.lyricFontSize), 14, 24, defaults.lyricFontSize);
     settings.lyricAlign = await storage.getString(StorageKeys.LYRIC_ALIGN, defaults.lyricAlign);

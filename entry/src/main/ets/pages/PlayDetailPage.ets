@@ -6,6 +6,7 @@ import { navigationService } from '../service/NavigationService';
 import { RouteName, NavigationParams } from '../service/NavigationService';
 import { isInLoveList } from '../service/ListService';
 import { getCurrentLyricIndex, LyricLine } from '../core/music/MusicParsingUtils';
+import { playedWordCount, type WordLyricLine } from '../core/lyric/WordLyric';
 import { DesignTokens } from '../theme/DesignTokens';
 import { Breakpoints } from '../theme/Breakpoints';
 import { t } from '../service/LocalizationService';
@@ -55,6 +56,8 @@ import { appActionMenu, appToast } from '../service/DialogService';
 const PLAY_CONTROLS_MAX_WIDTH_VP: number = 640;
 /** 播放页下滑关闭的触发位移（vp）：超过就返回，没到就回弹 */
 const DISMISS_DRAG_THRESHOLD_VP: number = 96;
+/** 平滑进度表的间隔（ms）：逐字歌词与进度条都按这个节奏推进 */
+const SMOOTH_TICK_MS: number = 100;
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'PlayDetailPage';
@@ -104,6 +107,10 @@ export struct PlayDetailPage {
   @State lyricLines: string[] = [t('loading_lyric')];
   @State secondaryLyricLines: string[] = [];
   @State romaLines: string[] = [];
+  /** 逐字歌词（与 lyricLines 一一对应；该行没有逐字数据时 words 为空） */
+  @State wordLyricLines: WordLyricLine[] = [];
+  /** 当前行已唱到第几个字（-1 = 当前行没有逐字数据） */
+  @State playedWordCount: number = -1;
   /** 换源弹窗：候选列表与显示状态 */
   @State showSourceDialog: boolean = false;
   @State sourceCandidates: MusicInfo[] = [];
@@ -140,6 +147,16 @@ export struct PlayDetailPage {
   /** 最近一次加载到的原始歌词文本（用于同步给桌面歌词窗口） */
   private lyricRawText: string = '';
   private swiperController: SwiperController = new SwiperController();
+  /**
+   * 平滑进度：进度轮询是秒级的，而歌词逐字高亮与进度条都需要更细的节奏。
+   * 这里记录「上一拍的真实位置」与「上一拍的时间戳」，用本地时钟插值出 100ms 级的当前位置。
+   */
+  private smoothBaseSec: number = 0;
+  private smoothBaseAtMs: number = 0;
+  private smoothTimer: number = -1;
+  /** 当前曲目总时长（秒），用于把平滑进度夹在合法范围内 */
+  private durationSecHint: number = 0;
+  @State smoothPositionSec: number = 0;
 
   aboutToAppear() {
     this.alive = true;
@@ -158,10 +175,14 @@ export struct PlayDetailPage {
     this.totalTime = progressData.maxPlayTimeStr;
     this.isPlaying = playerService.isPlaying();
     void this.loadPlaySettings();
+    this.startSmoothTicker();
 
     this.unsubscribePlayState = playerService.onPlayStateChange((isPlay: boolean) => {
       if (!this.alive) return;
       this.isPlaying = isPlay;
+      // 暂停/继续时把平滑进度的基准对齐到「当前插值出来的位置」，避免暂停后继续跑或续播时跳一下
+      this.smoothBaseSec = this.smoothPositionSec;
+      this.smoothBaseAtMs = Date.now();
     });
 
     this.unsubscribeMusicInfo = playerService.onMusicInfoChange((info: MusicInfo) => {
@@ -175,9 +196,12 @@ export struct PlayDetailPage {
       this.progress = prog.progress;
       this.currentTime = prog.nowPlayTimeStr;
       this.totalTime = prog.maxPlayTimeStr;
-      if (this.lyricTimeline.length > 0) {
-        this.currentLyricIndex = getCurrentLyricIndex(this.lyricTimeline, prog.nowPlayTime + settingsService.get().lyricOffset);
-      }
+      // 平滑进度的基准点：以真实播放位置为准，两次轮询之间用本地时钟插值
+      this.smoothBaseSec = prog.nowPlayTime;
+      this.smoothBaseAtMs = Date.now();
+      this.durationSecHint = prog.maxPlayTime;
+      this.smoothPositionSec = prog.nowPlayTime;
+      this.advanceLyricByPosition(prog.nowPlayTime);
     });
     // 定时退出状态（含"等待当前歌曲播完"）跟随 SleepTimerService，避免两处状态不一致
     this.unsubscribeSleepTimer = sleepTimerService.onStateChange((state: SleepTimerState) => {
@@ -197,6 +221,7 @@ export struct PlayDetailPage {
     hilog.info(DOMAIN, TAG, 'aboutToDisappear session=%{public}s', this.pageSessionId);
     this.alive = false;
     this.assets.setAlive(false);
+    this.stopSmoothTicker();
     if (this.unsubscribePlayState) this.unsubscribePlayState();
     if (this.unsubscribeMusicInfo) this.unsubscribeMusicInfo();
     if (this.unsubscribeProgress) this.unsubscribeProgress();
@@ -308,6 +333,8 @@ export struct PlayDetailPage {
           this.lyricTimeline = [];
           this.lyricLines = [t('pure_music')];
           this.secondaryLyricLines = [];
+          this.wordLyricLines = [];
+          this.playedWordCount = -1;
           this.currentLyricIndex = -1;
           return;
         }
@@ -316,6 +343,8 @@ export struct PlayDetailPage {
           if (!(this.lyricTimeline.length > 0)) {
             this.lyricLines = [t('lyric_load_failed')];
             this.secondaryLyricLines = [];
+            this.wordLyricLines = [];
+            this.playedWordCount = -1;
             this.currentLyricIndex = -1;
           }
           return;
@@ -328,8 +357,10 @@ export struct PlayDetailPage {
         this.lyricTimeline = payload.timeline;
         this.lyricLines = payload.lines;
         this.secondaryLyricLines = payload.secondaryLines;
+        this.wordLyricLines = payload.wordLines;
         this.rebuildRomaLines();
         this.currentLyricIndex = payload.currentIndex;
+        this.syncWordHighlight();
       },
     });
   }
@@ -340,6 +371,60 @@ export struct PlayDetailPage {
     } else {
       await playerService.play();
     }
+  }
+
+  /** 启动平滑进度表（页面可见时一直跑，播放中才有实际推进） */
+  private startSmoothTicker(): void {
+    this.stopSmoothTicker();
+    this.smoothTimer = setInterval((): void => {
+      if (!this.alive) {
+        return;
+      }
+      const elapsedSec: number = this.isPlaying ? (Date.now() - this.smoothBaseAtMs) / 1000 : 0;
+      const duration: number = this.durationSecHint;
+      let position: number = this.smoothBaseSec + elapsedSec;
+      if (duration > 0 && position > duration) {
+        position = duration;
+      }
+      this.smoothPositionSec = position;
+      this.advanceLyricByPosition(position);
+    }, SMOOTH_TICK_MS);
+  }
+
+  private stopSmoothTicker(): void {
+    if (this.smoothTimer !== -1) {
+      clearInterval(this.smoothTimer);
+      this.smoothTimer = -1;
+    }
+  }
+
+  /**
+   * 按当前位置推进歌词：当前句与逐字高亮都跟着平滑位置走。
+   * 逐字高亮只在「设置了逐字歌词」且当前行真的有逐字数据时才计算。
+   */
+  private advanceLyricByPosition(positionSec: number): void {
+    if (this.lyricTimeline.length === 0) {
+      return;
+    }
+    const settings = settingsService.get();
+    const shifted: number = positionSec + settings.lyricOffset;
+    const index: number = getCurrentLyricIndex(this.lyricTimeline, shifted);
+    if (index !== this.currentLyricIndex) {
+      this.currentLyricIndex = index;
+    }
+    this.syncWordHighlight(positionSec, settings.wordLyric, settings.lyricOffset);
+  }
+
+  /** 计算当前行已唱到第几个字（没有逐字数据时置 -1，歌词退回普通渲染） */
+  private syncWordHighlight(
+    positionSec: number = this.smoothPositionSec,
+    enabled: boolean = settingsService.get().wordLyric,
+    offset: number = settingsService.get().lyricOffset): void {
+    if (!enabled || this.currentLyricIndex < 0 || this.currentLyricIndex >= this.wordLyricLines.length) {
+      this.playedWordCount = -1;
+      return;
+    }
+    this.playedWordCount = playedWordCount(this.wordLyricLines[this.currentLyricIndex], positionSec + offset);
   }
 
   private async playPrev(): Promise<void> {
@@ -378,7 +463,29 @@ export struct PlayDetailPage {
   private async seekTo(progress: number): Promise<void> {
     const duration = playerService.getProgress().maxPlayTime;
     if (duration <= 0) return;
-    await playerService.seekTo(duration * progress);
+    const targetSec: number = duration * progress;
+    await playerService.seekTo(targetSec);
+    // seek 后立刻把平滑进度的基准挪到目标位置：进度条/逐字歌词不等下一次轮询就对上
+    this.smoothBaseSec = targetSec;
+    this.smoothBaseAtMs = Date.now();
+    this.smoothPositionSec = targetSec;
+    this.advanceLyricByPosition(targetSec);
+  }
+
+  /**
+   * 进度条的当前值（0~1）。
+   * 拖动中显示预览值；播放中用「插值出来的平滑位置」而不是每秒一跳的轮询值，
+   * 进度条因此是匀速滑动的（主流播放器的观感）。
+   */
+  private displayProgress(): number {
+    if (this.isSeeking) {
+      return this.previewProgress;
+    }
+    if (this.durationSecHint > 0) {
+      const ratio: number = this.smoothPositionSec / this.durationSecHint;
+      return Math.max(0, Math.min(1, ratio));
+    }
+    return this.progress;
   }
 
   /** 拖动进度条时显示的预览时间（目标位置） */
@@ -573,6 +680,8 @@ export struct PlayDetailPage {
     if (outcome.romaChanged) {
       this.rebuildRomaLines();
     }
+    // 逐字开关可能刚被改掉：立即按当前位置重算高亮，不用等下一次进度回调
+    this.syncWordHighlight();
     this.showToast(outcome.toast);
   }
 
@@ -797,9 +906,11 @@ export struct PlayDetailPage {
       lyricLines: this.lyricLines,
       secondaryLyricLines: this.secondaryLyricLines,
       romaLines: this.romaLines,
+      wordLyricLines: this.wordLyricLines,
+      playedWordCount: this.playedWordCount,
       currentLyricIndex: this.currentLyricIndex,
       showLyricProgress: this.showLyricProgress,
-      progress: this.progress,
+      progress: this.displayProgress(),
       isSeeking: this.isSeeking,
       previewProgress: this.previewProgress,
       currentTime: this.currentTime,
@@ -1083,7 +1194,7 @@ export struct PlayDetailPage {
       isPlaying: this.isPlaying,
       currentTime: this.currentTime,
       totalTime: this.totalTime,
-      progress: this.progress,
+      progress: this.displayProgress(),
       isSeeking: this.isSeeking,
       previewProgress: this.previewProgress,
       previewTime: this.previewTimeText(),

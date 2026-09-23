@@ -193,6 +193,54 @@ function convertToMusicSearchResult(items: MusicInfoItem[]): MusicSearchResult[]
   return results;
 }
 
+/** SDK 搜索结果项 → 搜索状态里的歌曲项（全源聚合与单源搜索共用，避免 15 个字段抄两遍） */
+function toMusicInfoItem(item: SearchResultItem): MusicInfoItem {
+  const musicInfoItem: MusicInfoItem = {
+    id: item.id,
+    songmid: item.songmid,
+    name: item.name,
+    singer: item.singer,
+    album: item.album,
+    albumId: item.albumId || null,
+    duration: item.duration || 0,
+    source: item.source,
+    pic: item.pic ?? '',
+    hash: item.hash,
+    strMediaMid: item.strMediaMid,
+    songId: item.songId,
+    copyrightId: item.copyrightId,
+    lrc: null,
+    interval: item.interval,
+  };
+  return musicInfoItem;
+}
+
+/**
+ * 全源聚合搜索：逐个源串行拉取（并发会让小水管音源直接限流），
+ * 单个源失败只跳过它，不影响其它源的结果。
+ */
+async function searchAllSources(text: string, page: number, limit: number): Promise<MusicInfoItem[]> {
+  const allResults: MusicInfoItem[] = [];
+  for (let i = 0; i < SUPPORTED_SOURCES.length; i++) {
+    const src = SUPPORTED_SOURCES[i];
+    try {
+      const result: SearchResultItem[] = await searchMusicApi({
+        name: text,
+        singer: null,
+        source: src,
+        page: page,
+        limit: limit,
+      });
+      for (let j = 0; j < result.length; j++) {
+        allResults.push(toMusicInfoItem(result[j]));
+      }
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'searchMusic source %{public}s failed: %{public}s', src, (err as Error).message);
+    }
+  }
+  return allResults;
+}
+
 // 音乐搜索
 export async function searchMusic(text: string, page: number, sourceId: Source): Promise<MusicSearchResult[]> {
   if (!text) {
@@ -209,42 +257,7 @@ export async function searchMusic(text: string, page: number, sourceId: Source):
 
   if (sourceId === 'all') {
     listInfo.key = key;
-    const sources: string[] = SUPPORTED_SOURCES;
-    const allResults: MusicInfoItem[] = [];
-    for (let i = 0; i < sources.length; i++) {
-      const src = sources[i];
-      try {
-        const result: SearchResultItem[] = await searchMusicApi({
-          name: text,
-          singer: null,
-          source: src,
-          page: page,
-          limit: listInfo.limit
-        });
-        for (let j = 0; j < result.length; j++) {
-          const r = result[j];
-          allResults.push({
-            id: r.id,
-            songmid: r.songmid,
-            name: r.name,
-            singer: r.singer,
-            album: r.album,
-            source: r.source,
-            interval: r.interval,
-            pic: r.pic,
-            albumId: r.albumId || null,
-            duration: r.duration || 0,
-            hash: r.hash,
-            strMediaMid: r.strMediaMid,
-            songId: r.songId,
-            copyrightId: r.copyrightId,
-            lrc: null,
-          });
-        }
-      } catch (err) {
-        hilog.warn(DOMAIN, TAG, 'searchMusic source %{public}s failed: %{public}s', src, (err as Error).message);
-      }
-    }
+    const allResults: MusicInfoItem[] = await searchAllSources(text, page, listInfo.limit);
     listInfo.list = allResults;
     listInfo.total = allResults.length;
     return convertToMusicSearchResult(allResults);
@@ -269,24 +282,7 @@ export async function searchMusic(text: string, page: number, sourceId: Source):
       const convertedResults: MusicInfoItem[] = [];
       for (const item of result) {
         // item 为 SearchResultItem（MusicFeatureEntry）
-        const musicInfoItem: MusicInfoItem = {
-          id: item.id,
-          songmid: item.songmid,
-          name: item.name,
-          singer: item.singer,
-          album: item.album,
-          albumId: item.albumId || null,
-          duration: item.duration,
-          source: item.source,
-          pic: item.pic ?? '',
-          hash: item.hash,
-          strMediaMid: item.strMediaMid,
-          songId: item.songId,
-          copyrightId: item.copyrightId,
-          lrc: null,
-          interval: item.interval
-        };
-        convertedResults.push(musicInfoItem);
+        convertedResults.push(toMusicInfoItem(item));
       }
 
       // 更新搜索结果状态
@@ -457,4 +453,3 @@ async function getSourceTips(
   const tips = await tipFn(keyword);
   return tips ?? [];
 }
-

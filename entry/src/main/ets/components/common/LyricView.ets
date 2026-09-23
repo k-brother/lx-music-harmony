@@ -4,6 +4,7 @@
 
 import { t } from '../../service/LocalizationService';
 import { DesignTokens } from '../../theme/DesignTokens';
+import type { LyricWord, WordLyricLine } from '../../core/lyric/WordLyric';
 
 /** 动态背景/封面背景下的文字阴影（半径小、偏移 0，等效"描边感"） */
 
@@ -21,6 +22,12 @@ export struct LyricView {
   @Prop secondaryLyricLines: string[] = [];
   /** 罗马音（拼音）行，与 lyricLines 一一对应 */
   @Prop romaLines: string[] = [];
+  /** 逐字歌词（与 lyricLines 一一对应） */
+  @Prop wordLyricLines: WordLyricLine[] = [];
+  /** 当前行已唱到第几个字（-1 = 当前行没有逐字数据，走普通渲染） */
+  @Prop playedWordCount: number = -1;
+  /** 设置 → 播放 → 逐字歌词 */
+  @StorageProp('wordLyric') wordLyric: boolean = true;
   @Prop @Watch('onCurrentLyricIndexChanged') currentLyricIndex: number = -1;
   /** 点击某一行歌词（主流播放器：点哪句就跳到那句） */
   onLineTap?: (index: number) => void;
@@ -85,6 +92,52 @@ export struct LyricView {
   }
 
   /**
+   * 当前行是否具备逐字数据（三条件：设置开启、确实是当前行、这一行有逐字标记）。
+   * 不满足时当前行退回整句高亮的普通渲染。
+   */
+  private canRenderKaraoke(index: number): boolean {
+    return this.wordLyric
+      && index === this.currentLyricIndex
+      && this.playedWordCount >= 0
+      && index < this.wordLyricLines.length
+      && this.wordLyricLines[index].words.length > 0;
+  }
+
+  /** 逐字渲染里「还没唱到」的字用的颜色：与其它行同色，保证整行仍读得清 */
+  private pendingWordColor(): string {
+    return this.theme === 'dark' ? DesignTokens.lyricDimDark() : DesignTokens.lyricDimLight();
+  }
+
+  /** 设置里的对齐方式 → Flex 主轴对齐 */
+  private flexAlign(): FlexAlign {
+    if (this.lyricAlign === 'left') {
+      return FlexAlign.Start;
+    }
+    if (this.lyricAlign === 'right') {
+      return FlexAlign.End;
+    }
+    return FlexAlign.Center;
+  }
+
+  /**
+   * 逐字（卡拉OK）歌词：已唱到的字用主题强调色，没唱到的保持暗色。
+   * 逐字数据的时间粒度就是「一个字」，因此不需要再做渐变遮罩就有连续推进的观感。
+   */
+  @Builder
+  KaraokeLine(index: number) {
+    Flex({ wrap: FlexWrap.Wrap, justifyContent: this.flexAlign(), alignItems: ItemAlign.Center }) {
+      ForEach(this.wordLyricLines[index].words, (word: LyricWord, wordIndex: number) => {
+        Text(word.text)
+          .fontSize(this.lyricFontSize + 4)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(wordIndex < this.playedWordCount ? this.accentColor() : this.pendingWordColor())
+          .textShadow(this.fontShadow ? DesignTokens.textShadowOnArtwork() : undefined)
+      }, (word: LyricWord, wordIndex: number) => `w_${wordIndex}_${word.text}`)
+    }
+    .width('100%')
+  }
+
+  /**
    * 非当前行按与当前行的距离递减透明度：离得越远越淡，
    * 让视线自然聚焦在当前句上（主流歌词动效的基本做法）。
    */
@@ -117,19 +170,24 @@ export struct LyricView {
         Column() {
           ForEach(this.lyricLines, (line: string, index: number) => {
             Column({ space: 2 }) {
-              Text(line)
-                // 当前行放大加粗、非当前行降对比，是最主流的歌词视觉层次；
-                // 基准字号与对齐方式来自「歌词显示」设置
-                .fontSize(index === this.currentLyricIndex ? this.lyricFontSize + 4 : this.lyricFontSize)
-                .fontColor(index === this.currentLyricIndex
-                  ? this.accentColor()
-                  : (this.theme === 'dark' ? DesignTokens.lyricDimDark() : DesignTokens.lyricDimLight()))
-                .fontWeight(index === this.currentLyricIndex ? FontWeight.Bold : FontWeight.Normal)
-                .opacity(this.lineOpacity(index))
-                .textAlign(this.alignMode())
-                .width('100%')
-                .maxLines(1)
-                .textShadow(this.fontShadow ? DesignTokens.textShadowOnArtwork() : undefined)
+              if (this.canRenderKaraoke(index)) {
+                // 有逐字数据的当前行：逐字高亮（已唱/未唱两色）
+                this.KaraokeLine(index)
+              } else {
+                Text(line)
+                  // 当前行放大加粗、非当前行降对比，是最主流的歌词视觉层次；
+                  // 基准字号与对齐方式来自「歌词显示」设置
+                  .fontSize(index === this.currentLyricIndex ? this.lyricFontSize + 4 : this.lyricFontSize)
+                  .fontColor(index === this.currentLyricIndex
+                    ? this.accentColor()
+                    : (this.theme === 'dark' ? DesignTokens.lyricDimDark() : DesignTokens.lyricDimLight()))
+                  .fontWeight(index === this.currentLyricIndex ? FontWeight.Bold : FontWeight.Normal)
+                  .opacity(this.lineOpacity(index))
+                  .textAlign(this.alignMode())
+                  .width('100%')
+                  .maxLines(1)
+                  .textShadow(this.fontShadow ? DesignTokens.textShadowOnArtwork() : undefined)
+              }
               if (this.showLyricRoma && index < this.romaLines.length && this.romaLines[index] && this.romaLines[index].length > 0) {
                 Text(this.romaLines[index])
                   .fontSize(index === this.currentLyricIndex ? 12 : 10)

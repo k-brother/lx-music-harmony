@@ -62,6 +62,7 @@ export function buildZhCN(): Map<string, string> {
   m.set('switch_source_failed', '换源失败，请稍后重试');
   m.set('lyric_translation', '显示翻译');
   m.set('lyric_roma', '显示罗马音');
+  m.set('lyric_word', '逐字歌词');
   m.set('on', '开');
   m.set('off', '关');
   m.set('dislike_song', '不喜欢这首歌');
@@ -708,4 +709,3 @@ export function buildZhCN(): Map<string, string> {
 }
 
 // 构建英文翻译 Map
-

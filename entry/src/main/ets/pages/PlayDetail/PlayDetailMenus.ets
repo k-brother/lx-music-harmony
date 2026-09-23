@@ -10,7 +10,7 @@ import type { PlayActionRow, PlayActionSection } from './MoreActionsSheet';
 
 /** 倍速选项（0.5x - 2.0x） */
 const SPEED_RATES: string[] = ['0.5', '0.75', '1.0', '1.25', '1.5', '2.0'];
-export type LyricDisplayAction = 'translation' | 'roma' | 'fontSize' | 'align' | 'progress';
+export type LyricDisplayAction = 'translation' | 'roma' | 'word' | 'fontSize' | 'align' | 'progress';
 export type DislikeLevel = 'song' | 'singer' | 'name';
 
 /** 倍速选择：返回选中的倍速（取消返回 null） */
@@ -32,6 +32,8 @@ export async function showSpeedMenu(current: number): Promise<number | null> {
 export interface LyricDisplayState {
   translation: boolean;
   roma: boolean;
+  /** 逐字歌词（卡拉OK 高亮） */
+  word: boolean;
   fontSize: number;
   alignLabel: string;
   progress: boolean;
@@ -42,6 +44,7 @@ export async function showLyricDisplayMenu(state: LyricDisplayState): Promise<Ly
   const items: string[] = [
     `${t('lyric_translation')}${mark(state.translation)}`,
     `${t('lyric_roma')}${mark(state.roma)}`,
+    `${t('lyric_word')}${mark(state.word)}`,
     `${t('lyric_font_size')}: ${state.fontSize}`,
     `${t('lyric_align')}: ${state.alignLabel}`,
     `${t('lyric_progress')}${mark(state.progress)}`,
@@ -54,12 +57,15 @@ export async function showLyricDisplayMenu(state: LyricDisplayState): Promise<Ly
     return 'roma';
   }
   if (picked === 2) {
-    return 'fontSize';
+    return 'word';
   }
   if (picked === 3) {
-    return 'align';
+    return 'fontSize';
   }
   if (picked === 4) {
+    return 'align';
+  }
+  if (picked === 5) {
     return 'progress';
   }
   return null;

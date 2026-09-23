@@ -15,6 +15,7 @@ import { getLyricInfo, getPicPath } from '../../core/music/MusicFeatureEntry';
 import { playerService } from '../../service/PlayerService';
 import { settingsService } from '../../service/SettingsService';
 import { convertChinese } from '../../core/lyric/ChineseConvert';
+import { parseWordLyric, type WordLyricLine } from '../../core/lyric/WordLyric';
 import { getCurrentLyricIndex, parseLrc, type LyricLine } from '../../core/music/MusicParsingUtils';
 import type { MusicInfo } from '../../types/MusicTypes';
 
@@ -38,6 +39,8 @@ export interface LyricPayload {
   timeline: LyricLine[];
   lines: string[];
   secondaryLines: string[];
+  /** 逐字歌词，与 lines 一一对应（该行没有逐字数据时 words 为空） */
+  wordLines: WordLyricLine[];
   currentIndex: number;
 }
 
@@ -255,6 +258,22 @@ export class PlayMediaAssets {
           secondaries.push('');
         }
       }
+      // 逐字歌词：与主歌词按时间对齐（容差 0.35s，和译文一致；对不上的行留空走普通渲染）
+      const parsedWords: WordLyricLine[] =
+        parseWordLyric(convertChinese(lyricInfo.lxlyric || '', settingsService.get().s2tMode));
+      const wordLines: WordLyricLine[] = [];
+      let wIdx = 0;
+      for (let i = 0; i < primaryLines.length; i++) {
+        const line = primaryLines[i];
+        while (wIdx + 1 < parsedWords.length && parsedWords[wIdx + 1].timeSec <= line.time) {
+          wIdx += 1;
+        }
+        if (wIdx < parsedWords.length && Math.abs(parsedWords[wIdx].timeSec - line.time) <= 0.35) {
+          wordLines.push(parsedWords[wIdx]);
+        } else {
+          wordLines.push({ timeSec: line.time, words: [] });
+        }
+      }
       this.lyricSongKey = targetKey;
       this.lyricFailedKey = '';
       this.lyricRetryCount = 0;
@@ -265,6 +284,7 @@ export class PlayMediaAssets {
           timeline: primaryLines,
           lines: primaryLines.map((line: LyricLine): string => line.text),
           secondaryLines: secondaries,
+          wordLines: wordLines,
           currentIndex: getCurrentLyricIndex(primaryLines, playerService.getProgress().nowPlayTime),
         },
       });

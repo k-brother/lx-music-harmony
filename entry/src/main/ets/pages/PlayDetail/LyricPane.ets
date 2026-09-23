@@ -7,6 +7,7 @@
  */
 import { DesignTokens } from '../../theme/DesignTokens';
 import { LyricView } from '../../components/common/LyricView';
+import type { WordLyricLine } from '../../core/lyric/WordLyric';
 
 @Component
 export struct LyricPane {
@@ -14,6 +15,9 @@ export struct LyricPane {
   @Prop lyricLines: string[] = [];
   @Prop secondaryLyricLines: string[] = [];
   @Prop romaLines: string[] = [];
+  /** 逐字歌词（与 lyricLines 一一对应）与当前行已唱字数（-1 = 该行没有逐字数据） */
+  @Prop wordLyricLines: WordLyricLine[] = [];
+  @Prop playedWordCount: number = -1;
   @Prop currentLyricIndex: number = -1;
   /** 设置 → 歌词页显示播放进度 */
   @Prop showLyricProgress: boolean = false;
@@ -33,6 +37,8 @@ export struct LyricPane {
         lyricLines: this.lyricLines,
         secondaryLyricLines: this.secondaryLyricLines,
         romaLines: this.romaLines,
+        wordLyricLines: this.wordLyricLines,
+        playedWordCount: this.playedWordCount,
         currentLyricIndex: this.currentLyricIndex,
         onLineTap: (index: number): void => {
           if (this.onLineTap) {

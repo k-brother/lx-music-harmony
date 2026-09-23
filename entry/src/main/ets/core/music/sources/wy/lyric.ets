@@ -12,6 +12,8 @@ interface WYLyricInfo {
 interface WYLyricResponse {
   lrc?: WYLyricInfo;
   tlyric?: WYLyricInfo | null;
+  /** 逐字歌词（yrc），请求时带 yv=1 才会返回 */
+  yrc?: WYLyricInfo | null;
 }
 
 // 空歌词
@@ -39,7 +41,8 @@ export const lyric: LyricInterface = {
       return Promise.resolve(EMPTY_LYRIC);
     }
 
-    const url: string = `http://music.163.com/api/song/lyric?id=${songmid}&lv=1&kv=1&tv=-1`;
+    // yv=1 拿逐字歌词（yrc）；拿不到也不影响普通歌词
+    const url: string = `http://music.163.com/api/song/lyric?id=${songmid}&lv=1&kv=1&tv=-1&yv=1`;
 
     const headers: Map<string, string> = new Map();
     headers.set('Referer', 'https://music.163.com/');
@@ -50,10 +53,11 @@ export const lyric: LyricInterface = {
       const body = parseHttpBodyJson<WYLyricResponse>(resultData);
 
       if (body && body.lrc && body.lrc.lyric) {
+        const yrcText: string = body.yrc && body.yrc.lyric ? body.yrc.lyric : '';
         const lyricInfo: LyricInfo = {
           lyric: body.lrc.lyric || '',
           tlyric: body.tlyric && body.tlyric.lyric ? body.tlyric.lyric : null,
-          lxlyric: null,
+          lxlyric: yrcText.length > 0 ? yrcText : null,
           rlyric: null,
         };
         return lyricInfo;

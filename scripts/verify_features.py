@@ -289,6 +289,15 @@ CHECKS = [
   r'DISMISS_DRAG_THRESHOLD_VP[\s\S]*?navigationService\.back\(\)'),
  # 播放页两种形态各自独立成 Builder（原先塞在同一个 80 行函数里）
  ('播放页宽屏双栏/窄屏翻页拆分', 'pages/PlayDetailPage.ets', r'WideStage\(\)[\s\S]*?NarrowStage\(\)'),
+ # 逐字歌词（卡拉OK）：解析 / 取数 / 对齐 / 渲染 / 开关 五段都要在
+ ('逐字歌词解析器', 'core/lyric/WordLyric.ets', r'export function parseWordLyric'),
+ ('逐字歌词高亮渲染', 'components/common/LyricView.ets', r'KaraokeLine'),
+ ('逐字歌词开关接入播放页菜单', 'pages/PlayDetail/PlaySettingsActions.ets', r'wordLyric'),
+ ('逐字歌词与主歌词时间对齐', 'pages/PlayDetail/PlayMediaAssets.ets', r'parseWordLyric'),
+ ('酷我逐字歌词保留逐字标记', 'core/music/sources/kw/lyric.ets', r'wordLines\.push'),
+ ('网易云逐字歌词请求 yrc', 'core/music/sources/wy/lyric.ets', r'yv=1'),
+ # 平滑进度：逐字高亮与进度条都靠它才有连续推进的观感
+ ('播放页平滑进度表', 'pages/PlayDetailPage.ets', r'SMOOTH_TICK_MS'),
 ]
 
 fails = []

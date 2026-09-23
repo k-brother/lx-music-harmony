@@ -303,6 +303,11 @@ export async function applyLyricSettings(
       await storage.setBoolean(StorageKeys.LYRIC_SHOW_ROMA, patch.showLyricRoma);
       changed.push('showLyricRoma');
     }
+    if (patch.wordLyric !== undefined && patch.wordLyric !== values.wordLyric) {
+      values.wordLyric = patch.wordLyric;
+      await storage.setBoolean(StorageKeys.LYRIC_SHOW_WORD, patch.wordLyric);
+      changed.push('wordLyric');
+    }
     if (patch.lyricOffset !== undefined) {
       const next = clampNumber(patch.lyricOffset, -5, 5, values.lyricOffset);
       if (Math.abs(next - values.lyricOffset) > 0.001) {

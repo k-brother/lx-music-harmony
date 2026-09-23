@@ -286,6 +286,8 @@ interface StorageKeysInterface {
   LIST_SHOW_DURATION: string;
   LIST_REMEMBER_SCROLL: string;
   LYRIC_SHOW_ROMA: string;
+  /** 逐字歌词（卡拉OK 高亮） */
+  LYRIC_SHOW_WORD: string;
   LOG_VERBOSE: string;
   LYRIC_S2T_MODE: string;
   HAPTIC_FEEDBACK: string;
@@ -394,6 +396,7 @@ export const StorageKeys: StorageKeysInterface = {
   LIST_SHOW_DURATION: 'setting.list.showDuration',
   LIST_REMEMBER_SCROLL: 'setting.list.rememberScroll',
   LYRIC_SHOW_ROMA: 'setting.lyric.showRoma',
+  LYRIC_SHOW_WORD: 'setting.lyric.showWord',
   LOG_VERBOSE: 'setting.log.verbose',
   LYRIC_S2T_MODE: 'setting.lyric.s2tMode',
   HAPTIC_FEEDBACK: 'setting.ui.hapticFeedback',

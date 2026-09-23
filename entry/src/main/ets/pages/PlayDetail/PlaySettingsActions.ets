@@ -60,6 +60,7 @@ export async function applyLyricDisplayChoice(): Promise<LyricDisplayOutcome | n
   const action = await showLyricDisplayMenu({
     translation: settings.showLyricTranslation,
     roma: settings.showLyricRoma,
+    word: settings.wordLyric,
     fontSize: settings.lyricFontSize,
     alignLabel: lyricAlignLabel(settings.lyricAlign),
     progress: settings.showLyricProgress,
@@ -76,6 +77,11 @@ export async function applyLyricDisplayChoice(): Promise<LyricDisplayOutcome | n
     const next = !settings.showLyricRoma;
     await settingsService.update({ showLyricRoma: next });
     return { toast: `${t('lyric_roma')}: ${next ? t('on') : t('off')}`, romaChanged: true };
+  }
+  if (action === 'word') {
+    const next = !settings.wordLyric;
+    await settingsService.update({ wordLyric: next });
+    return { toast: `${t('lyric_word')}: ${next ? t('on') : t('off')}`, romaChanged: false };
   }
   if (action === 'fontSize') {
     const sizes: number[] = [14, 16, 18, 20, 22, 24];

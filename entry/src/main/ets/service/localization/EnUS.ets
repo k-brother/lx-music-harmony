@@ -59,6 +59,7 @@ export function buildEnUS(): Map<string, string> {
   m.set('switch_source_failed', 'Failed to switch source, please retry');
   m.set('lyric_translation', 'Show Translation');
   m.set('lyric_roma', 'Show Romanization');
+  m.set('lyric_word', 'Word-by-word Lyrics');
   m.set('on', 'On');
   m.set('off', 'Off');
   m.set('dislike_song', 'Dislike this song');
@@ -704,4 +705,3 @@ export function buildEnUS(): Map<string, string> {
 }
 
 // 全局翻译 Map
-
