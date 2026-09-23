@@ -325,6 +325,14 @@ CHECKS = [
  ('统一列表行响应显示设置', 'components/ui/ListRow.ets', r"@StorageProp\('showListAlbum'\)"),
  ('本地音乐行响应显示设置', 'pages/LocalMusic/TrackRow.ets', r"@StorageProp\('showListDuration'\)"),
  ('榜单歌曲行响应显示设置', 'pages/BoardDetail/BoardSongRow.ets', r"@StorageProp\('showListSource'\)"),
+ # 播放页封面手势：左右滑动切歌（华为音乐/Spotify 的习惯），翻页改由显式入口驱动
+ ('播放页封面左右滑切歌', 'pages/PlayDetailPage.ets', r'SWIPE_TRACK_THRESHOLD_VP[\s\S]{0,500}?playNext\(\)'),
+ ('播放页歌词页右滑回封面', 'pages/PlayDetailPage.ets',
+  r'PanDirection\.Horizontal, distance: 30[\s\S]{0,200}?switchToCoverTab'),
+ ('播放页翻页由显式入口驱动', 'pages/PlayDetailPage.ets', r'disableSwipe\(true\)'),
+ # 下载并发数此前只有进过设置页才生效，现在随启动写入下载引擎
+ ('下载并发数启动即生效', 'service/index.ets',
+  r'setMaxConcurrentDownloads\(settingsService\.get\(\)\.maxConcurrentDownloads\)'),
 ]
 
 fails = []

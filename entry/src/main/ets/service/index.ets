@@ -10,9 +10,9 @@ import { initTheme } from './ThemeService';
 import { initListService } from './ListService';
 import { migrateLegacyCollections } from './UserListSyncService';
 import { playerService } from './PlayerService';
-import { initDownloadService } from '../core/music/MusicFeatureEntry';
+import { initDownloadService, setMaxConcurrentDownloads } from '../core/music/MusicFeatureEntry';
 import { imageCacheService } from '../utils/ImageCache';
-import { initSettings } from './SettingsService';
+import { initSettings, settingsService } from './SettingsService';
 import { sleepTimerService } from './SleepTimerService';
 import type { common } from '@kit.AbilityKit';
 
@@ -69,6 +69,10 @@ export async function initAllServices(): Promise<void> {
 
   // 初始化下载服务（加载下载历史）
   await initDownloadService();
+  // 把设置里的下载并发数同步给下载引擎：
+  // 引擎默认 1，此前只有用户打开「设置 → 下载」时才会被同步过来，
+  // 于是设过 3 的用户重启后（没进设置页）实际还是 1，队列明显变慢。
+  setMaxConcurrentDownloads(settingsService.get().maxConcurrentDownloads);
 
   // 初始化播放器
   await playerService.init();

@@ -59,6 +59,8 @@ const PLAY_CONTROLS_MAX_WIDTH_VP: number = 640;
 const DISMISS_DRAG_THRESHOLD_VP: number = 96;
 /** 平滑进度表的间隔（ms）：逐字歌词与进度条都按这个节奏推进 */
 const SMOOTH_TICK_MS: number = 100;
+/** 封面左右滑动切歌的触发位移（vp） */
+const SWIPE_TRACK_THRESHOLD_VP: number = 60;
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'PlayDetailPage';
@@ -880,6 +882,9 @@ export struct PlayDetailPage {
     .curve(Curve.EaseOut)
     .indicator(false)
     .loop(false)
+    // 翻页改由「点封面 / 顶上切换 / 歌词页右滑」驱动：
+    // 横向滑动让给封面切歌（与华为音乐、Spotify 的封面手势一致）
+    .disableSwipe(true)
     .onChange((newIndex: number) => {
       this.currentTab = newIndex;
       this.onTabChanged(newIndex);
@@ -905,30 +910,43 @@ export struct PlayDetailPage {
   /** 歌词区（含进度条）：宽屏常驻显示，窄屏放在 Swiper 第二页 */
   @Builder
   LyricSection() {
-    LyricPane({
-      lyricLines: this.lyricLines,
-      secondaryLyricLines: this.secondaryLyricLines,
-      romaLines: this.romaLines,
-      wordLyricLines: this.wordLyricLines,
-      playedWordCount: this.playedWordCount,
-      currentLyricIndex: this.currentLyricIndex,
-      showLyricProgress: this.showLyricProgress,
-      progress: this.displayProgress(),
-      isSeeking: this.isSeeking,
-      previewProgress: this.previewProgress,
-      currentTime: this.currentTime,
-      previewTime: this.previewTimeText(),
-      totalTime: this.totalTime,
-      onSeekChange: (value: number, mode: SliderChangeMode): void => {
-        this.handleSeekChange(value, mode);
-      },
-      onLineTap: (index: number): void => {
-        this.seekToLyricLine(index);
-      },
-      onLineLongPress: (index: number): void => {
-        void this.copyLyricLine(index);
-      },
-    })
+    Column() {
+      LyricPane({
+        lyricLines: this.lyricLines,
+        secondaryLyricLines: this.secondaryLyricLines,
+        romaLines: this.romaLines,
+        wordLyricLines: this.wordLyricLines,
+        playedWordCount: this.playedWordCount,
+        currentLyricIndex: this.currentLyricIndex,
+        showLyricProgress: this.showLyricProgress,
+        progress: this.displayProgress(),
+        isSeeking: this.isSeeking,
+        previewProgress: this.previewProgress,
+        currentTime: this.currentTime,
+        previewTime: this.previewTimeText(),
+        totalTime: this.totalTime,
+        onSeekChange: (value: number, mode: SliderChangeMode): void => {
+          this.handleSeekChange(value, mode);
+        },
+        onLineTap: (index: number): void => {
+          this.seekToLyricLine(index);
+        },
+        onLineLongPress: (index: number): void => {
+          void this.copyLyricLine(index);
+        },
+      })
+    }
+    .width('100%')
+    .height('100%')
+    // 窄屏歌词页右滑回封面（与「点封面看歌词」形成一来一回的闭环）
+    .gesture(
+      PanGesture({ direction: PanDirection.Horizontal, distance: 30 })
+        .onActionEnd((event: GestureEvent) => {
+          if (!Breakpoints.isWide(this.breakpoint) && event.offsetX > SWIPE_TRACK_THRESHOLD_VP) {
+            this.switchToCoverTab();
+          }
+        })
+    )
   }
 
   /** 长按歌词行：复制这一句（有译文时一并复制，方便分享与歌词纠错反馈） */
@@ -1130,17 +1148,41 @@ export struct PlayDetailPage {
     .width('100%')
     .height('100%')
     .gesture(
-      PanGesture({ direction: PanDirection.Down, distance: 10 })
-        .onActionUpdate((event: GestureEvent) => {
-          this.dismissDragY = Math.max(0, event.offsetY);
-        })
-        .onActionEnd(() => {
-          this.finishDismissDrag();
-        })
-        .onActionCancel(() => {
-          this.dismissDragY = 0;
-        })
+      GestureGroup(GestureMode.Parallel,
+        // 下滑关闭播放页
+        PanGesture({ direction: PanDirection.Down, distance: 10 })
+          .onActionUpdate((event: GestureEvent) => {
+            this.dismissDragY = Math.max(0, event.offsetY);
+          })
+          .onActionEnd(() => {
+            this.finishDismissDrag();
+          })
+          .onActionCancel(() => {
+            this.dismissDragY = 0;
+          }),
+        // 左右滑动切歌（主流音乐 App 的封面手势）
+        PanGesture({ direction: PanDirection.Horizontal, distance: 20 })
+          .onActionEnd((event: GestureEvent) => {
+            this.finishTrackSwipe(event.offsetX);
+          })
+      )
     )
+  }
+
+  /**
+   * 封面左右滑动切歌：向左滑（offsetX 为负）下一首，向右滑上一首。
+   * 位移不足阈值时什么都不做，避免与「点封面看歌词」「下滑关闭」互相误触。
+   */
+  private finishTrackSwipe(offsetX: number): void {
+    if (Math.abs(offsetX) < SWIPE_TRACK_THRESHOLD_VP) {
+      return;
+    }
+    hapticService.selection();
+    if (offsetX < 0) {
+      void this.playNext();
+    } else {
+      void this.playPrev();
+    }
   }
 
   /** 下滑关闭：过阈值则返回上一页，否则复位（两种情况都清掉位移，避免页面卡在半路） */
