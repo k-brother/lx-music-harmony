@@ -760,6 +760,7 @@ python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 | 评论行 `@Builder buildCommentItem(comment, index)` | `buildCommentItem(index)` + `CommentBody(index)` | 评论对象不进参数（点赞态属于会变的状态），Builder 内从 `this.comments[index]` 读 |
 | 播放量格式化在 4 处各写一遍（排行榜卡片/歌单卡片/歌单详情/搜索结果） | `utils/FormatTools.formatPlayCount(count, 万, 亿)` | 阈值、空格、小数位统一；单位文案由调用方注入，FormatTools 保持纯函数 |
 | 榜单卡片封面取「第一首歌的封面」兜底 | `LeaderboardView.placeholderGradient` | 没有榜单图时用按榜单 id 生成的渐变块 + 榜单图标：各榜颜色不同、不再误导成同一张榜 |
+| `LocalizationService` 1458 行（两张词条表占 1300 行） | 155 行服务 + `localization/{ZhCN,EnUS}.ets` | 中英各一份、各自演进；服务只留语言状态与查询 API，`check_i18n.py` 改读两张表 |
 
 ## 设备验收清单（需要真机确认，代码侧已按此实现）
 

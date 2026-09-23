@@ -3,9 +3,9 @@ import re, pathlib, collections
 # 允许从任意目录执行：以脚本位置定位工程根目录
 import os
 root = pathlib.Path(__file__).resolve().parent.parent / 'entry/src/main/ets'
-loc = (root / 'service/LocalizationService.ets').read_text()
-zh_part = loc[loc.index('function buildZhCN'):loc.index('function buildEnUS')]
-en_part = loc[loc.index('function buildEnUS'):loc.index('const zhCNMap')]
+# 词条表已按语言拆到 service/localization/{ZhCN,EnUS}.ets，这里直接读两张表
+zh_part = (root / 'service/localization/ZhCN.ets').read_text()
+en_part = (root / 'service/localization/EnUS.ets').read_text()
 
 def keys(text):
     ks = re.findall(r"m\.set\('([^']+)'", text)
