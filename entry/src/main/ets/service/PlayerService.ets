@@ -621,14 +621,7 @@ export class PlayerService {
     }
 
     // 地址先校验：错误信息能指明是哪首歌、什么问题
-    const urlError: string = validatePlayUrl(url, song.title);
-    if (urlError.length > 0) {
-      hilog.error(DOMAIN, TAG, 'invalid play url for %{public}s: %{public}s',
-        song.title, url.substring(0, 50));
-      this.currentStatus = 'error';
-      this.notifyStateChange();
-      throw new Error(urlError);
-    }
+    this.assertPlayableUrl(song, url);
 
     hilog.info(DOMAIN, TAG, 'Setting source: %{public}s, url: %{public}s', song.title, url);
     this.currentSong = song;
@@ -645,34 +638,14 @@ export class PlayerService {
       await avSetResource(musicInfo, url, null, false);
       this.currentStatus = 'paused';
       this.notifyStateChange();
-
-      if (duration) {
-        playerStateData.progress.maxPlayTime = duration;
-        playerStateData.progress.maxPlayTimeStr = formatPlayTime(duration);
-      } else if (song.duration > 0) {
-        playerStateData.progress.maxPlayTime = song.duration;
-        playerStateData.progress.maxPlayTimeStr = formatPlayTime(song.duration);
-      }
+      this.applyDurationHint(song, duration);
 
       // 更新 AVSession 元数据
       this.updateAvMetadata();
 
       // 在音频播放前创建并激活 AVSession，确保播控中心能感知
       await backgroundRunningManager.initSession();
-
-      // 记录试听历史
-      recordPlayedSong({
-        id: song.id,
-        songmid: song.id,
-        name: song.title,
-        singer: song.artist,
-        album: song.album,
-        pic: song.artwork,
-        source: song.source || 'kw',
-        duration: song.duration,
-      }).catch((err: Error) => {
-        hilog.warn(DOMAIN, TAG, 'recordPlayedSong failed: %{public}s', err.message);
-      });
+      this.recordPlayedSongSafe(song);
     } catch (err) {
       const error: BusinessError = err as BusinessError;
       hilog.error(DOMAIN, TAG, 'Failed to set source: code=%{public}d, name=%{public}s, msg=%{public}s', error.code, error.name || 'unknown', error.message || 'unknown');
@@ -681,6 +654,47 @@ export class PlayerService {
       const msg: string = error.message || 'Unknown error';
       throw new Error(`AVPlayer setSource failed: ${msg}`);
     }
+  }
+
+  /** 播放地址预校验：不合法直接置错误态并抛出可读原因（上层据此提示/换源） */
+  private assertPlayableUrl(song: SongInfo, url: string): void {
+    const urlError: string = validatePlayUrl(url, song.title);
+    if (urlError.length === 0) {
+      return;
+    }
+    hilog.error(DOMAIN, TAG, 'invalid play url for %{public}s: %{public}s',
+      song.title, url.substring(0, 50));
+    this.currentStatus = 'error';
+    this.notifyStateChange();
+    throw new Error(urlError);
+  }
+
+  /**
+   * 写入总时长：优先用调用方给的真实时长（换源/试听更准），
+   * 没有则退回歌曲信息里的时长，都没有就不动（等播放器上报）。
+   */
+  private applyDurationHint(song: SongInfo, duration: number | null): void {
+    const seconds: number = duration && duration > 0 ? duration : song.duration;
+    if (seconds > 0) {
+      playerStateData.progress.maxPlayTime = seconds;
+      playerStateData.progress.maxPlayTimeStr = formatPlayTime(seconds);
+    }
+  }
+
+  /** 记录试听历史（失败只告警：历史写不进去不该影响播放） */
+  private recordPlayedSongSafe(song: SongInfo): void {
+    recordPlayedSong({
+      id: song.id,
+      songmid: song.id,
+      name: song.title,
+      singer: song.artist,
+      album: song.album,
+      pic: song.artwork,
+      source: song.source || 'kw',
+      duration: song.duration,
+    }).catch((err: Error) => {
+      hilog.warn(DOMAIN, TAG, 'recordPlayedSong failed: %{public}s', err.message);
+    });
   }
 
   /**

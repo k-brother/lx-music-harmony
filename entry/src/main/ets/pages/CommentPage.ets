@@ -108,65 +108,70 @@ export struct CommentPage {
       return;
     }
 
+    if (!this.beginLoad(isRefresh)) {
+      return;
+    }
+
+    try {
+      const response: CommentResponse = await this.fetchCommentsByType(this.currentPage);
+      this.applyLoadedComments(response, isRefresh);
+    } catch (err) {
+      const errorMsg: string = JSON.stringify(err);
+      hilog.error(DOMAIN, TAG, 'Failed to load comments: %{public}s', errorMsg);
+      // 失败也要收回加载态，否则下拉刷新一直转、上拉加载再也不触发
+      this.endLoad(isRefresh);
+    }
+  }
+
+  /**
+   * 开始一次加载。
+   * 下拉刷新：回到第一页并重置「还有更多」；上拉加载：没有更多或正在加载时不重复发请求。
+   * 返回 false 表示这次调用不需要发请求。
+   */
+  private beginLoad(isRefresh: boolean): boolean {
     if (isRefresh) {
       this.isRefreshing = true;
       this.currentPage = 1;
       this.hasMore = true;
-    } else {
-      if (!this.hasMore || this.isLoading) {
-        return;
-      }
-      this.isLoading = true;
+      return true;
     }
+    if (!this.hasMore || this.isLoading) {
+      return false;
+    }
+    this.isLoading = true;
+    return true;
+  }
 
-    try {
-      let response: CommentResponse;
-      
-      if (this.commentType === 'hot') {
-        // 获取热门评论
-        const hotResult = await commentService.getHotComments(
-          this.musicInfo,
-          this.currentPage,
-          20
-        );
-        response = hotResult as CommentResponse;
-      } else {
-        // 获取最新评论
-        const commentResult = await commentService.getComments(
-          this.musicInfo,
-          this.currentPage,
-          20
-        );
-        response = commentResult as CommentResponse;
-      }
-      
-      const newComments = response.comments;
-      
-      if (isRefresh) {
-        this.comments = newComments;
-        this.commentSource.reload(this.comments);
-        this.isRefreshing = false;
-      } else {
-        this.comments = [...this.comments, ...newComments];
-        this.commentSource.reload(this.comments);
-        this.isLoading = false;
-      }
-      
-      this.currentPage++;
-      this.hasMore = this.currentPage <= response.maxPage;
-      this.totalComments = response.total;
-      
-      hilog.info(DOMAIN, TAG, 'Comments loaded: %{public}d, total: %{public}d, hasMore: %{public}s', 
-        newComments.length, response.total, this.hasMore.toString());
-    } catch (err) {
-      const errorMsg: string = JSON.stringify(err);
-      hilog.error(DOMAIN, TAG, 'Failed to load comments: %{public}s', errorMsg);
+  /** 按当前「热门 / 最新」向对应接口取评论 */
+  private async fetchCommentsByType(page: number): Promise<CommentResponse> {
+    const info = this.musicInfo as MusicInfo;
+    if (this.commentType === 'hot') {
+      const hotResult = await commentService.getHotComments(info, page, 20);
+      return hotResult as CommentResponse;
+    }
+    const commentResult = await commentService.getComments(info, page, 20);
+    return commentResult as CommentResponse;
+  }
 
-      if (isRefresh) {
-        this.isRefreshing = false;
-      } else {
-        this.isLoading = false;
-      }
+  /** 应用结果：刷新是替换、加载更多是追加；两种情况都要把加载态收回 */
+  private applyLoadedComments(response: CommentResponse, isRefresh: boolean): void {
+    const newComments = response.comments;
+    this.comments = isRefresh ? newComments : [...this.comments, ...newComments];
+    this.commentSource.reload(this.comments);
+    this.currentPage++;
+    this.hasMore = this.currentPage <= response.maxPage;
+    this.totalComments = response.total;
+    this.endLoad(isRefresh);
+    hilog.info(DOMAIN, TAG, 'Comments loaded: %{public}d, total: %{public}d, hasMore: %{public}s',
+      newComments.length, response.total, this.hasMore.toString());
+  }
+
+  /** 收回加载态（成功与失败共用一条路，状态不会漏置） */
+  private endLoad(isRefresh: boolean): void {
+    if (isRefresh) {
+      this.isRefreshing = false;
+    } else {
+      this.isLoading = false;
     }
   }
 
