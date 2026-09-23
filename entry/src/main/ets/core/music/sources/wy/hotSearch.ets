@@ -3,24 +3,14 @@
  */
 import { httpRequest, parseHttpBodyJson, type HttpRequestConfig } from '../../../../core/network/http';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+// 热搜项/结果形状五个音源一致，统一在 MusicSdkContracts 声明
+import type { HotSearchItem, HotSearchResult } from '../MusicSdkContracts';
+
+export type { HotSearchItem, HotSearchResult } from '../MusicSdkContracts';
+
 
 const TAG = 'WyHotSearch';
 const DOMAIN = 0x0003;
-
-// 热搜项
-export interface HotSearchItem {
-  index: number;
-  title: string;
-  source: string;
-  url: string | null;
-  hot: number;
-}
-
-// 热搜结果
-export interface HotSearchResult {
-  list: HotSearchItem[];
-  source: string;
-}
 
 // 热搜接口
 export interface HotSearchInterface {

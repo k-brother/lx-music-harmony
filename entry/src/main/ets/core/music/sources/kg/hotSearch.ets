@@ -3,6 +3,8 @@
  */
 import { httpRequest, type HttpRequestConfig, type HttpResponse } from '../../../../core/network/http';
 import { decodeHtmlEntities } from '../../../../utils/CommonUtils';
+// 热搜项/结果的形状五个音源完全一致，统一在 MusicSdkContracts 声明
+import type { HotSearchItem, HotSearchResult } from '../MusicSdkContracts';
 
 const HOT_SEARCH_URL = 'http://gateway.kugou.com/api/v3/search/hot_tab?signature=ee44edb9d7155821412d220bcaf509dd&appid=1005&clientver=10026&plat=0';
 const KG_HOT_SEARCH_FALLBACK: string[] = ['周杰伦', '林俊杰', '陈奕迅', 'Taylor Swift', 'Adele', 'Coldplay'];
@@ -17,31 +19,16 @@ const HOT_SEARCH_HEADERS: Map<string, string> = new Map([
   ['kg-rc', '1'],
 ]);
 
-// 热搜列表项（须在 HotSearchSearchResult 之前声明）
-interface HotSearchItem {
-  index: number;
-  title: string;
-  source: string;
-  url: string | null;
-  hot: number;
-}
-
 // 热搜列表结果
 interface HotSearchListResult {
   source: string;
   list: string[];
 }
 
-// 热搜搜索结果
-interface HotSearchSearchResult {
-  list: HotSearchItem[];
-  source: string;
-}
-
 // 热搜接口
 interface HotSearchInterface {
   getList: () => Promise<HotSearchListResult>;
-  search: () => Promise<HotSearchSearchResult>;
+  search: () => Promise<HotSearchResult>;
   filterList: (rawList: KGHotSearchGroup[]) => string[];
 }
 
@@ -103,8 +90,8 @@ export const hotSearch: HotSearchInterface = {
   /**
    * 获取热搜列表（适配统一接口）
    */
-  search(): Promise<HotSearchSearchResult> {
-    return this.getList().then((result: HotSearchListResult): Promise<HotSearchSearchResult> => {
+  search(): Promise<HotSearchResult> {
+    return this.getList().then((result: HotSearchListResult): Promise<HotSearchResult> => {
       const list: HotSearchItem[] = [];
       for (let i = 0; i < result.list.length; i++) {
         const title: string = result.list[i];
@@ -117,7 +104,7 @@ export const hotSearch: HotSearchInterface = {
         };
         list.push(row);
       }
-      const out: HotSearchSearchResult = { source: result.source, list: list };
+      const out: HotSearchResult = { source: result.source, list: list };
       return Promise.resolve(out);
     });
   },

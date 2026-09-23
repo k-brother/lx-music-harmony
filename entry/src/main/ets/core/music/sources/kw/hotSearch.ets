@@ -1,18 +1,13 @@
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { httpRequest, type HttpRequestConfig, type HttpResponse } from '../../../../core/network/http';
 import { decodeHtmlEntities } from '../../../../utils/CommonUtils';
+// 热搜项/结果形状五个音源一致，统一在 MusicSdkContracts 声明
+import type { HotSearchItem, HotSearchResult } from '../MusicSdkContracts';
+
+export type { HotSearchItem, HotSearchResult } from '../MusicSdkContracts';
 
 const TAG = 'KwHotSearch';
 const DOMAIN = 0x0001;
-
-// 热门搜索项
-export interface HotSearchItem {
-  index: number;
-  title: string;
-  source: string;
-  url: string | null;
-  hot: number;
-}
 
 // 酷我热门搜索 API 返回项
 interface KwHotSearchItem {
@@ -24,12 +19,6 @@ interface KwHotSearchItem {
 // 酷我热门搜索 API 返回数据
 interface KwHotSearchData {
   abslist?: KwHotSearchItem[];
-}
-
-// 热搜搜索结果
-interface HotSearchResult {
-  list: HotSearchItem[];
-  source: string;
 }
 
 // 热搜接口

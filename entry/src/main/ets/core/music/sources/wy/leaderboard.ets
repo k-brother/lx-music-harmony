@@ -7,29 +7,15 @@ import { httpRequest, parseHttpBodyJson, type HttpRequestConfig } from '../../..
 import { formatPlayTime } from '../../../../utils/CommonUtils';
 import { neteaseWeapi, buildWeapiFormBody, type WeapiJsonObject } from './NeteaseCrypto';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+// 榜单条目/结果/分页结果形状各音源一致，统一在 MusicSdkContracts 声明
+import type {
+  LeaderboardItem,
+  LeaderboardResult,
+  LeaderboardListResult,
+} from '../MusicSdkContracts';
 
-// 排行榜项
-export interface LeaderboardItem {
-  id: string;
-  name: string;
-  bangid: string;
-  pic?: string;
-}
+export type { LeaderboardItem, LeaderboardResult, LeaderboardListResult } from '../MusicSdkContracts';
 
-// 排行榜结果
-export interface LeaderboardResult {
-  list: LeaderboardItem[];
-  source: string;
-}
-
-// 排行榜列表结果
-export interface LeaderboardListResult {
-  list: MusicInfo[];
-  total: number;
-  page: number;
-  limit: number;
-  source: string;
-}
 
 // 排行榜接口
 export interface LeaderboardInterface {

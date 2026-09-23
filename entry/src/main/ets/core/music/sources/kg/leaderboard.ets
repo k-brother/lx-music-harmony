@@ -7,15 +7,15 @@ import { decodeName, formatPlayTime, sizeFormate } from '../../../../utils/Commo
 import { formatSingerName } from './util';
 import type { MusicInfo, MusicQualityType, MusicQualityTypeKg, Quality, QualityDetail } from '../../../../types/MusicTypes';
 import { parseKgHttpJson } from './kgHttpJson';
+// 榜单条目/结果形状各音源一致，统一在 MusicSdkContracts 声明
+import type {
+  LeaderboardItem,
+  LeaderboardResult,
+  LeaderboardListResult,
+} from '../MusicSdkContracts';
 
 const TAG = 'KgLeaderboard';
 const DOMAIN = 0x0001;
-
-interface LeaderboardItem {
-  id: string;
-  name: string;
-  bangid: string;
-}
 
 /** 与安卓 boardList 一致（安卓 getBoards 当前仍走静态表） */
 const KG_STATIC_BOARDS: LeaderboardItem[] = [
@@ -85,19 +85,6 @@ const defaultBoards: LeaderboardItem[] = [
   { id: 'kgjdrgb', name: 'DJ热歌榜', bangid: '24971' },
   { id: 'kghyxgb', name: '华语新歌榜', bangid: '31308' },
 ];
-
-interface LeaderboardResult {
-  list: LeaderboardItem[];
-  source: string;
-}
-
-interface LeaderboardListResult {
-  total: number;
-  list: MusicInfo[];
-  limit: number;
-  page: number;
-  source: string;
-}
 
 interface LeaderboardInterface {
   list: LeaderboardItem[];

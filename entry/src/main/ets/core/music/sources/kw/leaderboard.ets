@@ -3,14 +3,12 @@ import type { MusicInfo, Quality, QualityDetail } from '../../../../types/MusicT
 import { formatPlayTime, decodeHtmlEntities, formatSinger } from '../../../../utils/CommonUtils';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { t } from '../../../../service/LocalizationService';
-
-// 排行榜项
-interface BoardItem {
-  id: string;
-  name: string;
-  bangid: string;
-  pic?: string;  // 添加封面图字段
-}
+// 榜单条目/结果形状各音源一致，统一在 MusicSdkContracts 声明
+import type {
+  LeaderboardItem,
+  LeaderboardResult,
+  LeaderboardListResult,
+} from '../MusicSdkContracts';
 
 // 排行榜分类项（用于获取分类下的榜单列表）
 interface BoardCategoryItem {
@@ -40,7 +38,7 @@ interface KwBoardListResponse {
 }
 
 // 排行榜 ID 列表
-const BOARD_LIST: BoardItem[] = [
+const BOARD_LIST: LeaderboardItem[] = [
   { id: 'kw__93', name: '飙升榜', bangid: '93' },
   { id: 'kw__17', name: '新歌榜', bangid: '17' },
   { id: 'kw__16', name: '热歌榜', bangid: '16' },
@@ -268,24 +266,9 @@ function isKwBangApiError(data: KwBangApiData): boolean {
   return typeof data.errcode === 'number' && data.errcode !== 0;
 }
 
-// 排行榜结果
-interface LeaderboardResult {
-  list: BoardItem[];
-  source: string;
-}
-
-// 排行榜列表结果
-interface LeaderboardListResult {
-  list: MusicInfo[];
-  total: number;
-  page: number;
-  limit: number;
-  source: string;
-}
-
 // 排行榜模块
 export interface LeaderboardInterface {
-  list: BoardItem[];
+  list: LeaderboardItem[];
   getBoards: () => Promise<LeaderboardResult>;
   getList: (bangid: string, page?: number) => Promise<LeaderboardListResult>;
   getDetailPageUrl: (bangId: string) => string;
@@ -305,8 +288,8 @@ const DEFAULT_LIMIT = 100;
 
 export const leaderboard: LeaderboardInterface = {
   // 排行榜列表
-  list: BOARD_LIST.slice(0, 8).map((item: BoardItem): BoardItem => {
-    const boardItem: BoardItem = {
+  list: BOARD_LIST.slice(0, 8).map((item: LeaderboardItem): LeaderboardItem => {
+    const boardItem: LeaderboardItem = {
       id: `kw${item.bangid}`,
       name: item.name,
       bangid: item.bangid,
@@ -343,8 +326,8 @@ export const leaderboard: LeaderboardInterface = {
           }
 
           // 转换数据
-          const boardList: BoardItem[] = data.list.map((item: KwBoardItem): BoardItem => {
-            const boardItem: BoardItem = {
+          const boardList: LeaderboardItem[] = data.list.map((item: KwBoardItem): LeaderboardItem => {
+            const boardItem: LeaderboardItem = {
               id: `kw${item.id}`,
               name: item.name || t('unknown'),
               bangid: item.id,
