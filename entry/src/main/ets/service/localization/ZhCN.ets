@@ -475,6 +475,7 @@ export function buildZhCN(): Map<string, string> {
   m.set('pact_title', '许可协议');
   m.set('legal_title', '许可协议与隐私政策');
   m.set('legal_title_desc', '点击查看许可协议与隐私政策');
+  m.set('settings_about_version', '关于与版本');
   m.set('privacy_title', '隐私政策');
   m.set('pact_accept', '接受');
   m.set('pact_reject', '拒绝');

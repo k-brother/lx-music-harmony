@@ -79,6 +79,10 @@ CHECKS = [
  ('运行日志页用统一顶部栏', 'pages/LogPage.ets', r'NavBar\('),
  # 设置项入口合并：法律文本一项、自定义源一项（点开选管理/快速导入）
  ('许可协议与隐私政策合并为一项', 'pages/Home/Setting/AboutSection.ets', r"'legal_title'"),
+ # 关于 LX Music / 版本信息 / 运行日志 / 记录详细日志 合并到「关于与版本」二级面板
+ ('关于与版本入口合并', 'pages/Home/Setting/AboutSection.ets', r"'settings_about_version'"),
+ ('运行日志进二级面板', 'pages/Home/Setting/AboutSection.ets', r"RouteName\.LOGS"),
+ ('详细日志开关进二级面板', 'pages/Home/Setting/AboutSection.ets', r'ToggleType\.Switch'),
  ('自定义源入口合并为菜单', 'pages/Home/Setting/CustomSourceSection.ets', r'openSourceMenu'),
  # 榜单详情头部补齐来源与说明，行与歌单详情统一（ListRow + ⋯ 菜单）
  ('榜单头部展示来源与说明', 'pages/Board/BoardDetailHeader.ets', r"from_source|description"),

@@ -469,6 +469,7 @@ export function buildEnUS(): Map<string, string> {
   m.set('pact_title', 'License Agreement');
   m.set('legal_title', 'License & Privacy Policy');
   m.set('legal_title_desc', 'Tap to read the license agreement and privacy policy');
+  m.set('settings_about_version', 'About & Version');
   m.set('privacy_title', 'Privacy Policy');
   m.set('pact_accept', 'Accept');
   m.set('pact_reject', 'Decline');
