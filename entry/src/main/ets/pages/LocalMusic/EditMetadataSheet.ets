@@ -9,6 +9,10 @@
 import { DesignTokens } from '../../theme/DesignTokens';
 import { t } from '../../service/LocalizationService';
 import { dismissSheet } from '../../components/ui/BottomSheet';
+import { requestFocusSafe } from '../../utils/FocusTools';
+
+/** 第一个输入框的焦点键 */
+const METADATA_NAME_KEY: string = 'editMetadataName';
 
 @Component
 export struct EditMetadataSheet {
@@ -40,7 +44,7 @@ export struct EditMetadataSheet {
 
   /** 单行输入（标题 + 输入框），三个字段同一套排版 */
   @Builder
-  Field(label: string, value: string, onChange: (text: string) => void) {
+  Field(label: string, value: string, onChange: (text: string) => void, focusKey: string = '') {
     Column() {
       Text(label)
         .fontSize(DesignTokens.fontCaption())
@@ -48,6 +52,13 @@ export struct EditMetadataSheet {
         .width('100%')
         .textAlign(TextAlign.Start)
       TextInput({ text: value })
+        .key(focusKey)
+        .onAppear(() => {
+          // 打开面板即聚焦第一个字段（歌名），省掉一次点击
+          if (focusKey.length > 0) {
+            requestFocusSafe(this.getUIContext(), focusKey);
+          }
+        })
         .width('100%')
         .height(40)
         .fontSize(15)
@@ -85,7 +96,7 @@ export struct EditMetadataSheet {
 
         this.Field(t('metadata_name'), this.draftName, (text: string): void => {
           this.draftName = text;
-        })
+        }, METADATA_NAME_KEY)
         this.Field(t('metadata_singer'), this.draftSinger, (text: string): void => {
           this.draftSinger = text;
         })

@@ -6,6 +6,10 @@
 import { DesignTokens } from '../../theme/DesignTokens';
 import { t } from '../../service/LocalizationService';
 import { BottomSheet, dismissSheet } from './BottomSheet';
+import { requestFocusSafe } from '../../utils/FocusTools';
+
+/** 输入框焦点键：面板出现即聚焦，省掉用户多点一次 */
+const INPUT_SHEET_KEY: string = 'sheetTextInput';
 
 @Component
 export struct InputSheet {
@@ -49,6 +53,11 @@ export struct InputSheet {
     Column() {
       TextInput({ placeholder: this.placeholder, text: this.draft })
         .type(this.numberOnly ? InputType.Number : InputType.Normal)
+        .key(INPUT_SHEET_KEY)
+        // 面板打开时自动聚焦并弹键盘（主流输入面板的手感）
+        .onAppear(() => {
+          requestFocusSafe(this.getUIContext(), INPUT_SHEET_KEY);
+        })
         .height(DesignTokens.touchTarget())
         .width('100%')
         .backgroundColor(DesignTokens.mutedFill(this.theme))

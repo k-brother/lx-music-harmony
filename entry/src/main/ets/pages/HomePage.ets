@@ -27,6 +27,7 @@ import { playerService, SongInfo } from '../service/PlayerService';
 import { DesignTokens } from '../theme/DesignTokens';
 import { SearchStripActions } from '../components/common/SearchStrip';
 import { Breakpoints } from '../theme/Breakpoints';
+import { requestFocusSafe } from '../utils/FocusTools';
 import { t, sourceLabel } from '../service/LocalizationService';
 import { settingsService } from '../service/SettingsService';
 import {
@@ -37,6 +38,9 @@ import {
 } from '../core/search/search';
 import { type NavigationParams } from '../service/NavigationService';
 import { on, EventTypes } from '../service/EventBus';
+
+/** 搜索输入框的焦点键（供 FocusController 定位，浮层出现时自动聚焦） */
+const SEARCH_INPUT_KEY: string = 'homeSearchInput';
 
 // 音乐信息类型
 export interface MusicInfoType {
@@ -562,6 +566,11 @@ export struct HomePage {
               .fontColor([DesignTokens.labelSecondary(this.theme)])
               .margin({ left: 10, right: 6 })
             TextInput({ placeholder: t('search_placeholder'), text: this.searchText })
+              // 焦点键：浮层出现时自动聚焦（见 onAppear），用户不必再点一次
+              .key(SEARCH_INPUT_KEY)
+              .onAppear(() => {
+                requestFocusSafe(this.getUIContext(), SEARCH_INPUT_KEY);
+              })
               .layoutWeight(1)
               .height(DesignTokens.heightSearchField())
               .backgroundColor(Color.Transparent)
