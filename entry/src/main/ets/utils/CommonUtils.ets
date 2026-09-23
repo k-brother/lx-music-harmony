@@ -142,18 +142,8 @@ export function parseIntDefault(str: string | null | undefined, defaultValue: nu
   return Number.isNaN(parsed) ? defaultValue : parsed;
 }
 
-// 格式化文件大小
-export function sizeFormate(size: number): string {
-  if (size < 1024) {
-    return size.toString() + 'B';
-  } else if (size < 1048576) {
-    return (size / 1024).toFixed(1) + 'KB';
-  } else if (size < 1073741824) {
-    return (size / 1048576).toFixed(1) + 'MB';
-  } else {
-    return (size / 1073741824).toFixed(2) + 'GB';
-  }
-}
+// 格式化文件大小（紧凑写法，规则统一在 utils/FormatTools）
+export { formatBytesCompact as sizeFormate } from './FormatTools';
 
 // 去除字符串空格和特殊字符
 export function trimSpecialChars(str: string): string {

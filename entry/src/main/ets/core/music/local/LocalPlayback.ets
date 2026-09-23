@@ -14,6 +14,7 @@ import { image } from '@kit.ImageKit';
 import type { MusicInfo, LyricInfo, MusicQualityType } from '../../../types/MusicTypes';
 import { buildLyricInfo, createEmptyLyricInfo } from '../MusicParsingUtils';
 import { getMusicUrl, getLyricInfo, getPicUrl } from '../ResolvePlayback';
+import { formatBytes } from '../../../utils/FormatTools';
 
 const TAG_LOCAL = 'LOCAL_MUSIC';
 const DOMAIN_LOCAL = 0x0003;
@@ -393,18 +394,10 @@ export async function getMusicFileMetadata(_filePath: string): Promise<LocalMusi
 }
 
 /**
- * 格式化文件大小
+ * 格式化文件大小（规则统一在 utils/FormatTools，这里保留原函数名给既有调用方）
  */
 export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  } else if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(2)} KB`;
-  } else if (bytes < 1024 * 1024 * 1024) {
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-  } else {
-    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-  }
+  return formatBytes(bytes);
 }
 
 // 本地音乐模块接口

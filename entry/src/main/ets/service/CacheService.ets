@@ -13,6 +13,7 @@ import fs from '@ohos.file.fs';
 import { common } from '@kit.AbilityKit';
 import { getStorageService } from '../core/interfaces/IStorageService';
 import { imageCacheService } from '../utils/ImageCache';
+import { formatBytes } from '../utils/FormatTools';
 import { clearHistoryList } from '../core/search/search';
 import { clearPlayHistory } from './PlayHistoryService';
 
@@ -35,18 +36,9 @@ interface TrackedCacheEntry {
   bytes: number;
 }
 
-/** 字节数格式化为可读文本（B / KB / MB） */
+/** 字节数格式化为可读文本（规则统一在 utils/FormatTools：B / KB / MB / GB） */
 export function formatCacheSize(bytes: number): string {
-  if (bytes <= 0) {
-    return '0 B';
-  }
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
-  }
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  return formatBytes(bytes);
 }
 
 class CacheServiceImpl {

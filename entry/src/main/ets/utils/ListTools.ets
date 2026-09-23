@@ -189,14 +189,5 @@ export function dedupeSongs<T extends SortableSong>(list: T[], filterVariant: bo
   return result;
 }
 
-/** 时长文本（秒 → mm:ss），未知返回 --:-- */
-export function formatDuration(seconds: number): string {
-  if (!seconds || seconds <= 0) {
-    return '--:--';
-  }
-  const total = Math.floor(seconds);
-  const minute = Math.floor(total / 60);
-  const second = total % 60;
-  const pad = (value: number): string => (value < 10 ? `0${value}` : `${value}`);
-  return `${pad(minute)}:${pad(second)}`;
-}
+/** 时长文本（秒 → mm:ss），实现统一在 utils/FormatTools，这里保持原有导入路径可用 */
+export { formatDuration } from './FormatTools';

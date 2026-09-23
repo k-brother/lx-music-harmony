@@ -90,6 +90,21 @@ export class DesignTokens {
     return '#FF3B30';
   }
 
+  /** 进行中/成功（下载完成、已启用等「正常推进」状态） */
+  static success(): string {
+    return '#34C759';
+  }
+
+  /** 等待中/暂停（需要用户注意但不报错，iOS systemOrange） */
+  static warning(): string {
+    return '#FF9500';
+  }
+
+  /** 中性信息（已完成的历史条目） */
+  static info(): string {
+    return '#0A84FF';
+  }
+
   /** 强调色底上的文字色 */
   static onAccent(): string {
     return '#FFFFFF';

@@ -675,6 +675,7 @@ python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 ./hvigor.sh assembleApp
 ./scripts/device_smoke.sh          # 主链路：换源 → 详情 → 播放/歌词 → 队列 → 设置
 ./scripts/device_settings_check.sh # 设置页专项：选完即时刷新 + 下载文件名落库
+./scripts/device_download_check.sh # 下载页专项：筛选计数 → 多选 → 全选 → 批量删除确认
 ```
 
 它会装包、冷启动，然后按顺序跑「换源重载 → 歌单详情出歌 → 播放页歌词链路 →
@@ -696,6 +697,11 @@ python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 | 面板确认后用户输入被吞 | 「关闭」事件先于回调触发，被当成取消 | InputSheet/SelectSheet 改为先回调再关闭 |
 | 切语言后部分文案不变 | 筛选/排序文案缓存在 @State，只在加载数据时重建 | 两页对 langVersion 加 @Watch，语言变化即按现有数据重建 label |
 | 榜单详情个别源白屏 | 只有榜单 Tab 自己实现了超时+空包重试 | 下沉到 `core/leaderboard.getLeaderboardDetailReliable`，两处共用 |
+| 下载页多选栏写着「播放全部」、空选时写「暂无数据」 | 顶栏/批量栏文案混用了播放与列表的词条 | 顶栏改「多选 / 取消」，批量栏用「全选 / 已选 N 项 / 点击任务可多选」 |
+| 暂停中的下载显示成「下载中」 | 状态文案 switch 里 PAUSED 与 DOWNLOADING 共用一条 | 新增 `download_paused`（已暂停），与下载中区分 |
+| 底部「清空已完成」按钮只有「已完成」四个字 | 复用了 `download_completed` 词条当按钮文案 | 新增 `download_clear_completed` 并配垃圾桶图标，看得出是操作 |
+| 下载页每秒整列表重绘 | 1s 轮询里无脑 `this.tasks = 新数组` | 用 `downloadTasksSignature` 指纹比对，进度没变不重建；进度按 5% 分桶做 ForEach key |
+| 切换筛选后仍保留看不见的选中项 | 选中集合只在退出多选时清空 | 切筛选/任务被删后自动收敛选中集合（`pruneSelection`） |
 | 设置里选完选项，右侧「当前值」不变 | 设置分组 `ForEach` 的 key 只带 `title+index`，行被复用不重建 | key 加入 `type/value`，选完即刷新（真机复验：选「原名」立刻变） |
 | 改「下载文件名」后下载仍按旧格式命名 | `settingsService.get()` 返回的是 `copyOf()` 手工逐字段快照，新字段漏拷 → 运行时拿到默认值 | 补 `copyOf` 字段，并加 `scripts/check_settings_copy.py` 把「加设置漏拷贝」变成可自动拦截的规则 |
 
@@ -720,6 +726,9 @@ python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 | `PlayerService` 1565 行 | 1453 行 + `player/{PlaybackEvents,PlaybackProgressStore,PlaybackTypes}` | 订阅中心、续播快照存储、公共类型 |
 | `NavIndex` 13 段 NavDestination 样板 | `components/ui/AppDestination` | 新增页面只写一行 |
 | 5 处手写 `showActionMenu` | `DialogService.appActionMenu` | 取消项交给系统菜单，危险项统一危险色 |
+| `DownloadPage` 832 行（唯一没收口 UI Kit 的页面） | 433 行 + `Download/{DownloadView,DownloadTaskRow,DownloadSelectionBar}` | 纯逻辑（筛选/计数/状态文案与配色/行模型）与视图分离，顶栏/空态/分段/下拉刷新全走 UI Kit |
+| 4 份字节格式化 + 2 份时长格式化 | `utils/FormatTools`（`formatBytes` / `formatBytesCompact` / `formatDuration`） | `LocalPlayback`、`CommonUtils`、`CacheService`、`ListTools` 全部改为委托，规则只有一处 |
+| 下载状态色写死 `#FFA500/#4CAF50/…` | `DesignTokens.success() / warning() / info()` | 语义状态色进设计系统，页面不再出现魔法十六进制 |
 
 ## 设备验收清单（需要真机确认，代码侧已按此实现）
 
