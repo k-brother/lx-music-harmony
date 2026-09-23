@@ -303,6 +303,10 @@ CHECKS = [
  ('我喜欢侧滑取消收藏', 'pages/LoveListPage.ets', r'SwipeUnloveAction'),
  ('歌词行长按复制', 'components/common/LyricView.ets', r'onLineLongPress'),
  ('搜索历史可删单条', 'pages/Home/Home/SearchInputContent.ets', r'onRemoveHistory'),
+ # 2in1：接键盘后列表行/卡片要能用回车激活
+ ('键盘激活判定统一实现', 'utils/KeyboardTools.ets', r'export function isConfirmKey'),
+ ('统一列表行支持键盘激活', 'components/ui/ListRow.ets', r'isConfirmKey'),
+ ('歌单卡片支持键盘激活', 'pages/Home/SongList/SongListCard.ets', r'isConfirmKey'),
 ]
 
 fails = []

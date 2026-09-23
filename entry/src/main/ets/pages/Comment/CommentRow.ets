@@ -7,6 +7,7 @@
  */
 import { DesignTokens } from '../../theme/DesignTokens';
 import { t, tf } from '../../service/LocalizationService';
+import { isConfirmKey } from '../../utils/KeyboardTools';
 import type { Comment } from '../../service/comment/CommentTypes';
 
 /** 楼层回复默认展开条数：超出部分折叠为「展开全部 N 条回复」 */
@@ -189,6 +190,12 @@ export struct CommentRow {
             .accessibilityText(t('a11y_expand'))
             // 2in1（PC/平板接鼠标）下的悬停反馈
             .hoverEffect(HoverEffect.Highlight)
+            .focusable(true)
+            .onKeyEvent((event: KeyEvent): void => {
+              if (isConfirmKey(event) && this.onPreviewImages) {
+                this.onPreviewImages(this.comment.images, imageIndex);
+              }
+            })
             .onClick(() => {
               if (this.onPreviewImages) {
                 this.onPreviewImages(this.comment.images, imageIndex);

@@ -5,6 +5,7 @@
 import { t } from '../../service/LocalizationService';
 import { DesignTokens } from '../../theme/DesignTokens';
 import type { LyricWord, WordLyricLine } from '../../core/lyric/WordLyric';
+import { isConfirmKey } from '../../utils/KeyboardTools';
 
 /** 动态背景/封面背景下的文字阴影（半径小、偏移 0，等效"描边感"） */
 
@@ -232,6 +233,13 @@ export struct LyricView {
                   }
                 })
             )
+            // 2in1（PC 接键盘）：回车/空格 = 点这一句跳转
+            .focusable(true)
+            .onKeyEvent((event: KeyEvent): void => {
+              if (isConfirmKey(event) && this.onLineTap) {
+                this.onLineTap(index);
+              }
+            })
             .animation({
               // 「设置 -> 外观 -> 动画效果」关闭时不做滚动动画
               duration: this.showAnimation ? 300 : 0,

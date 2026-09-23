@@ -6,6 +6,7 @@
  * 组件只接收「行模型 + 回调」，状态判断与文案在 DownloadView 里，改文案不会碰到布局。
  */
 import { DesignTokens } from '../../theme/DesignTokens';
+import { isConfirmKey } from '../../utils/KeyboardTools';
 import { t } from '../../service/LocalizationService';
 import type { DownloadRowModel } from './DownloadView';
 
@@ -159,6 +160,13 @@ export struct DownloadTaskRow {
     .stateStyles({ pressed: this.pressed })
     .onClick(() => {
       if (this.row.selectMode && this.onToggleSelect) {
+        this.onToggleSelect();
+      }
+    })
+    // 2in1（PC 接键盘）：多选态下回车/空格=勾选/取消勾选
+    .focusable(true)
+    .onKeyEvent((event: KeyEvent): void => {
+      if (isConfirmKey(event) && this.row.selectMode && this.onToggleSelect) {
         this.onToggleSelect();
       }
     })

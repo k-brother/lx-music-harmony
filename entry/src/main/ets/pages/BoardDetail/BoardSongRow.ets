@@ -6,6 +6,7 @@
  * （ArkTS 不允许在 ForEach 的独立函数里用 this，trailing 回调传不进去）。
  */
 import { DesignTokens } from '../../theme/DesignTokens';
+import { isConfirmKey } from '../../utils/KeyboardTools';
 import { t } from '../../service/LocalizationService';
 
 @Component
@@ -82,6 +83,13 @@ export struct BoardSongRow {
     .hoverEffect(HoverEffect.Highlight)
     .onClick(() => {
       if (this.onTap) {
+        this.onTap();
+      }
+    })
+    // 2in1（PC 接键盘）：回车/空格等同于点一下
+    .focusable(true)
+    .onKeyEvent((event: KeyEvent): void => {
+      if (isConfirmKey(event) && this.onTap) {
         this.onTap();
       }
     })

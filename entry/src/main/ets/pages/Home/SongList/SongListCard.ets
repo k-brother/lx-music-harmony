@@ -10,6 +10,7 @@
 import { DesignTokens } from '../../../theme/DesignTokens';
 import { t } from '../../../service/LocalizationService';
 import { formatPlayCount } from '../../../utils/FormatTools';
+import { isConfirmKey } from '../../../utils/KeyboardTools';
 import type { SongListItemData } from '../SongListTypes';
 
 @Component
@@ -112,6 +113,14 @@ export struct SongListCard {
     .width('100%')
     .onClick(() => {
       if (this.onTap) {
+        this.onTap();
+      }
+    })
+    // 2in1：卡片悬停高亮 + 回车/空格等同于点一下
+    .hoverEffect(HoverEffect.Highlight)
+    .focusable(true)
+    .onKeyEvent((event: KeyEvent): void => {
+      if (isConfirmKey(event) && this.onTap) {
         this.onTap();
       }
     })

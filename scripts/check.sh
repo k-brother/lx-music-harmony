@@ -32,6 +32,9 @@ python3 "${SCRIPT_DIR}/check_accessibility.py"
 echo "== 迷你播放条覆盖 =="
 python3 "${SCRIPT_DIR}/check_mini_player.py"
 
+echo "== 2in1 键盘操作 =="
+python3 "${SCRIPT_DIR}/check_keyboard.py"
+
 echo "== 一多（响应式）覆盖 =="
 python3 "${SCRIPT_DIR}/check_responsive.py"
 

@@ -5,6 +5,7 @@
  * 「歌手 · 专辑」副标题、时长，以及点击播放与长按菜单两个手势。
  */
 import { DesignTokens } from '../../theme/DesignTokens';
+import { isConfirmKey } from '../../utils/KeyboardTools';
 
 @Component
 export struct TrackRow {
@@ -91,5 +92,12 @@ export struct TrackRow {
           }
         })
     )
+    // 2in1（PC 接键盘）：回车/空格等同于点一下
+    .focusable(true)
+    .onKeyEvent((event: KeyEvent): void => {
+      if (isConfirmKey(event) && this.onTap) {
+        this.onTap();
+      }
+    })
   }
 }

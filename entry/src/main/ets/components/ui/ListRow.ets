@@ -15,6 +15,7 @@
  *   })
  */
 import { DesignTokens } from '../../theme/DesignTokens';
+import { isConfirmKey } from '../../utils/KeyboardTools';
 
 @Component
 export struct ListRow {
@@ -126,6 +127,13 @@ export struct ListRow {
         this.onLongPress();
       }
     }))
+    // 2in1（PC 接键盘）：列表行可聚焦，回车/空格等同于点一下
+    .focusable(true)
+    .onKeyEvent((event: KeyEvent): void => {
+      if (isConfirmKey(event) && this.onTap) {
+        this.onTap();
+      }
+    })
   }
 
   @BuilderParam trailing?: () => void;
