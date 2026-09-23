@@ -600,6 +600,33 @@ pages/Home/Home/
 **出包**：`./scripts/release.sh` = 全量自检 + `product=release` 构建（`signingConfig=LXMusic`），
 产物 `entry/build/release/outputs/default/entry-default-signed.hap`（约 8MB，已签名）。
 
+### Phase 4：鸿蒙特性与商业级体验（一多 / 无障碍 / 长列表 / 手势）
+
+这一轮不再只看代码结构，而是对着「鸿蒙系统能做什么、主流音乐 App 长什么样」逐项对齐。
+每一项都有可核查的落点，不靠印象：
+
+| 能力 | 之前 | 现在 |
+| --- | --- | --- |
+| **一多（响应式）** | `module.json5` 声明了 phone/2in1，代码里没有任何窗口尺寸处理，大屏就是拉宽的手机布局 | `WindowService` 订阅 `windowSizeChange` → 广播 `breakpoint`/`windowWidthVp`；断点按鸿蒙规范 sm<600≤md<840≤lg；`theme/Breakpoints` 提供纯计算出口 |
+| **播放页大屏形态** | 只有「封面/歌词」二选一的 Swiper | md 及以上改双栏：左封面 + 右歌词同屏，顶部不再出现切换控件（窄屏形态不变，共用同一个 LyricSection） |
+| **首页大屏形态** | 底部 Tab 拉满整屏 | 宽屏改「左侧 96vp 导航栏 + 右侧顶栏/内容/播放条」，同一组件的 vertical 形态，选中态与动效共用 |
+| **内容列宽** | 单行文字横跨整屏 | 设置/评论/下载/本地音乐/历史/我喜欢/日志/我的/榜单/歌单详情/榜单详情 统一 1200vp 内容列居中，顶栏底栏仍通栏 |
+| **网格列数** | 手机 3 列写死 | 手机 3 / 折叠屏展开 4 / 平板横屏与 PC 6，骨架列数同档避免跳变 |
+| **长列表** | 全项目 0 处 LazyForEach，上千首歌一次性建满组件树 | 新增 `utils/LazyDataSource`（reload / notifyChanged），歌单详情、榜单详情、历史、我喜欢、本地音乐、评论、歌单广场、播放队列共 8 处改为 LazyForEach + cachedCount(6) |
+| **侧滑手势** | 只有长按菜单 | 播放队列与本地音乐支持侧滑删除（`ListItem.swipeAction`），本地音乐带二次确认 |
+| **鼠标态（2in1）** | 只有按压态 | 列表行统一 `hoverEffect(HoverEffect.Highlight)` |
+| **无障碍** | 全项目 `accessibilityText` 数量为 0 | 33 处纯图标点击目标全部可朗读（含随状态变化的播放/暂停、展开/收起），新增 18 条 a11y_* 词条 |
+| **返回键** | 5 个页面写的 `onBackPressed()` 名字不对，从未被调用 | 删掉死方法；`AppDestination` 接真正的 `.onBackPressed()` → `NavigationService` 返回拦截栈；歌单多选态按返回先退出多选 |
+| **加载态** | 评论/我喜欢/历史/本地音乐是转圈 | 统一骨架屏（新增 `SkeletonCommentItem`） |
+| **评论刷新** | `onRefresh`/`isRefreshing` 定义了没有入口 | 接上 `RefreshContainer`，下拉刷新第一页 |
+| **导航栏大标题** | `collapsed` 从未被传过，「滚动收缩」是死功能 | 三个大标题页面接上滚动监听，下滚收缩、回顶展开 |
+
+新增/强化的自检：`check_accessibility.py`（纯图标按钮必须可朗读）、
+`check_routes.py`（路由一致性）、`check_storage_bindings.py`（AppStorage 绑定闭环）、
+`check_permissions.py`（权限声明与实际调用一致）、`check_settings_reset.py`（恢复默认设置字段完整性）、
+`check_reachable.py`（入口可达性）、`check_unused_exports.py`（零引用导出）、
+`check_duplicate_impls.py`（函数体相同的重复实现）。全部挂进 `scripts/check.sh`。
+
 **Phase 3（UI/UX 商业化）**：把首页/我的/下载/本地音乐/排行榜/评论页逐个套 UI Kit，
 统一大标题滚动收缩、Tab 切换动效、骨架屏与空态、深色层次、触控目标校验。
 
