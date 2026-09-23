@@ -26,6 +26,7 @@ import { formatPlayTime } from '../utils/CommonUtils';
 import { playerService, SongInfo } from '../service/PlayerService';
 import { DesignTokens } from '../theme/DesignTokens';
 import { SearchStripActions } from '../components/common/SearchStrip';
+import { Breakpoints } from '../theme/Breakpoints';
 import { t, sourceLabel } from '../service/LocalizationService';
 import { settingsService } from '../service/SettingsService';
 import {
@@ -67,6 +68,8 @@ enum SearchViewState {
 @Component
 export struct HomePage {
   @StorageProp('theme') theme: string = 'light';
+  /** 一多：断点（宽屏走左侧导航） */
+  @StorageProp('breakpoint') breakpoint: string = 'sm';
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
   @State currentTab: number = 0;
@@ -786,10 +789,12 @@ export struct HomePage {
 
   /** 底部 Tab 栏（组件化，选中态带放大动效） */
   @Builder
-  BottomTabBar() {
+  BottomTabBar(vertical: boolean) {
     HomeBottomTabBar({
       tabs: this.getBottomTabs(),
       activeIndex: this.currentTab,
+      // 宽屏走左侧竖排导航（大屏使用习惯），窄屏仍是底部 Tab
+      vertical: vertical,
       onSelect: (index: number): void => {
         this.currentTab = index;
       },
@@ -816,34 +821,54 @@ export struct HomePage {
     }
   }
 
-  build() {
-    Stack() {
-      // 强制重渲染锚点
-      // 主界面
+  /** 主界面右半部：顶栏 + 内容 + 播放条（宽屏时右侧，窄屏时整屏） */
+  @Builder
+  MainPane() {
+    Column() {
+      // 下载页使用自身头部，避免与 Home 顶栏重复
+      if (this.currentTab !== 2) {
+        this.TopBar()
+      }
+
+      // 内容区
       Column() {
-        // 下载页使用自身头部，避免与 Home 顶栏重复
-        if (this.currentTab !== 2) {
-          this.TopBar()
-        }
-
-        // 歌单 Tab：搜索条已放入 SongListView 内垂直 Scroll 顶部，随列表上滑滚出、回顶再现
-
-        // 内容区
-        Column() {
-          this.ContentArea()
-        }
-        .width('100%')
-        .layoutWeight(1)
-
-        // 播放器栏
-        PlayerBar()
-
-        // 底部TabBar
-        this.BottomTabBar()
+        this.ContentArea()
       }
       .width('100%')
-      .height('100%')
-      .backgroundColor(DesignTokens.pageBg(this.theme))
+      .layoutWeight(1)
+
+      // 播放器栏
+      PlayerBar()
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  build() {
+    Stack() {
+      if (Breakpoints.isWide(this.breakpoint)) {
+        // 一多：平板横屏 / PC 用「左侧导航 + 右侧内容」，与主流音乐 App 的大屏形态一致
+        Row() {
+          this.BottomTabBar(true)
+          Column() {
+            this.MainPane()
+          }
+          .layoutWeight(1)
+          .height('100%')
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor(DesignTokens.pageBg(this.theme))
+      } else {
+        Column() {
+          this.MainPane()
+          // 底部 Tab 栏
+          this.BottomTabBar(false)
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor(DesignTokens.pageBg(this.theme))
+      }
 
       // 搜索面板覆盖层
       this.SearchOverlay()
