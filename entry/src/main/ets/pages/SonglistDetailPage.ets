@@ -5,7 +5,7 @@ import hilog from '@ohos.hilog';
 import { showAppToast, TOAST_DURATION_SHORT } from '../utils/Toast';
 import { formatPlayCount } from '../utils/FormatTools';
 import { PlayerBar } from '../components/player/PlayerBar';
-import { getSongListDetail, setDownloadContext, type SongListDetailResult } from '../core/music/MusicFeatureEntry';
+import { setDownloadContext } from '../core/music/MusicFeatureEntry';
 import { NavigationParams } from '../service/NavigationService';
 import { playerService, SongInfo } from '../service/PlayerService';
 import { navigationService } from '../service/NavigationService';
@@ -18,6 +18,7 @@ import { shareText } from '../service/ShareService';
 import { dislikeList } from '../core/dislike/DislikeList';
 import { showSongItemMenu, showSonglistMoreMenu } from './SonglistDetail/SonglistMenus';
 import { songRowToListItem, songRowToMusicInfo, songRowToQueueItem } from '../core/list/SongMappers';
+import { loadLocalSonglist, loadOnlineSonglist, type SonglistLoadOutcome } from './SonglistDetail/SonglistLoader';
 import { appActionMenu, appConfirm } from '../service/DialogService';
 import { ListRow } from '../components/ui/ListRow';
 import { NavBar } from '../components/ui/NavBar';
@@ -28,11 +29,7 @@ import type { SongItem, SonglistInfo } from './SonglistDetail/SonglistTypes';
 import { SonglistDetailHeader } from './SonglistDetail/SonglistDetailHeader';
 import { SonglistBatchBar } from './SonglistDetail/SonglistBatchBar';
 import { SonglistSortSheet } from './SonglistDetail/SonglistSortSheet';
-import {
-  musicInfoListToSongItems,
-  musicRowListToSongItems,
-  parsePlayCountText,
-} from './SonglistDetail/SonglistMapper';
+import { musicRowListToSongItems } from './SonglistDetail/SonglistMapper';
 import {
   collectSonglist,
   syncBoundSonglist,
@@ -368,6 +365,7 @@ export struct SonglistDetailPage {
     }
   }
 
+  /** 加载歌单详情：数据在 SonglistDetail/SonglistLoader，页面只应用结果 */
   async loadSonglistDetail(source: string, id: string) {
     hilog.info(0x0001, 'SonglistDetail', 'Loading detail for source: %{public}s, id: %{public}s', source, id);
     this.isLoading = true;
@@ -375,86 +373,25 @@ export struct SonglistDetailPage {
     this.lastSourceId = source;
     this.lastListId = id;
 
-    if (source === 'local') {
-      this.loadLocalSonglistDetail(id);
-      return;
-    }
+    const outcome: SonglistLoadOutcome = source === 'local'
+      ? loadLocalSonglist(id)
+      : await loadOnlineSonglist(source, id);
 
-    // 检查是否支持该源的歌单详情
-    const supportedSources = ['kw', 'tx', 'kg', 'wy', 'mg'];
-    if (!supportedSources.includes(source)) {
-      hilog.warn(0x0001, 'SonglistDetail', 'Source %{public}s does not support song list detail', source);
-      this.isLoading = false;
-      this.detailLoaded = false;
-      return;
-    }
-
-    try {
-      const result: SongListDetailResult = await getSongListDetail(id, 1, source);
-      hilog.info(0x0001, 'SonglistDetail', 'API returned: %{public}s songs, info: %{public}s',
-        result.list.length.toString(), JSON.stringify(result.info));
-
-      // 检查结果是否为空
-      if (result.list.length === 0) {
-        hilog.warn(0x0001, 'SonglistDetail', 'Empty song list returned for source: %{public}s', source);
-      }
-
-      this.listInfo = {
-        source: source,
-        id: id,
-        name: result.info.name || t('unknown_playlist'),
-        creator: result.info.author || t('unknown'),
-        pic: result.info.img || '',
-        desc: result.info.desc || '',
-        playCount: parsePlayCountText(result.info.play_count),
-      };
+    if (outcome.status === 'ok' && outcome.info && outcome.songs) {
+      this.listInfo = outcome.info;
       this.listCoverLoadFailed = false;
-      const items: SongItem[] = musicInfoListToSongItems(result.list, source);
-      hilog.info(0x0001, 'SonglistDetail', 'Parsed %{public}s songs to display', items.length.toString());
-      this.songList = items;
+      this.songList = outcome.songs;
       this.detailLoaded = true;
+      this.isLoading = false;
       void this.restoreScrollPosition();
-    } catch (err) {
-      hilog.error(0x0001, 'SonglistDetail', 'Failed to load song list detail: %{public}s', JSON.stringify(err));
-      this.hasError = true;
-      this.detailLoaded = false;
-    } finally {
-      this.isLoading = false;
+      return;
     }
+    // unsupported（该源没有详情接口）与 error 都按「加载失败」处理，页面展示错误态
+    this.hasError = outcome.status === 'error';
+    this.detailLoaded = false;
+    this.isLoading = false;
   }
 
-  private loadLocalSonglistDetail(id: string): void {
-    try {
-      const listInfo: ListInfo | undefined = getUserList().find((item: ListInfo) => item.id === id);
-      if (!listInfo) {
-        hilog.warn(0x0001, 'SonglistDetail', 'Local list not found: %{public}s', id);
-        this.hasError = true;
-        this.detailLoaded = false;
-        return;
-      }
-
-      const localSongs: MusicItem[] = getUserListMusic(id);
-      this.listInfo = {
-        source: 'local',
-        id: listInfo.id,
-        name: listInfo.name,
-        creator: t('local_playlist'),
-        pic: listInfo.pic || (localSongs[0]?.pic ?? ''),
-        desc: listInfo.desc || '',
-        playCount: 0,
-      };
-      this.listCoverLoadFailed = false;
-
-      this.songList = musicRowListToSongItems(localSongs);
-      this.detailLoaded = true;
-    } catch (err) {
-      hilog.error(0x0001, 'SonglistDetail', 'Failed to load local song list: %{public}s', JSON.stringify(err));
-      this.hasError = true;
-      this.detailLoaded = false;
-    } finally {
-      this.isLoading = false;
-    }
-  }
 
   /** 播放量格式统一在 utils/FormatTools */
   formatPlayCountDisplay(count: number): string {
