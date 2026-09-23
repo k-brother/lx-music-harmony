@@ -5,9 +5,6 @@
 import { appLog as hilog } from '../core/log/AppLogger';
 import { common } from '@kit.AbilityKit';
 
-import { httpRequest } from '../core/network/http';
-import { createLxWebSocket, decodeWsPayload } from '../core/network/websocket';
-import { webSocket } from '@kit.NetworkKit';
 import { settingsService } from './SettingsService';
 import { t } from './LocalizationService';
 import {
@@ -19,11 +16,11 @@ import {
   type SyncMessage,
   type SyncData,
   type SyncJsonValue,
-  type ApiResponse,
 } from './sync/SyncTypes';
 import { encryptPayload, decryptPayload } from './sync/SyncCrypto';
 import { getServerHistory, rememberServer, removeServerHistory } from './sync/SyncHistoryStore';
 import { collectLocalData, mergeDataToLocal } from './sync/SyncDataMapper';
+import { SyncTransport } from './sync/SyncTransport';
 
 // 类型对外仍从本模块导出（设置页等调用方的 import 路径保持不变）
 export {
@@ -62,12 +59,22 @@ export class SyncService {
   
   private statusListeners: Array<(status: SyncStatusInfo) => void> = [];
   private syncTimer: number | null = null;
-  private webSocket: webSocket.WebSocket | null = null;
+  /** 传输层：连接/重连/收发都在里面（见 sync/SyncTransport） */
+  private transport: SyncTransport = new SyncTransport({
+    onMessage: (message: SyncMessage): void => {
+      this.handleSyncMessage(message);
+    },
+    onConnectionChange: (connected: boolean, message: string): void => {
+      this.isWsConnected = connected;
+      if (connected) {
+        this.updateStatus(SyncStatus.CONNECTED, message);
+      } else {
+        this.updateStatus(SyncStatus.DISCONNECTED, message);
+      }
+    },
+  });
+  /** 是否已连上（由传输层状态同步过来，供 UI 与流程判断） */
   private isWsConnected: boolean = false;
-  private reconnectAttempts: number = 0;
-  private maxReconnectAttempts: number = 5;
-  private reconnectDelay: number = 3000; // 3 seconds
-  private reconnectTimerId: number | null = null;
 
   private constructor() {}
 
@@ -200,198 +207,6 @@ export class SyncService {
     this.notifyStatusChange();
   }
 
-  // 连接服务器
-  async connect(): Promise<boolean> {
-    if (!this.config.enabled || !this.config.serverUrl) {
-      this.updateStatus(SyncStatus.ERROR, t('sync_msg_not_enabled'));
-      return false;
-    }
-
-    // 如果已经连接，先断开
-    if (this.webSocket && this.isWsConnected) {
-      await this.disconnect();
-    }
-
-    this.updateStatus(SyncStatus.CONNECTING, t('sync_msg_connecting'));
-    
-    try {
-      // 首先检查服务器状态
-      const serverAvailable = await this.checkServerStatus();
-      if (!serverAvailable) {
-        this.updateStatus(SyncStatus.ERROR, t('sync_msg_server_unavailable'));
-        return false;
-      }
-
-      // 建立WebSocket连接
-      await this.connectWebSocket();
-      
-      this.updateStatus(SyncStatus.CONNECTED, t('sync_msg_connected'));
-      this.reconnectAttempts = 0; // 重置重连尝试次数
-      return true;
-    } catch (err) {
-      const errorMsg: string = JSON.stringify(err);
-      this.updateStatus(SyncStatus.ERROR, t('sync_msg_connect_failed'), errorMsg);
-      
-      // 尝试重连
-      if (this.reconnectAttempts < this.maxReconnectAttempts) {
-        this.reconnectAttempts++;
-        hilog.info(DOMAIN, TAG, '尝试重连 (%{public}d/%{public}d)', 
-          this.reconnectAttempts, this.maxReconnectAttempts);
-        
-        this.reconnectTimerId = setTimeout(() => {
-          this.connect().catch((reconnectErr: Error) => {
-            hilog.error(DOMAIN, TAG, '重连失败: %{public}s', JSON.stringify(reconnectErr));
-          });
-        }, this.reconnectDelay);
-      }
-      
-      return false;
-    }
-  }
-
-  // 检查服务器状态
-  private async checkServerStatus(): Promise<boolean> {
-    try {
-      const serverUrl = this.config.serverUrl.replace('ws://', 'http://').replace('wss://', 'https://');
-      const task = httpRequest(`${serverUrl}/api/status`, {
-        method: 'GET',
-        connectTimeout: 10000,
-        readTimeout: 10000,
-      });
-      const response = await task.promise;
-      // Check if we received a valid response
-      if (response && response.result) {
-        const resultStr: string = typeof response.result === 'string' ? response.result : '';
-        if (resultStr.length > 0) {
-          const data: ApiResponse = JSON.parse(resultStr) as ApiResponse;
-          // 健康检查接口回 success，老接口只回 code（200 视为可用）
-          return data.success === true || data.code === 200;
-        }
-      }
-      return false;
-    } catch (err) {
-      hilog.error(DOMAIN, TAG, '检查服务器状态失败: %{public}s', JSON.stringify(err));
-      return false;
-    }
-  }
-
-  // 连接WebSocket
-  private async connectWebSocket(): Promise<void> {
-    return new Promise<void>((resolve: () => void, reject: (error: Error) => void) => {
-      try {
-        // 创建WebSocket连接（统一工厂）
-        this.webSocket = createLxWebSocket();
-        
-        // 设置事件监听器
-        this.setupWebSocketListeners(resolve, reject);
-        
-        // 构建WebSocket URL
-        let wsUrl = this.config.serverUrl;
-        if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
-          wsUrl = `ws://${wsUrl}`;
-        }
-        
-        // 添加同步密钥到URL
-        const fullUrl = `${wsUrl}?key=${encodeURIComponent(this.config.syncKey)}&mode=${this.config.mode}`;
-        
-        // 连接服务器
-        this.webSocket.connect(fullUrl, (err: Error) => {
-          if (err) {
-            reject(err);
-          }
-        });
-      } catch (err) {
-        reject(err instanceof Error ? err : new Error(JSON.stringify(err)));
-      }
-    });
-  }
-
-  // 设置WebSocket监听器
-  private setupWebSocketListeners(resolve: () => void, reject: (error: Error) => void): void {
-    if (!this.webSocket) return;
-
-    // 连接打开
-    this.webSocket.on('open', () => {
-      hilog.info(DOMAIN, TAG, 'WebSocket连接已打开');
-      this.isWsConnected = true;
-      resolve();
-    });
-
-    // 收到消息
-    this.webSocket.on('message', (err: Error, data: string | ArrayBuffer) => {
-      if (err) {
-        hilog.error(DOMAIN, TAG, 'WebSocket消息错误: %{public}s', err.message);
-        return;
-      }
-      try {
-        const messageStr: string = decodeWsPayload(data);
-        const message: SyncMessage = JSON.parse(messageStr) as SyncMessage;
-        this.handleSyncMessage(message);
-      } catch (err) {
-        const errMsg: string = err instanceof Error ? err.message : 'Unknown error';
-        hilog.error(DOMAIN, TAG, '处理WebSocket消息失败: %{public}s', errMsg);
-      }
-    });
-
-    // 连接关闭
-    this.webSocket.on('close', () => {
-      hilog.info(DOMAIN, TAG, 'WebSocket连接关闭');
-      this.isWsConnected = false;
-      if (this.webSocket) {
-        this.webSocket.off('open');
-        this.webSocket.off('message');
-        this.webSocket.off('close');
-        this.webSocket.off('error');
-        this.webSocket = null;
-      }
-      
-      // 尝试重连
-      if (this.config.enabled && this.reconnectAttempts < this.maxReconnectAttempts) {
-        this.reconnectAttempts++;
-        this.reconnectTimerId = setTimeout(() => {
-          this.connect().then(() => {
-            hilog.info(DOMAIN, TAG, '重连成功');
-          }).catch((reconnectErr: Error) => {
-            hilog.error(DOMAIN, TAG, '重连失败: %{public}s', reconnectErr.message);
-          });
-        }, this.reconnectDelay);
-      }
-    });
-
-    // 发生错误
-    this.webSocket.on('error', (err: Error) => {
-      hilog.error(DOMAIN, TAG, 'WebSocket错误: %{public}s', err.message);
-      this.isWsConnected = false;
-      reject(err);
-    });
-  }
-
-  // 断开连接
-  async disconnect(): Promise<void> {
-    if (this.reconnectTimerId !== null) {
-      clearTimeout(this.reconnectTimerId);
-      this.reconnectTimerId = null;
-    }
-    if (this.webSocket && this.isWsConnected) {
-      try {
-        const closeOptions: webSocket.WebSocketCloseOptions = {
-          code: 1000,
-          reason: t('sync_msg_normal_close')
-        };
-        await this.webSocket.close(closeOptions);
-      } catch (err) {
-        hilog.error(DOMAIN, TAG, '断开连接失败: %{public}s', JSON.stringify(err));
-      } finally {
-        this.webSocket.off('open');
-        this.webSocket.off('message');
-        this.webSocket.off('close');
-        this.webSocket.off('error');
-        this.webSocket = null;
-        this.isWsConnected = false;
-      }
-    }
-  }
-
   // ==================== 委派（实现在 service/sync/*） ====================
 
   /** 读取连接过的同步服务器历史（最近使用在前） */
@@ -428,9 +243,26 @@ export class SyncService {
     await mergeDataToLocal(syncData);
   }
 
+  // ==================== 连接（实现在 sync/SyncTransport） ====================
+
+  /** 连接同步服务器：健康检查 + 建 WS + 断线重连都在传输层 */
+  async connect(): Promise<boolean> {
+    return this.transport.connect(this.config);
+  }
+
+  /** 断开连接 */
+  async disconnect(): Promise<void> {
+    await this.transport.disconnect();
+  }
+
+  /** 发送同步消息 */
+  private async sendWebSocketMessage(message: SyncMessage): Promise<void> {
+    await this.transport.send(message);
+  }
+
   // 同步数据
   async sync(): Promise<boolean> {
-    if (!this.isWsConnected || !this.webSocket) {
+    if (!this.transport.isConnected()) {
       const connected = await this.connect();
       if (!connected) {
         return false;
@@ -470,22 +302,6 @@ export class SyncService {
       const errorMsg: string = JSON.stringify(err);
       this.updateStatus(SyncStatus.ERROR, t('sync_msg_failed'), errorMsg);
       return false;
-    }
-  }
-
-  // 发送WebSocket消息
-  private async sendWebSocketMessage(message: SyncMessage): Promise<void> {
-    if (!this.webSocket || !this.isWsConnected) {
-      throw new Error('WebSocket未连接');
-    }
-    
-    try {
-      const messageStr = JSON.stringify(message);
-      await this.webSocket.send(messageStr);
-    } catch (err) {
-      hilog.error(DOMAIN, TAG, '发送WebSocket消息失败: %{public}s', JSON.stringify(err));
-      const error: Error = err instanceof Error ? err : new Error(JSON.stringify(err));
-      throw error;
     }
   }
 
