@@ -48,6 +48,7 @@ import {
 } from './player/QueueRules';
 import type { LyricLineState, LyricLineListener } from './player/LyricHub';
 import { playbackEvents } from './player/PlaybackEvents';
+import { ProgressPoller } from './player/ProgressPoller';
 import {
   savePlaybackSnapshot,
   loadPlaybackSnapshot,
@@ -167,8 +168,13 @@ export class PlayerService {
   private currentIndex: number = -1;
   private volume: number = 1.0;
   private playbackRate: number = 1.0;
-  private progressTimer: number = -1;
-  private progressFailCount: number = 0;
+  /** 进度轮询器（每秒读一次位置；连续失败自动停表） */
+  private poller: ProgressPoller = new ProgressPoller({
+    isPlaying: (): boolean => this.currentStatus === 'playing',
+    readPosition: (): Promise<number> => avGetPosition(),
+    readDuration: (): Promise<number> => avGetDuration(),
+    onTick: (position: number, duration: number): void => this.notifyProgress(position, duration),
+  });
   private playMode: PlayMode = 'listLoop';
   /** 首选音质（受"高品质音乐"设置影响） */
   private preferredQuality: Quality = DEFAULT_QUALITY;
@@ -563,45 +569,13 @@ export class PlayerService {
   }
 
   // 启动进度定时器（轮询 AvPlayerPlugin）
+  /** 启动进度轮询（节奏与失败容错在 player/ProgressPoller） */
   private startProgressTimer(): void {
-    this.stopProgressTimer();
-    this.progressFailCount = 0;
-    this.progressTimer = setInterval(() => {
-      if (this.progressTimer === -1 || this.currentStatus !== 'playing') {
-        return;
-      }
-      const capturedTimerId = this.progressTimer;
-      (async (): Promise<void> => {
-        try {
-          const posSec = await avGetPosition();
-          const durSec = await avGetDuration();
-          this.progressFailCount = 0;
-          this.notifyProgress(posSec, durSec);
-        } catch (e) {
-          this.progressFailCount++;
-          if (this.progressFailCount >= 5) {
-            this.stopProgressTimer();
-            hilog.warn(DOMAIN, TAG, 'Progress timer stopped after 5 consecutive failures: %{public}s', (e as Error)?.message);
-            return;
-          }
-          hilog.warn(DOMAIN, TAG, 'Progress poll failed (%{public}d/5): %{public}s', this.progressFailCount, (e as Error)?.message);
-        }
-      })().catch((_err: Error) => {
-        // already handled inside
-      });
-    }, 1000);
+    this.poller.start();
   }
-
-  // 停止进度定时器
   private stopProgressTimer(): void {
-    if (this.progressTimer !== -1) {
-      clearInterval(this.progressTimer);
-      this.progressTimer = -1;
-    }
-    this.progressFailCount = 0;
+    this.poller.stop();
   }
-
-  // 通知状态变化
   private notifyStateChange(): void {
     playbackEvents.state.emit((listener: StateChangeListener): void => {
       listener(this.currentStatus);

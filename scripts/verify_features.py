@@ -265,6 +265,10 @@ CHECKS = [
  ('字节转字符串统一实现', 'core/music/sources/kg/util.ets', r'cryptoBytesToString\(bytes\)'),
  ('歌名过滤统一实现', 'core/music/MusicParsingUtils.ets', r'trimSpecialChars\(name\)'),
  ('内建音源判断统一实现', 'core/music/MusicFeatureEntry.ets', r'return isBuiltinSourceId\(id\)'),
+ # 进度轮询独立成类：节奏与失败容错只有一处
+ ('进度轮询器独立成文件', 'service/player/ProgressPoller.ets', r'export class ProgressPoller'),
+ ('进度轮询失败自动停表', 'service/player/ProgressPoller.ets', r'MAX_FAILURES'),
+ ('播放服务用进度轮询器', 'service/PlayerService.ets', r'this\.poller\.start\(\)'),
 ]
 
 fails = []
