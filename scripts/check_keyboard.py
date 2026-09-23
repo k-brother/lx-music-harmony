@@ -27,6 +27,10 @@ TARGETS = {
     'pages/PlayDetail/MoreActionsSheet.ets': '播放页更多面板行',
     'pages/PlayDetail/SourceSwitchSheet.ets': '换源候选行',
     'pages/PlayDetail/QueueSheet.ets': '播放队列行',
+    # UI Kit 里的公共可点元素：一处补齐，所有用到它的页面都受益
+    'components/ui/StateView.ets': '空态/失败态行动按钮',
+    'components/ui/SegmentedBar.ets': '分段/胶囊选项',
+    'components/common/SearchStrip.ets': '搜索条',
 }
 
 

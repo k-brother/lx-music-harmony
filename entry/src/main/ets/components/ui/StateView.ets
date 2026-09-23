@@ -9,6 +9,7 @@
  */
 import { DesignTokens } from '../../theme/DesignTokens';
 import { t } from '../../service/LocalizationService';
+import { isConfirmKey } from '../../utils/KeyboardTools';
 
 export type ViewState = 'loading' | 'empty' | 'error';
 
@@ -52,6 +53,14 @@ export struct StateView {
           .borderRadius(DesignTokens.radiusPill())
           .padding({ left: 18, right: 18, top: 7, bottom: 7 })
           .margin({ top: 14 })
+          // 2in1：行动按钮（重试/空态引导）也要能用键盘操作，PC 上没有电容按压
+          .hoverEffect(HoverEffect.Highlight)
+          .focusable(true)
+          .onKeyEvent((event: KeyEvent): void => {
+            if (isConfirmKey(event) && this.onAction) {
+              this.onAction();
+            }
+          })
           .onClick(() => {
             if (this.onAction) {
               this.onAction();

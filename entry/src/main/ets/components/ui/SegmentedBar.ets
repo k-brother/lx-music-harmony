@@ -9,6 +9,7 @@
  * 调用方只关心「选项 + 当前值 + 回调」，不再关心选中态怎么画。
  */
 import { DesignTokens } from '../../theme/DesignTokens';
+import { isConfirmKey } from '../../utils/KeyboardTools';
 
 export interface SegmentOption {
   id: string;
@@ -72,6 +73,13 @@ export struct SegmentedBar {
               }
             : { width: 0 })
           .stateStyles({ pressed: this.pressed })
+          // 2in1：分段/胶囊选项要能用键盘切换（PC 上没有触屏按压缩放）
+          .focusable(true)
+          .onKeyEvent((event: KeyEvent): void => {
+            if (isConfirmKey(event)) {
+              this.select(option.id);
+            }
+          })
           .onClick(() => {
             this.select(option.id);
           })

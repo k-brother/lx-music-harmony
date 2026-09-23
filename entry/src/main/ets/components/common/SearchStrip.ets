@@ -4,6 +4,7 @@
  */
 import { DesignTokens } from '../../theme/DesignTokens';
 import { t } from '../../service/LocalizationService';
+import { isConfirmKey } from '../../utils/KeyboardTools';
 
 /** 父组件持有同一实例并赋值三个回调 */
 export class SearchStripActions {
@@ -69,6 +70,14 @@ export struct SearchStrip {
     .borderRadius(DesignTokens.radiusSearch())
     .border({ width: 0.5, color: DesignTokens.searchFieldBorder(this.theme) })
     .alignItems(VerticalAlign.Center)
+    // 2in1：整条搜索条可聚焦（PC 上按回车 = 打开搜索浮层）
+    .hoverEffect(HoverEffect.Highlight)
+    .focusable(true)
+    .onKeyEvent((event: KeyEvent): void => {
+      if (isConfirmKey(event) && this.tapToOpenOnly) {
+        this.actions.onMagnifierClick();
+      }
+    })
     .onClick(() => {
       if (this.tapToOpenOnly) {
         this.actions.onMagnifierClick();

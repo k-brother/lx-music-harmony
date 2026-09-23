@@ -411,6 +411,12 @@ CHECKS = [
   r"SETTING_CHANGED[\s\S]{0,300}?enableVerboseLog"),
  ('同步配置跟随设置', 'service/SyncService.ets',
   r"SETTING_CHANGED[\s\S]{0,300}?loadConfig\(\)"),
+ # UI Kit 公共可点元素补键盘支持：一处补齐，所有空态/分段/搜索条都受益
+ ('空态行动按钮可键盘操作', 'components/ui/StateView.ets',
+  r'isConfirmKey\(event\)[\s\S]{0,200}?this\.onAction\(\)'),
+ ('分段选项可键盘操作', 'components/ui/SegmentedBar.ets', r'isConfirmKey\(event\)'),
+ ('搜索条可键盘操作', 'components/common/SearchStrip.ets',
+  r'isConfirmKey\(event\)[\s\S]{0,200}?onMagnifierClick\(\)'),
  # 评论点赞落盘（源的评论接口没有登录态，只能本地记，但不能刷新就没）
  ('评论点赞本地持久化', 'service/comment/CommentLikeStore.ets', r'export async function loadLikedIds'),
  ('评论点赞打开时套用本地状态', 'pages/CommentPage.ets', r'applyLikedState\(newComments'),
