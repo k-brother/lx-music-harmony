@@ -298,24 +298,50 @@ export struct ChartCard {
   @Builder
   CardFooter() {
     Row() {
-      Text(this.expanded ? t('collapse_preview') : t('expand_preview'))
-        .fontSize(DesignTokens.fontCaption())
-        .fontColor(DesignTokens.labelSecondary(this.theme))
-        .onClick(() => {
-          if (this.onToggleExpand) {
-            this.onToggleExpand();
-          }
-        })
+      // 展开/收起：图标 + 文案，带触控热区（此前只有一行灰字，看着像失效文本）
+      Row({ space: 2 }) {
+        Text(this.expanded ? t('collapse_preview') : t('expand_preview'))
+          .fontSize(DesignTokens.fontCaption())
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+        SymbolGlyph(this.expanded ? $r('sys.symbol.chevron_up') : $r('sys.symbol.chevron_down'))
+          .fontSize(DesignTokens.fontCaption())
+          .fontColor([DesignTokens.labelSecondary(this.theme)])
+      }
+      .height(DesignTokens.touchTarget())
+      .alignItems(VerticalAlign.Center)
+      .accessibilityText(this.expanded ? t('collapse_preview') : t('expand_preview'))
+      .hoverEffect(HoverEffect.Highlight)
+      .onClick(() => {
+        if (this.onToggleExpand) {
+          this.onToggleExpand();
+        }
+      })
+
       Blank()
-      Text(t('view_full_chart'))
-        .fontSize(DesignTokens.fontBody())
-        .fontColor(DesignTokens.accent())
-        .fontWeight(FontWeight.Medium)
-      SymbolGlyph($r('sys.symbol.chevron_right'))
-        .fontSize(DesignTokens.fontHeadline())
-        .fontColor([DesignTokens.accent()])
-        .margin({ left: 4 })
+
+      // 查看完整榜单：整块可点（此前只画了两段文本/图标，没有点击事件，点了没反应）
+      Row({ space: 4 }) {
+        Text(t('view_full_chart'))
+          .fontSize(DesignTokens.fontBody())
+          .fontColor(DesignTokens.accent())
+          .fontWeight(FontWeight.Medium)
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(DesignTokens.fontHeadline())
+          .fontColor([DesignTokens.accent()])
+      }
+      .height(DesignTokens.touchTarget())
+      .alignItems(VerticalAlign.Center)
+      .accessibilityText(t('view_full_chart'))
+      .hoverEffect(HoverEffect.Highlight)
+      .onClick(() => {
+        if (this.onOpenBoard) {
+          this.onOpenBoard();
+        }
+      })
     }
+    .width('100%')
+    .padding({ left: 14, right: 14, top: 4, bottom: 6 })
+    .alignItems(VerticalAlign.Center)
   }
 
 

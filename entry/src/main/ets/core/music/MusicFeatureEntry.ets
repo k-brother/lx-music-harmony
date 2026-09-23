@@ -362,6 +362,8 @@ export type { MusicInfo, LyricInfo } from '../../types/MusicTypes';
 export { online } from './ResolvePlayback';
 export { local } from './local/LocalPlayback';
 export { download } from './RunMusicDownloads';
+// 下载文件的可播放路径修复（老记录存的是公共目录 URI）
+export { repairPlayablePath } from './download/DownloadFiles';
 export { utils } from './MusicParsingUtils';
 
 // 初始化、源枚举与插件桥（原 MusicSdkSetup；经门面再导出，避免业务直连 MusicSdkSetup）

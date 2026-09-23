@@ -13,6 +13,7 @@
  */
 import { setDownloadContext } from './download/DownloadContext';
 import {
+  repairPlayablePath,
   getDefaultDownloadPath,
   getLyricSavePath,
   getPicSavePath,
@@ -30,12 +31,14 @@ import {
   getDownloadTask,
   getDownloadingTasks,
   initDownloadService,
+  onDownloadTasksChanged,
   pauseDownload,
   restoreDownloadTasksFromBackup,
   resumeDownload,
   setMaxConcurrentDownloads,
   startDownload,
   startPendingDownloads,
+  persistDownloadTasks,
 } from './download/DownloadQueue';
 import {
   DownloadStatus,
@@ -65,6 +68,7 @@ export {
   restoreDownloadTasksFromBackup,
   clearCompletedTasks,
   clearAllTasks,
+  onDownloadTasksChanged,
   downloadLyric,
   downloadPic,
   getDefaultDownloadPath,
@@ -95,8 +99,12 @@ interface DownloadModule {
   downloadLyric: (params: DownloadLyricParams) => Promise<string | null>;
   downloadPic: (params: DownloadPicParams) => Promise<string | null>;
   batchDownload: (params: BatchDownloadParams) => Promise<string[]>;
-  clearCompletedTasks: () => void;
-  clearAllTasks: () => void;
+  clearCompletedTasks: () => Promise<void>;
+  clearAllTasks: () => Promise<void>;
+  /** 订阅任务变化：状态/进度一变立即通知（下载页即时刷新） */
+  onDownloadTasksChanged: (listener: () => void) => () => void;
+  /** 把当前任务表写回历史（播放路径修复后调用） */
+  persistDownloadTasks: () => Promise<void>;
   getDefaultDownloadPath: (musicInfo: MusicInfo) => string;
   getLyricSavePath: (musicInfo: MusicInfo) => string;
   getPicSavePath: (musicInfo: MusicInfo) => string;
@@ -120,6 +128,8 @@ export const download: DownloadModule = {
   batchDownload,
   clearCompletedTasks,
   clearAllTasks,
+  onDownloadTasksChanged,
+  persistDownloadTasks,
   getDefaultDownloadPath,
   getLyricSavePath,
   getPicSavePath,

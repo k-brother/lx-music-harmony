@@ -20,7 +20,7 @@ import { t, tf } from '../service/LocalizationService';
 import { appConfirm, appToast } from '../service/DialogService';
 import { hapticService } from '../service/HapticService';
 import { playerService, type SongInfo } from '../service/PlayerService';
-import { download, setDownloadContext, DownloadStatus, type DownloadTask } from '../core/music/MusicFeatureEntry';
+import { repairPlayablePath, download, setDownloadContext, DownloadStatus, type DownloadTask } from '../core/music/MusicFeatureEntry';
 import { parsePlayTime } from '../utils/CommonUtils';
 import { NavBar } from '../components/ui/NavBar';
 import { SegmentedBar } from '../components/ui/SegmentedBar';
@@ -60,12 +60,19 @@ export struct DownloadPage {
   @State counts: DownloadCounts = { all: 0, active: 0, completed: 0, failed: 0 };
 
   private refreshInterval: number | null = null;
+  /** 下载队列变化订阅（下完立即刷新状态数字） */
+  private unsubscribeTasks: (() => void) | null = null;
   /** 上次渲染的数据指纹：进度没变就不重建列表 */
   private lastSignature: string = '';
 
   aboutToAppear() {
     this.attachDownloadContext();
     this.reload();
+    // 队列主动通知优先（下完立刻更新状态数字，不必等轮询/切页）
+    this.unsubscribeTasks = download.onDownloadTasksChanged((): void => {
+      this.reload();
+    });
+    // 轮询兜底：外部改动（文件被删、备份恢复）也能收敛
     this.refreshInterval = setInterval((): void => {
       this.reload();
     }, POLL_INTERVAL_MS);
@@ -75,6 +82,10 @@ export struct DownloadPage {
     if (this.refreshInterval !== null) {
       clearInterval(this.refreshInterval);
       this.refreshInterval = null;
+    }
+    if (this.unsubscribeTasks) {
+      this.unsubscribeTasks();
+      this.unsubscribeTasks = null;
     }
   }
 
@@ -263,7 +274,8 @@ export struct DownloadPage {
   }
 
   private async clearCompleted(): Promise<void> {
-    download.clearCompletedTasks();
+    // 清空必须落盘（队列内部会把新的任务表写回历史），否则重启后又读回来
+    await download.clearCompletedTasks();
     this.lastSignature = '';
     this.reload();
     hilog.info(DOMAIN, TAG, 'cleared completed download tasks');
@@ -293,10 +305,22 @@ export struct DownloadPage {
   }
 
   private async playTask(task: DownloadTask): Promise<void> {
-    const filePath = task.filePath;
-    if (!filePath) {
+    let filePath: string = task.filePath ?? '';
+    if (filePath.length === 0) {
       appToast(t('file_not_found'));
       return;
+    }
+    // 老记录可能存的是公共目录 URI（沙箱副本被旧版本删掉了）：拷回沙箱再播
+    const asPath: string = filePath.startsWith('file://') ? filePath.substring('file://'.length) : '';
+    if (!asPath.startsWith('/')) {
+      const repaired: string = await repairPlayablePath(filePath, `${task.musicInfo.name || task.id}.mp3`);
+      if (repaired.length === 0) {
+        appToast(t('file_not_found'));
+        return;
+      }
+      filePath = repaired;
+      task.filePath = repaired;
+      void download.persistDownloadTasks();
     }
     const info = task.musicInfo;
     const duration = info.interval ? parsePlayTime(info.interval) : 0;

@@ -1,6 +1,7 @@
 // 播控插件：HarmonyOS AVPlayer 封装（由 PlayerService 委托调用）
 
 import { media } from '@kit.MediaKit';
+import { fileIo as fs } from '@kit.CoreFileKit';
 import { delayMs } from '../../utils/Utils';
 import { BusinessError } from '@kit.BasicServicesKit';
 // 日志经由应用日志门面，既输出 hilog 也进入「设置 → 运行日志」
@@ -38,6 +39,55 @@ let isPrepared = false;
 
 /** 最近一次 stateChange 上报的状态（用于切歌前判断 stop/reset 顺序；create 后视为 idle） */
 let lastMediaState: string = 'idle';
+
+/**
+ * 本地（应用沙箱）文件播放时占用的 fd。
+ *
+ * AVPlayer 的 `url` 只支持 fd://、http(s)、HLS —— **不支持 file://**
+ * （官方文档：Example of supported URLs: FD / HTTP / HTTPS / HLS）。
+ * 之前下载与本地导入的音乐都是 `file://<沙箱路径>`，设进去播放器停在 idle，
+ * 紧接着 prepare() 报「Prepare operation only supports stopped/initialized」，
+ * 播放器进入 error 后再也起不来（真机日志：wait [idle] timeout, last=error → 全部歌都播放失败）。
+ * 沙箱文件必须走 fdSrc；fd 在本次播放期间保持打开，切歌/释放时再关。
+ */
+let localFileFd: number = -1;
+
+/** 关闭本地文件 fd（切歌、释放、出错时都要调） */
+function closeLocalFile(): void {
+  if (localFileFd < 0) {
+    return;
+  }
+  try {
+    fs.closeSync(localFileFd);
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'close local file fd failed: %{public}s', JSON.stringify(err));
+  }
+  localFileFd = -1;
+}
+
+/** `file:///data/...` → `/data/...`；不是本地文件则返回空串 */
+function sandboxPathOf(url: string): string {
+  if (!url.startsWith('file://')) {
+    return '';
+  }
+  const path: string = url.substring('file://'.length);
+  // file://docs/... 这类不是文件系统路径（选择器 URI 才会长这样），交给系统去处理
+  return path.startsWith('/') ? path : '';
+}
+
+/** 打开沙箱文件并返回 fdSrc（含长度，避免解析到文件尾之外） */
+function openLocalFile(path: string): media.AVFileDescriptor {
+  closeLocalFile();
+  const file: fs.File = fs.openSync(path, fs.OpenMode.READ_ONLY);
+  localFileFd = file.fd;
+  let length: number = 0;
+  try {
+    length = fs.statSync(path).size;
+  } catch (err) {
+    length = 0;
+  }
+  return { fd: file.fd, offset: 0, length: length };
+}
 
 // 播放器实例
 let avPlayer: media.AVPlayer | null = null;
@@ -184,6 +234,33 @@ async function resetForNewTrack(): Promise<void> {
 
 /** 一曲自然播放结束（如列表自动下一曲），由 PlayerService 等注册 */
 let onTrackCompleted: (() => void) | null = null;
+
+/**
+ * 销毁并重建 AVPlayer 实例。
+ *
+ * 播放器一旦进入 `error`，后续 reset() 往往不再回到 idle（真机日志：wait [idle] timeout, last=error），
+ * 于是之后每一首歌都失败。这里直接重建实例，让播放器恢复到可用状态。
+ */
+async function recreatePlayer(): Promise<void> {
+  hilog.warn(DOMAIN, TAG, 'Recreating AVPlayer after failure (last=%{public}s)', lastMediaState);
+  closeLocalFile();
+  try {
+    if (avPlayer) {
+      await avPlayer.release();
+    }
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'release broken player failed: %{public}s', JSON.stringify(err));
+  }
+  avPlayer = null;
+  isPrepared = false;
+  await initial({
+    volume: playerState.volume,
+    playRate: playerState.playRate,
+    cacheSize: 1024 * 1024,
+    isHandleAudioFocus: true,
+    isEnableAudioOffload: false,
+  });
+}
 /** 播放错误回调：由 PlayerService 注册（见 setOnPlaybackError） */
 let onPlaybackError: ((code: number, message: string) => void) | null = null;
 
@@ -300,6 +377,7 @@ function setupAVPlayerCallbacks(): void {
     }
     lastMediaState = 'error';
     fulfillMediaStateWaits('error');
+    closeLocalFile();
     // 交给上层：置错误态、按队列跳过并提示用户（这里只负责汇报，不做业务决策）
     if (onPlaybackError) {
       try {
@@ -408,22 +486,32 @@ async function setResourceUnlocked(
 
     await resetForNewTrack();
 
-    // 仅在 idle 下设置媒体地址（官方：idle → initialized）
+    // 仅在 idle 下设置媒体地址（官方：idle → initialized）。
+    // reset 后仍不是 idle，说明播放器卡在 error：直接重建实例，否则后面每首歌都会失败。
     if (lastMediaState !== 'idle') {
-      hilog.warn(DOMAIN, TAG, 'Expected idle before set url, got %{public}s — retry reset', lastMediaState);
-      await avPlayer.reset();
-      await waitForMediaState(['idle'], 8000);
+      hilog.warn(DOMAIN, TAG, 'Expected idle before set url, got %{public}s — recreate player', lastMediaState);
+      await recreatePlayer();
     }
 
-    // 设置播放URL
-    const useUrl = url;
+    if (!avPlayer) {
+      throw new Error('AVPlayer not available after reset');
+    }
 
-    avPlayer.url = useUrl;
+    // 本地沙箱文件走 fdSrc（url 不支持 file://），网络地址仍走 url
+    const localPath: string = sandboxPathOf(url);
+    if (localPath.length > 0) {
+      avPlayer.fdSrc = openLocalFile(localPath);
+    } else {
+      avPlayer.url = url;
+    }
     try {
       await waitForMediaState(['initialized'], 5000);
     } catch (e) {
       const m: string = e instanceof Error ? e.message : JSON.stringify(e);
-      hilog.warn(DOMAIN, TAG, 'wait initialized: %{public}s', m);
+      // 源没被接受就必须停下：继续 prepare() 会让播放器进入 error（之后所有播放都失败）
+      hilog.error(DOMAIN, TAG, 'set media source not accepted: %{public}s', m);
+      closeLocalFile();
+      throw new Error(`MEDIA_SOURCE_REJECTED: ${m}`);
     }
 
     // prepare() 返回后状态可能仍为 initialized，需等 stateChange → prepared 再调音量/倍速/play
@@ -609,6 +697,7 @@ export async function setPlaybackSpeed(rate: number): Promise<void> {
 // 销毁播放器
 export async function destroy(): Promise<void> {
   try {
+    closeLocalFile();
     if (avPlayer) {
       await avPlayer.release();
       avPlayer = null;

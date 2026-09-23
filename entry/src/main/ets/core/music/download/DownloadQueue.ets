@@ -21,6 +21,7 @@ import {
   getSandboxDownloadPath,
   resolveMusicUrl,
   saveSandboxFileToPublicDownload,
+  playableSandboxUrl,
   transferToPath,
   downloadLyric,
   downloadPic,
@@ -50,6 +51,38 @@ const downloadTasks: Map<string, DownloadTask> = new Map();
 const pendingQueue: string[] = [];
 /** 最大并发下载数（默认 1，设置里可改） */
 let maxConcurrentDownloads: number = 1;
+
+/**
+ * 任务变化订阅（下载页据此即时刷新）。
+ *
+ * 之前下载页只看自己的每秒轮询 + 指纹比对，真机反馈「下完了「下载中」的数字还在，
+ * 切一次 Tab 回来才对」——轮询在页面存活期间并不总能拿到最新状态。
+ * 这里由队列在状态/进度变化时主动通知，轮询只作兜底。
+ */
+type DownloadTasksListener = () => void;
+const taskListeners: DownloadTasksListener[] = [];
+
+export function onDownloadTasksChanged(listener: DownloadTasksListener): () => void {
+  taskListeners.push(listener);
+  return (): void => {
+    const index = taskListeners.indexOf(listener);
+    if (index >= 0) {
+      taskListeners.splice(index, 1);
+    }
+  };
+}
+
+/** 通知订阅者：任务状态或进度有变化 */
+function notifyTasksChanged(): void {
+  for (let i = 0; i < taskListeners.length; i++) {
+    try {
+      taskListeners[i]();
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, '下载任务订阅回调失败: %{public}s',
+        err instanceof Error ? err.message : JSON.stringify(err));
+    }
+  }
+}
 
 function getDownloadingCount(): number {
   let count = 0;
@@ -142,6 +175,7 @@ async function startActualDownload(
         if (onProgress) {
           onProgress(task);
         }
+        notifyTasksChanged();
       },
     });
 
@@ -150,18 +184,21 @@ async function startActualDownload(
     if (onProgress) {
       onProgress(task);
     }
+    notifyTasksChanged();
     const fileName = sandboxPath.substring(sandboxPath.lastIndexOf('/') + 1);
     const savedPath = await saveSandboxFileToPublicDownload(sandboxPath, fileName);
-    hilog.info(DOMAIN, TAG, '下载落盘位置: %{public}s', savedPath);
+    hilog.info(DOMAIN, TAG, '下载落盘位置: %{public}s（沙箱副本: %{public}s）', savedPath, sandboxPath);
 
     task.status = DownloadStatus.COMPLETED;
     task.progress = 100;
-    // 记真实保存位置而不是设置里的目录：用户在选择器里换过目录也能播
-    task.filePath = savedPath;
+    // 播放一律用沙箱副本：公共目录那份可能是 file://docs/... URI（重启后未必可读），
+    // AVPlayer 只接受 fdSrc / 网络地址，记成公共 URI 会变成「下载好了却播放失败」。
+    task.filePath = playableSandboxUrl(sandboxPath);
     if (onProgress) {
       onProgress(task);
     }
     hilog.info(DOMAIN, TAG, '下载完成: %{public}s', task.musicInfo.name);
+    notifyTasksChanged();
     void processQueue();
     void saveDownloadHistory(Array.from(downloadTasks.values()));
   } catch (err) {
@@ -172,6 +209,7 @@ async function startActualDownload(
     if (sandboxPath.length > 0) {
       task.filePath = sandboxPath;
     }
+    notifyTasksChanged();
     void saveDownloadHistory(Array.from(downloadTasks.values()));
     throw new Error(errMsg);
   }
@@ -383,6 +421,11 @@ export async function cancelDownload(taskId: string): Promise<boolean> {
   }
 }
 
+/** 把当前任务表写回下载历史（播放路径修复、外部改动后调用） */
+export async function persistDownloadTasks(): Promise<void> {
+  await saveDownloadHistory(Array.from(downloadTasks.values()));
+}
+
 export function getDownloadTask(taskId: string): DownloadTask | null {
   return downloadTasks.get(taskId) ?? null;
 }
@@ -418,18 +461,29 @@ export async function restoreDownloadTasksFromBackup(tasks: DownloadTask[]): Pro
   return restored;
 }
 
-export function clearCompletedTasks(): void {
+/**
+ * 清空「已完成」任务。
+ *
+ * 必须把新的任务表写回下载历史：之前只改内存，重启后 initDownloadService 又按历史
+ * 把记录读回来，用户看到「清空了、重启又全回来了」。
+ */
+export async function clearCompletedTasks(): Promise<void> {
   const entries = Array.from(downloadTasks.entries());
   for (let i = 0; i < entries.length; i++) {
     if (entries[i][1].status === DownloadStatus.COMPLETED) {
       downloadTasks.delete(entries[i][0]);
     }
   }
+  notifyTasksChanged();
+  await saveDownloadHistory(Array.from(downloadTasks.values()));
 }
 
-export function clearAllTasks(): void {
+/** 清空全部任务（含等待队列），同样落盘 */
+export async function clearAllTasks(): Promise<void> {
   downloadTasks.clear();
   pendingQueue.length = 0;
+  notifyTasksChanged();
+  await saveDownloadHistory([]);
 }
 
 // 歌词/封面下载不涉及队列，直接透出文件层能力，保持调用方 import 路径不变

@@ -175,8 +175,9 @@ export async function saveSandboxFileToPublicDownload(
     const targetUri = `${configuredDir}/${fileName}`;
     try {
       copyFileToUri(sandboxFilePath, targetUri);
-      await removeExistingFile(sandboxFilePath);
-      hilog.info(DOMAIN, TAG, '已保存到配置的下载目录: %{public}s', targetUri);
+      // 故意保留沙箱副本：公共目录给的是 file://docs/... 这类 URI，重启后不一定还有读权限，
+      // 而播放必须走沙箱文件（AVPlayer 只认 fdSrc/网络地址）。沙箱副本才是可播放的那一份。
+      hilog.info(DOMAIN, TAG, '已保存到配置的下载目录（沙箱副本保留供播放）: %{public}s', targetUri);
       return targetUri;
     } catch (dirErr) {
       const msg = dirErr instanceof Error ? dirErr.message : JSON.stringify(dirErr);
@@ -206,11 +207,8 @@ export async function saveSandboxFileToPublicDownload(
       // 同上：这条会作为失败原因展示，走 i18n
       throw new Error(t('media_save_fail'));
     }
-    try {
-      await removeExistingFile(sandboxFilePath);
-    } catch (_cleanupErr) {
-      // 清理源文件失败，忽略
-    }
+    // 同样保留沙箱副本：用户在选择器里挑的公共目录文件重启后未必还能读，
+    // 播放统一走沙箱这一份
     return targetUri;
   } catch (err) {
     // 这条消息会显示在下载任务的失败原因里，必须走 i18n（英文界面不能出现中文）
@@ -219,6 +217,51 @@ export async function saveSandboxFileToPublicDownload(
       msg += ': ' + err.message;
     }
     throw new Error(msg);
+  }
+}
+
+/** 可播放路径：统一用沙箱内的 file:// 路径（AVPlayer 走 fdSrc） */
+export function playableSandboxUrl(sandboxFilePath: string): string {
+  return `file://${sandboxFilePath}`;
+}
+
+/**
+ * 播放前的兜底修复。
+ *
+ * 老版本的下载记录里存的是公共目录 URI（`file://docs/...`），而沙箱副本当时被删掉了：
+ * 这类路径 AVPlayer 不接受，表现为「下载好的歌播放失败」。这里尽量把文件重新拷回沙箱，
+ * 拷得回来就返回可播放路径，拷不回来返回空串（调用方提示重新下载）。
+ */
+export async function repairPlayablePath(recorded: string, targetName: string): Promise<string> {
+  if (recorded.length === 0) {
+    return '';
+  }
+  const asPath: string = recorded.startsWith('file://') ? recorded.substring('file://'.length) : '';
+  if (asPath.startsWith('/')) {
+    return recorded;
+  }
+  const sandboxPath = getSandboxDownloadPath({ name: targetName } as MusicInfo);
+  try {
+    const source = fs.openSync(recorded, fs.OpenMode.READ_ONLY);
+    try {
+      ensureParentDir(sandboxPath);
+      await removeExistingFile(sandboxPath);
+      const target = fs.openSync(sandboxPath, fs.OpenMode.WRITE_ONLY | fs.OpenMode.CREATE);
+      try {
+        fs.copyFileSync(source.fd, target.fd);
+        fs.fsyncSync(target.fd);
+      } finally {
+        fs.closeSync(target);
+      }
+    } finally {
+      fs.closeSync(source);
+    }
+    hilog.info(DOMAIN, TAG, '已把公共目录文件拷回沙箱用于播放: %{public}s', sandboxPath);
+    return `file://${sandboxPath}`;
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, '修复可播放路径失败（%{public}s）: %{public}s', recorded,
+      err instanceof Error ? err.message : JSON.stringify(err));
+    return '';
   }
 }
 

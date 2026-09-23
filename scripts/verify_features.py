@@ -127,7 +127,10 @@ CHECKS = [
  ('播放页控制条抽成组件', 'pages/PlayDetailPage.ets', r'PlayerControls\(\{'),
  # 下载域拆成 download/{Types,Context,Files,Storage,Queue} 后，判据指向对应分层文件
  ('下载不打断用户（默认不进选择器）', 'core/music/download/DownloadFiles.ets', r'downloadUseFilePicker'),
- ('下载任务用真实落盘路径', 'core/music/download/DownloadQueue.ets', r'task\.filePath = savedPath'),
+ # 播放路径必须是沙箱副本（savedPath 可能是 file://docs/... 公共 URI，AVPlayer 不接受）
+ ('下载任务记录可播放的沙箱路径', 'core/music/download/DownloadQueue.ets',
+  r'task\.filePath = playableSandboxUrl\(sandboxPath\)'),
+ ('老下载记录的播放路径可修复', 'core/music/download/DownloadFiles.ets', r'repairPlayablePath'),
  ('下载历史只存完成/失败', 'core/music/download/DownloadStorage.ets', r'pickHistoricTasks'),
  ('下载队列唯一持有任务表', 'core/music/download/DownloadQueue.ets', r'const downloadTasks: Map<string, DownloadTask> = new Map\(\)'),
  ('下载文件名规则单一出口', 'core/music/download/DownloadFiles.ets', r'buildMusicFileStem'),
