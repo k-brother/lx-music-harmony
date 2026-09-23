@@ -334,7 +334,7 @@ export struct AboutView {
     .width('100%')
     .height('100%')
     .backgroundColor(DesignTokens.pageBg(this.theme))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 
   @Builder

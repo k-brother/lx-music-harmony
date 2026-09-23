@@ -8,6 +8,7 @@ import { delayMs } from '../utils/Utils';
 import { window } from '@kit.ArkUI';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { onThemeChange, getActiveTheme, getAppBackground } from './ThemeService';
+import { DesignTokens } from '../theme/DesignTokens';
 import { display } from '@kit.ArkUI';
 
 const TAG = 'WindowService';
@@ -49,6 +50,31 @@ function normalizeWindowColor(color: string): string {
   }
 
   return raw;
+}
+
+/** `#AARRGGBB` / `#RRGGBB` 的 alpha（0-1） */
+function alphaOf(color: string): number {
+  if (!color.startsWith('#')) {
+    return 1;
+  }
+  const hex = color.substring(1);
+  if (hex.length === 8) {
+    const a = parseInt(hex.substring(0, 2), 16);
+    return Number.isFinite(a) ? a / 255 : 1;
+  }
+  return 1;
+}
+
+/**
+ * 窗口/系统栏颜色必须不透明。
+ *
+ * 主题里 `cAppBackground` 不一定是实色：深色主题给的是 `rgba(0, 0, 0, 0)`（全透明），
+ * 直接下发会让窗口透明、底部安全区透出系统白底——真机表现就是「深色模式下
+ * 设置页/二级页底部一条白」。透明时改用该主题的页面底色兜底。
+ */
+function opaqueOrFallback(color: string, fallback: string): string {
+  const normalized = normalizeWindowColor(color);
+  return alphaOf(normalized) >= 1 ? normalized : fallback;
 }
 
 function clampColorInt(value: number): number {
@@ -240,21 +266,23 @@ export async function applyThemeToWindow(): Promise<void> {
     let navigationBarContentColor = '#000000';
     
     if (activeTheme) {
-      // 使用主题的主背景色
-      backgroundColor = normalizeWindowColor(getAppBackground());
-      
       // 判断是否为深色主题
       const isDark = activeTheme.get('c-000') === 'rgb(0,0,0)' || 
                     activeTheme.get('c-000') === 'rgba(0,0,0,1)';
-      
+
+      // 主题的主背景色可能是半透明（深色主题是 rgba(0,0,0,0)）：
+      // 窗口与系统栏必须不透明，否则底部安全区会透出系统白底
+      const opaqueBase: string = DesignTokens.pageBg(isDark ? 'dark' : 'light');
+      backgroundColor = opaqueOrFallback(getAppBackground(), opaqueBase);
+
       if (isDark) {
         // 深色主题：使用深色背景，浅色文字
-        systemBarColor = normalizeWindowColor(activeTheme.get('c-050') || '#141414');
+        systemBarColor = opaqueOrFallback(activeTheme.get('c-050') || '#141414', opaqueBase);
         statusBarContentColor = '#FFFFFF';
         navigationBarContentColor = '#FFFFFF';
       } else {
         // 浅色主题：使用浅色背景，深色文字
-        systemBarColor = normalizeWindowColor(activeTheme.get('c-000') || '#FFFFFF');
+        systemBarColor = opaqueOrFallback(activeTheme.get('c-000') || '#FFFFFF', opaqueBase);
         statusBarContentColor = '#000000';
         navigationBarContentColor = '#000000';
       }

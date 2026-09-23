@@ -449,6 +449,8 @@ export struct LocalMusicPage {
     .width('100%')
     .height('100%')
     .backgroundColor(DesignTokens.pageBg(this.theme))
+    // 顶部/底部安全区都由页面自己绘制（深色模式下底部手势区不能透出系统白底）
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 
   /** 本地曲库列表（LazyForEach + 侧滑删除 + 大屏内容列居中） */

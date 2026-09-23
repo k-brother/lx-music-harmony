@@ -88,6 +88,10 @@ CHECKS = [
  ('榜单头部展示来源与说明', 'pages/Board/BoardDetailHeader.ets', r"from_source|description"),
  ('榜单头部有播放全部与收藏两个等宽按钮', 'pages/Board/BoardDetailHeader.ets',
   r'onCollect|CollectButton', r"\.width\(112\)"),
+ # 深色模式底部白底：窗口背景不能是半透明（深色主题 cAppBackground 是 rgba(0,0,0,0)）
+ ('窗口背景必须不透明', 'service/WindowService.ets', r'opaqueOrFallback'),
+ ('页面绘制底部安全区', 'pages/Home/SettingView.ets',
+  r'expandSafeArea\(\[SafeAreaType\.SYSTEM\], \[SafeAreaEdge\.TOP, SafeAreaEdge\.BOTTOM\]\)'),
  ('榜单卡片封面与歌名对齐', 'pages/Home/Leaderboard/ChartCard.ets', r'HEADER_LEFT_INSET'),
  ('顶栏无右侧动作时补对称占位', 'components/ui/NavBar.ets', r'等宽的占位'),
  ('法律文本入口先选再弹层', 'pages/Home/Setting/AboutSection.ets', r'openLegalMenu'),

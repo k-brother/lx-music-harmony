@@ -289,6 +289,8 @@ export struct HistoryListPage {
     .width('100%')
     .height('100%')
     .backgroundColor(DesignTokens.pageBg(this.theme))
+    // 顶部/底部安全区都由页面自己绘制（深色模式下底部手势区不能透出系统白底）
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 
   /** 历史列表（LazyForEach + 大标题滚动收缩 + 大屏内容列居中） */
