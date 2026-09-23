@@ -324,55 +324,37 @@ class SettingsServiceImpl {
     });
   }
 
+  /**
+   * 镜像到 AppStorage，驱动 @StorageProp / @StorageLink 组件刷新。
+   *
+   * 只镜像**真的有人读**的键（绑定或 AppStorage.get）：此前把 55 个设置项无差别镜像，
+   * 其中 25 个全项目没有任何读取方，看代码会误以为"这些设置会自动流到界面"。
+   * 新增需要 @StorageProp 的项时，在这里补一行（scripts/check_storage_bindings.py 会提示）。
+   */
   /** 镜像到 AppStorage，驱动 @StorageProp / @StorageLink 组件刷新 */
   private applyToAppStorage(): void {
     AppStorage.setOrCreate('settingsReady', true);
     AppStorage.setOrCreate('theme', this.values.themeMode);
-    AppStorage.setOrCreate('startupPage', this.values.startupPage);
-    AppStorage.setOrCreate('autoPlay', this.values.autoPlay);
-    AppStorage.setOrCreate('highQuality', this.values.highQuality);
-    AppStorage.setOrCreate('playQuality', this.values.playQuality);
-    AppStorage.setOrCreate('volume', this.values.volume);
-    AppStorage.setOrCreate('defaultSearchSource', this.values.searchSource);
-    AppStorage.setOrCreate('showHotSearch', this.values.showHotSearch);
-    AppStorage.setOrCreate('searchHistoryCount', this.values.searchHistoryCount);
-    AppStorage.setOrCreate('addMusicLocation', this.values.addMusicLocation);
-    AppStorage.setOrCreate('autoCleanPlayedList', this.values.autoCleanPlayedList);
-    AppStorage.setOrCreate('showDesktopLyric', this.values.showDesktopLyric);
-    AppStorage.setOrCreate('desktopLyricPosition', this.values.desktopLyricPosition);
     AppStorage.setOrCreate('desktopLyricColor', this.values.desktopLyricColor);
     AppStorage.setOrCreate('desktopLyricBgAlpha', this.values.desktopLyricBgAlpha);
     AppStorage.setOrCreate('desktopLyricFontSize', this.values.desktopLyricFontSize);
-    AppStorage.setOrCreate('desktopLyricShowNext', this.values.desktopLyricShowNext);
     AppStorage.setOrCreate('desktopLyricLocked', this.values.desktopLyricLocked);
-    AppStorage.setOrCreate('appFontSize', this.values.fontSize);
     AppStorage.setOrCreate('showAnimation', this.values.showAnimation);
     AppStorage.setOrCreate('showLyricTranslation', this.values.showLyricTranslation);
     AppStorage.setOrCreate('showLyricRoma', this.values.showLyricRoma);
     AppStorage.setOrCreate('lyricFontSize', this.values.lyricFontSize);
     AppStorage.setOrCreate('lyricAlign', this.values.lyricAlign);
     AppStorage.setOrCreate('showLyricProgress', this.values.showLyricProgress);
-    AppStorage.setOrCreate('desktopLyricWidth', this.values.desktopLyricWidth);
     AppStorage.setOrCreate('desktopLyricMaxLines', this.values.desktopLyricMaxLines);
     AppStorage.setOrCreate('desktopLyricAnim', this.values.desktopLyricAnim);
     AppStorage.setOrCreate('desktopLyricShadowColor', this.values.desktopLyricShadowColor);
     AppStorage.setOrCreate('showListSource', this.values.showListSource);
-    AppStorage.setOrCreate('hapticFeedback', this.values.hapticFeedback);
     AppStorage.setOrCreate('showListAlbum', this.values.showListAlbum);
     AppStorage.setOrCreate('showListDuration', this.values.showListDuration);
     AppStorage.setOrCreate('rememberScrollPosition', this.values.rememberScrollPosition);
-    AppStorage.setOrCreate('enableVerboseLog', this.values.enableVerboseLog);
-    AppStorage.setOrCreate('s2tMode', this.values.s2tMode);
-    AppStorage.setOrCreate('showNotificationImage', this.values.showNotificationImage);
-    AppStorage.setOrCreate('showBluetoothLyric', this.values.showBluetoothLyric);
-    AppStorage.setOrCreate('sleepTimerWaitTrackEnd', this.values.sleepTimerWaitTrackEnd);
     AppStorage.setOrCreate('sourceNameType', this.values.sourceNameType);
-    AppStorage.setOrCreate('shareType', this.values.shareType);
-    AppStorage.setOrCreate('agreedPact', this.values.agreedPact);
     AppStorage.setOrCreate('allowProgressBarSeek', this.values.allowProgressBarSeek);
-    AppStorage.setOrCreate('showSearchHistory', this.values.showSearchHistory);
     AppStorage.setOrCreate('listClickPlay', this.values.listClickPlay);
-    AppStorage.setOrCreate('autoTheme', this.values.autoTheme);
     AppStorage.setOrCreate('dynamicBg', this.values.dynamicBg);
     AppStorage.setOrCreate('fontShadow', this.values.fontShadow);
     AppStorage.setOrCreate('hideBgDark', this.values.hideBgDark);

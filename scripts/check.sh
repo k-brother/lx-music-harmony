@@ -20,6 +20,9 @@ python3 "${SCRIPT_DIR}/check_reachable.py"
 echo "== 路由一致性 =="
 python3 "${SCRIPT_DIR}/check_routes.py"
 
+echo "== AppStorage 绑定闭环 =="
+python3 "${SCRIPT_DIR}/check_storage_bindings.py"
+
 echo "== i18n 词条对齐 =="
 python3 "${SCRIPT_DIR}/check_i18n.py"
 
