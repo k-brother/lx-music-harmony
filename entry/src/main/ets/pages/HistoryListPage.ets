@@ -13,6 +13,7 @@ import { formatPlayTime } from '../utils/CommonUtils';
 import { DesignTokens } from '../theme/DesignTokens';
 import { Breakpoints } from '../theme/Breakpoints';
 import { LazyDataSource } from '../utils/LazyDataSource';
+import { SkeletonListItem } from '../components/common/SkeletonView';
 import { scrollerOffsetY } from '../utils/ScrollTools';
 import { t, tf } from '../service/LocalizationService';
 import { appConfirm, appToast } from '../service/DialogService';
@@ -166,7 +167,14 @@ export struct HistoryListPage {
       })
 
       if (this.isLoading) {
-        StateView({ state: 'loading', message: t('loading') })
+        // 骨架行代替转圈：与歌单/榜单/评论页统一
+        Column() {
+          ForEach([0, 1, 2, 3, 4], (index: number) => {
+            SkeletonListItem()
+          }, (index: number) => `skeleton_${index}`)
+        }
+        .width('100%')
+        .layoutWeight(1)
           .layoutWeight(1)
           .width('100%')
       } else if (this.playHistory.length === 0) {

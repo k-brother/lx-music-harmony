@@ -8,6 +8,7 @@ import hilog from '@ohos.hilog';
 import { DesignTokens } from '../theme/DesignTokens';
 import { Breakpoints } from '../theme/Breakpoints';
 import { LazyDataSource } from '../utils/LazyDataSource';
+import { SkeletonListItem } from '../components/common/SkeletonView';
 import { scrollerOffsetY } from '../utils/ScrollTools';
 import { getLoveList, toggleLoveList, type MusicItem } from '../service/ListService';
 import { playerService, SongInfo } from '../service/PlayerService';
@@ -190,7 +191,14 @@ export struct LoveListPage {
       })
 
       if (this.isLoading) {
-        StateView({ state: 'loading' })
+        // 骨架行代替转圈：与歌单/榜单/评论页统一
+        Column() {
+          ForEach([0, 1, 2, 3, 4], (index: number) => {
+            SkeletonListItem()
+          }, (index: number) => `skeleton_${index}`)
+        }
+        .width('100%')
+        .layoutWeight(1)
           .layoutWeight(1)
           .width('100%')
       } else if (this.songs.length === 0) {

@@ -13,6 +13,9 @@ import { Breakpoints } from '../theme/Breakpoints';
 import { LazyDataSource } from '../utils/LazyDataSource';
 import { NavBar } from '../components/ui/NavBar';
 import { CommentRow } from './Comment/CommentRow';
+import { SkeletonCommentItem } from '../components/common/SkeletonView';
+import { RefreshContainer } from '../components/ui/RefreshContainer';
+import { hapticService } from '../service/HapticService';
 import { StateView } from '../components/ui/StateView';
 import { SegmentedBar } from '../components/ui/SegmentedBar';
 import { t } from '../service/LocalizationService';
@@ -285,16 +288,13 @@ export struct CommentPage {
 
   @Builder
   buildLoadingState(): void {
+    // 用评论骨架代替转圈：首屏就能看出「这里将出现评论」，与歌单/榜单页一致
     Column() {
-      LoadingProgress()
-        .width(40)
-        .height(40)
-        .color(DesignTokens.accent())
+      ForEach([0, 1, 2], (index: number) => {
+        SkeletonCommentItem()
+      }, (index: number) => `comment_skeleton_${index}`)
     }
     .width('100%')
-    .height(80)
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
   }
 
   build() {
@@ -307,6 +307,44 @@ export struct CommentPage {
         this.buildCommentTypeTabs()
 
         if (this.comments.length > 0) {
+          // 下拉刷新：重新拉第一页（onRefresh/isRefreshing 此前定义了却没有入口）
+          // 自定义组件后面不能直接挂 layoutWeight，用一层 Column 承担剩余高度
+          Column() {
+            RefreshContainer({
+              refreshing: $isRefreshing,
+              onRefresh: (): void => {
+                hapticService.selection();
+                this.onRefresh();
+              },
+            }) {
+              this.CommentList()
+            }
+          }
+          .layoutWeight(1)
+          .width('100%')
+        } else if (this.isLoading || this.isRefreshing) {
+          this.buildLoadingState()
+        } else {
+          this.buildEmptyState()
+        }
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(DesignTokens.pageBg(this.theme))
+
+      // 全屏图片预览
+      if (this.previewImage.length > 0) {
+        this.buildImagePreview()
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor(DesignTokens.pageBg(this.theme))
+  }
+
+  /** 评论列表（分页 + 大屏内容列居中） */
+  @Builder
+  CommentList() {
           // 用 List + onReachEnd 做分页：滑到底自动加载下一页
           List() {
             LazyForEach(this.commentSource, (comment: Comment, index: number) => {
@@ -350,23 +388,5 @@ export struct CommentPage {
           .onReachEnd(() => {
             this.onLoadMore();
           })
-        } else if (this.isLoading || this.isRefreshing) {
-          this.buildLoadingState()
-        } else {
-          this.buildEmptyState()
-        }
-      }
-      .width('100%')
-      .height('100%')
-      .backgroundColor(DesignTokens.pageBg(this.theme))
-
-      // 全屏图片预览
-      if (this.previewImage.length > 0) {
-        this.buildImagePreview()
-      }
-    }
-    .width('100%')
-    .height('100%')
-    .backgroundColor(DesignTokens.pageBg(this.theme))
   }
 }

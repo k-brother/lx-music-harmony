@@ -16,6 +16,7 @@ import { NavBar } from '../components/ui/NavBar';
 import { StateView } from '../components/ui/StateView';
 import { hapticService } from '../service/HapticService';
 import { appActionMenu, appConfirm } from '../service/DialogService';
+import { SkeletonListItem } from '../components/common/SkeletonView';
 import { EditMetadataSheet } from './LocalMusic/EditMetadataSheet';
 import { LocalMusicActions } from './LocalMusic/LocalMusicActions';
 import { TrackRow } from './LocalMusic/TrackRow';
@@ -308,15 +309,14 @@ export struct LocalMusicPage {
       this.TopBar()
 
       if (this.isLoading && this.tracks.length === 0) {
+        // 骨架行代替转圈：与其它列表页一致
         Column() {
-          LoadingProgress()
-            .width(32)
-            .height(32)
-            .color(DesignTokens.accent())
+          ForEach([0, 1, 2, 3, 4], (index: number) => {
+            SkeletonListItem()
+          }, (index: number) => `local_skeleton_${index}`)
         }
         .width('100%')
         .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
       } else if (this.tracks.length === 0) {
         this.EmptyState()
       } else {
