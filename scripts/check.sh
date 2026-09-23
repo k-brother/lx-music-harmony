@@ -71,6 +71,9 @@ python3 "${SCRIPT_DIR}/check_settings_copy.py"
 echo "== 恢复默认设置覆盖完整性 =="
 python3 "${SCRIPT_DIR}/check_settings_reset.py"
 
+echo "== 设置项入口/消费者 =="
+python3 "${SCRIPT_DIR}/check_settings_ui.py"
+
 echo "== 功能对齐清单 =="
 python3 "${SCRIPT_DIR}/verify_features.py"
 
