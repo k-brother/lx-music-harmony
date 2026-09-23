@@ -35,6 +35,12 @@ interface UserListRow {
 
 @Component
 export struct UserListsPage {
+  /** 按压反馈：可点卡片/行变淡 */
+  @Styles
+  pressed() {
+    .opacity(DesignTokens.pressedOpacity())
+  }
+
   @StorageProp('theme') theme: string = 'light';
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
@@ -267,6 +273,7 @@ export struct UserListsPage {
     .backgroundColor(DesignTokens.card(this.theme))
     .borderRadius(DesignTokens.radiusCard())
     .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
+    .stateStyles({ pressed: this.pressed })
     .onClick(() => {
       navigationService.navigateTo(RouteName.SONGLIST_DETAIL, {
         songListId: this.userLists[index].id,

@@ -44,6 +44,12 @@ export struct ChartCard {
     return DesignTokens.labelTertiary(this.theme);
   }
 
+  /** 按压反馈：可点的行/卡片变淡（与列表页同一套） */
+  @Styles
+  pressed() {
+    .opacity(DesignTokens.pressedOpacity())
+  }
+
   private playCountText(): string {
     const count: number = this.playCount < 0 ? 0 : this.playCount;
     return tf('count_plays', [formatPlayCount(count, t('ten_thousand_unit'), t('billion_unit'))]);
@@ -170,6 +176,7 @@ export struct ChartCard {
           }
           .width('100%')
           .padding({ left: 12, right: 12, top: 12, bottom: 12 })
+          .stateStyles({ pressed: this.pressed })
           .onClick(() => {
             if (this.onPlaySong) {
               this.onPlaySong(song);

@@ -42,6 +42,12 @@ interface SourceItem {
 
 @Component
 export struct CustomSourceView {
+  /** 按压反馈：可点的源行/导入行变淡 */
+  @Styles
+  pressed() {
+    .opacity(DesignTokens.pressedOpacity())
+  }
+
   @StorageProp('theme') theme: string = 'light';
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
@@ -364,6 +370,7 @@ export struct CustomSourceView {
       .height(56)
       .padding({ left: 16, right: 16 })
       .backgroundColor(DesignTokens.card(this.theme))
+      .stateStyles({ pressed: this.pressed })
       .onClick(() => {
         this.selectSource(item.id);
       })
@@ -591,6 +598,7 @@ export struct CustomSourceView {
           .borderRadius(10)
           .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
           .margin({ left: 16, right: 16, top: 8 })
+          .stateStyles({ pressed: this.pressed })
           .onClick(() => {
             void this.importFromLocalFile();
           })

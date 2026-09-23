@@ -17,6 +17,12 @@ export struct DownloadTaskRow {
   onDelete?: () => void;
   onPlay?: () => void;
 
+  /** 多选态下点整行即勾选：给按压反馈，避免点了没反应的感觉 */
+  @Styles
+  pressed() {
+    .opacity(DesignTokens.pressedOpacity())
+  }
+
   /** 主操作图标：等待/暂停 → 播放，下载中 → 暂停，失败 → 重试，完成 → 播放 */
   private primaryIcon(): Resource {
     if (this.row.actionKind === 'pause') {
@@ -145,6 +151,7 @@ export struct DownloadTaskRow {
     .backgroundColor(DesignTokens.card(this.theme))
     .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
     .alignItems(VerticalAlign.Center)
+    .stateStyles({ pressed: this.pressed })
     .onClick(() => {
       if (this.row.selectMode && this.onToggleSelect) {
         this.onToggleSelect();

@@ -11,6 +11,11 @@ import type { HotSearchItem } from '../../../core/search/search';
 @Component
 export struct SearchInputContent {
   @StorageProp('theme') theme: string = 'light';
+  /** 按压反馈：可点的历史/热搜行变淡 */
+  @Styles
+  pressed() {
+    .opacity(DesignTokens.pressedOpacity())
+  }
   @Prop searchText: string = '';
   @Prop tips: string[] = [];
   @Prop history: string[] = [];
@@ -56,6 +61,7 @@ export struct SearchInputContent {
               })
               .alignItems(VerticalAlign.Center)
               .border({ width: { bottom: 0.33 }, color: DesignTokens.hairlineSeparator(this.theme) })
+              .stateStyles({ pressed: this.pressed })
               .onClick(() => {
                 if (this.onTipClick) { this.onTipClick(tip); }
               })
@@ -98,6 +104,7 @@ export struct SearchInputContent {
               .margin({ right: 8, bottom: 8 })
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .stateStyles({ pressed: this.pressed })
               .onClick(() => {
                 if (this.onHistoryClick) { this.onHistoryClick(word); }
               })
@@ -146,6 +153,7 @@ export struct SearchInputContent {
               bottom: 12,
             })
             .border({ width: { bottom: 0.33 }, color: DesignTokens.hairlineSeparator(this.theme) })
+            .stateStyles({ pressed: this.pressed })
             .onClick(() => {
               if (this.onHotClick) { this.onHotClick(item.title); }
             })
