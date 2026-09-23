@@ -127,7 +127,11 @@ assert_log "应用启动（AppBootstrap/PlayerService 初始化）" "com\.lxmusi
 assert_no_crash "启动无崩溃"
 
 log "== 2. 歌单列表与换源 =="
-# 冷启动可能落在「正在播放」页（跟随设置里的启动页面），先确保回到歌单页
+# 冷启动可能落在「正在播放」页（跟随设置里的启动页面），也可能被其它应用抢了前台，
+# 先回到主界面再操作
+hdc_do shell "aa start -a ${ABILITY} -b ${BUNDLE}" >/dev/null 2>&1
+sleep 2
+for _ in 1 2; do key Back; sleep 2; done
 if tap_until_ui_text 170 2690 "搜索音乐"; then
   ok "回到歌单页（搜索条可见）"
 else
@@ -165,6 +169,8 @@ key Back
 sleep 2
 
 log "== 6. 设置与全局面板 =="
+hdc_do shell "aa start -a ${ABILITY} -b ${BUNDLE}" >/dev/null 2>&1
+sleep 2
 key Back
 sleep 2
 if tap_until_ui_text 1100 2690 "设置"; then
