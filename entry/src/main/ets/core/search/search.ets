@@ -35,10 +35,6 @@ interface SearchMusicParams {
   limit: number | null;
 }
 
-// 设置搜索类型
-export function setSearchType(type: 'music' | 'songlist'): void {
-  searchState.type = type;
-}
 
 // 设置搜索文本
 export function setSearchText(text: string): void {
@@ -462,16 +458,3 @@ async function getSourceTips(
   return tips ?? [];
 }
 
-// 清除搜索结果
-export function clearSearchResult(): void {
-  // 清除音乐搜索结果
-  const sources: Source[] = ['kw', 'kg', 'tx', 'wy', 'mg', 'all'];
-  for (const source of sources) {
-    musicSearchAction.clearListInfo(source);
-  }
-
-  // 清除歌单搜索结果
-  songlistSearchState.list = [];
-  songlistSearchState.page = 1;
-  songlistSearchState.hasMore = true;
-}

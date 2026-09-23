@@ -90,12 +90,6 @@ function canonicalBoardRowId(source: string, item: LeaderboardItem): string {
   return `${source}__${item.bangid}`;
 }
 
-// 设置排行榜详情信息
-export function setListDetailInfo(id: string): void {
-  clearListDetail();
-  const source = parseBoardSource(id);
-  leaderboardState.activeSource = source as BoardSource;
-}
 
 export function setListDetail(result: ListDetailInfo, id: string, page: number): void {
   leaderboardState.musicList = result.list;
@@ -103,11 +97,6 @@ export function setListDetail(result: ListDetailInfo, id: string, page: number):
   leaderboardState.hasMore = result.list.length >= result.limit;
 }
 
-export function clearListDetail(): void {
-  leaderboardState.musicList = [];
-  leaderboardState.page = 1;
-  leaderboardState.hasMore = true;
-}
 
 // 设置排行榜
 function setBoard(board: Board, source: BoardSource): void {
