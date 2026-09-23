@@ -9,9 +9,6 @@ import { appActionMenu } from '../../service/DialogService';
 
 /** 倍速选项（0.5x - 2.0x） */
 const SPEED_RATES: string[] = ['0.5', '0.75', '1.0', '1.25', '1.5', '2.0'];
-/** 歌词偏移档位（秒） */
-const LYRIC_OFFSETS: number[] = [-2, -1, -0.5, 0, 0.5, 1, 2];
-
 export type LyricDisplayAction = 'translation' | 'roma' | 'fontSize' | 'align' | 'progress';
 export type DislikeLevel = 'song' | 'singer' | 'name';
 
@@ -28,21 +25,6 @@ export async function showSpeedMenu(current: number): Promise<number | null> {
     return null;
   }
   return parseFloat(SPEED_RATES[picked]);
-}
-
-/** 歌词偏移：返回选中的秒数（取消返回 null） */
-export async function showLyricOffsetMenu(current: number): Promise<number | null> {
-  const items: string[] = [];
-  for (let i = 0; i < LYRIC_OFFSETS.length; i++) {
-    const value = LYRIC_OFFSETS[i];
-    const mark = Math.abs(value - current) < 0.01 ? '  ✓' : '';
-    items.push(`${value > 0 ? '+' : ''}${value}s${mark}`);
-  }
-  const picked = await appActionMenu(t('lyric_offset'), items);
-  if (picked < 0) {
-    return null;
-  }
-  return LYRIC_OFFSETS[picked];
 }
 
 /** 歌词显示设置：返回要切换的项（取消返回 null） */

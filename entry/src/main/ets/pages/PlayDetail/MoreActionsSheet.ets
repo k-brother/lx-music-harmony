@@ -1,9 +1,13 @@
 /**
  * 播放页「更多操作」面板
  *
- * 页面把动作列表（图标 + 文案 + key）传进来，组件只负责呈现与回调：
+ * 页面把动作分组（图标 + 文案 + key）传进来，组件只负责呈现与回调：
  * 这样「动作有哪些、文案怎么变」留在页面（它知道播放状态），
  * 「面板长什么样、怎么收起」收敛在这里。
+ *
+ * 为什么要分组：这一栏有 14 个动作，平铺时要一个个找；
+ * 按「歌曲 / 播放 / 歌词 / 保存」分组后与华为音乐、Apple Music 的「⋯」菜单一致，
+ * 用户知道去哪一类里找（分组标题用小号次级色，不抢主文案）。
  */
 import { DesignTokens } from '../../theme/DesignTokens';
 import { BottomSheet } from '../../components/ui/BottomSheet';
@@ -15,12 +19,18 @@ export interface PlayActionRow {
   label: string;
 }
 
+/** 一个分组（标题 + 动作） */
+export interface PlayActionSection {
+  title: string;
+  rows: PlayActionRow[];
+}
+
 @Component
 export struct MoreActionsSheet {
   @StorageProp('theme') theme: string = 'light';
   @Link visible: boolean;
   @Prop title: string = '';
-  @Prop rows: PlayActionRow[] = [];
+  @Prop sections: PlayActionSection[] = [];
   onPick?: (key: string) => void;
 
   @Builder
@@ -54,12 +64,24 @@ export struct MoreActionsSheet {
   }
 
   @Builder
+  SectionHeader(title: string) {
+    Text(title)
+      .fontSize(DesignTokens.fontCaption())
+      .fontColor(DesignTokens.labelTertiary(this.theme))
+      .width('100%')
+      .padding({ left: 2, top: 14, bottom: 6 })
+  }
+
+  @Builder
   Content() {
     Scroll() {
       Column() {
-        ForEach(this.rows, (action: PlayActionRow) => {
-          this.Row(action)
-        }, (action: PlayActionRow) => action.key)
+        ForEach(this.sections, (section: PlayActionSection) => {
+          this.SectionHeader(section.title)
+          ForEach(section.rows, (action: PlayActionRow) => {
+            this.Row(action)
+          }, (action: PlayActionRow) => action.key)
+        }, (section: PlayActionSection) => section.title)
       }
       .width('100%')
       .layoutWeight(1)

@@ -676,6 +676,7 @@ python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 ./scripts/device_smoke.sh          # 主链路：换源 → 详情 → 播放/歌词 → 队列 → 设置
 ./scripts/device_settings_check.sh # 设置页专项：选完即时刷新 + 下载文件名落库
 ./scripts/device_download_check.sh # 下载页专项：筛选计数 → 多选 → 全选 → 批量删除确认
+./scripts/device_player_check.sh   # 播放页专项：「更多」面板分组 + 12 项动作逐个点开
 ```
 
 它会装包、冷启动，然后按顺序跑「换源重载 → 歌单详情出歌 → 播放页歌词链路 →
@@ -702,6 +703,8 @@ python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 | 底部「清空已完成」按钮只有「已完成」四个字 | 复用了 `download_completed` 词条当按钮文案 | 新增 `download_clear_completed` 并配垃圾桶图标，看得出是操作 |
 | 下载页每秒整列表重绘 | 1s 轮询里无脑 `this.tasks = 新数组` | 用 `downloadTasksSignature` 指纹比对，进度没变不重建；进度按 5% 分桶做 ForEach key |
 | 切换筛选后仍保留看不见的选中项 | 选中集合只在退出多选时清空 | 切筛选/任务被删后自动收敛选中集合（`pruneSelection`） |
+| 播放页「更多」14 项平铺，找功能靠扫 | 缺少分组，长面板没有信息层级 | 按「歌曲 / 播放 / 歌词 / 保存」分组（`PlayActionSection`），与华为音乐「⋯」菜单一致 |
+| 歌词偏移要点两次才能选到 ±0.5s | 7 档动作菜单被 `appActionMenu`「超 5 项折叠」吃掉常用档位 | 换成 `LyricOffsetSheet` 滑杆（±3s、0.1s 步进、拖动即时生效、一键重置），真机实测拖动后落库 `lyricOffset=1.5` |
 | 设置里选完选项，右侧「当前值」不变 | 设置分组 `ForEach` 的 key 只带 `title+index`，行被复用不重建 | key 加入 `type/value`，选完即刷新（真机复验：选「原名」立刻变） |
 | 改「下载文件名」后下载仍按旧格式命名 | `settingsService.get()` 返回的是 `copyOf()` 手工逐字段快照，新字段漏拷 → 运行时拿到默认值 | 补 `copyOf` 字段，并加 `scripts/check_settings_copy.py` 把「加设置漏拷贝」变成可自动拦截的规则 |
 

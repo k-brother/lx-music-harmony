@@ -27,14 +27,14 @@ import { formatPlayTime } from '../utils/CommonUtils';
 import { mediaSaveService, type SaveResult } from '../service/MediaSaveService';
 import { dislikeList } from '../core/dislike/DislikeList';
 import { AlbumCover } from './PlayDetail/AlbumCover';
-import { MoreActionsSheet, type PlayActionRow } from './PlayDetail/MoreActionsSheet';
+import { MoreActionsSheet, type PlayActionSection } from './PlayDetail/MoreActionsSheet';
 import { VolumeSheet } from './PlayDetail/VolumeSheet';
+import { LyricOffsetSheet } from './PlayDetail/LyricOffsetSheet';
 import { QueueSheet } from './PlayDetail/QueueSheet';
 import { SourceSwitchSheet } from './PlayDetail/SourceSwitchSheet';
 import { SegmentedBar } from '../components/ui/SegmentedBar';
 import {
   showSpeedMenu,
-  showLyricOffsetMenu,
   showLyricDisplayMenu,
   showDislikeMenu,
   speedToast,
@@ -104,6 +104,8 @@ export struct PlayDetailPage {
   /** 音量面板 */
   @State showVolumeSheet: boolean = false;
   @State volumeDraft: number = 60;
+  @State showLyricOffsetSheet: boolean = false;
+  @State lyricOffsetDraft: number = 0;
   private lastVolumeBeforeMute: number = 0;
   /** 播放队列面板 */
   @State showQueueSheet: boolean = false;
@@ -641,34 +643,60 @@ export struct PlayDetailPage {
    * 「更多操作」的动作列表
    * 文案随状态变化（歌词页/封面页、桌面歌词开关、定时等待态），所以由页面构造后交给面板渲染。
    */
-  private actionRows(): PlayActionRow[] {
+  /**
+   * 「更多」面板的动作分组
+   *
+   * 14 个动作平铺时用户要逐行找，这里按用途分成四组（与主流播放器的「⋯」菜单一致）：
+   * 歌曲信息与来源 / 播放相关 / 歌词相关 / 保存与分享。
+   */
+  private actionSections(): PlayActionSection[] {
     return [
-      { key: 'addToList', icon: $r('app.media.ic_pd_playlist'), label: t('player_add_to_list') },
-      { key: 'comment', icon: $r('app.media.ic_pd_comment'), label: t('player_comment') },
       {
-        key: 'switchTab',
-        icon: $r('app.media.ic_pd_lyric'),
-        label: this.currentTab === 0 ? t('switch_to_lyric') : t('switch_to_cover'),
+        title: t('player_action_group_song'),
+        rows: [
+          { key: 'addToList', icon: $r('app.media.ic_pd_playlist'), label: t('player_add_to_list') },
+          { key: 'comment', icon: $r('app.media.ic_pd_comment'), label: t('player_comment') },
+          { key: 'dislike', icon: $r('app.media.ic_pd_comment'), label: t('dislike_title') },
+          { key: 'switchSource', icon: $r('app.media.ic_pd_loop'), label: t('switch_source') },
+        ],
       },
       {
-        key: 'desktopLyric',
-        icon: $r('app.media.ic_pd_lyric'),
-        label: this.showDesktopLyric ? t('close_desktop_lyric') : t('open_desktop_lyric'),
+        title: t('player_action_group_play'),
+        rows: [
+          { key: 'speed', icon: $r('app.media.ic_pd_timer'), label: t('play_speed') },
+          { key: 'volume', icon: $r('app.media.ic_pd_timer'), label: t('settings_volume') },
+          {
+            key: 'sleepTimer',
+            icon: $r('app.media.ic_pd_timer'),
+            label: this.sleepWaitingTrackEnd ? t('sleep_cancel_wait') : t('sleep_timer_setting'),
+          },
+          { key: 'queue', icon: $r('app.media.ic_pd_playlist'), label: t('play_queue') },
+        ],
       },
       {
-        key: 'sleepTimer',
-        icon: $r('app.media.ic_pd_timer'),
-        label: this.sleepWaitingTrackEnd ? t('sleep_cancel_wait') : t('sleep_timer_setting'),
+        title: t('player_action_group_lyric'),
+        rows: [
+          {
+            key: 'switchTab',
+            icon: $r('app.media.ic_pd_lyric'),
+            label: this.currentTab === 0 ? t('switch_to_lyric') : t('switch_to_cover'),
+          },
+          { key: 'lyricOffset', icon: $r('app.media.ic_pd_lyric'), label: t('lyric_offset') },
+          { key: 'lyricDisplay', icon: $r('app.media.ic_pd_lyric'), label: t('lyric_display') },
+          {
+            key: 'desktopLyric',
+            icon: $r('app.media.ic_pd_lyric'),
+            label: this.showDesktopLyric ? t('close_desktop_lyric') : t('open_desktop_lyric'),
+          },
+        ],
       },
-      { key: 'saveLyric', icon: $r('app.media.ic_pd_lyric'), label: t('media_save_lyric') },
-      { key: 'saveCover', icon: $r('app.media.ic_pd_comment'), label: t('media_save_cover') },
-      { key: 'speed', icon: $r('app.media.ic_pd_timer'), label: t('play_speed') },
-      { key: 'lyricOffset', icon: $r('app.media.ic_pd_lyric'), label: t('lyric_offset') },
-      { key: 'dislike', icon: $r('app.media.ic_pd_comment'), label: t('dislike_title') },
-      { key: 'lyricDisplay', icon: $r('app.media.ic_pd_lyric'), label: t('lyric_display') },
-      { key: 'switchSource', icon: $r('app.media.ic_pd_loop'), label: t('switch_source') },
-      { key: 'volume', icon: $r('app.media.ic_pd_timer'), label: t('settings_volume') },
-      { key: 'queue', icon: $r('app.media.ic_pd_playlist'), label: t('play_queue') },
+      {
+        title: t('player_action_group_save'),
+        rows: [
+          { key: 'saveLyric', icon: $r('app.media.ic_pd_lyric'), label: t('media_save_lyric') },
+          { key: 'saveCover', icon: $r('app.media.ic_pd_comment'), label: t('media_save_cover') },
+        ],
+      },
     ];
   }
 
@@ -701,7 +729,7 @@ export struct PlayDetailPage {
     } else if (key === 'speed') {
       void this.pickSpeed();
     } else if (key === 'lyricOffset') {
-      void this.pickLyricOffset();
+      this.openLyricOffsetSheet();
     } else if (key === 'dislike') {
       void this.pickDislike();
     } else if (key === 'lyricDisplay') {
@@ -732,14 +760,16 @@ export struct PlayDetailPage {
     }
   }
 
-  /** 歌词偏移选择 */
-  private async pickLyricOffset(): Promise<void> {
-    const offset = await showLyricOffsetMenu(settingsService.get().lyricOffset);
-    if (offset === null) {
-      return;
-    }
-    await settingsService.update({ lyricOffset: offset });
-    this.showToast(`${t('lyric_offset')}: ${offset > 0 ? '+' : ''}${offset}s`);
+  /** 歌词偏移：打开滑杆面板（拖动即时生效，替代原来 7 档、会被折叠的动作菜单） */
+  private openLyricOffsetSheet(): void {
+    this.lyricOffsetDraft = settingsService.get().lyricOffset;
+    this.showLyricOffsetSheet = true;
+  }
+
+  /** 面板拖动回调：写设置 + 刷新草稿（歌词下一帧即按新偏移定位） */
+  private applyLyricOffset(value: number): void {
+    this.lyricOffsetDraft = value;
+    void settingsService.update({ lyricOffset: value });
   }
 
   /** 歌词显示设置（翻译 / 罗马音 / 字号 / 对齐 / 进度） */
@@ -1060,7 +1090,7 @@ export struct PlayDetailPage {
           visible: $showMoreActionsDialog,
           // 标题用当前歌曲，用户才知道这些操作作用于哪首（此前误用了播放队列的文案）
           title: this.singer.length > 0 ? `${this.musicName} - ${this.singer}` : this.musicName,
-          rows: this.actionRows(),
+          sections: this.actionSections(),
           onPick: (key: string): void => {
             this.onActionPicked(key);
           },
@@ -1087,6 +1117,16 @@ export struct PlayDetailPage {
           },
           onToggleMute: (): void => {
             this.toggleMute();
+          },
+        })
+      }
+
+      if (this.showLyricOffsetSheet) {
+        LyricOffsetSheet({
+          visible: $showLyricOffsetSheet,
+          offsetSeconds: this.lyricOffsetDraft,
+          onOffsetChange: (value: number): void => {
+            this.applyLyricOffset(value);
           },
         })
       }

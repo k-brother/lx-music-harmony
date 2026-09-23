@@ -100,6 +100,8 @@ function buildZhCN(): Map<string, string> {
   m.set('play_speed', '播放速度');
   m.set('play_speed_set', '已切换为 {0}');
   m.set('lyric_offset', '歌词偏移');
+  m.set('lyric_offset_hint', '正值=歌词提前，负值=歌词延后；拖动即时生效');
+  m.set('reset', '重置');
   m.set('toast_restore_running', '正在读取备份…');
   m.set('my_love', '我喜欢');
   m.set('my_history', '播放历史');
@@ -128,6 +130,10 @@ function buildZhCN(): Map<string, string> {
   m.set('download_clear_completed', '清空已完成');
   m.set('download_select_hint', '点击任务可多选');
   m.set('download_selected_count', '已选 {0} 项');
+  m.set('player_action_group_song', '歌曲');
+  m.set('player_action_group_play', '播放');
+  m.set('player_action_group_lyric', '歌词');
+  m.set('player_action_group_save', '保存');
   m.set('multiselect', '多选');
   m.set('confirm_delete_download', '确定删除 {0} 个下载任务吗？');
   m.set('toast_download_deleted', '已删除 {0} 个任务');
@@ -740,6 +746,8 @@ function buildEnUS(): Map<string, string> {
   m.set('play_speed', 'Playback Speed');
   m.set('play_speed_set', 'Switched to {0}');
   m.set('lyric_offset', 'Lyric Offset');
+  m.set('lyric_offset_hint', 'Positive = lyrics earlier, negative = later; drag to apply instantly');
+  m.set('reset', 'Reset');
   m.set('toast_restore_running', 'Reading backup…');
   m.set('my_love', 'Favorites');
   m.set('my_history', 'Play History');
@@ -768,6 +776,10 @@ function buildEnUS(): Map<string, string> {
   m.set('download_clear_completed', 'Clear finished');
   m.set('download_select_hint', 'Tap a task to select');
   m.set('download_selected_count', '{0} selected');
+  m.set('player_action_group_song', 'Song');
+  m.set('player_action_group_play', 'Playback');
+  m.set('player_action_group_lyric', 'Lyrics');
+  m.set('player_action_group_save', 'Save');
   m.set('multiselect', 'Select');
   m.set('confirm_delete_download', 'Delete {0} download task(s)?');
   m.set('toast_download_deleted', 'Deleted {0} task(s)');
