@@ -35,10 +35,16 @@ export struct InputSheet {
     this.draft = this.value;
   }
 
+  /** 输入面板高度：标题 + 输入框 + 按钮，正好装下内容 */
+  private sheetHeightVp(): number {
+    return 232;
+  }
+
   build() {
     BottomSheet({
       visible: $visible,
       title: this.title,
+      sheetHeightVp: this.sheetHeightVp(),
       onDismiss: (): void => {
         this.cancel();
       },

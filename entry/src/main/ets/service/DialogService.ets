@@ -17,12 +17,27 @@
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { t } from './LocalizationService';
 import { getAppUiContext } from './UiContext';
+import { DesignTokens } from '../theme/DesignTokens';
 import { hapticService } from './HapticService';
 import { sheetService, type SheetRow } from './SheetService';
 import { menuIconFor } from '../utils/MenuIcons';
 
 const DOMAIN = 0x0005;
 const TAG = 'DialogService';
+
+/** showDialog 回调里的下标结果 */
+interface PromptActionResult {
+  index: number;
+}
+
+/** 系统对话框需要的主题名（只用于取颜色） */
+function currentThemeName(): string {
+  try {
+    return AppStorage.get<string>('theme') ?? 'light';
+  } catch (err) {
+    return 'light';
+  }
+}
 /** 确认框选项 */
 export interface ConfirmOptions {
   confirmText?: string;
@@ -84,6 +99,41 @@ export async function appAlert(title: string, message: string, options?: Confirm
   // 内容同时已经进日志仓库，便于「运行日志」排查。
   await sheetService.confirm(title, message, rows);
   hilog.info(DOMAIN, TAG, 'appAlert: %{public}s - %{public}s', title, message);
+}
+
+/**
+ * 系统居中确认框（给「不适合底部面板」的场景用）。
+ *
+ * 退出应用这类「系统级、与页面内容无关」的确认，用系统弹窗更符合预期
+ * （底部面板看起来像页面内的操作菜单）；其余业务确认仍走面板，
+ * 保持「每行左图标 + 右文案」的统一观感。
+ */
+export async function appConfirmSystem(
+  title: string, message: string, options?: ConfirmOptions
+): Promise<boolean> {
+  const uiContext = getAppUiContext();
+  if (!uiContext) {
+    hilog.warn(DOMAIN, TAG, 'appConfirmSystem skipped: no UIContext');
+    return false;
+  }
+  const confirmColor: string = options?.danger === true ? DesignTokens.danger() : DesignTokens.accent();
+  return new Promise<boolean>((resolve: (value: boolean) => void) => {
+    try {
+      uiContext.getPromptAction().showDialog({
+        title,
+        message,
+        buttons: [
+          { text: options?.cancelText ?? t('cancel'), color: DesignTokens.labelSecondary(currentThemeName()) },
+          { text: options?.confirmText ?? t('confirm'), color: confirmColor },
+        ],
+      }, (err: object, data: PromptActionResult) => {
+        resolve(!err && data.index === 1);
+      });
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'appConfirmSystem failed: %{public}s', JSON.stringify(err));
+      resolve(false);
+    }
+  });
 }
 
 /**

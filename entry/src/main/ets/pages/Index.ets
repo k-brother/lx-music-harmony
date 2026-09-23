@@ -1,6 +1,6 @@
 // Index 页面 - 应用入口页面，使用 Navigation 组件
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { appConfirm } from '../service/DialogService';
+import { appConfirmSystem } from '../service/DialogService';
 import type { BusinessError } from '@kit.BasicServicesKit';
 import type { common } from '@kit.AbilityKit';
 import { NavIndex } from './NavIndex';
@@ -37,7 +37,7 @@ struct Index {
     }
     this.exitDialogShowing = true;
     // 统一走 DialogService 的危险确认；确认后退出应用（颜色不再硬编码）
-    appConfirm(t('confirm_exit'), t('confirm_exit_msg'),
+    appConfirmSystem(t('confirm_exit'), t('confirm_exit_msg'),
       { danger: true, confirmText: t('confirm') }).then((confirmed: boolean): void => {
       this.exitDialogShowing = false;
       if (!confirmed) {

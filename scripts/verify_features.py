@@ -218,11 +218,20 @@ CHECKS = [
  # 动作菜单/确认框统一走底部面板 MenuSheet：每行左图标 + 右文案，取消行只有一处
  ('动作菜单用面板渲染（每行左图标+右文案）', 'components/ui/MenuSheet.ets',
   r'SymbolGlyph\(row\.icon\)|SheetRow'),
+ # 面板高度必须按行数算：内容列写死 height('100%') 会把面板顶成整屏（选项少时下方全白）
+ ('面板高度按行数自适应', 'components/ui/MenuSheet.ets', r'sheetHeightVp\(',
+  r"height..100%.."),
+ ('BottomSheet 支持明确高度', 'components/ui/BottomSheet.ets', r'sheetHeightVp'),
+ ('选择面板高度按选项数自适应', 'components/ui/SelectSheet.ets', r'sheetHeightVp'),
+ ('输入面板高度按内容自适应', 'components/ui/InputSheet.ets', r'sheetHeightVp'),
+ ('退出确认用系统对话框', 'service/DialogService.ets', r'appConfirmSystem'),
  ('菜单图标按关键字映射到系统符号', 'utils/MenuIcons.ets', r'export function menuIconFor'),
  ('动作菜单不再受系统 6 项限制', 'service/DialogService.ets', r'sheetService\.menu\(',
   r'MENU_VISIBLE_WHEN_OVERFLOW'),
- ('确认框也用同一套面板（不再居中弹窗）', 'service/DialogService.ets', r'sheetService\.confirm\(',
-  r'showDialog\('),
+ # 业务确认（删除/清空等）走面板；只有「退出应用」这类系统级确认才用系统对话框
+ ('业务确认走面板（不再用系统动作菜单）', 'service/DialogService.ets', r'sheetService\.confirm\(',
+  r'showActionMenu\('),
+ ('退出确认用系统对话框（不适合面板的场景）', 'service/DialogService.ets', r'appConfirmSystem'),
  ('未捕获异常兜底（不闪退并记日志）', 'app/entryability/EntryAbility.ets', r'onUnhandledException'),
  ('更多操作面板标题用歌曲', 'pages/PlayDetailPage.ets', r'title: this\.singer\.length > 0'),
  # 真机踩坑（对照实验结论）：@Builder 的参数不会随状态刷新，但 Builder 内部读 this.* 会刷新。
@@ -275,7 +284,7 @@ CHECKS = [
   r'getPromptAction\(\)\.showDialog'),
  ('自定义源删除走统一确认', 'pages/Home/CustomSourceView.ets', r'appConfirm\(',
   r'getPromptAction\(\)\.showDialog'),
- ('退出确认走统一确认', 'pages/Index.ets', r'appConfirm\(',
+ ('退出确认走统一入口', 'pages/Index.ets', r'appConfirmSystem\(',
   r"color: '#8E8E93'"),
  ('歌单详情确认走统一确认', 'pages/SonglistDetailPage.ets', r'appConfirm\(title, message\)',
   r'getPromptAction\(\)\.showDialog'),

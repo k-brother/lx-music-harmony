@@ -37,12 +37,14 @@ export struct BottomSheet {
   @BuilderParam trailing?: () => void;
   /** 展开高度档位：medium（半屏，默认）/ large（接近全屏） */
   @Prop sheetSize: string = 'medium';
+  /** 明确高度（vp）：>0 时优先于档位，用于「按内容行数自适应」的面板 */
+  @Prop sheetHeightVp: number = 0;
   /** 被关闭（点遮罩/下拉）时的回调，用于区分「取消」与「完成」 */
   onDismiss?: () => void;
 
   @Builder
   SheetContent() {
-    Column() {
+      Column() {
       if (this.title.length > 0 || this.trailing) {
         // 标题保持居中：右侧动作叠在标题栏上，而不是把标题挤到一边
         Stack({ alignContent: Alignment.End }) {
@@ -61,10 +63,12 @@ export struct BottomSheet {
       }
 
       this.content()
-    }
-    .width('100%')
-    .height('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 16 })
+      }
+      .width('100%')
+      // 内容高度：自适应面板（按行数算出高度）不能写死 100%，
+      // 否则会把面板顶到最大高度，选项少时下面留一大片空白
+      .height(this.sheetHeightVp > 0 ? this.sheetHeightVp : '100%')
+      .padding({ left: 16, right: 16, top: 4, bottom: 16 })
   }
 
   build() {
@@ -75,10 +79,10 @@ export struct BottomSheet {
       .height(1)
       .opacity(0)
       .bindSheet($$this.visible, this.SheetContent(), {
-        // fit = 高度跟随内容（动作菜单用，避免选项少时下面空白一片）
-        height: this.sheetSize === 'large'
-          ? SheetSize.LARGE
-          : (this.sheetSize === 'fit' ? SheetSize.FIT_CONTENT : SheetSize.MEDIUM),
+        // 传了明确高度就用它（动作菜单按行数算），否则用档位
+        height: this.sheetHeightVp > 0
+          ? this.sheetHeightVp
+          : (this.sheetSize === 'large' ? SheetSize.LARGE : SheetSize.MEDIUM),
         dragBar: true,
         showClose: false,
         backgroundColor: DesignTokens.card(this.theme),

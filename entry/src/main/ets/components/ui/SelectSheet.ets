@@ -21,6 +21,24 @@ export struct SelectSheet {
   /** 关闭（点遮罩/取消）：调用方据此按「未修改」处理 */
   onCancel?: () => void;
 
+  /** 一屏最多展示多少行（更多则在面板内滚动） */
+  private static readonly MAX_VISIBLE_ROWS: number = 8;
+
+  /** 行区高度 */
+  private listHeight(): number {
+    const visible: number = Math.min(this.options.length, SelectSheet.MAX_VISIBLE_ROWS);
+    return visible * DesignTokens.touchTarget();
+  }
+
+  /**
+   * 面板高度 = 标题行 + 行区 + 上下留白。
+   * 不写死高度：选项只有 2-4 个时（音质/主题/下载文件名格式…）下面不该留一大片空白。
+   */
+  private sheetHeightVp(): number {
+    const titleHeight: number = this.title.length > 0 ? 40 : 8;
+    return titleHeight + this.listHeight() + 34;
+  }
+
   private cancel(): void {
     this.visible = dismissSheet(this.onCancel);
   }
@@ -29,6 +47,7 @@ export struct SelectSheet {
     BottomSheet({
       visible: $visible,
       title: this.title,
+      sheetHeightVp: this.sheetHeightVp(),
       onDismiss: (): void => {
         this.cancel();
       },
