@@ -53,7 +53,7 @@ export struct LogPage {
       return DesignTokens.danger();
     }
     if (level === 'WARN') {
-      return '#FF9500';
+      return DesignTokens.warning();
     }
     return DesignTokens.labelTertiary(this.theme);
   }
@@ -205,7 +205,7 @@ export struct LogPage {
         Text(this.levelShort(record.level))
           .fontSize(11)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#FFFFFF')
+          .fontColor(DesignTokens.onAccent())
           .width(18)
           .height(18)
           .textAlign(TextAlign.Center)

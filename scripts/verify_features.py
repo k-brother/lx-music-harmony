@@ -228,6 +228,9 @@ CHECKS = [
  # 自定义源行：启用角标属于会变的状态，不能走 @Builder 参数（实测 @Builder 参数不刷新）
  ('自定义源行按 index 读状态', 'pages/Home/CustomSourceView.ets', r'buildCustomSourceRow\(index: number\)'),
  ('自定义源行内容读组件状态', 'pages/Home/CustomSourceView.ets', r'this\.customSources\[index\]\.enabled'),
+ # 颜色 token 化：面板遮罩/日志状态色不再写死
+ ('面板遮罩走设计 token', 'components/ui/BottomSheet.ets', r'DesignTokens\.maskColor\(\)'),
+ ('日志状态色走设计 token', 'pages/LogPage.ets', r'DesignTokens\.(warning|success|info)\(\)'),
 ]
 
 fails = []

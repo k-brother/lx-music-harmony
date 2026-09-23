@@ -57,7 +57,7 @@ export struct BottomSheet {
         dragBar: true,
         showClose: false,
         backgroundColor: DesignTokens.card(this.theme),
-        maskColor: 'rgba(0, 0, 0, 0.42)',
+        maskColor: DesignTokens.maskColor(),
         onDisappear: (): void => {
           if (this.onDismiss) {
             this.onDismiss();

@@ -100,6 +100,11 @@ export class DesignTokens {
     return '#FF9500';
   }
 
+  /** 面板/弹窗背后的遮罩（系统 bindSheet 的 maskColor 也用它，保证观感一致） */
+  static maskColor(): string {
+    return 'rgba(0, 0, 0, 0.42)';
+  }
+
   /** 中性信息（已完成的历史条目） */
   static info(): string {
     return '#0A84FF';

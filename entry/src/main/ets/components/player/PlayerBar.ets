@@ -253,12 +253,12 @@ export struct PlayerBar {
             Image($r('app.media.ic_pd_pause'))
               .width(13)
               .height(13)
-              .fillColor('#FFFFFF')
+              .fillColor(DesignTokens.onAccent())
           } else {
             Image($r('app.media.ic_pd_play'))
               .width(13)
               .height(13)
-              .fillColor('#FFFFFF')
+              .fillColor(DesignTokens.onAccent())
               .margin({ left: 1 })
           }
         }

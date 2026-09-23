@@ -80,7 +80,7 @@ export struct InputSheet {
           .layoutWeight(1)
           .height(DesignTokens.touchTarget())
           .fontSize(16)
-          .fontColor('#FFFFFF')
+          .fontColor(DesignTokens.onAccent())
           .backgroundColor(DesignTokens.accent())
           .onClick(() => {
             // 必须先回调再关闭：bindSheet 关闭会触发 onDismiss（按「取消」处理），

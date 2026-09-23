@@ -609,7 +609,7 @@ export struct HomePage {
             TextInput({ placeholder: t('search_placeholder'), text: this.searchText })
               .layoutWeight(1)
               .height(DesignTokens.heightSearchField())
-              .backgroundColor('rgba(0,0,0,0)')
+              .backgroundColor(Color.Transparent)
               .fontSize(16)
               .fontColor(DesignTokens.labelPrimary(this.theme))
               .placeholderColor(DesignTokens.labelTertiary(this.theme))
