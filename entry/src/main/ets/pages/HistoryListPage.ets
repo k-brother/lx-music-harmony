@@ -159,7 +159,7 @@ export struct HistoryListPage {
       } else if (this.playHistory.length === 0) {
         StateView({
           state: 'empty',
-          iconRes: $r('sys.symbol.arrow_clockwise'),
+          iconRes: $r('sys.symbol.clock'),
           message: t('history_empty_hint'),
         })
           .layoutWeight(1)

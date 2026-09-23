@@ -279,7 +279,7 @@ export struct MylistView {
               },
             })
             if (this.playHistory.length === 0) {
-              StateView({ state: 'empty', iconRes: $r('sys.symbol.arrow_clockwise'), message: t('history_empty_hint') })
+              StateView({ state: 'empty', iconRes: $r('sys.symbol.clock'), message: t('history_empty_hint') })
                 .width('100%')
                 .height(140)
             } else {
