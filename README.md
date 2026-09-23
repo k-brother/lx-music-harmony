@@ -670,20 +670,35 @@ const size = await sheetService.input('字体大小', '14', { numberOnly: true }
 
 ## 本轮重构总览（结构 + 一致性）
 
-把「巨型文件 + 重复实现」两类问题一起收口。当前最大文件与职责：
+**拆分原则**：只搬代码不改行为；页面只留编排，动作/映射/守卫下沉到模块；
+同一件事只留一个实现出口。每一步都跑 `assembleApp` + `check.sh`（现在 182 项）。
+
+当前最大文件与职责（拆分后）：
 
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
-| `pages/SonglistDetailPage.ets` | ~1360 | 歌单详情编排（动作/批量/收藏已外置） |
-| `service/PlayerService.ets` | ~1360 | 播放编排（队列规则、系统播控、进度存储已外置） |
-| `pages/Home/LeaderboardView.ets` | ~1225 | 榜单编排 |
-| `pages/PlayDetailPage.ets` | ~1150 | 播放页编排（资源加载、控制条、单曲动作已外置） |
-| `pages/HomePage.ets` | ~1046 | 首页 Tab 编排 |
-| `service/SettingsService.ets` | ~407 | 设置读写入口（字段写入已外置到 SettingsWriters） |
+| `service/PlayerService.ets` | ~1366 | 播放编排（队列规则、系统播控、进度存储、歌词枢纽已外置） |
+| `pages/SonglistDetailPage.ets` | ~1296 | 歌单详情编排（加载/选择/滚动记忆；动作与映射已外置） |
+| `pages/Home/LeaderboardView.ets` | ~1149 | 榜单编排（筛选/预览加载/卡片） |
+| `pages/PlayDetailPage.ets` | ~1095 | 播放页编排（资源加载、控制条、顶栏、歌词面板、单曲动作已外置） |
+| `pages/HomePage.ets` | ~1046 | 首页 Tab 编排（搜索执行/源切换） |
+| `service/BackgroundRunningManager.ets` | ~748 | AVSession 与后台长时任务 |
+| `service/ListService.ets` | ~705 | 自建歌单 CRUD 与持久化 |
 
-已拆出的模块（按域，均有 README 段说明）：`core/music/{download,download/*,PluginResolve,MusicSearch,OtherSourceMatch}`、
-`service/{sync/*,player/*,backup/*,crypto/*,settings/*,localization/*}`、`pages/{PlayDetail/*,SonglistDetail/*,Download/*}`、
-`core/theme/{ThemeFactory,data/*}`、`utils/FormatTools`。
+已拆出的模块（按域）：
+
+- `core/music/`：`download/*`（队列/文件/持久化/类型）、`PluginResolve`、`MusicSearch`、`OtherSourceMatch`、`MusicTitle`
+- `service/player/`：`QueueRules`、`PlaybackEvents`、`PlaybackProgressStore`、`LyricHub`、`PlaybackSession`、`PlaybackTypes`
+- `service/sync/`：`SyncTypes`、`SyncCrypto`、`SyncHistoryStore`、`SyncDataMapper`、`SyncTransport`
+- `service/backup/`：`BackupTypes`、`BackupDataMapping`
+- `service/crypto/`：`AesPayload`
+- `service/settings/`：`SettingsTypes`、`SettingsStorage`、`SettingsWriters`
+- `service/localization/`：`ZhCN`、`EnUS`
+- `pages/PlayDetail/`：`PlayMediaAssets`、`PlayerControls`、`PlayDetailTopBar`、`LyricPane`、`PlaySongActions`、`QueueSheet`、`VolumeSheet`、`LyricOffsetSheet`、`SourceSwitchSheet`、`MoreActionsSheet`、`PlayDetailMenus`、`AlbumCover`
+- `pages/SonglistDetail/`：`SonglistActions`、`SonglistCollectActions`、`SonglistMapper`、`SonglistBatchBar`、`SonglistMenus`、`SonglistSortSheet`、`SonglistPlayback`、`SonglistListOps`、`SonglistScrollMemory`、`SonglistDetailHeader`
+- `pages/Home/SongList/`、`pages/Home/Leaderboard/`、`pages/BoardDetail/`、`pages/Download/`：列表行与卡片组件
+- `core/theme/`：`ThemeFactory`、`data/LightThemes`、`data/DarkThemes`
+- `utils/FormatTools`：字节 / 时长 / 播放量格式化
 
 统一出口（同一件事只有一份实现）：
 
@@ -696,6 +711,15 @@ const size = await sheetService.input('字体大小', '14', { numberOnly: true }
 | 系统播控 | `service/player/PlaybackSession` |
 | 主题数据 | `core/theme/{ThemeFactory,data/*}` |
 | i18n 词条 | `service/localization/{ZhCN,EnUS}` |
+| 歌曲标题/文件名 | `core/music/MusicTitle` |
+
+**ArkTS 实测规则（写进开发约定）**
+
+1. `@Builder` 的参数不会随状态刷新，但 Builder 内读 `this.*` 会刷新 →
+   会变的内容（播放模式、点赞态、启用角标、选中态）一律用 `@Component + @Prop`，
+   或在 Builder 内按 index 读组件状态；ForEach 的 key 要带上会变的字段。
+2. 系统符号只能用 `SymbolGlyph`（`Image($r('sys.symbol.*'))` 不渲染）。
+3. 禁 any/unknown、禁结构化类型（跨模块形参必须同一 interface）、禁对象字面量当类型。
 
 ### 自检脚本
 
