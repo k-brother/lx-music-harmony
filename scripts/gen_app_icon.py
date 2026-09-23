@@ -1,184 +1,256 @@
 #!/usr/bin/env python3
-"""LX Music 鸿蒙版 · 桌面图标生成器
+"""LX Music 鸿蒙版 · 桌面图标生成器（品牌标重绘版）
 
-产出 HarmonyOS 分层图标的两层（1024×1024）：
-  background.png  品牌绿斜向渐变 + 左上柔光 + 右下压深（系统负责切圆角/遮罩）
-  foreground.png  白色回音符（柔和投影），内容收在安全区内
+保留 LX Music 的品牌标（音符 + 下载箭头），只把工艺做细：
 
-设计要点：
-- 品牌色取自默认主题 green（c-primary = rgb(77,175,124)），深浅两端保证在浅色/深色桌面都立得住；
-- 造型用「回音符」而不是老版的「音符 + 下载箭头」：后者在 48px 下箭头糊成一团；
-- 只用一层柔和阴影表现层次，跟应用内 iOS 风格 token（圆润、克制、无重描边）一致。
+  background.png  深色底：斜向炭黑渐变 + 品牌绿柔光 + 顶部极淡高光
+                  （不用整块绿底：那样既不品牌也不耐看）
+  foreground.png  品牌标：音符浅绿、箭头深绿、柔和投影，高度占画布 56%（安全区内）
+
+品牌标路径直接取自 Android 端
+`android/app/src/main/res/drawable/ic_launcher_foreground.xml`，
+所以两端是同一个标，不存在「鸿蒙版另画一个」的口径漂移。
+
+依赖：仅 Pillow —— 文件里自带极简 SVG 路径采样器（M/C/c/L/H/V/Z + 贝塞尔细分），
+不依赖任何 SVG 渲染库，任何机器上重跑都能得到同一张图。
 
 用法：python3 scripts/gen_app_icon.py
 """
 import os
+import re
 from PIL import Image, ImageDraw, ImageFilter
 
-OUT = 1024        # 输出尺寸
-SS = 4            # 超采样倍数（先大后缩，得到干净边缘）
+OUT = 1024
+SS = 4
 S = OUT * SS
 
-WHITE = (255, 255, 255, 255)
-MARK_TOP = (255, 255, 255, 255)
-MARK_BOTTOM = (233, 248, 241, 255)
-# 音符宽度占画布比例（HarmonyOS 分层图标安全区约 60%，这里留一点余量）
-MARK_WIDTH_RATIO = 0.56
+# ---- 品牌色（与 Android 端 ic_launcher_foreground.xml 一致）----
+NOTE_TOP = (118, 226, 172)     # 音符顶部（更亮）
+NOTE_BOTTOM = (78, 196, 140)   # 音符底部
+ARROW_TOP = (88, 186, 138)     # 箭头顶部
+ARROW_BOTTOM = (64, 158, 114)  # 箭头底部
 
-# 底色渐变色标（斜向 45°）
-STOPS = [(0.0, (108, 220, 164)), (0.45, (63, 175, 124)), (1.0, (36, 132, 95))]
+BG_LIGHT = (52, 59, 68)        # 深色底（左上，留一点提亮，深色壁纸上不会糊成一片）
+BG_DARK = (9, 11, 14)          # 深色底（右下）
 
+MARK_HEIGHT_RATIO = 0.56       # 品牌标高度占画布比例（留出安全边距）
+MARK_BASELINE_SHIFT = -0.004   # 视觉重心微调（相对画布，正数下移）
 
-def mix(c1, c2, t):
-    return tuple(int(round(c1[i] + (c2[i] - c1[i]) * t)) for i in range(3))
+# 品牌标矢量路径（viewBox 447.94×447.94，与安卓端一致）
+VIEWBOX = 447.94
+LOGO_TRANSFORM = (0.48, 116.4644, 116.4644)  # scale, translateX, translateY
+NOTE_PATH = ("M203.81,0.48c-19.67,-3.35 -35.76,11.14 -35.76,31.09v206.17c-11.64,-4.27 "
+             "-24.17,-6.72 -37.28,-6.72c-59.9,0 -108.47,48.57 -108.47,108.47c0,59.9 48.56,108.46 "
+             "108.47,108.46c34.14,0 64.54,-15.82 84.41,-40.48l-49.66,-49.66c-15.12,-15.11 "
+             "-11.71,-28.9 -9.54,-34.14c2.17,-5.23 9.51,-17.4 30.88,-17.4h18.08v-56.88c0,-21.13 "
+             "14.62,-38.86 34.27,-43.74c0.03,-44.37 0.03,-81.81 0.03,-81.81c140.15,0 131.72,83.97 "
+             "115.32,132.2c-6.42,18.88 -2.6,22.05 10.89,7.35C536.47,77.11 298.38,16.57 203.81,0.48z")
+ARROW_PATH = ("M301.06,223.88h-50.99c-3.91,0 -7.57,0.95 -10.89,2.52c-8.62,4.09 -14.61,12.8 "
+              "-14.61,22.97v76.51h-37.71c-14.08,0 -17.43,8.07 -7.47,18.03l46.89,46.9l31.25,31.25c4.98,4.99 "
+              "11.51,7.47 18.03,7.47c6.52,0 13.05,-2.48 18.03,-7.47l78.15,-78.14c9.95,-9.96 6.61,-18.03 "
+              "-7.47,-18.03h-37.71v-76.51C326.57,235.29 315.15,223.88 301.06,223.88z")
 
-
-def sample(t):
-    for i in range(len(STOPS) - 1):
-        p0, c0 = STOPS[i]
-        p1, c1 = STOPS[i + 1]
-        if t <= p1 or i == len(STOPS) - 2:
-            local = 1.0 if p1 == p0 else (t - p0) / (p1 - p0)
-            return mix(c0, c1, min(max(local, 0.0), 1.0))
-    return STOPS[-1][1]
-
-
-def diagonal_gradient(size):
-    """真正 45° 斜向渐变（逐像素按 (x+y) 采样，无旋转裁切产生的硬三角）。"""
-    img = Image.new('RGB', (size, size))
-    px = img.load()
-    denom = 2.0 * (size - 1)
-    cache = {}
-    for y in range(size):
-        row_off = y
-        for x in range(size):
-            key = ((x + row_off) * 512) // int(denom)
-            c = cache.get(key)
-            if c is None:
-                c = sample(key / 512.0)
-                cache[key] = c
-            px[x, y] = c
-    return img
+NUM = re.compile(r'-?\d*\.?\d+(?:e-?\d+)?')
 
 
-def radial_mask(size, cx, cy, radius, alpha, power=1.6):
-    m = Image.new('L', (size, size), 0)
-    d = ImageDraw.Draw(m)
-    steps = int(radius / (size / 220)) + 1
-    for i in range(steps, 0, -1):
+def _tokens(path):
+    pos = 0
+    out = []
+    while pos < len(path):
+        ch = path[pos]
+        if ch.isalpha():
+            out.append(ch)
+            pos += 1
+            if pos < len(path) and path[pos].isalpha():
+                continue
+        else:
+            m = NUM.match(path, pos)
+            if not m:
+                pos += 1
+                continue
+            out.append(float(m.group()))
+            pos = m.end()
+    return out
+
+
+def _cubic(p0, p1, p2, p3, steps=24):
+    pts = []
+    for i in range(1, steps + 1):
         t = i / steps
-        r = radius * t
-        a = int(round(255 * alpha * (1 - t) ** power))
-        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=a)
-    return m.filter(ImageFilter.GaussianBlur(size * 0.03))
+        u = 1 - t
+        x = u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0]
+        y = u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1]
+        pts.append((x, y))
+    return pts
+
+
+def path_points(path, scale, dx, dy):
+    """极简 SVG 路径采样（够用即可）：M/m c v l h z（含多段参数）。"""
+    tk = _tokens(path)
+    i = 0
+    cx = cy = 0.0
+    sx = sy = 0.0
+    cmd = None
+    pts = []
+    while i < len(tk):
+        if isinstance(tk[i], str):
+            cmd = tk[i]
+            i += 1
+            if cmd in 'zZ':
+                pts.append((sx, sy))
+                cx, cy = sx, sy
+                continue
+        rel = cmd.islower()
+        c = cmd.upper()
+        if c == 'M':
+            x, y = tk[i], tk[i + 1]
+            i += 2
+            cx, cy = (cx + x, cy + y) if rel else (x, y)
+            sx, sy = cx, cy
+            pts.append((cx, cy))
+        elif c == 'C':
+            x1, y1, x2, y2, x3, y3 = tk[i:i + 6]
+            i += 6
+            if rel:
+                p1 = (cx + x1, cy + y1)
+                p2 = (cx + x2, cy + y2)
+                p3 = (cx + x3, cy + y3)
+            else:
+                p1, p2, p3 = (x1, y1), (x2, y2), (x3, y3)
+            pts.extend(_cubic((cx, cy), p1, p2, p3))
+            cx, cy = p3
+        elif c == 'L':
+            x, y = tk[i], tk[i + 1]
+            i += 2
+            cx, cy = (cx + x, cy + y) if rel else (x, y)
+            pts.append((cx, cy))
+        elif c == 'H':
+            x = tk[i]
+            i += 1
+            cx = cx + x if rel else x
+            pts.append((cx, cy))
+        elif c == 'V':
+            y = tk[i]
+            i += 1
+            cy = cy + y if rel else y
+            pts.append((cx, cy))
+        else:
+            i += 1
+    scale_all, tx, ty = LOGO_TRANSFORM
+    return [((x * scale_all + tx) * scale + dx, (y * scale_all + ty) * scale + dy) for x, y in pts]
+
+
+def path_mask(path, size, scale, dx, dy):
+    m = Image.new('L', (size, size), 0)
+    ImageDraw.Draw(m).polygon(path_points(path, scale, dx, dy), fill=255)
+    return m
+
+
+def gradient(size, top, bottom, box):
+    g = Image.new('L', (size, size))
+    px = g.load()
+    y0, y1 = box
+    for y in range(size):
+        t = 0.0 if y1 <= y0 else (y - y0) / (y1 - y0)
+        t = min(max(t, 0.0), 1.0)
+        px_row = int(round(255 * t))
+        for x in range(size):
+            px[x, y] = px_row
+    tinted = Image.new('RGB', (size, size))
+    tp = tinted.load()
+    for y in range(size):
+        t = px[0, y] / 255.0
+        c = tuple(int(round(top[i] + (bottom[i] - top[i]) * t)) for i in range(3))
+        for x in range(size):
+            tp[x, y] = c
+    return tinted
+
+
+def radial_shadow(size, mask, blur, dy, color, alpha):
+    sh = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    sh.paste(color + (alpha,), (0, 0), mask)
+    sh = sh.filter(ImageFilter.GaussianBlur(blur))
+    return sh.transform(sh.size, Image.AFFINE, (1, 0, 0, 0, 1, -dy))
 
 
 def make_background():
-    bg = diagonal_gradient(OUT).convert('RGBA')
+    from PIL import Image as I
+    bg = gradient(OUT, BG_LIGHT, BG_DARK, (0, OUT)).convert('RGBA')
+    glow = I.new('RGBA', (OUT, OUT), (0, 0, 0, 0))
+    m = I.new('L', (OUT, OUT), 0)
+    d = ImageDraw.Draw(m)
+    cx, cy, r = OUT * 0.52, OUT * 0.55, OUT * 0.62
+    steps = 90
+    for i in range(steps, 0, -1):
+        t = i / steps
+        d.ellipse([cx - r * t, cy - r * t, cx + r * t, cy + r * t],
+                  fill=int(60 * (1 - t) ** 1.7))
+    m = m.filter(ImageFilter.GaussianBlur(OUT * 0.05))
+    glow.putalpha(m)
+    glow = I.composite(I.new('RGBA', (OUT, OUT), (78, 210, 150, 255)),
+                       I.new('RGBA', (OUT, OUT), (0, 0, 0, 0)), m)
+    bg = I.alpha_composite(bg, glow)
 
-    glow = Image.new('RGBA', (OUT, OUT), (0, 0, 0, 0))
-    glow.putalpha(radial_mask(OUT, OUT * 0.22, OUT * 0.14, OUT * 0.92, 0.18))
-    bg = Image.alpha_composite(bg, Image.new('RGBA', (OUT, OUT), WHITE + (0,)) if False else
-                               Image.composite(Image.new('RGBA', (OUT, OUT), WHITE),
-                                               Image.new('RGBA', (OUT, OUT), (0, 0, 0, 0)),
-                                               glow.getchannel('A')))
-
-    shade = Image.new('RGBA', (OUT, OUT), (0, 0, 0, 0))
-    shade.putalpha(radial_mask(OUT, OUT * 0.92, OUT * 0.96, OUT * 0.96, 0.18))
-    bg = Image.alpha_composite(bg, Image.composite(Image.new('RGBA', (OUT, OUT), (7, 48, 32, 255)),
-                                                  Image.new('RGBA', (OUT, OUT), (0, 0, 0, 0)),
-                                                  shade.getchannel('A')))
+    # 顶部一层极淡的高光（玻璃感，深色壁纸上图标更有边界）
+    sheen = I.new('L', (OUT, OUT), 0)
+    sd = ImageDraw.Draw(sheen)
+    for y in range(int(OUT * 0.42)):
+        t = y / (OUT * 0.42)
+        sd.line([(0, y), (OUT, y)], fill=int(16 * (1 - t) ** 1.6))
+    sheen = sheen.filter(ImageFilter.GaussianBlur(OUT * 0.01))
+    bg = I.alpha_composite(bg, I.composite(I.new('RGBA', (OUT, OUT), (255, 255, 255, 255)),
+                                           I.new('RGBA', (OUT, OUT), (0, 0, 0, 0)), sheen))
     return bg.convert('RGB')
 
 
-def note_shape():
-    """白音符（双八分音符 + 符杠）剪影，画在 S×S 透明层上。"""
-    layer = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-    d = ImageDraw.Draw(layer)
-
-    stem_w = 118
-    left_x, right_x = 1338, 2432
-    stem_top_l, stem_top_r = 1230, 1120
-    head_cy = 2680            # 符头中心 y（符干到底端）
-    head_rx, head_ry = 232, 168
-
-    # 符杠：一条随符干高度倾斜的圆头带
-    beam_w = 152
-    p1 = (left_x + stem_w // 2, stem_top_l + 30)
-    p2 = (right_x + stem_w // 2, stem_top_r + 30)
-    d.line([p1, p2], fill=WHITE, width=beam_w)
-    d.ellipse([p1[0] - beam_w // 2, p1[1] - beam_w // 2, p1[0] + beam_w // 2, p1[1] + beam_w // 2], fill=WHITE)
-    d.ellipse([p2[0] - beam_w // 2, p2[1] - beam_w // 2, p2[0] + beam_w // 2, p2[1] + beam_w // 2], fill=WHITE)
-
-    # 两条符干
-    d.rounded_rectangle([left_x, stem_top_l, left_x + stem_w, head_cy], radius=stem_w // 2, fill=WHITE)
-    d.rounded_rectangle([right_x, stem_top_r, right_x + stem_w, head_cy], radius=stem_w // 2, fill=WHITE)
-
-    # 两个符头（倾斜椭圆，贴在符干左下/右侧端点）
-    for cx in (left_x + stem_w // 2, right_x + stem_w // 2):
-        w, h = head_rx * 2, head_ry * 2
-        pad = int(max(w, h) * 0.6)
-        tmp = Image.new('RGBA', (w + pad * 2, h + pad * 2), (0, 0, 0, 0))
-        ImageDraw.Draw(tmp).ellipse([pad, pad, pad + w, pad + h], fill=WHITE)
-        tmp = tmp.rotate(-18, resample=Image.BICUBIC, expand=False)
-        layer.alpha_composite(tmp, (cx - w // 2 - pad, head_cy - h // 2 - pad))
-
-    # 按实际包围盒居中（超采样坐标），再进行上色
-    bbox = layer.getchannel('A').getbbox()
-    if bbox:
-        cx = (bbox[0] + bbox[2]) / 2
-        cy = (bbox[1] + bbox[3]) / 2
-        layer = layer.transform(layer.size, Image.AFFINE,
-                                (1, 0, cx - S / 2, 0, 1, cy - S / 2), resample=Image.BICUBIC)
-
-    # 竖向微渐变（顶白 -> 底部略带冷绿），避免死白
-    grad = Image.new('RGBA', (S, S))
-    gp = grad.load()
-    for y in range(S):
-        t = y / (S - 1)
-        c = mix(MARK_TOP[:3], MARK_BOTTOM[:3], min(1.0, t * 1.15))
-        gp_row = c
-        for x in range(S):
-            gp[x, y] = gp_row + (255,)
-    layer = Image.composite(grad, Image.new('RGBA', (S, S), (0, 0, 0, 0)), layer.getchannel('A'))
-    return layer
-
-
 def make_foreground():
-    note = note_shape()
+    tmp_scale = S / VIEWBOX
+    dx0 = (S - VIEWBOX * tmp_scale) / 2
+    note = path_mask(NOTE_PATH, S, tmp_scale, dx0, dx0)
+    arrow = path_mask(ARROW_PATH, S, tmp_scale, dx0, dx0)
 
-    # 统一缩放：各平台对分层图标安全区的要求不同，按比例收口比逐像素调更稳
-    bbox = note.getchannel('A').getbbox()
-    if bbox:
-        scale = (S * MARK_WIDTH_RATIO) / (bbox[2] - bbox[0])
-        scaled = note.resize((int(S * scale), int(S * scale)), Image.LANCZOS)
-        canvas = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-        # 视觉重心略高于几何中心（音符带尾巴，纯居中会显沉）
-        canvas.alpha_composite(scaled, ((S - scaled.width) // 2,
-                                        (S - scaled.height) // 2 - int(S * 0.012)))
-        note = canvas
+    # 合并 → 缩放/居中到目标比例
+    mark = Image.new('L', (S, S), 0)
+    mark.paste(note, (0, 0), note)
+    mark.paste(arrow, (0, 0), arrow)
+    bb = mark.getbbox()
+    h = bb[3] - bb[1]
+    scale = (S * MARK_HEIGHT_RATIO) / h
+    resample = Image.LANCZOS
+    note = note.resize((int(S * scale), int(S * scale)), resample)
+    arrow = arrow.resize((int(S * scale), int(S * scale)), resample)
+    mark = mark.resize((int(S * scale), int(S * scale)), resample)
 
-    shadow = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-    shadow.paste((3, 40, 26, 92), (0, 0), note.getchannel('A'))
-    shadow = shadow.filter(ImageFilter.GaussianBlur(S * 0.010))
-    shadow = shadow.transform(shadow.size, Image.AFFINE, (1, 0, 0, 0, 1, -int(S * 0.010)))
+    canvas = Image.new('L', (S, S), 0)
+    ox = (S - mark.width) // 2
+    oy = (S - mark.height) // 2 + int(S * MARK_BASELINE_SHIFT)
+    canvas.paste(mark, (ox, oy))
+    note_c = Image.new('L', (S, S), 0)
+    note_c.paste(note, (ox, oy))
+    arrow_c = Image.new('L', (S, S), 0)
+    arrow_c.paste(arrow, (ox, oy))
+    mark, note, arrow = canvas, note_c, arrow_c
 
-    comp = Image.alpha_composite(shadow, note)
+    bb = mark.getbbox()
+    note_img = gradient(S, NOTE_TOP, NOTE_BOTTOM, (bb[1], bb[3])).convert('RGBA')
+    arrow_img = gradient(S, ARROW_TOP, ARROW_BOTTOM, (bb[1], bb[3])).convert('RGBA')
+
+    shadow = radial_shadow(S, mark, S * 0.014, int(S * 0.012), (0, 0, 0), 120)
+
+    comp = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    comp = Image.alpha_composite(comp, shadow)
+    comp.paste(note_img, (0, 0), note)
+    comp.paste(arrow_img, (0, 0), arrow)
     return comp.resize((OUT, OUT), Image.LANCZOS)
 
 
 def main():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    targets = [
-        os.path.join(root, 'AppScope/resources/base/media'),
-        os.path.join(root, 'entry/src/main/resources/base/media'),
-    ]
-    bg = make_background()
-    fg = make_foreground()
-    for t in targets:
-        os.makedirs(t, exist_ok=True)
-        bg.save(os.path.join(t, 'background.png'))
-        fg.save(os.path.join(t, 'foreground.png'))
+    for t in ('AppScope/resources/base/media', 'entry/src/main/resources/base/media'):
+        d = os.path.join(root, t)
+        os.makedirs(d, exist_ok=True)
+        make_background().save(os.path.join(d, 'background.png'))
+        make_foreground().save(os.path.join(d, 'foreground.png'))
         print('written', t)
 
 
