@@ -1,0 +1,32 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "LX Music for HarmonyOS entry module"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "LX Music main screen"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "LX Music"
+    },
+    {
+      "name": "internet_permission_reason",
+      "value": "Needed to fetch music data from online sources"
+    },
+    {
+      "name": "network_info_permission_reason",
+      "value": "Needed to check the current network status"
+    },
+    {
+      "name": "background_permission_reason",
+      "value": "Needed to keep music playing while the app is in the background"
+    },
+    {
+      "name": "vibrate_permission_reason",
+      "value": "Used for light haptic feedback when changing tracks or liking a song"
+    }
+  ]
+}

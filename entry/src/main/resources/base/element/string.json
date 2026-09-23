@@ -2,11 +2,11 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "module description"
+      "value": "洛雪音乐 · 鸿蒙版主模块"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "description"
+      "value": "洛雪音乐主界面"
     },
     {
       "name": "EntryAbility_label",

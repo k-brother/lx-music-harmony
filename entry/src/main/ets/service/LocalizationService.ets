@@ -2,6 +2,7 @@
 // 通过 AppStorage 驱动全局语言切换
 
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { i18n } from '@kit.LocalizationKit';
 import { settingsService } from './SettingsService';
 import type { PlayCountUnits } from '../utils/FormatTools';
 
@@ -33,7 +34,24 @@ export function setLanguage(lang: string): void {
   AppStorage.setOrCreate('language', lang);
   // 通过 langVersion 强制所有 @StorageProp('langVersion') 组件重渲染
   AppStorage.setOrCreate('langVersion', Date.now());
+  applyAppPreferredLanguage(lang);
   hilog.info(DOMAIN, TAG, 'Language set to: %{public}s, version=%{public}d', lang, Date.now());
+}
+
+/**
+ * 把应用内语言同步给系统资源框架。
+ *
+ * 应用内的文案走自己的词条表，但「应用名、权限申请理由、系统弹窗」这些由系统渲染的
+ * 字符串走资源限定词目录（resources/en_US/...）。不同步的话，用户在应用里切成英文，
+ * 系统弹窗仍然是中文。该设置按官方说明在应用冷启动后生效，所以启动时也要调一次。
+ */
+function applyAppPreferredLanguage(lang: string): void {
+  try {
+    i18n.System.setAppPreferredLanguage(lang);
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'setAppPreferredLanguage failed: %{public}s',
+      (err as Error)?.message ?? '');
+  }
 }
 
 // 获取翻译文本
@@ -170,5 +188,6 @@ export function initLocalization(): void {
   currentLang = lang;
   AppStorage.setOrCreate('language', lang);
   AppStorage.setOrCreate('langVersion', Date.now());
+  applyAppPreferredLanguage(lang);
   hilog.info(DOMAIN, TAG, 'initLocalization: applied %{public}s', lang);
 }
