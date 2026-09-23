@@ -80,8 +80,13 @@ CHECKS = [
  ('歌单详情去重走列表操作模块', 'pages/SonglistDetailPage.ets', r'dedupeRows\('),
  ('歌单详情队列走播放模块', 'pages/SonglistDetailPage.ets', r'buildQueue\('),
  ('歌单详情滚动记忆模块', 'pages/SonglistDetail/SonglistScrollMemory.ets', r'saveScrollOffset'),
- ('封面请求防风暴守卫', 'pages/PlayDetailPage.ets', r'coverAttemptKey'),
- ('歌词请求防风暴守卫', 'pages/PlayDetailPage.ets', r'lyricFailedKey'),
+ # 守卫逻辑搬到 PlayMediaAssets 后，判据指向加载器（页面只负责应用结果）
+ ('封面请求防风暴守卫', 'pages/PlayDetail/PlayMediaAssets.ets', r'coverAttemptKey'),
+ ('歌词请求防风暴守卫', 'pages/PlayDetail/PlayMediaAssets.ets', r'lyricFailedKey'),
+ ('封面歌词共用同一套守卫', 'pages/PlayDetail/PlayMediaAssets.ets', r'MAX_RETRY'),
+ ('封面 URL 规则单一出口', 'pages/PlayDetailPage.ets', r'PlayMediaAssets\.normalizeCoverUrl'),
+ # 进度条两端必须分别是「当前时间 / 总时长」：曾经误写成两端都显示 currentTime
+ ('播放页进度两侧为当前/总时长', 'pages/PlayDetailPage.ets', r'\? this\.previewTimeText\(\) : this\.totalTime'),
  # 下载域拆成 download/{Types,Context,Files,Storage,Queue} 后，判据指向对应分层文件
  ('下载不打断用户（默认不进选择器）', 'core/music/download/DownloadFiles.ets', r'downloadUseFilePicker'),
  ('下载任务用真实落盘路径', 'core/music/download/DownloadQueue.ets', r'task\.filePath = savedPath'),

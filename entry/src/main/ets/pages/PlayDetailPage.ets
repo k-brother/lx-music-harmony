@@ -27,6 +27,11 @@ import { formatPlayTime } from '../utils/CommonUtils';
 import { mediaSaveService, type SaveResult } from '../service/MediaSaveService';
 import { dislikeList } from '../core/dislike/DislikeList';
 import { AlbumCover } from './PlayDetail/AlbumCover';
+import {
+  PlayMediaAssets,
+  type CoverOutcome,
+  type LyricOutcome,
+} from './PlayDetail/PlayMediaAssets';
 import { MoreActionsSheet, type PlayActionSection } from './PlayDetail/MoreActionsSheet';
 import { VolumeSheet } from './PlayDetail/VolumeSheet';
 import { LyricOffsetSheet } from './PlayDetail/LyricOffsetSheet';
@@ -120,26 +125,17 @@ export struct PlayDetailPage {
   private alive: boolean = false;
   private pageSessionId: string = '';
   private lyricTimeline: LyricLine[] = [];
-  private lyricLoadSeq: number = 0;
-  private picLoadSeq: number = 0;
-  private coverRetryTimer: number = -1;
-  private lyricRetryTimer: number = -1;
-  private coverRetryCount: number = 0;
-  /** 封面请求进行中：避免同一时刻并发多次（onMusicInfoChange 可能高频触发） */
-  private coverLoading: boolean = false;
-  /** 已经尝试过且未成功的歌曲 key：避免逐帧重复请求封面（真机出现过请求风暴） */
-  private coverAttemptKey: string = '';
-  private lyricRetryCount: number = 0;
-  private lyricSongKey: string = '';
-  /** 歌词请求进行中 / 已尝试失败的歌曲 key（同封面：防止高频回调引发请求风暴） */
-  private lyricLoading: boolean = false;
-  private lyricFailedKey: string = '';
+  /** 封面/歌词加载器：守卫、序号、重试都在里面（见 PlayDetail/PlayMediaAssets） */
+  private assets: PlayMediaAssets = new PlayMediaAssets();
+  /** 本首歌是否已经因为「封面图片加载失败」重拉过一次（防止 error 循环） */
+  private coverErrorReloaded: boolean = false;
   /** 最近一次加载到的原始歌词文本（用于同步给桌面歌词窗口） */
   private lyricRawText: string = '';
   private swiperController: SwiperController = new SwiperController();
 
   aboutToAppear() {
     this.alive = true;
+    this.assets.setAlive(true);
     if (!this.pageSessionId) {
       this.pageSessionId = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     }
@@ -192,18 +188,11 @@ export struct PlayDetailPage {
   aboutToDisappear() {
     hilog.info(DOMAIN, TAG, 'aboutToDisappear session=%{public}s', this.pageSessionId);
     this.alive = false;
+    this.assets.setAlive(false);
     if (this.unsubscribePlayState) this.unsubscribePlayState();
     if (this.unsubscribeMusicInfo) this.unsubscribeMusicInfo();
     if (this.unsubscribeProgress) this.unsubscribeProgress();
     if (this.unsubscribeSleepTimer) this.unsubscribeSleepTimer();
-    if (this.coverRetryTimer !== -1) {
-      clearTimeout(this.coverRetryTimer);
-      this.coverRetryTimer = -1;
-    }
-    if (this.lyricRetryTimer !== -1) {
-      clearTimeout(this.lyricRetryTimer);
-      this.lyricRetryTimer = -1;
-    }
   }
 
   onBackPressed(): boolean {
@@ -216,33 +205,17 @@ export struct PlayDetailPage {
     hilog.info(DOMAIN, TAG, 'onReady session=%{public}s params=%{public}s', this.pageSessionId, JSON.stringify(params));
   }
 
+  /** 封面 URL 判定统一走加载器（同一份规则页面与加载器不再各写一遍） */
   private normalizeCoverUrl(rawUrl: string): string {
-    const url = (rawUrl ?? '').trim();
-    if (!url) return '';
-    if (url.startsWith('//')) return `http:${url}`;
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url;
-    }
-    return '';
+    return PlayMediaAssets.normalizeCoverUrl(rawUrl);
   }
 
   private canRenderCover(url: string): boolean {
-    const value = (url ?? '').trim();
-    if (value.length === 0) {
-      return false;
-    }
-    if (value === 'null' || value === 'undefined') {
-      return false;
-    }
-    return value.startsWith('http://') || value.startsWith('https://') || value.startsWith('//');
+    return PlayMediaAssets.canRenderCover(url);
   }
 
   private downgradeCoverUrl(url: string): string {
-    const value = (url ?? '').trim();
-    if (!value.startsWith('https://')) {
-      return '';
-    }
-    return `http://${value.substring(8)}`;
+    return PlayMediaAssets.downgradeCoverUrl(url);
   }
 
   private switchToCoverTab(): void {
@@ -272,13 +245,7 @@ export struct PlayDetailPage {
   }
 
   private buildMusicKey(info: MusicInfo): string {
-    return [
-      info?.source ?? '',
-      info?.id ?? '',
-      info?.songmid ?? '',
-      info?.name ?? '',
-      info?.singer ?? '',
-    ].join('|');
+    return PlayMediaAssets.musicKey(info);
   }
 
   private applyMusicInfo(info: MusicInfo): void {
@@ -292,6 +259,7 @@ export struct PlayDetailPage {
     this.musicName = info.name;
     this.singer = info.singer || '';
     this.album = info.album ?? info.albumName ?? '';
+    this.coverErrorReloaded = false;
     const currentSong = playerService.getCurrentSong();
     const artwork = currentSong && currentSong.artwork ? currentSong.artwork : '';
     this.pic = this.normalizeCoverUrl(info.pic ?? info.img ?? artwork ?? '');
@@ -306,151 +274,66 @@ export struct PlayDetailPage {
     ]);
   }
 
+  /** 封面：交给加载器（含防风暴守卫与退避重试），这里只把结果写进 @State */
   private async ensureCoverReady(info: MusicInfo, force: boolean): Promise<void> {
-    if (!this.alive || !info || !info.name) {
-      return;
-    }
-    if (!force && this.pic.trim().length > 0 && this.canRenderCover(this.pic)) {
-      return;
-    }
-    // 同一首歌已经试过且失败 / 已有请求在飞：直接跳过。
-    // onMusicInfoChange 是高频回调，不拦会导致「封面拉不到就逐帧重试」的请求风暴。
-    const attemptKey = this.buildMusicKey(info);
-    if (this.coverLoading || (!force && this.coverAttemptKey === attemptKey)) {
-      return;
-    }
-    this.coverLoading = true;
-    const seq = ++this.picLoadSeq;
-    try {
-      const picPath = await getPicPath({
-        musicInfo: info,
-        isRefresh: force,
-      });
-      if (!this.alive || seq !== this.picLoadSeq) {
+    await this.assets.ensureCover(info, force, this.canRenderCover(this.pic), (outcome: CoverOutcome): void => {
+      if (!this.alive) {
         return;
       }
-      // 优先用 getPicPath 结果，否则用已有的 pic，都没有则尝试 info 中的原始字段
-      const raw = picPath || this.pic || info.pic || info.img || '';
-      const normalized = this.normalizeCoverUrl(raw);
-      if (normalized.length > 0) {
-        this.pic = normalized;
-        this.coverRetryCount = 0;
-        this.coverAttemptKey = '';
-      } else {
-        // 明确置空以触发默认封面显示，避免无效旧值残留导致空白。
+      if (outcome.status === 'loaded') {
+        this.pic = outcome.url;
+      } else if (outcome.status === 'cleared') {
+        // 明确置空以触发默认封面显示，避免无效旧值残留导致空白
         this.pic = '';
-        this.coverAttemptKey = attemptKey;
       }
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'ensureCoverReady failed: %{public}s', JSON.stringify(err));
-      this.coverAttemptKey = attemptKey;
-      if (this.coverRetryCount < 2 && this.alive) {
-        this.coverRetryCount += 1;
-        if (this.coverRetryTimer !== -1) {
-          clearTimeout(this.coverRetryTimer);
-        }
-        this.coverRetryTimer = setTimeout(() => {
-          const latest = playerService.getCurrentMusicInfo();
-          void this.ensureCoverReady(latest, true);
-        }, 600);
-      }
-    } finally {
-      this.coverLoading = false;
-    }
+    });
   }
 
+  /** 歌词：同样由加载器负责守卫与重试，这里只应用解析结果 */
   private async ensureLyricReady(info: MusicInfo, force: boolean): Promise<void> {
-    if (!this.alive || !info || !info.name) {
-      if (this.lyricLines.length === 0) {
-        this.lyricLines = [t('player_no_lyric')];
-      }
-      return;
-    }
-    const targetKey = this.buildMusicKey(info);
-    // 同一首歌已经拿到歌词或已经试过失败，且不是强制刷新：直接跳过。
-    // onMusicInfoChange 高频触发，不拦会出现「歌词拉不到就逐帧重试」。
-    if (this.lyricLoading || (!force && (this.lyricSongKey === targetKey || this.lyricFailedKey === targetKey))) {
-      return;
-    }
-    this.lyricLoading = true;
     const hasUsableLyric = this.lyricTimeline.length > 0 ||
       (this.lyricLines.length > 0 && this.lyricLines[0] !== t('loading_lyric'));
-    // 已有可用歌词时，后台刷新不抢占 UI，避免切 tab 期间出现“空白/失败占位”闪烁。
-    if ((force || this.lyricTimeline.length === 0) && !hasUsableLyric) {
-      this.lyricLines = [t('loading_lyric')];
-      this.secondaryLyricLines = [];
-      this.currentLyricIndex = -1;
-    }
-    const seq = ++this.lyricLoadSeq;
-    try {
-      const lyricInfo = await getLyricInfo({
-        musicInfo: info,
-        isRefresh: force,
-      });
-      if (!this.alive || seq !== this.lyricLoadSeq) {
-        return;
-      }
-      // 歌词交给播放器统一维护：系统播控、桌面歌词、播放页共用同一份数据
-      // setLyricData 内部按设置做简繁转换，这里读回转好的文本，保证主/译文一致
-      playerService.setLyricData(lyricInfo.lyric || '');
-      this.lyricRawText = playerService.getLyricText();
-      const primaryLines = parseLrc(this.lyricRawText);
-      const secondaryLines = parseLrc(convertChinese(lyricInfo.tlyric || '', settingsService.get().s2tMode));
-      if (primaryLines.length === 0) {
-        this.lyricTimeline = [];
-        this.lyricLines = [t('pure_music')];
-        this.secondaryLyricLines = [];
-        this.currentLyricIndex = -1;
-        return;
-      }
-      const secondaries: string[] = [];
-      let sIdx = 0;
-      for (let i = 0; i < primaryLines.length; i++) {
-        const p = primaryLines[i];
-        while (sIdx + 1 < secondaryLines.length && secondaryLines[sIdx + 1].time <= p.time) {
-          sIdx += 1;
+    await this.assets.ensureLyric(info, force, hasUsableLyric, {
+      onLoading: (): void => {
+        // 已有可用歌词时后台刷新不抢 UI，避免切 tab 期间出现空白/失败占位闪烁
+        if (!hasUsableLyric) {
+          this.lyricLines = [t('loading_lyric')];
+          this.secondaryLyricLines = [];
+          this.currentLyricIndex = -1;
         }
-        if (sIdx < secondaryLines.length && Math.abs(secondaryLines[sIdx].time - p.time) <= 0.35) {
-          secondaries.push(secondaryLines[sIdx].text);
-        } else {
-          secondaries.push('');
+      },
+      onOutcome: (outcome: LyricOutcome): void => {
+        if (!this.alive) {
+          return;
         }
-      }
-      this.lyricTimeline = primaryLines;
-      this.lyricLines = primaryLines.map((line: LyricLine) => line.text);
-      this.rebuildRomaLines();
-      this.secondaryLyricLines = secondaries;
-      const now = playerService.getProgress().nowPlayTime;
-      this.currentLyricIndex = getCurrentLyricIndex(this.lyricTimeline, now);
-      this.lyricSongKey = targetKey;
-      this.lyricRetryCount = 0;
-      this.lyricFailedKey = '';
-    } catch (err) {
-      if (!this.alive || seq !== this.lyricLoadSeq) {
-        return;
-      }
-      this.lyricFailedKey = targetKey;
-      const canKeepCurrentLyric = this.lyricSongKey === targetKey && this.lyricTimeline.length > 0;
-      if (!canKeepCurrentLyric) {
-        this.lyricTimeline = [];
-        this.lyricLines = [t('lyric_load_failed')];
-        this.secondaryLyricLines = [];
-        this.currentLyricIndex = -1;
-      }
-      hilog.warn(DOMAIN, TAG, 'ensureLyricReady failed: %{public}s', JSON.stringify(err));
-      if (this.lyricRetryCount < 2 && this.alive) {
-        this.lyricRetryCount += 1;
-        if (this.lyricRetryTimer !== -1) {
-          clearTimeout(this.lyricRetryTimer);
+        if (outcome.status === 'empty') {
+          this.lyricTimeline = [];
+          this.lyricLines = [t('pure_music')];
+          this.secondaryLyricLines = [];
+          this.currentLyricIndex = -1;
+          return;
         }
-        this.lyricRetryTimer = setTimeout(() => {
-          const latest = playerService.getCurrentMusicInfo();
-          void this.ensureLyricReady(latest, true);
-        }, 700);
-      }
-    } finally {
-      this.lyricLoading = false;
-    }
+        if (outcome.status === 'failed') {
+          // 已加载过同一首的歌词就保留，避免刷新失败把已有歌词清掉
+          if (!(this.lyricTimeline.length > 0)) {
+            this.lyricLines = [t('lyric_load_failed')];
+            this.secondaryLyricLines = [];
+            this.currentLyricIndex = -1;
+          }
+          return;
+        }
+        const payload = outcome.payload;
+        if (!payload) {
+          return;
+        }
+        this.lyricRawText = payload.rawText;
+        this.lyricTimeline = payload.timeline;
+        this.lyricLines = payload.lines;
+        this.secondaryLyricLines = payload.secondaryLines;
+        this.rebuildRomaLines();
+        this.currentLyricIndex = payload.currentIndex;
+      },
+    });
   }
 
   private async togglePlay(): Promise<void> {
@@ -1272,10 +1155,10 @@ export struct PlayDetailPage {
       this.pic = downgradedUrl;
       return;
     }
-    if (this.coverRetryCount < 1) {
-      this.coverRetryCount += 1;
-      const currentMusicInfo = playerService.getCurrentMusicInfo();
-      void this.ensureCoverReady(currentMusicInfo, true);
+    // 每首歌只因为「图片本身加载失败」重拉一次，避免 error → 重拉 → error 的循环
+    if (!this.coverErrorReloaded) {
+      this.coverErrorReloaded = true;
+      void this.ensureCoverReady(playerService.getCurrentMusicInfo(), true);
       return;
     }
     // 二次失败后回退到占位图，避免页面出现大片空白区域
@@ -1399,7 +1282,8 @@ export struct PlayDetailPage {
           .onChange((value: number, mode: SliderChangeMode) => {
             this.handleSeekChange(value, mode);
           })
-        Text(this.isSeeking ? this.previewTimeText() : this.currentTime)
+        // 右侧是「总时长」：之前误写成 currentTime，两端显示同一个值（真机截图才发现）
+        Text(this.isSeeking ? this.previewTimeText() : this.totalTime)
           .fontSize(DesignTokens.fontMicro())
           .fontColor(this.isSeeking ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
           .width(44)
