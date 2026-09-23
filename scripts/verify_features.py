@@ -161,7 +161,7 @@ CHECKS = [
  ('下载页暂停态独立文案', 'pages/Download/DownloadView.ets', r"download_paused"),
  ('下载页进度未变不重绘', 'pages/Download/DownloadView.ets', r'downloadTasksSignature'),
  ('返回按钮热区', 'components/common/NavBackButton.ets', r'touchRegion\(34\)'),
- ('榜单展开/进入热区', 'pages/Home/LeaderboardView.ets', r'touchRegion\('),
+ ('榜单展开/进入热区', 'pages/Home/Leaderboard/ChartCard.ets', r'touchRegion\('),
  ('歌单批量栏触控高度', 'pages/SonglistDetail/SonglistBatchBar.ets', r'touchTarget\(\)'),
  ('系统符号用 SymbolGlyph 渲染', 'components/ui/StateView.ets', r'SymbolGlyph\('),
  ('底部 Tab 图标用 SymbolGlyph', 'pages/Home/Home/HomeBottomTabBar.ets', r'SymbolGlyph\(tab\.icon\)'),
@@ -201,7 +201,7 @@ CHECKS = [
   r'buildCommentItem\('),
  # 播放量格式化曾经在 4 处各写一遍（阈值/空格/小数不同，真机出现过 8550.7）
  ('播放量格式化单一出口', 'utils/FormatTools.ets', r'export function formatPlayCount'),
- ('排行榜播放量走统一实现', 'pages/Home/LeaderboardView.ets', r'formatPlayCount\(count, t\(',
+ ('排行榜播放量走统一实现', 'pages/Home/Leaderboard/ChartCard.ets', r'formatPlayCount\(count, t\(',
   r"toFixed\(1\) \+ ' ' \+ t\('ten_thousand_unit'\)"),
  ('歌单卡片播放量走统一实现', 'pages/Home/SongList/SongListCard.ets', r'formatPlayCount\(num, t\(',
   r"toFixed\(1\) \+ ' ' \+ t\('ten_thousand_unit'\)"),
@@ -216,7 +216,7 @@ CHECKS = [
  ('歌单详情确认走统一确认', 'pages/SonglistDetailPage.ets', r'appConfirm\(title, message\)',
   r'getPromptAction\(\)\.showDialog'),
  # 榜单封面不允许再拿「第一首歌的封面」冒充（不同榜单会长得一模一样）
- ('榜单封面只用榜单自己的图', 'pages/Home/LeaderboardView.ets', r'placeholderGradient',
+ ('榜单封面只用榜单自己的图', 'pages/Home/Leaderboard/ChartCard.ets', r'placeholderGradientOptions',
   r'card\.topSongs\[i\]\.pic'),
  # 备份曾经的「XOR + Base64」等于没加密（原注释自称仅供演示），现统一到 AES
  ('备份加密用 AES 而非 XOR', 'service/crypto/AesPayload.ets', r'export async function encryptWithPassword',

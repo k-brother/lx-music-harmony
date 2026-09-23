@@ -1,4 +1,4 @@
-import { t, tf } from '../../service/LocalizationService';
+import { t } from '../../service/LocalizationService';
 import { formatPlayCount } from '../../utils/FormatTools';
 // 排行榜视图：纵向分组卡片 + 榜单内预览曲目 + 展开/收起与进入完整榜单
 // 信息架构：一屏浏览多个榜；弱打扰预览 3 条；展开看更多；右侧箭头进二级页
@@ -17,6 +17,7 @@ import { RefreshContainer } from '../../components/ui/RefreshContainer';
 import { StateView } from '../../components/ui/StateView';
 import { SkeletonBoards } from './Leaderboard/SkeletonBoards';
 import { LeaderboardSearchOverlay } from './Leaderboard/LeaderboardSearchOverlay';
+import { ChartCard } from './Leaderboard/ChartCard';
 import { hapticService } from '../../service/HapticService';
 
 const PREVIEW_COLLAPSED = 3;
@@ -687,8 +688,12 @@ export struct LeaderboardView {
     return '';
   }
 
-  /** 无榜单图时的占位：按榜单 id 稳定取一组品牌色渐变，保证各榜视觉可区分 */
-  private placeholderGradient(card: LeaderboardCardState): LinearGradientOptions {
+
+  /** 卡片渐变占位色（按榜单 id 稳定取色，各榜可区分） */
+  placeholderPair(index: number): string[] {
+    if (index < 0 || index >= this.cardStates.length) {
+      return ['#E63946', '#B5171F'];
+    }
     const palettes: string[][] = [
       ['#E63946', '#B5171F'],
       ['#F2845C', '#C9552E'],
@@ -697,13 +702,31 @@ export struct LeaderboardView {
       ['#8E5CF2', '#5F35B8'],
       ['#E0A33B', '#B27322'],
     ];
+    const card = this.cardStates[index];
     const key = `${card.board.source}__${card.board.id}`;
     let hash = 0;
     for (let i = 0; i < key.length; i++) {
       hash = (hash * 31 + key.charCodeAt(i)) % 9973;
     }
-    const pair = palettes[hash % palettes.length];
-    return { angle: 135, colors: [[pair[0], 0.0], [pair[1], 1.0]] };
+    return palettes[hash % palettes.length];
+  }
+
+  /** 试听加载失败后的重试：回到 idle 再拉一次 */
+  retryPreview(index: number): void {
+    const slice = this.cardStates.slice();
+    if (index < 0 || index >= slice.length) {
+      return;
+    }
+    const cur = slice[index];
+    slice[index] = {
+      board: cur.board,
+      topSongs: [],
+      displayList: [],
+      loadState: 'idle',
+      expanded: cur.expanded,
+    };
+    this.cardStates = slice;
+    void this.loadPreviewForIndex(index);
   }
 
   /** 按索引读封面，供列表项 build 直接订阅 cardStates，避免 @Builder 传入整卡快照不刷新 */
@@ -799,9 +822,22 @@ export struct LeaderboardView {
               } else {
                 Column() {
                   ForEach(this.cardStates, (card: LeaderboardCardState, index: number) => {
-                    Column() {
-                      this.ChartCard(index)
-                    }
+                    ChartCard({
+                      cardId: this.cardStates[index].board.id,
+                      title: this.cardStates[index].board.name,
+                      playCount: this.cardStates[index].board.playCount ?? -1,
+                      coverUrl: this.resolveCardCoverAt(index),
+                      placeholderColors: this.placeholderPair(index),
+                      songs: this.cardStates[index].displayList,
+                      loadState: this.cardStates[index].loadState,
+                      expanded: this.cardStates[index].expanded,
+                      onToggleExpand: (): void => this.toggleExpand(index),
+                      onOpenBoard: (): void => this.navigateToBoardDetail(this.cardStates[index].board),
+                      onPlaySong: (song: BoardMusicItem): void => {
+                        void this.playPreviewSong(song);
+                      },
+                      onRetry: (): void => this.retryPreview(index),
+                    })
                     .width('100%')
                     .padding({ left: 12, right: 12 })
                     .onAppear(() => {
@@ -852,9 +888,22 @@ export struct LeaderboardView {
                   }
                   Column() {
                     ForEach(this.cardStates, (card: LeaderboardCardState, index: number) => {
-                      Column() {
-                        this.ChartCard(index)
-                      }
+                      ChartCard({
+                        cardId: this.cardStates[index].board.id,
+                        title: this.cardStates[index].board.name,
+                        playCount: this.cardStates[index].board.playCount ?? -1,
+                        coverUrl: this.resolveCardCoverAt(index),
+                        placeholderColors: this.placeholderPair(index),
+                        songs: this.cardStates[index].displayList,
+                        loadState: this.cardStates[index].loadState,
+                        expanded: this.cardStates[index].expanded,
+                        onToggleExpand: (): void => this.toggleExpand(index),
+                        onOpenBoard: (): void => this.navigateToBoardDetail(this.cardStates[index].board),
+                        onPlaySong: (song: BoardMusicItem): void => {
+                          void this.playPreviewSong(song);
+                        },
+                        onRetry: (): void => this.retryPreview(index),
+                      })
                       .width('100%')
                       .padding({ left: 12, right: 12 })
                       .onAppear(() => {
@@ -901,249 +950,5 @@ export struct LeaderboardView {
     .height('100%')
   }
 
-  @Builder
-  ChartCard(index: number) {
-    if (index < 0 || index >= this.cardStates.length) {
-      Blank()
-    } else {
-      this.ChartCardInnerByIndex(index)
-    }
-  }
 
-  /** 仅用 index 订阅 this.cardStates，避免 @Builder(card) 快照导致 loadState/封面不随预览更新 */
-  @Builder
-  ChartCardInnerByIndex(index: number) {
-    if (index < 0 || index >= this.cardStates.length) {
-      Blank()
-    } else {
-      Column() {
-        Row() {
-          Stack() {
-            if (this.resolveCardCoverAt(index).length > 0) {
-              Image(this.resolveCardCoverAt(index))
-                .width(72)
-                .height(72)
-                .borderRadius(14)
-                .objectFit(ImageFit.Cover)
-            } else {
-              // 没有榜单图：用按榜单 id 生成的渐变块 + 榜单图标（各榜颜色不同，不再是同一张专辑图）
-              Column() {
-                SymbolGlyph($r('sys.symbol.list_number'))
-                  .fontSize(30)
-                  .fontColor([DesignTokens.onAccent()])
-              }
-              .width(72)
-              .height(72)
-              .borderRadius(14)
-              .justifyContent(FlexAlign.Center)
-              .alignItems(HorizontalAlign.Center)
-              .linearGradient(this.placeholderGradient(this.cardStates[index]))
-            }
-          }
-          .width(72)
-          .height(72)
-          .onClick(() => {
-            if (index >= 0 && index < this.cardStates.length) {
-              this.navigateToBoardDetail(this.cardStates[index].board);
-            }
-          })
-
-          Column() {
-            Text(this.cardStates[index].board.name || t('board_item'))
-              .fontSize(17)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(this.primaryText())
-              .maxLines(2)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .lineHeight(22)
-            if (this.cardStates[index].board.playCount !== null && this.cardStates[index].board.playCount !== undefined) {
-              Text(tf('count_plays', [this.formatPlayCount(this.cardStates[index].board.playCount as number)]))
-                .fontSize(12)
-                .fontColor(this.tertiaryText())
-                .margin({ top: 8 })
-            } else {
-              Text(t('leaderboard_official'))
-                .fontSize(12)
-                .fontColor(this.tertiaryText())
-                .margin({ top: 8 })
-            }
-          }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Start)
-          .margin({ left: 14 })
-          .onClick(() => {
-            if (index >= 0 && index < this.cardStates.length) {
-              this.navigateToBoardDetail(this.cardStates[index].board);
-            }
-          })
-
-          Row() {
-            SymbolGlyph(this.cardStates[index].expanded ? $r('sys.symbol.chevron_up') : $r('sys.symbol.chevron_down'))
-              .fontSize(24)
-              .fontColor([this.secondaryText()])
-              .padding(8)
-              .responseRegion(DesignTokens.touchRegion(38))
-              .onClick(() => {
-                this.toggleExpand(index);
-              })
-            SymbolGlyph($r('sys.symbol.chevron_right'))
-              .fontSize(26)
-              .fontColor([DesignTokens.accent()])
-              .padding({ left: 4, right: 4, top: 8, bottom: 8 })
-              .responseRegion(DesignTokens.touchRegion(30))
-              .onClick(() => {
-                if (index >= 0 && index < this.cardStates.length) {
-                  this.navigateToBoardDetail(this.cardStates[index].board);
-                }
-              })
-          }
-          .alignItems(VerticalAlign.Center)
-        }
-        .width('100%')
-        .padding({
-          left: 14,
-          right: 10,
-          top: 16,
-          bottom: 12,
-        })
-        .alignItems(VerticalAlign.Center)
-
-        if (this.cardStates[index].loadState === 'loading') {
-          Column({ space: 8 }) {
-            ForEach([0, 1, 2], (_: number, si: number) => {
-              Row() {
-                Column()
-                  .width(28)
-                  .height(12)
-                  .borderRadius(6)
-                  .backgroundColor(DesignTokens.mutedFill(this.theme))
-                Column()
-                  .layoutWeight(1)
-                  .height(12)
-                  .borderRadius(6)
-                  .backgroundColor(DesignTokens.mutedFill(this.theme))
-                  .margin({ left: 12, right: 24 })
-              }
-              .width('100%')
-              .padding({ left: 12, right: 12, top: 12, bottom: 12 })
-              .backgroundColor(this.theme === 'dark' ? '#17181B' : '#F8F9FB')
-              .borderRadius(10)
-            })
-          }
-          .width('100%')
-          .padding({ left: 14, right: 14, bottom: 12 })
-        } else if (this.cardStates[index].loadState === 'err') {
-          Row() {
-            Text(t('load_failed'))
-              .fontSize(13)
-              .fontColor(this.tertiaryText())
-              .layoutWeight(1)
-            Text(t('retry'))
-              .fontSize(13)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(DesignTokens.accent())
-              .padding({ left: 12, right: 12, top: 6, bottom: 6 })
-              .onClick(() => {
-                const slice = this.cardStates.slice();
-                if (index < 0 || index >= slice.length) {
-                  return;
-                }
-                const cur = slice[index];
-                slice[index] = {
-                  board: cur.board,
-                  topSongs: [],
-                  displayList: [],
-                  loadState: 'idle',
-                  expanded: cur.expanded,
-                };
-                this.cardStates = slice;
-                void this.loadPreviewForIndex(index);
-              })
-          }
-          .width('100%')
-          .padding({ left: 14, right: 14, bottom: 12 })
-          .alignItems(VerticalAlign.Center)
-        } else if (this.cardStates[index].displayList.length === 0) {
-          Text(t('no_data'))
-            .fontSize(13)
-            .fontColor(this.tertiaryText())
-            .padding({ left: 14, right: 14, bottom: 12 })
-        } else {
-          Column() {
-            ForEach(this.cardStates[index].displayList, (song: BoardMusicItem, si: number) => {
-              Column() {
-                Row() {
-                  Text((si + 1).toString())
-                    .fontSize(14)
-                    .fontWeight(FontWeight.Medium)
-                    .fontColor(this.rankColor(si + 1))
-                    .width(32)
-                    .textAlign(TextAlign.Center)
-                  Column() {
-                    Text(song.name || '—')
-                      .fontSize(15)
-                      .fontColor(this.primaryText())
-                      .maxLines(1)
-                      .textOverflow({ overflow: TextOverflow.Ellipsis })
-                    Text(song.singer || '')
-                      .fontSize(12)
-                      .fontColor(this.secondaryText())
-                      .maxLines(1)
-                      .textOverflow({ overflow: TextOverflow.Ellipsis })
-                      .margin({ top: 3 })
-                  }
-                  .layoutWeight(1)
-                  .alignItems(HorizontalAlign.Start)
-                }
-                .width('100%')
-                .padding({ left: 12, right: 12, top: 12, bottom: 12 })
-                .onClick(() => {
-                  void this.playPreviewSong(song);
-                })
-                if (si < this.cardStates[index].displayList.length - 1) {
-                  Divider()
-                    .strokeWidth(0.5)
-                    .color(this.cardBorder())
-                    .margin({ left: 44, right: 0 })
-                }
-              }
-              .width('100%')
-            }, (song: BoardMusicItem, si: number) => `${this.cardStates[index].board.id}_song_${si}_${song.id}`)
-          }
-          .width('100%')
-          .padding({ bottom: 8 })
-        }
-
-        Row() {
-          Text(this.cardStates[index].expanded ? t('collapse_preview') : t('expand_preview'))
-            .fontSize(12)
-            .fontColor(this.secondaryText())
-            .onClick(() => {
-              this.toggleExpand(index);
-            })
-          Blank()
-          Text(t('view_full_chart'))
-            .fontSize(14)
-            .fontColor(DesignTokens.accent())
-            .fontWeight(FontWeight.Medium)
-          SymbolGlyph($r('sys.symbol.chevron_right'))
-            .fontSize(17)
-            .fontColor([DesignTokens.accent()])
-            .margin({ left: 4 })
-        }
-        .width('100%')
-        .padding({ left: 14, right: 14, top: 4, bottom: 16 })
-        .onClick(() => {
-          if (index >= 0 && index < this.cardStates.length) {
-            this.navigateToBoardDetail(this.cardStates[index].board);
-          }
-        })
-      }
-      .width('100%')
-      .backgroundColor(this.cardBg())
-      .borderRadius(DesignTokens.radiusCard())
-      .border({ width: 0.5, color: this.cardBorder() })
-      .margin({ top: 12 })
-    }
-  }
 }

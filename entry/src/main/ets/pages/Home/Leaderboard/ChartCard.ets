@@ -1,0 +1,300 @@
+/**
+ * 榜单卡片（封面 / 播放量 / 试听预览 / 展开收起 / 进完整榜单）
+ *
+ * 从 LeaderboardView 的 @Builder 抽成组件。原实现为了绕开「@Builder 参数不刷新」，
+ * 卡片内容全部按 index 读页面状态；这里改为 @Prop 传显示数据 + 回调：
+ * 页面按 index 读状态并映射成 props（@Prop 会随父组件重渲染更新），两边职责更清楚。
+ */
+import { DesignTokens } from '../../../theme/DesignTokens';
+import { t, tf } from '../../../service/LocalizationService';
+import { formatPlayCount } from '../../../utils/FormatTools';
+import type { BoardMusicItem } from '../../../store/leaderboard/LeaderboardStoreState';
+
+@Component
+export struct ChartCard {
+  @StorageProp('theme') theme: string = 'light';
+  @Prop cardId: string = '';
+  @Prop title: string = '';
+  /** 播放量；< 0 表示该榜单没有播放量数据 */
+  @Prop playCount: number = -1;
+  @Prop coverUrl: string = '';
+  /** 无榜单图时的渐变占位色（由页面按榜单 id 生成，保证各榜可区分） */
+  @Prop placeholderColors: string[] = ['#E63946', '#B5171F'];
+  @Prop songs: BoardMusicItem[] = [];
+  /** idle / loading / ready / err */
+  @Prop loadState: string = 'idle';
+  @Prop expanded: boolean = false;
+  onToggleExpand?: () => void;
+  onOpenBoard?: () => void;
+  onPlaySong?: (song: BoardMusicItem) => void;
+  onRetry?: () => void;
+
+  /** 前三名给强调色/奖牌色，其余用次级色 */
+  private rankColor(rank: number): string {
+    if (rank === 1) {
+      return DesignTokens.accent();
+    }
+    if (rank === 2) {
+      return DesignTokens.warning();
+    }
+    if (rank === 3) {
+      return DesignTokens.info();
+    }
+    return DesignTokens.labelTertiary(this.theme);
+  }
+
+  private playCountText(): string {
+    const count: number = this.playCount < 0 ? 0 : this.playCount;
+    return tf('count_plays', [formatPlayCount(count, t('ten_thousand_unit'), t('billion_unit'))]);
+  }
+
+  private placeholderGradientOptions(): LinearGradientOptions {
+    const colors: string[] = this.placeholderColors.length >= 2
+      ? this.placeholderColors
+      : ['#E63946', '#B5171F'];
+    return { angle: 135, colors: [[colors[0], 0.0], [colors[1], 1.0]] };
+  }
+
+  /** 封面：有图用图，没有则用按榜单取色的渐变块 + 榜单图标（不再是「第一首歌的封面」） */
+  @Builder
+  Cover() {
+    Stack() {
+      if (this.coverUrl.length > 0) {
+        Image(this.coverUrl)
+          .width(72)
+          .height(72)
+          .borderRadius(14)
+          .objectFit(ImageFit.Cover)
+      } else {
+        Column() {
+          SymbolGlyph($r('sys.symbol.list_number'))
+            .fontSize(30)
+            .fontColor([DesignTokens.onAccent()])
+        }
+        .width(72)
+        .height(72)
+        .borderRadius(14)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+        .linearGradient(this.placeholderGradientOptions())
+      }
+    }
+    .width(72)
+    .height(72)
+    .onClick(() => {
+      if (this.onOpenBoard) {
+        this.onOpenBoard();
+      }
+    })
+  }
+
+  /** 骨架行：预览加载中 */
+  @Builder
+  LoadingRows() {
+    Column({ space: 8 }) {
+      ForEach([0, 1, 2], (_: number, si: number) => {
+        Row() {
+          Column()
+            .width(28)
+            .height(12)
+            .borderRadius(6)
+            .backgroundColor(DesignTokens.mutedFill(this.theme))
+          Column()
+            .layoutWeight(1)
+            .height(12)
+            .borderRadius(6)
+            .backgroundColor(DesignTokens.mutedFill(this.theme))
+            .margin({ left: 12, right: 24 })
+        }
+        .width('100%')
+        .padding({ left: 12, right: 12, top: 12, bottom: 12 })
+        .backgroundColor(DesignTokens.mutedFill(this.theme))
+        .borderRadius(10)
+      })
+    }
+    .width('100%')
+    .padding({ left: 14, right: 14, bottom: 12 })
+  }
+
+  @Builder
+  ErrorRow() {
+    Row() {
+      Text(t('load_failed'))
+        .fontSize(13)
+        .fontColor(DesignTokens.labelTertiary(this.theme))
+        .layoutWeight(1)
+      Text(t('retry'))
+        .fontSize(13)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(DesignTokens.accent())
+        .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+        .onClick(() => {
+          if (this.onRetry) {
+            this.onRetry();
+          }
+        })
+    }
+    .width('100%')
+    .padding({ left: 14, right: 14, bottom: 12 })
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  PreviewList() {
+    Column() {
+      ForEach(this.songs, (song: BoardMusicItem, si: number) => {
+        Column() {
+          Row() {
+            Text((si + 1).toString())
+              .fontSize(14)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(this.rankColor(si + 1))
+              .width(32)
+              .textAlign(TextAlign.Center)
+            Column() {
+              Text(song.name.length > 0 ? song.name : '—')
+                .fontSize(15)
+                .fontColor(DesignTokens.labelPrimary(this.theme))
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+              Text(song.singer.length > 0 ? song.singer : '')
+                .fontSize(12)
+                .fontColor(DesignTokens.labelSecondary(this.theme))
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .margin({ top: 3 })
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Start)
+          }
+          .width('100%')
+          .padding({ left: 12, right: 12, top: 12, bottom: 12 })
+          .onClick(() => {
+            if (this.onPlaySong) {
+              this.onPlaySong(song);
+            }
+          })
+
+          if (si < this.songs.length - 1) {
+            Divider()
+              .strokeWidth(0.5)
+              .color(DesignTokens.cardBorder(this.theme))
+              .margin({ left: 44, right: 0 })
+          }
+        }
+        .width('100%')
+      }, (song: BoardMusicItem, si: number) => `${this.cardId}_song_${si}_${song.id}`)
+    }
+    .width('100%')
+    .padding({ bottom: 8 })
+  }
+
+  build() {
+    Column() {
+      Row() {
+        this.Cover()
+
+        Column() {
+          Text(this.title.length > 0 ? this.title : t('board_item'))
+            .fontSize(17)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(DesignTokens.labelPrimary(this.theme))
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .lineHeight(22)
+          if (this.playCount >= 0) {
+            Text(this.playCountText())
+              .fontSize(12)
+              .fontColor(DesignTokens.labelTertiary(this.theme))
+              .margin({ top: 8 })
+          } else {
+            Text(t('leaderboard_official'))
+              .fontSize(12)
+              .fontColor(DesignTokens.labelTertiary(this.theme))
+              .margin({ top: 8 })
+          }
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+        .margin({ left: 14 })
+        .onClick(() => {
+          if (this.onOpenBoard) {
+            this.onOpenBoard();
+          }
+        })
+
+        Row() {
+          SymbolGlyph(this.expanded ? $r('sys.symbol.chevron_up') : $r('sys.symbol.chevron_down'))
+            .fontSize(24)
+            .fontColor([DesignTokens.labelSecondary(this.theme)])
+            .padding(8)
+            .responseRegion(DesignTokens.touchRegion(30))
+            .onClick(() => {
+              if (this.onToggleExpand) {
+                this.onToggleExpand();
+              }
+            })
+          SymbolGlyph($r('sys.symbol.chevron_right'))
+            .fontSize(20)
+            .fontColor([DesignTokens.accent()])
+            .padding({ left: 4, right: 4, top: 8, bottom: 8 })
+            .responseRegion(DesignTokens.touchRegion(30))
+            .onClick(() => {
+              if (this.onOpenBoard) {
+                this.onOpenBoard();
+              }
+            })
+        }
+        .alignItems(VerticalAlign.Center)
+      }
+      .width('100%')
+      .padding({ left: 14, right: 10, top: 16, bottom: 12 })
+      .alignItems(VerticalAlign.Center)
+
+      if (this.loadState === 'loading') {
+        this.LoadingRows()
+      } else if (this.loadState === 'err') {
+        this.ErrorRow()
+      } else if (this.songs.length === 0) {
+        Text(t('no_data'))
+          .fontSize(13)
+          .fontColor(DesignTokens.labelTertiary(this.theme))
+          .padding({ left: 14, right: 14, bottom: 12 })
+      } else {
+        this.PreviewList()
+      }
+
+      Row() {
+        Text(this.expanded ? t('collapse_preview') : t('expand_preview'))
+          .fontSize(12)
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+          .onClick(() => {
+            if (this.onToggleExpand) {
+              this.onToggleExpand();
+            }
+          })
+        Blank()
+        Text(t('view_full_chart'))
+          .fontSize(14)
+          .fontColor(DesignTokens.accent())
+          .fontWeight(FontWeight.Medium)
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(17)
+          .fontColor([DesignTokens.accent()])
+          .margin({ left: 4 })
+      }
+      .width('100%')
+      .padding({ left: 14, right: 14, top: 4, bottom: 16 })
+      .onClick(() => {
+        if (this.onOpenBoard) {
+          this.onOpenBoard();
+        }
+      })
+    }
+    .width('100%')
+    .backgroundColor(DesignTokens.card(this.theme))
+    .borderRadius(DesignTokens.radiusCard())
+    .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
+    .margin({ top: 12 })
+  }
+}
