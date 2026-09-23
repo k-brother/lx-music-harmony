@@ -379,6 +379,16 @@ export async function replaceUserListMusic(listId: string, items: MusicItem[]): 
 /**
  * 保存列表到存储
  */
+/**
+ * 持久化「用户歌单索引」（只剩元信息：id/名字/绑定关系/计数）
+ *
+ * 原来 5 处各写一遍 `JSON.stringify({ info: listState.userList })` + setString，
+ * 字段结构一旦调整要改 5 个地方；这里收成一个入口。
+ */
+async function persistUserListIndex(): Promise<void> {
+  await persistUserListIndex();
+}
+
 async function saveList(listId: string): Promise<void> {
   let info: ListInfo;
   let list: MusicItem[];
@@ -422,10 +432,7 @@ export async function createUserList(name: string): Promise<ListInfo> {
   listState.userListMusic.set(id, []);
 
   // 保存用户列表索引
-  const data = JSON.stringify({
-    info: listState.userList,
-  });
-  await StorageService.setString(StorageService.StorageKeys.LIST_USER, data);
+  await persistUserListIndex();
 
   notifyListeners(id);
   return info;
@@ -459,8 +466,7 @@ export async function createUserListWithSongs(
   listState.userList.push(info);
   listState.userListMusic.set(id, songs.slice());
 
-  const data = JSON.stringify({ info: listState.userList });
-  await StorageService.setString(StorageService.StorageKeys.LIST_USER, data);
+  await persistUserListIndex();
   await saveList(id);
 
   notifyListeners(id);
@@ -488,8 +494,7 @@ export async function markUserListSynced(listId: string): Promise<void> {
   }
   info.syncedAt = Date.now();
   info.updateTime = Date.now();
-  const data = JSON.stringify({ info: listState.userList });
-  await StorageService.setString(StorageService.StorageKeys.LIST_USER, data);
+  await persistUserListIndex();
   notifyListeners(listId);
 }
 
@@ -503,10 +508,7 @@ export async function deleteUserList(listId: string): Promise<void> {
     listState.userListMusic.delete(listId);
 
     // 保存用户列表索引
-    const data = JSON.stringify({
-      info: listState.userList,
-    });
-    await StorageService.setString(StorageService.StorageKeys.LIST_USER, data);
+    await persistUserListIndex();
     await StorageService.remove(`list.user.${listId}`);
 
     notifyListeners(listId);
