@@ -112,8 +112,6 @@ export interface Plugin {
   onGetHotSearch?(): Promise<PluginHotSearch[]>;
 }
 
-export type MusicSource = string;
-export const SUPPORTED_SOURCES: string[] = ['kw', 'kg', 'tx', 'wy', 'mg'];
 
 // ============ 插件管理器 ============
 

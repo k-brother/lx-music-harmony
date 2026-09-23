@@ -120,6 +120,7 @@ export function buildZhCN(): Map<string, string> {
   m.set('mode_random', '随机播放');
   m.set('mode_sequential', '顺序播放');
   m.set('download_title', '下载管理');
+  m.set('download_subtitle', '进行中的任务与完成记录');
   m.set('download_all', '全部');
   m.set('download_active', '下载中');
   m.set('download_pending', '等待中');

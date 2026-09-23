@@ -110,6 +110,7 @@ export function buildEnUS(): Map<string, string> {
   m.set('mode_random', 'Shuffle');
   m.set('mode_sequential', 'Sequential');
   m.set('download_title', 'Downloads');
+  m.set('download_subtitle', 'In progress and completed');
   m.set('download_all', 'All');
   m.set('download_active', 'Active');
   m.set('download_pending', 'Waiting');

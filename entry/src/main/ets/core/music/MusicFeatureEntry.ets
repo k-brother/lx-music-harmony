@@ -18,6 +18,7 @@ import {
   type GetMusicUrlParams as ResolveGetMusicUrlParams,
 } from './ResolvePlayback';
 import type { MusicInfo, LyricInfo } from '../../types/MusicTypes';
+import { SUPPORTED_SOURCES } from '../../types/MusicSource';
 import { pluginManager, PluginSongInfo } from '../plugin/PluginManager';
 import hilog from '@ohos.hilog';
 
@@ -122,7 +123,7 @@ export async function searchMusic(params: SearchMusicParams): Promise<SearchResu
   try {
     // all 源：聚合内置源搜索结果（禁止路由到插件分支）
     if (source === 'all') {
-      const builtinSources: string[] = ['kw', 'kg', 'tx', 'wy', 'mg'];
+      const builtinSources: string[] = SUPPORTED_SOURCES;
       const mergedResults: SearchResultItem[] = [];
       for (let i = 0; i < builtinSources.length; i++) {
         const src = builtinSources[i];
@@ -254,7 +255,7 @@ export async function findMusic(params: FindMusicParams): Promise<SearchResultIt
 
   try {
     // 搜索所有源
-    const sourceKeys = ['kw', 'kg', 'tx', 'wy', 'mg'];
+    const sourceKeys: string[] = SUPPORTED_SOURCES;
     for (const src of sourceKeys) {
       if (src === source) continue;
       try {

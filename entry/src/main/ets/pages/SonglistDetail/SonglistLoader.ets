@@ -8,6 +8,7 @@ import { appLog as hilog } from '../../core/log/AppLogger';
 import { t } from '../../service/LocalizationService';
 import { getSongListDetail, type SongListDetailResult } from '../../core/music/MusicFeatureEntry';
 import { getUserList, getUserListMusic, type ListInfo, type MusicItem } from '../../service/ListService';
+import { SUPPORTED_SOURCES, type MusicSource } from '../../types/MusicSource';
 import {
   musicInfoListToSongItems,
   musicRowListToSongItems,
@@ -17,8 +18,7 @@ import type { SongItem, SonglistInfo } from './SonglistTypes';
 
 const TAG = 'SonglistLoader';
 const DOMAIN: number = 0x0001;
-/** 支持歌单详情接口的音源（local 走本地读取） */
-const SUPPORTED_SOURCES: string[] = ['kw', 'tx', 'kg', 'wy', 'mg'];
+/** 支持歌单详情接口的音源（local 走本地读取）：列表统一在 types/MusicSource */
 
 /** 加载结果：页面据此决定「展示 / 报错 / 不支持的源」 */
 export interface SonglistLoadOutcome {
@@ -29,7 +29,7 @@ export interface SonglistLoadOutcome {
 
 /** 在线歌单详情：接口返回后做一次规范化 */
 export async function loadOnlineSonglist(source: string, id: string): Promise<SonglistLoadOutcome> {
-  if (!SUPPORTED_SOURCES.includes(source)) {
+  if (!SUPPORTED_SOURCES.includes(source as MusicSource)) {
     hilog.warn(DOMAIN, TAG, 'Source %{public}s does not support song list detail', source);
     return { status: 'unsupported' };
   }

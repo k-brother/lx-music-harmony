@@ -7,6 +7,7 @@
 import { musicSdk } from './MusicSdkAggregate';
 import { appLog as hilog } from '../log/AppLogger';
 import type { MusicInfo } from '../../types/MusicTypes';
+import { SUPPORTED_SOURCES } from '../../types/MusicSource';
 
 const TAG = 'ONLINE_MUSIC';
 const DOMAIN = 0x0003;
@@ -31,7 +32,8 @@ export async function searchMusic(params: SearchMusicParams): Promise<MusicInfo[
     return [];
   }
 
-  const sources = ['kw', 'kg', 'tx', 'wy', 'mg'];
+  // 源列表与顺序统一在 types/MusicSource，新增源只需改一处
+  const sources: string[] = SUPPORTED_SOURCES;
   const results: MusicInfo[][] = [];
 
   // 并行搜索所有源

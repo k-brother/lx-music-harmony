@@ -481,13 +481,14 @@ export struct HomePage {
             },
           })
         } else if (this.currentTab === 2) {
+          // 大标题 + 一行说明（此前两行都写成 download_title，等于同一句话重复两遍）
           Column() {
             Text(t('download_title'))
               .fontSize(28)
               .fontWeight(FontWeight.Bold)
               .fontColor(DesignTokens.labelPrimary(this.theme))
               .letterSpacing(-0.5)
-            Text(t('download_title'))
+            Text(t('download_subtitle'))
               .fontSize(13)
               .fontColor(DesignTokens.labelSecondary(this.theme))
               .margin({ top: 2 })

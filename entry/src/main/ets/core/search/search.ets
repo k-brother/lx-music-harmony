@@ -18,6 +18,7 @@ import { getStorageService } from '../interfaces/IStorageService';
 import { pluginManager } from '../plugin/PluginManager';
 import { settingsService } from '../../service/SettingsService';
 import hilog from '@ohos.hilog';
+import { SUPPORTED_SOURCES } from '../../types/MusicSource';
 
 const TAG = 'SEARCH';
 const DOMAIN = 0x0004;
@@ -212,7 +213,7 @@ export async function searchMusic(text: string, page: number, sourceId: Source):
 
   if (sourceId === 'all') {
     listInfo.key = key;
-    const sources = ['kw', 'kg', 'tx', 'wy', 'mg'];
+    const sources: string[] = SUPPORTED_SOURCES;
     const allResults: MusicInfoItem[] = [];
     for (let i = 0; i < sources.length; i++) {
       const src = sources[i];
