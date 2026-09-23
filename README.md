@@ -534,7 +534,64 @@ pages/Home/Home/
 | `MylistView` | 926 | 526 | `pages/Home/Mylist/*` |
 | `HomePage` | 1082 | 942 | `pages/Home/Home/*`（Tab 条 / 搜索结果） |
 
-**仍未拆分**：`CommentService`(960)。
+**拆分已完成**：`CommentService` 也早已拆到 90 行（适配器在 `service/comment/sources/*`）。
+当前超过 1000 行的文件只剩三个，且都是「编排 + 状态」为主体、不宜再拆：
+`PlayerService`(1282) / `PlayDetailPage`(1007) / `SonglistDetailPage`(1002)。
+
+### Phase 2-f：死代码收敛与「服务有、界面没有」补口（本轮）
+
+这轮的重点是**用静态扫描替代人工记忆**：先写出扫描脚本，再让脚本告诉我哪里有问题。
+七个脚本全部挂进 `scripts/check.sh`，任一不通过即 `exit 1`，出包脚本 `scripts/release.sh`
+会先跑自检再打包。
+
+| 脚本 | 守什么 | 本轮发现并处理 |
+| --- | --- | --- |
+| `check_imports.py` | 未使用的 import | 持续保持 0 |
+| `check_dead.py` | 私有方法/函数 + **类成员**（ArkUI 生命周期豁免） | 新增类成员扫描后揪出 41 个无人调用成员，其中 3 处是真缺口（见下） |
+| `check_unused_exports.py` | 导出但全项目零引用 | 清理 49 个（音源契约残留、播放插件里与 config 重复的焦点/音量函数、各种历史遗留） |
+| `check_reachable.py` | 入口可达性（死模块） | 删掉 9 个不可达文件：`core/index` barrel 及它唯一导出的 `core/songlist`(423 行)/`hotSearch`/`lyric`、三个子目录 barrel、0 字节空文件 |
+| `check_i18n.py` | 重复/中英不一致/未使用/未定义词条（本轮改为硬门禁） | 修掉 `sync_msg_connect_fail` 拼错导致界面显示原始 key；清掉 5 条死词条 |
+| `check_symbols.py` | `sys.symbol` 必须用 SymbolGlyph + **符号名必须在 SDK 名单里** | 新增符号名校验（拼错名字真机上同样什么都不显示） |
+| `check_settings_copy.py` / `check_settings_reset.py` | 设置快照与「恢复默认设置」的字段完整性 | 后半是新增：`resetToDefaults` 漏了 6 个字段（桌面歌词坐标 / 下载目录等） |
+| `check_duplicate_impls.py` | 「函数体完全相同」的重复实现 | 24 → 7（剩下的都是设置分组的 2 行样板） |
+| `verify_features.py` | 212 条功能/结构断言（含「面板是否真的挂载」） | 随拆分同步更新判据 |
+
+**顺带修掉的真缺陷**（都是扫描出来的，不是猜的）：
+
+- 本地音乐**读不到同名 `.lrc`**：`ResolvePlayback` 对 `source=local` 直接返回空歌词，
+  而 `core/music/local` 里的 `readLyricFile` 是个 `return null` 的空桩 ——
+  「音频与歌词放一起」这个最常用的用法在鸿蒙版等于没有歌词。现在优先读同名文件
+  （UTF-8 / GB18030 自适应），读不到再回退在线匹配。
+- **同步历史菜单点了没反应**：弹「使用历史服务器 / 清空同步历史」时，服务器列表算出来了却没人用。
+  改为直接列出历史地址、选中即切换，清空拆成独立危险色行。
+- **备份出来就找不到了**：`createBackup` 写的是应用沙箱目录，而界面上没有任何入口能看到/恢复/删除，
+  只能靠系统文件选择器碰运气。新增「本地备份」行（列表 · 恢复 · 删除）与自动备份开关/间隔。
+- **同步状态从来没显示过**：`SyncService` 的状态消息（连接中/服务器不可用/同步完成…）只在自己内部流转，
+  现在设置页有「同步状态」只读行（为此给 `SettingsSection` 补上一直空缺的 `info` 行类型）。
+- **恢复默认设置改了语言要重启才生效**：只有设置页手动切语言会调 `setLanguage()`，
+  恢复默认设置/恢复备份/同步下发都会改 `settings.language` 却不经过设置页。
+  现在 `AppBootstrap` 订阅一次设置变化自动跟随。
+- 界面上的 10 处硬编码中文（评论相对时间、匿名用户、锁屏「未知歌曲/歌手」、自定义源默认元信息、
+  同步错误兜底、歌单空提示、播放量里的「万」）全部走词条。
+- 「回复」按钮用的是音符列表图标（语义错）、试听历史空态用的是刷新箭头（语义错）：换成
+  `text_bubble_left_2` / `clock`；6 处可点行/卡片补上按压反馈。
+- 首页下载 Tab 的大标题与副标题是同一句话（`download_title` 写了两遍）。
+- 榜单详情头部的「播放全部」按钮写了两份（展开态/收缩态），抽成 `BoardDetailHeader` 共用一份。
+
+**本轮拆分**（页面回到「状态 + 编排」，业务动作各归其位）：
+
+| 文件 | 原行数 | 现行数 | 拆出的模块 |
+| --- | --- | --- | --- |
+| `SonglistDetailPage` | 1197 | **1002** | `SonglistDetail/{SonglistPlayActions, SonglistLocalLibrary, SonglistRowActions, SonglistSelection}` |
+| `PlayDetailPage` | 1095 | **1007** | `PlayDetail/PlaySettingsActions`（歌词显示/定时退出/播放模式）；build 拆成 DynamicBackdrop / PlayerStage / PlaySheets |
+| `BoardDetailPage` | 531 | **415** | `pages/Board/BoardDetailHeader` |
+| `LocalMusicPage` | 535 | **334** | `pages/LocalMusic/{EditMetadataSheet, LocalMusicActions, TrackRow}` |
+| `PlayerService` | 1340 | **1282** | `service/player/PlaybackInputs`（播放入参映射与校验） |
+| `EventBus` | 300 | **226** | 删掉 10 个无人订阅的旧事件与 8 个无人调用的发射器 |
+| `utils/Utils` | 94 | **18** | 6 个与 `CommonUtils` 重复的数组/判空/深拷贝实现 |
+
+**出包**：`./scripts/release.sh` = 全量自检 + `product=release` 构建（`signingConfig=LXMusic`），
+产物 `entry/build/release/outputs/default/entry-default-signed.hap`（约 8MB，已签名）。
 
 **Phase 3（UI/UX 商业化）**：把首页/我的/下载/本地音乐/排行榜/评论页逐个套 UI Kit，
 统一大标题滚动收缩、Tab 切换动效、骨架屏与空态、深色层次、触控目标校验。
@@ -548,6 +605,21 @@ pages/Home/Home/
 - 已收口：`DownloadPage`（拆成 `Download/{DownloadView,DownloadTaskRow,DownloadSelectionBar}`）；
   `LocalMusicPage` / `CommentPage` / `BoardDetailPage` / `UserListsPage` 已用 NavBar + StateView，
   剩下的自有布局（编辑弹层、评论楼层、榜单头部）按需继续收敛
+- 已收口（Phase 2-f）：`LocalMusicPage` 的编辑弹层 -> `LocalMusic/EditMetadataSheet`；
+  `BoardDetailPage` 头部 -> `Board/BoardDetailHeader`；评论页楼层已在 `Comment/CommentRow` 内成组件。
+  也就是说「自有布局」清单已经清空，剩余的只是各页面自己的状态编排。
+
+### 自检与出包（一条命令）
+
+```
+./scripts/check.sh     # 9 个静态检查：imports / dead / unused-exports / reachable /
+                       # i18n / symbols / settings-copy / settings-reset / features(212 项)
+./scripts/release.sh   # 先自检，再出已签名的 Release HAP
+./scripts/device_all.sh  # 真机批量回归（需要设备在线）
+```
+
+真机验证脚本（`scripts/device_*.sh` + `scripts/ui.sh`）在**重构期间不使用**：
+重构未完成前只跑静态自检与编译，避免把时间花在反复装机上。
 
 ### 本轮修正（真机日志暴露的问题 + 对齐补口）
 
