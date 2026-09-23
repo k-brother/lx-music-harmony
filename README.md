@@ -678,10 +678,13 @@ const size = await sheetService.input('字体大小', '14', { numberOnly: true }
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
 | `service/PlayerService.ets` | ~1366 | 播放编排（队列规则、系统播控、进度存储、歌词枢纽已外置；剩下的进度定时器与通知回调与模块级状态强耦合，暂不拆） |
-| `pages/SonglistDetailPage.ets` | ~1226 | 歌单详情编排（选择/滚动记忆；加载、动作、映射、行组件已外置） |
-| `pages/Home/LeaderboardView.ets` | ~1149 | 榜单编排（筛选/预览加载/卡片；骨架与搜索覆盖层已外置） |
+| `pages/SonglistDetailPage.ets` | ~1226 | 歌单详情编排（选择/排序/滚动记忆；加载、动作、映射、行组件已外置） |
+| `pages/Home/LeaderboardView.ets` | ~954 | 榜单编排（筛选/预览加载；卡片、骨架、搜索覆盖层已外置） |
 | `pages/PlayDetailPage.ets` | ~1095 | 播放页编排（资源加载、控制条、顶栏、歌词面板、单曲动作已外置） |
 | `pages/HomePage.ets` | ~908 | 首页 Tab 编排（搜索执行/源切换；搜索输入态已外置） |
+| `pages/CommentPage.ets` | ~356 | 评论页编排（评论行已外置为组件） |
+| `pages/Home/SongListView.ets` | ~625 | 歌单广场编排（SDK/标签/分页已外置） |
+| `pages/Home/CustomSourceView.ets` | ~623 | 自定义源管理编排（源行已外置为组件） |
 | `service/BackgroundRunningManager.ets` | ~748 | AVSession 与后台长时任务 |
 | `service/ListService.ets` | ~705 | 自建歌单 CRUD 与持久化 |
 
@@ -696,8 +699,9 @@ const size = await sheetService.input('字体大小', '14', { numberOnly: true }
 - `service/localization/`：`ZhCN`、`EnUS`
 - `pages/PlayDetail/`：`PlayMediaAssets`、`PlayerControls`、`PlayDetailTopBar`、`LyricPane`、`PlaySongActions`、`QueueSheet`、`VolumeSheet`、`LyricOffsetSheet`、`SourceSwitchSheet`、`MoreActionsSheet`、`PlayDetailMenus`、`AlbumCover`
 - `pages/SonglistDetail/`：`SonglistActions`、`SonglistCollectActions`、`SonglistMapper`、`SonglistBatchBar`、`SonglistMenus`、`SonglistSortSheet`、`SonglistPlayback`、`SonglistListOps`、`SonglistScrollMemory`、`SonglistDetailHeader`
-- `pages/Home/SongList/`（SongListCard）、`pages/Home/Leaderboard/`（SkeletonBoards、LeaderboardSearchOverlay）、
-  `pages/Home/Home/SearchInputContent`、`pages/BoardDetail/BoardSongRow`、`pages/Download/*`：列表行、卡片与骨架组件
+- `pages/Home/SongList/`（SongListCard、SongListLoader）、`pages/Home/Leaderboard/`（ChartCard、SkeletonBoards、
+  LeaderboardSearchOverlay）、`pages/Home/Home/SearchInputContent`、`pages/Home/CustomSource/CustomSourceRow`、
+  `pages/BoardDetail/BoardSongRow`、`pages/Comment/CommentRow`、`pages/Download/*`：列表行、卡片与骨架组件
 - `core/theme/`：`ThemeFactory`、`data/LightThemes`、`data/DarkThemes`
 - `utils/FormatTools`：字节 / 时长 / 播放量格式化
 
