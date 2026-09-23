@@ -160,8 +160,10 @@ export function buildPlayActionSections(state: PlayActionState): PlayActionSecti
       rows: lyricRows,
     },
     {
-      title: t('player_action_group_save'),
+      title: t('player_action_group_save_share'),
       rows: [
+        // 分享此前只能长按封面才找到，主流播放器都把它放在「⋯」里
+        { key: 'share', icon: $r('app.media.ic_pd_playlist'), label: t('player_share') },
         { key: 'saveLyric', icon: $r('app.media.ic_pd_lyric'), label: t('media_save_lyric') },
         { key: 'saveCover', icon: $r('app.media.ic_pd_comment'), label: t('media_save_cover') },
       ],

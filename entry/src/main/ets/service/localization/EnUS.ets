@@ -149,7 +149,7 @@ export function buildEnUS(): Map<string, string> {
   m.set('player_action_group_song', 'Song');
   m.set('player_action_group_play', 'Playback');
   m.set('player_action_group_lyric', 'Lyrics');
-  m.set('player_action_group_save', 'Save');
+  m.set('player_action_group_save_share', 'Save & Share');
   m.set('multiselect', 'Select');
   m.set('confirm_delete_download', 'Delete {0} download task(s)?');
   m.set('toast_download_deleted', 'Deleted {0} task(s)');

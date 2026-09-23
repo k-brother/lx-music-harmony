@@ -59,6 +59,8 @@ import { on, EventTypes } from '../service/EventBus';
 const SEARCH_INPUT_KEY: string = 'homeSearchInput';
 /** 首页「上次选中的音源」存储键（与「设置 → 默认搜索源」分开，避免临时切换改写设置） */
 const HOME_SOURCE_KEY: string = 'home.lastSource';
+/** 首页「上次停留的 Tab」存储键 */
+const HOME_TAB_KEY: string = 'home.lastTab';
 
 // 音乐信息类型
 export interface MusicInfoType {
@@ -228,6 +230,8 @@ export struct HomePage {
     this.showSearchHistorySetting = settings.showSearchHistory;
     // 首页顶部选过的音源优先（设置里的「默认搜索源」只在还没选过时生效）
     void this.restoreLastSource();
+    // 上次停留的 Tab 也接着用，避免每次都回到「歌单」
+    void this.restoreLastTab();
   }
 
   /**
@@ -251,6 +255,29 @@ export struct HomePage {
   private persistLastSource(id: string): void {
     getStorageService().setString(HOME_SOURCE_KEY, id).catch((err: Error) => {
       hilog.warn(0x0001, 'HomePage', 'persistLastSource failed: %{public}s', err.message);
+    });
+  }
+
+  /**
+   * 恢复上次停留的首页 Tab（歌单 / 排行榜 / 下载 / 我的）。
+   * 与「设置 → 启动页」不冲突：启动页决定是进首页还是进播放页，这里只决定首页落在哪个 Tab。
+   */
+  private async restoreLastTab(): Promise<void> {
+    try {
+      const saved: number = await getStorageService().getNumber(HOME_TAB_KEY, 0);
+      const tabCount: number = this.getBottomTabs().length;
+      if (saved >= 0 && saved < tabCount && saved !== this.currentTab) {
+        this.currentTab = saved;
+      }
+    } catch (err) {
+      hilog.warn(0x0001, 'HomePage', 'restoreLastTab failed: %{public}s', JSON.stringify(err));
+    }
+  }
+
+  /** 记住当前 Tab（失败只告警） */
+  private persistLastTab(index: number): void {
+    getStorageService().setNumber(HOME_TAB_KEY, index).catch((err: Error) => {
+      hilog.warn(0x0001, 'HomePage', 'persistLastTab failed: %{public}s', err.message);
     });
   }
 
@@ -1008,6 +1035,7 @@ export struct HomePage {
       vertical: vertical,
       onSelect: (index: number): void => {
         this.currentTab = index;
+        this.persistLastTab(index);
       },
     })
   }

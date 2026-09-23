@@ -159,7 +159,7 @@ export function buildZhCN(): Map<string, string> {
   m.set('player_action_group_song', '歌曲');
   m.set('player_action_group_play', '播放');
   m.set('player_action_group_lyric', '歌词');
-  m.set('player_action_group_save', '保存');
+  m.set('player_action_group_save_share', '保存与分享');
   m.set('multiselect', '多选');
   m.set('confirm_delete_download', '确定删除 {0} 个下载任务吗？');
   m.set('toast_download_deleted', '已删除 {0} 个任务');

@@ -630,6 +630,8 @@ export struct PlayDetailPage {
       void this.saveLyricToFile();
     } else if (key === 'saveCover') {
       void this.saveCoverToFile();
+    } else if (key === 'share') {
+      void this.shareCurrent();
     } else if (key === 'speed') {
       void this.pickSpeed();
     } else if (key === 'lyricOffset') {
