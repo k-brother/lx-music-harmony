@@ -31,6 +31,8 @@ export function buildZhCN(): Map<string, string> {
   m.set('play', '播放');
   m.set('toast_deleted', '已删除');
   m.set('toast_share_copy', '歌曲信息已复制到剪贴板');
+  m.set('toast_lyric_copied', '歌词已复制到剪贴板');
+  m.set('toast_copy_failed', '复制失败');
   m.set('toast_export_running', '正在导出歌单…');
   m.set('toast_import_running', '正在导入歌单…');
   m.set('settings_save_play_time', '保存播放进度');

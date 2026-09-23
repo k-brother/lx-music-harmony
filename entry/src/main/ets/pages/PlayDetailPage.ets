@@ -51,6 +51,7 @@ import {
 import { toRoma } from '../utils/RomaConverter';
 import { hapticService } from '../service/HapticService';
 import { appActionMenu, appToast } from '../service/DialogService';
+import { copyText } from '../service/ShareService';
 
 /** 宽屏下控制区（进度条 + 传送键 + 菜单入口）的最大宽度（vp） */
 const PLAY_CONTROLS_MAX_WIDTH_VP: number = 640;
@@ -79,6 +80,8 @@ export struct PlayDetailPage {
   /** 一多：窗口断点（WindowService 广播）—— 宽屏走封面/歌词双栏 */
   @StorageProp('breakpoint') breakpoint: string = 'sm';
   @StorageProp('showLyricProgress') showLyricProgress: boolean = false;
+  /** 歌词是否显示翻译（长按复制歌词时一并复制译文） */
+  @StorageProp('showLyricTranslation') showLyricTranslation: boolean = true;
   /** 是否允许拖动进度条（设置 → 基础）：关闭时拖不动，防误触 */
   @StorageProp('allowProgressBarSeek') allowProgressBarSeek: boolean = true;
   /** 动态背景（设置 → 外观） */
@@ -922,7 +925,25 @@ export struct PlayDetailPage {
       onLineTap: (index: number): void => {
         this.seekToLyricLine(index);
       },
+      onLineLongPress: (index: number): void => {
+        void this.copyLyricLine(index);
+      },
     })
+  }
+
+  /** 长按歌词行：复制这一句（有译文时一并复制，方便分享与歌词纠错反馈） */
+  private async copyLyricLine(index: number): Promise<void> {
+    if (index < 0 || index >= this.lyricLines.length) {
+      return;
+    }
+    const parts: string[] = [this.lyricLines[index]];
+    if (this.showLyricTranslation && index < this.secondaryLyricLines.length
+      && this.secondaryLyricLines[index].length > 0) {
+      parts.push(this.secondaryLyricLines[index]);
+    }
+    hapticService.light();
+    const ok: boolean = await copyText(parts.join('\n'));
+    appToast(ok ? t('toast_lyric_copied') : t('toast_copy_failed'));
   }
 
   /**

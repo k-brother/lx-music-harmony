@@ -7,7 +7,12 @@
 import hilog from '@ohos.hilog';
 import { playerService, SongInfo } from '../service/PlayerService';
 import { getMusicUrl } from '../core/music/MusicFeatureEntry';
-import { getPlayHistory, clearPlayHistory, PlayHistoryItem } from '../service/PlayHistoryService';
+import {
+  getPlayHistory,
+  clearPlayHistory,
+  removePlayHistoryItem,
+  PlayHistoryItem,
+} from '../service/PlayHistoryService';
 import type { MusicInfo as AppMusicInfo, MusicSource } from '../types/MusicTypes';
 import { formatPlayTime } from '../utils/CommonUtils';
 import { DesignTokens } from '../theme/DesignTokens';
@@ -76,6 +81,38 @@ export struct HistoryListPage {
     hapticService.selection();
     this.isRefreshing = true;
     void this.loadHistory(true);
+  }
+
+  /** 侧滑删除这一条历史（不需要二次确认：删的只是一条记录，代价低且可再听一次补回） */
+  private async removeHistoryAt(index: number): Promise<void> {
+    if (index < 0 || index >= this.playHistory.length) {
+      return;
+    }
+    const item = this.playHistory[index];
+    const remained = await removePlayHistoryItem(item.id, item.source, item.playedAt);
+    this.playHistory = remained;
+    this.historySource.reload(this.playHistory);
+    hapticService.light();
+    appToast(t('toast_deleted'));
+  }
+
+  /** 侧滑操作区（与本地音乐页同一套视觉） */
+  @Builder
+  DeleteAction(index: number) {
+    Row() {
+      Text(t('delete'))
+        .fontSize(DesignTokens.fontSubhead())
+        .fontColor(DesignTokens.onAccent())
+        .fontWeight(FontWeight.Medium)
+    }
+    .width(88)
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor(DesignTokens.danger())
+    .onClick(() => {
+      // 直接点操作区也走同一条删除路径（距离够远，误触风险低）
+      void this.removeHistoryAt(index);
+    })
   }
 
   private async clearHistory(): Promise<void> {
@@ -245,6 +282,18 @@ export struct HistoryListPage {
           })
         }
         .padding({ left: 16, right: 16 })
+        // 侧滑删除这一条（清空整表是粗操作，主流列表都支持单条移除）
+        .swipeAction({
+          end: {
+            builder: (): void => {
+              this.DeleteAction(index);
+            },
+            onAction: (): void => {
+              void this.removeHistoryAt(index);
+            },
+            actionAreaDistance: 56,
+          },
+        })
       }, (song: PlayHistoryItem, index: number) => `${song.id}_${song.source}_${song.playedAt}_${index}`)
 
       ListItem() {

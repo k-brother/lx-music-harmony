@@ -34,6 +34,7 @@ import {
   addHistoryWord,
   clearHistoryList,
   getSearchHistory,
+  removeHistoryWord,
   type SonglistSearchResult,
 } from '../core/search/search';
 import { type NavigationParams } from '../service/NavigationService';
@@ -468,6 +469,18 @@ export struct HomePage {
     });
   }
 
+  /** 长按删除单条搜索历史：按单词定位下标后交给核心层（下标会随之变化） */
+  removeSearchHistoryWord(word: string): void {
+    const index: number = this.searchHistory.indexOf(word);
+    if (index < 0) {
+      return;
+    }
+    this.searchHistory = this.searchHistory.filter((item: string): boolean => item !== word);
+    removeHistoryWord(index).catch((err: Error) => {
+      hilog.warn(0x0001, 'HomePage', 'removeHistoryWord failed: %{public}s', err.message);
+    });
+  }
+
   /** 歌单主页：与排行榜页内搜索条一致的圆角灰底 + 放大镜 + 输入（提交即打开结果浮层） */
   async submitGlobalSearchFromStrip(): Promise<void> {
     const q = this.searchText.trim();
@@ -581,6 +594,7 @@ export struct HomePage {
             onHotClick: (keyword: string): void => this.onHotSearchClick(keyword),
             onHistoryClick: (keyword: string): void => this.onHistoryClick(keyword),
             onClearHistory: (): void => this.clearSearchHistory(),
+            onRemoveHistory: (word: string): void => this.removeSearchHistoryWord(word),
           })
         } else if (this.searchViewState === SearchViewState.RESULT) {
           this.SearchResultContent()

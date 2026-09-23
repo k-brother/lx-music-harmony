@@ -298,6 +298,11 @@ CHECKS = [
  ('网易云逐字歌词请求 yrc', 'core/music/sources/wy/lyric.ets', r'yv=1'),
  # 平滑进度：逐字高亮与进度条都靠它才有连续推进的观感
  ('播放页平滑进度表', 'pages/PlayDetailPage.ets', r'SMOOTH_TICK_MS'),
+ # 单条记录的快捷操作（长列表里一次全清太粗）
+ ('播放历史侧滑删除单条', 'pages/HistoryListPage.ets', r'removePlayHistoryItem'),
+ ('我喜欢侧滑取消收藏', 'pages/LoveListPage.ets', r'SwipeUnloveAction'),
+ ('歌词行长按复制', 'components/common/LyricView.ets', r'onLineLongPress'),
+ ('搜索历史可删单条', 'pages/Home/Home/SearchInputContent.ets', r'onRemoveHistory'),
 ]
 
 fails = []

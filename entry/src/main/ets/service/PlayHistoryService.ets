@@ -93,3 +93,25 @@ export async function clearPlayHistory(): Promise<void> {
     hilog.warn(DOMAIN, TAG, 'clearPlayHistory failed: %{public}s', JSON.stringify(err));
   }
 }
+
+/**
+ * 删除单条播放历史。
+ *
+ * 同一首歌可能因为听过多次而有多条记录（playedAt 不同），因此按「id + source + playedAt」
+ * 三元组定位，避免删掉别的重复项；返回删除后剩下的列表供调用方直接刷新界面。
+ */
+export async function removePlayHistoryItem(
+  id: string, source: string, playedAt: number): Promise<PlayHistoryItem[]> {
+  const list = await getPlayHistory(MAX_HISTORY_COUNT);
+  const remained: PlayHistoryItem[] = list.filter((item: PlayHistoryItem): boolean =>
+    !(item.id === id && item.source === source && item.playedAt === playedAt));
+  if (remained.length === list.length) {
+    return list;
+  }
+  try {
+    await getStorageService().setString(PLAY_HISTORY_KEY, JSON.stringify(remained));
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'removePlayHistoryItem failed: %{public}s', JSON.stringify(err));
+  }
+  return remained;
+}

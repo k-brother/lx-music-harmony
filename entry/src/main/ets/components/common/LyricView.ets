@@ -31,6 +31,8 @@ export struct LyricView {
   @Prop @Watch('onCurrentLyricIndexChanged') currentLyricIndex: number = -1;
   /** 点击某一行歌词（主流播放器：点哪句就跳到那句） */
   onLineTap?: (index: number) => void;
+  /** 长按某一行歌词（复制这一句） */
+  onLineLongPress?: (index: number) => void;
   private lyricScroller: Scroller = new Scroller();
   private lineHeight: number = 62;
   private pendingScrollTimer: number = -1;
@@ -222,6 +224,14 @@ export struct LyricView {
                 this.onLineTap(index);
               }
             })
+            .gesture(
+              LongPressGesture()
+                .onAction(() => {
+                  if (this.onLineLongPress) {
+                    this.onLineLongPress(index);
+                  }
+                })
+            )
             .animation({
               // 「设置 -> 外观 -> 动画效果」关闭时不做滚动动画
               duration: this.showAnimation ? 300 : 0,

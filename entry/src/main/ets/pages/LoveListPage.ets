@@ -142,12 +142,31 @@ export struct LoveListPage {
       };
       await toggleLoveList(musicItem);
       this.songs = this.songs.filter((item: SongRow) => item.id !== song.id);
-    this.loveSource.reload(this.songs);
+      this.loveSource.reload(this.songs);
       appToast(t('toast_unloved'));
     } catch (err) {
       hilog.warn(DOMAIN, TAG, 'removeFromLove failed: %{public}s', JSON.stringify(err));
       appToast(t('toast_operation_failed'));
     }
+  }
+
+  /** 侧滑「取消收藏」：与本地音乐/历史页同一套操作区视觉 */
+  @Builder
+  SwipeUnloveAction(song: SongRow) {
+    Row() {
+      Text(t('player_unlove'))
+        .fontSize(DesignTokens.fontSubhead())
+        .fontColor(DesignTokens.onAccent())
+        .fontWeight(FontWeight.Medium)
+    }
+    .width(96)
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor(DesignTokens.danger())
+    .onClick(() => {
+      hapticService.light();
+      void this.removeFromLove(song);
+    })
   }
 
   /** 行菜单（⋮）：播放 / 下一首播放 / 取消收藏 */
@@ -269,6 +288,19 @@ export struct LoveListPage {
           })
         }
         .padding({ left: 16, right: 8 })
+        // 侧滑取消收藏（长按菜单里也有同一项，这里给更快的手势入口）
+        .swipeAction({
+          end: {
+            builder: (): void => {
+              this.SwipeUnloveAction(song);
+            },
+            onAction: (): void => {
+              hapticService.light();
+              void this.removeFromLove(song);
+            },
+            actionAreaDistance: 56,
+          },
+        })
       }, (song: SongRow, index: number) => `${song.id}_${index}`)
     }
     .layoutWeight(1)

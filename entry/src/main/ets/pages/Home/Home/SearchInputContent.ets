@@ -26,6 +26,8 @@ export struct SearchInputContent {
   onHotClick?: (keyword: string) => void;
   onHistoryClick?: (keyword: string) => void;
   onClearHistory?: () => void;
+  /** 长按某条历史 → 只删这一条（主流 App 的通用交互；一次全清太粗） */
+  onRemoveHistory?: (word: string) => void;
 
   build() {
     Column() {
@@ -123,6 +125,12 @@ export struct SearchInputContent {
             .onClick(() => {
               if (this.onHistoryClick) { this.onHistoryClick(word); }
             })
+            .gesture(
+              LongPressGesture()
+                .onAction(() => {
+                  if (this.onRemoveHistory) { this.onRemoveHistory(word); }
+                })
+            )
         }, (word: string) => word)
       }
       .width('100%')

@@ -30,6 +30,8 @@ export struct LyricPane {
   onSeekChange?: (value: number, mode: SliderChangeMode) => void;
   /** 点击某一行歌词 → 跳到该句（0 基下标） */
   onLineTap?: (index: number) => void;
+  /** 长按某一行歌词 → 复制这一句 */
+  onLineLongPress?: (index: number) => void;
 
   build() {
     Column() {
@@ -43,6 +45,11 @@ export struct LyricPane {
         onLineTap: (index: number): void => {
           if (this.onLineTap) {
             this.onLineTap(index);
+          }
+        },
+        onLineLongPress: (index: number): void => {
+          if (this.onLineLongPress) {
+            this.onLineLongPress(index);
           }
         },
       })

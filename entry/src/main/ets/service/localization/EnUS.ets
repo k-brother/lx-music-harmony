@@ -28,6 +28,8 @@ export function buildEnUS(): Map<string, string> {
   m.set('play', 'Play');
   m.set('toast_deleted', 'Deleted');
   m.set('toast_share_copy', 'Song info copied to clipboard');
+  m.set('toast_lyric_copied', 'Lyrics copied to clipboard');
+  m.set('toast_copy_failed', 'Copy failed');
   m.set('toast_export_running', 'Exporting playlists…');
   m.set('toast_import_running', 'Importing playlists…');
   m.set('settings_save_play_time', 'Save Playback Progress');
