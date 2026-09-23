@@ -55,7 +55,7 @@ hdc_do shell "power-shell timeout -o 1800000" >/dev/null 2>&1 || true
 hdc_do shell "aa force-stop ${BUNDLE}" >/dev/null 2>&1
 sleep 1
 hdc_do shell "aa start -a ${ABILITY} -b ${BUNDLE}" >/dev/null 2>&1
-sleep 8
+sleep 6
 
 # 进「我的 → 设置」
 key 2; sleep 2

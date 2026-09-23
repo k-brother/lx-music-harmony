@@ -124,7 +124,7 @@ hdc_do shell "hilog -r" >/dev/null 2>&1
 hdc_do shell "aa force-stop ${BUNDLE}" >/dev/null 2>&1
 sleep 1
 hdc_do shell "aa start -a ${ABILITY} -b ${BUNDLE}" >/dev/null 2>&1
-sleep 8
+sleep 6
 # 启动断言：日志可能被上一轮清理/滚动覆盖，所以「进程确实在跑」也算通过
 # （否则会在紧接 hilog -r 之后偶发假失败，与真实启动成败无关）
 assert_app_running() {

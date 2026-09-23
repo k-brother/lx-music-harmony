@@ -658,6 +658,16 @@ const size = await sheetService.input('字体大小', '14', { numberOnly: true }
 
 宿主挂在 `NavIndex` 根节点，任何页面/分组都能安全弹出面板。
 
+### 开发节奏（重要：别每轮都跑真机）
+
+真机脚本是五个，逐个跑要十几分钟 —— 这是很容易失控的时间开销。约定：
+
+- **每一轮改动**：`./hvigor.sh assembleApp && ./scripts/check.sh`（几秒），够抓编译错误、
+  死代码、i18n、功能清单与结构回归；
+- **里程碑 / 一轮里动了真机可见行为时**：跑 `./scripts/device_all.sh` 一次，
+  它顺序跑完五个专项脚本并给出汇总（耗时打印在末尾）；
+- 探索性点按（截图逐屏看）只在做 UI 走查时做，且一次看多屏、别反复冷启动。
+
 ### 自检脚本
 
 每轮改完在 `harmony/` 下跑一遍（脚本在 `scripts/`，不依赖网络）：
@@ -680,6 +690,7 @@ python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 ./scripts/device_download_check.sh # 下载页专项：筛选计数 → 多选 → 全选 → 批量删除确认
 ./scripts/device_player_check.sh   # 播放页专项：「更多」面板分组 + 12 项动作逐个点开
 ./scripts/device_queue_check.sh    # 队列手势专项：手柄拖拽排序、不误切歌、长按移除
+./scripts/device_all.sh            # 上面五个一次跑完（里程碑用，末尾打印总耗时）
 ```
 
 它会装包、冷启动，然后按顺序跑「换源重载 → 歌单详情出歌 → 播放页歌词链路 →

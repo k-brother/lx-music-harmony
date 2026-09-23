@@ -107,11 +107,11 @@ hdc_do shell "power-shell timeout -o 1800000" >/dev/null 2>&1 || true
 hdc_do shell "aa force-stop ${BUNDLE}" >/dev/null 2>&1
 sleep 1
 hdc_do shell "aa start -a ${ABILITY} -b ${BUNDLE}" >/dev/null 2>&1
-sleep 8
+sleep 6
 
 # 造队列：进第一张歌单 → 播放全部 → 迷你播放器 → 播放页 → 更多 → 播放队列
 tap_text "歌单" >/dev/null 2>&1; sleep 3
-tap 173 997; sleep 8
+tap 173 997; sleep 6
 tap_text "播放全部" >/dev/null 2>&1; sleep 6
 dump >/dev/null 2>&1
 MINI_Y=$(python3 - "$UI_TMP" <<'PY'

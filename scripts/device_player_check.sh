@@ -80,10 +80,10 @@ hdc_do shell "power-shell timeout -o 1800000" >/dev/null 2>&1 || true
 hdc_do shell "aa force-stop ${BUNDLE}" >/dev/null 2>&1
 sleep 1
 hdc_do shell "aa start -a ${ABILITY} -b ${BUNDLE}" >/dev/null 2>&1
-sleep 8
+sleep 6
 
 # 冷启动落在歌单页：进第一张歌单 → 点第一首播放 → 从迷你播放器封面进播放页
-tap 173 997; sleep 8
+tap 173 997; sleep 6
 tap 500 760; sleep 6
 dump >/dev/null 2>&1
 MINI_Y=$(python3 - "$UI_TMP" <<'PY'
