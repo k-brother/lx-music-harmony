@@ -124,7 +124,8 @@ export struct LocalMusicPage {
     try {
       await playerService.playSelectedFromPlayList(index);
       this.playingId = this.tracks[index].id;
-      this.trackSource.reload(this.tracks);
+      // 高亮依赖页面的 playingId（不在行数据里）：显式通知该行重建
+      this.trackSource.notifyChanged(index);
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'playTrack failed: %{public}s', JSON.stringify(err));
       this.showToast(t('toast_play_failed'));
