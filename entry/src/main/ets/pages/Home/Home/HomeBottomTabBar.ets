@@ -46,7 +46,7 @@ export struct HomeBottomTabBar {
     }
     .layoutWeight(1)
     // 图标 + 文案的完整高度：此前给 44 而 Row 又加了内边距，文案被压到屏幕外
-    .height(50)
+    .height(46)
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
     .onClick(() => {
@@ -82,17 +82,15 @@ export struct HomeBottomTabBar {
           }, (tab: HomeTabItem) => tab.idx.toString())
         }
         .width('100%')
-        // 不写死高度：由 TabItem 撑开，避免再次出现「图标挤到文案」
-        .padding({ top: 6, bottom: 6 })
+        // 不写死高度：由 TabItem 撑开，避免再次出现「图标挤到文案」；
+        // 底部不再额外留 Blank —— 安全区扩展会把背景铺到屏幕底，内容自然贴着手势条上沿
+        .padding({ top: 4, bottom: 0 })
         .border({ width: { top: 0.33 }, color: DesignTokens.hairlineSeparator(this.theme) })
-
-        // 手势条区域：只留高度，Tab 栏背景会铺满（背景在下面通过安全区扩展覆盖）
-        Blank()
-          .width('100%')
-          .height(this.safeBottomVp)
       }
       .width('100%')
       .backgroundColor(DesignTokens.tabBarBg(this.theme))
+      // 至少不低于系统手势条高度（扩展异常时也不会被手势条压住）
+      .constraintSize({ minHeight: this.safeBottomVp })
       // 背景延伸到屏幕最底（手势条那条小横条落在 Tab 栏背景上，不再是一条突兀的色带）
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
     }
