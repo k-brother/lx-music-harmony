@@ -668,6 +668,35 @@ const size = await sheetService.input('字体大小', '14', { numberOnly: true }
   它顺序跑完五个专项脚本并给出汇总（耗时打印在末尾）；
 - 探索性点按（截图逐屏看）只在做 UI 走查时做，且一次看多屏、别反复冷启动。
 
+## 本轮重构总览（结构 + 一致性）
+
+把「巨型文件 + 重复实现」两类问题一起收口。当前最大文件与职责：
+
+| 文件 | 行数 | 职责 |
+| --- | --- | --- |
+| `pages/SonglistDetailPage.ets` | ~1360 | 歌单详情编排（动作/批量/收藏已外置） |
+| `service/PlayerService.ets` | ~1360 | 播放编排（队列规则、系统播控、进度存储已外置） |
+| `pages/Home/LeaderboardView.ets` | ~1225 | 榜单编排 |
+| `pages/PlayDetailPage.ets` | ~1150 | 播放页编排（资源加载、控制条、单曲动作已外置） |
+| `pages/HomePage.ets` | ~1046 | 首页 Tab 编排 |
+| `service/SettingsService.ets` | ~407 | 设置读写入口（字段写入已外置到 SettingsWriters） |
+
+已拆出的模块（按域，均有 README 段说明）：`core/music/{download,download/*,PluginResolve,MusicSearch,OtherSourceMatch}`、
+`service/{sync/*,player/*,backup/*,crypto/*,settings/*,localization/*}`、`pages/{PlayDetail/*,SonglistDetail/*,Download/*}`、
+`core/theme/{ThemeFactory,data/*}`、`utils/FormatTools`。
+
+统一出口（同一件事只有一份实现）：
+
+| 能力 | 唯一出口 |
+| --- | --- |
+| 字节 / 时长 / 播放量格式化 | `utils/FormatTools` |
+| 提示与确认框 | `service/DialogService`（appToast / appConfirm / appAlert / appActionMenu） |
+| 加解密 | `service/crypto/AesPayload`（同步固定 IV / 备份随机 IV + SHA-256） |
+| 下载队列与落盘 | `core/music/download/*` |
+| 系统播控 | `service/player/PlaybackSession` |
+| 主题数据 | `core/theme/{ThemeFactory,data/*}` |
+| i18n 词条 | `service/localization/{ZhCN,EnUS}` |
+
 ### 自检脚本
 
 每轮改完在 `harmony/` 下跑一遍（脚本在 `scripts/`，不依赖网络）：

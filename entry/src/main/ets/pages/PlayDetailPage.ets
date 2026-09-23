@@ -238,10 +238,6 @@ export struct PlayDetailPage {
     }
   }
 
-  private buildMusicKey(info: MusicInfo): string {
-    return PlayMediaAssets.musicKey(info);
-  }
-
   private applyMusicInfo(info: MusicInfo): void {
     if (!info || !info.name) {
       this.musicName = t('not_playing');

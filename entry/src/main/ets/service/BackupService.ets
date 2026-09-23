@@ -445,49 +445,6 @@ export class BackupService {
     return BackupDataType.ALL;
   }
 
-  // ArrayBuffer转Base64
-  // （旧 XOR 备份的 arrayBufferToBase64 已随加解密迁移到 AesPayload 移除）
-
-  // Base64转ArrayBuffer
-  // （旧 XOR 备份的 base64ToArrayBuffer 已随加解密迁移到 AesPayload 移除）
-
-  // Base64编码 - 修复: 不使用索引访问
-  private btoa(input: string): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-    let result = '';
-    let i = 0;
-    while (i < input.length) {
-      const a = input.charCodeAt(i++);
-      const b = i < input.length ? input.charCodeAt(i++) : 0;
-      const c = i < input.length ? input.charCodeAt(i++) : 0;
-      const triplet = (a << 16) | (b << 8) | c;
-      result += chars.charAt((triplet >> 18) & 0x3F) +
-                chars.charAt((triplet >> 12) & 0x3F) +
-                (i > input.length + 1 ? '=' : chars.charAt((triplet >> 6) & 0x3F)) +
-                (i > input.length ? '=' : chars.charAt(triplet & 0x3F));
-    }
-    return result;
-  }
-
-  // Base64解码 - 修复: 不使用索引访问
-  private atob(input: string): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-    let result = '';
-    const cleanInput = input.replace(/=+$/, '');
-    let i = 0;
-    while (i < cleanInput.length) {
-      const a = chars.indexOf(cleanInput.charAt(i++));
-      const b = chars.indexOf(cleanInput.charAt(i++));
-      const c = chars.indexOf(cleanInput.charAt(i++));
-      const d = chars.indexOf(cleanInput.charAt(i++));
-      const triplet = (a << 18) | (b << 12) | (c << 6) | d;
-      result += String.fromCharCode((triplet >> 16) & 0xFF) +
-                String.fromCharCode((triplet >> 8) & 0xFF) +
-                String.fromCharCode(triplet & 0xFF);
-    }
-    return result;
-  }
-
   // 获取上下文
   private getContext(): common.UIAbilityContext {
     if (!this.abilityContext) {
