@@ -386,6 +386,8 @@ export function buildZhCN(): Map<string, string> {
   m.set('custom_source_hint', '提示: 安卓版 LX Music 的在线JS源可以在设置 -> 自定义源 中查看');
   m.set('love_empty_hint', '播放时点击心形按钮收藏');
   m.set('history_empty_hint', '播放过的歌曲会出现在这里');
+  // 空态行动项：直接回歌单广场挑一张来播（不然用户只能干看着空列表）
+  m.set('empty_go_songlist', '去歌单广场');
   m.set('mylist_loved_songs', '收藏的歌曲');
   m.set('list_create_short', '新建');
   m.set('list_create_title', '新建歌单');

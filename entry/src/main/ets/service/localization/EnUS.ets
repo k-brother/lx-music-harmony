@@ -383,6 +383,7 @@ export function buildEnUS(): Map<string, string> {
   m.set('custom_source_hint', 'Tip: find online JS sources in the Android LX Music app under Settings → Custom Source');
   m.set('love_empty_hint', 'Tap the heart on the player to add songs here');
   m.set('history_empty_hint', 'Songs you played will appear here');
+  m.set('empty_go_songlist', 'Browse playlists');
   m.set('mylist_loved_songs', 'Loved songs');
   m.set('list_create_short', 'New');
   m.set('list_create_title', 'New playlist');

@@ -20,6 +20,7 @@ import { StateView } from '../components/ui/StateView';
 import { RefreshContainer } from '../components/ui/RefreshContainer';
 import { hapticService } from '../service/HapticService';
 import { PlayerBar } from '../components/player/PlayerBar';
+import { navigationService, RouteName } from '../service/NavigationService';
 import { pageScrollKey, ScrollMemoryHandle } from '../service/ScrollMemoryService';
 
 const DOMAIN = 0x0001;
@@ -258,7 +259,16 @@ export struct LoveListPage {
         .width('100%')
         .layoutWeight(1)
       } else if (this.songs.length === 0) {
-        StateView({ state: 'empty', iconRes: $r('sys.symbol.heart'), message: t('love_empty_hint') })
+        // 空态给行动项：直接回歌单广场挑一张来播
+        StateView({
+          state: 'empty',
+          iconRes: $r('sys.symbol.heart'),
+          message: t('love_empty_hint'),
+          actionText: t('empty_go_songlist'),
+          onAction: (): void => {
+            navigationService.backTo(RouteName.HOME);
+          },
+        })
           .layoutWeight(1)
           .width('100%')
       } else {

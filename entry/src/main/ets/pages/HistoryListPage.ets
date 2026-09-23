@@ -28,6 +28,7 @@ import { StateView } from '../components/ui/StateView';
 import { RefreshContainer } from '../components/ui/RefreshContainer';
 import { hapticService } from '../service/HapticService';
 import { PlayerBar } from '../components/player/PlayerBar';
+import { navigationService, RouteName } from '../service/NavigationService';
 import { pageScrollKey, ScrollMemoryHandle } from '../service/ScrollMemoryService';
 
 const DOMAIN = 0x0001;
@@ -259,6 +260,10 @@ export struct HistoryListPage {
           state: 'empty',
           iconRes: $r('sys.symbol.clock'),
           message: t('history_empty_hint'),
+          actionText: t('empty_go_songlist'),
+          onAction: (): void => {
+            navigationService.backTo(RouteName.HOME);
+          },
         })
           .layoutWeight(1)
           .width('100%')

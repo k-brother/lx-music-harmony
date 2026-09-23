@@ -21,6 +21,11 @@ import { StateView } from '../components/ui/StateView';
 import { SegmentedBar } from '../components/ui/SegmentedBar';
 import { PlayerBar } from '../components/player/PlayerBar';
 import { t } from '../service/LocalizationService';
+import {
+  applyLikedState,
+  loadLikedIds,
+  persistLikedIds,
+} from '../service/comment/CommentLikeStore';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'CommentPage';
@@ -59,6 +64,8 @@ export struct CommentPage {
   @State isRefreshing: boolean = false;
   /** 拉取失败（与「暂无评论」区分，失败态给重试入口） */
   @State hasError: boolean = false;
+  /** 本地点赞集合（源的评论接口没有登录态，点赞只能本地记） */
+  private likedCommentIds: Set<string> = new Set<string>();
   @State hasMore: boolean = true;
   @State currentPage: number = 1;
   @State totalComments: number = 0;
@@ -70,6 +77,15 @@ export struct CommentPage {
   @State previewIndex: number = 0;
 
   aboutToAppear() {
+    // 先读本地点赞记录（拉回评论时要套用，避免刷新后点赞态消失）
+    this.likedCommentIds = new Set<string>();
+    loadLikedIds().then((ids: Set<string>): void => {
+      this.likedCommentIds = ids;
+      applyLikedState(this.comments, ids);
+      this.commentSource.reload(this.comments);
+    }).catch((err: Error): void => {
+      hilog.warn(DOMAIN, TAG, 'load liked ids failed: %{public}s', err.message);
+    });
     // 获取传递的参数
     const params = this.getParams();
     if (params) {
@@ -166,6 +182,8 @@ export struct CommentPage {
   private applyLoadedComments(response: CommentResponse, isRefresh: boolean): void {
     const newComments = response.comments;
     this.hasError = false;
+    // 服务端不返回 liked 字段：把本地点赞态补回去（计数同样只补一次）
+    applyLikedState(newComments, this.likedCommentIds);
     this.comments = isRefresh ? newComments : [...this.comments, ...newComments];
     this.commentSource.reload(this.comments);
     this.currentPage++;
@@ -206,11 +224,21 @@ export struct CommentPage {
       const comment = this.comments[commentIndex];
       comment.isLiked = !comment.isLiked;
       comment.likeCount += comment.isLiked ? 1 : -1;
-      
+
+      // 点赞是本地标记（源的评论接口不带登录态），落盘后刷新/重启仍然保留
+      if (comment.isLiked) {
+        this.likedCommentIds.add(commentId);
+      } else {
+        this.likedCommentIds.delete(commentId);
+      }
+      persistLikedIds(this.likedCommentIds).catch((err: Error) => {
+        hilog.warn(DOMAIN, TAG, 'persist liked ids failed: %{public}s', err.message);
+      });
+
       // 单行变化用 notifyChanged：LazyForEach 只重建这一项
       // （reload 会走整表 diff，用在这里没必要）
       this.commentSource.notifyChanged(commentIndex);
-      
+
       hilog.info(DOMAIN, TAG, 'Comment %{public}s liked: %{public}s', commentId, comment.isLiked);
     }
   }
