@@ -24,6 +24,9 @@ CHECKS = [
  ('列表级同步到本地', 'service/ListService.ets', r'replaceUserListMusic|removeMusicsFromList'),
  ('手动换源弹窗', 'pages/PlayDetailPage.ets', r'sourceCandidates|showSourceCandidates|switchSource'),
  ('本地音乐元数据编辑', 'service/LocalMusicService.ets', r'updateMetadata'),
+ # 本地音乐离线歌词：同名 .lrc 优先，读不到再回退在线匹配
+ ('本地同名歌词文件读取', 'core/music/local/LocalLyricFile.ets', r'readSidecarLyric'),
+ ('本地歌词优先走同名文件', 'core/music/ResolvePlayback.ets', r'readSidecarLyric'),
  ('运行日志页', 'pages/LogPage.ets', r'logService'),
  ('日志落盘/回读', 'service/LogService.ets', r'restoreFromFile|exportToFile'),
  ('日志门面接入', 'core/log/AppLogger.ets', r'appLog'),

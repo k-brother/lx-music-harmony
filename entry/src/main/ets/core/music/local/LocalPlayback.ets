@@ -15,6 +15,7 @@ import type { MusicInfo, LyricInfo, MusicQualityType } from '../../../types/Musi
 import { buildLyricInfo, createEmptyLyricInfo } from '../MusicParsingUtils';
 import { getMusicUrl, getLyricInfo, getPicUrl } from '../ResolvePlayback';
 import { formatBytes } from '../../../utils/FormatTools';
+import { readSidecarLyric } from './LocalLyricFile';
 
 const TAG_LOCAL = 'LOCAL_MUSIC';
 const DOMAIN_LOCAL = 0x0003;
@@ -371,11 +372,14 @@ async function readEmbeddedPic(filePath: string): Promise<string | null> {
 }
 
 /**
- * 读取歌词文件
+ * 读取同名歌词文件（.lrc）
+ *
+ * 本地音乐最常见的整理方式是「音频与歌词同名放一起」，读到了就不必联网取词。
+ * 读写实现在 core/music/local/LocalLyricFile（播放链路也用它）。
  */
-async function readLyricFile(_filePath: string): Promise<LyricInfo | null> {
-  // 文件系统API暂不可用
-  return null;
+async function readLyricFile(filePath: string): Promise<LyricInfo | null> {
+  const text = await readSidecarLyric(filePath);
+  return text === null ? null : { lyric: text };
 }
 
 /**
@@ -386,11 +390,11 @@ export function getSupportedAudioFormats(): string[] {
 }
 
 /**
- * 获取音乐文件元数据（HarmonyOS媒体元数据API暂不支持，返回null）
+ * 获取单个音乐文件的元数据（标题/歌手/专辑/时长）。
+ * 扫描目录时走同一实现；读不到标签时返回 null，由调用方用文件名兜底。
  */
-export async function getMusicFileMetadata(_filePath: string): Promise<LocalMusicInfo | null> {
-  // HarmonyOS的AVMetadataExtractor API在此版本不支持，直接返回null
-  return null;
+export async function getMusicFileMetadata(filePath: string): Promise<LocalMusicInfo | null> {
+  return await extractLocalMetadata(filePath);
 }
 
 /**

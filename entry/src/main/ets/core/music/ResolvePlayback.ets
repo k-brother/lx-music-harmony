@@ -11,6 +11,7 @@ import {
 } from './PluginResolve';
 import { pluginManager } from '../plugin/PluginManager';
 import { getOtherSource } from './OtherSourceMatch';
+import { readSidecarLyric } from './local/LocalLyricFile';
 import { searchMusic, type SearchMusicParams } from './MusicSearch';
 // 日志经由应用日志门面，既输出 hilog 也进入「设置 → 运行日志」
 import { appLog as hilog } from '../log/AppLogger';
@@ -456,6 +457,19 @@ export async function getLyricInfo(params: GetLyricInfoParams): Promise<LyricInf
   if (!musicInfo) {
     return createEmptyLyricInfo();
   }
+
+  // 本地音乐：优先读同名 .lrc（离线可用，不依赖任何音源）
+  // 本地曲目的 id 就是沙箱内文件路径（见 LocalPlayback.extractLocalMetadata）
+  if ((musicInfo.source as string) === 'local') {
+    const sidecar = await readSidecarLyric(musicInfo.id || musicInfo.songmid || '');
+    if (sidecar !== null) {
+      hilog.info(DOMAIN, TAG, 'local lyric from sidecar file: %{public}s len=%{public}d',
+        musicInfo.name, sidecar.length);
+      return buildLyricInfo({ lyric: sidecar, tlyric: null, rlyric: null, lxlyric: null });
+    }
+    hilog.info(DOMAIN, TAG, 'no sidecar lyric for %{public}s, fallback to online sources', musicInfo.name);
+  }
+
   ensureSongMid(musicInfo);
   if (!musicInfo.songmid || musicInfo.songmid.length === 0) {
     return createEmptyLyricInfo();
