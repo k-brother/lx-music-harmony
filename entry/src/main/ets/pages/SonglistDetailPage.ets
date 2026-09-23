@@ -5,7 +5,7 @@ import hilog from '@ohos.hilog';
 import { showAppToast, TOAST_DURATION_SHORT } from '../utils/Toast';
 import { formatPlayCount } from '../utils/FormatTools';
 import { PlayerBar } from '../components/player/PlayerBar';
-import { getSongListDetail, setDownloadContext, download, type SongListDetailResult } from '../core/music/MusicFeatureEntry';
+import { getSongListDetail, setDownloadContext, type SongListDetailResult } from '../core/music/MusicFeatureEntry';
 import { NavigationParams } from '../service/NavigationService';
 import { playerService, SongInfo } from '../service/PlayerService';
 import { navigationService } from '../service/NavigationService';
@@ -25,7 +25,7 @@ import { findUserListByBinding } from '../service/ListService';
 import { dislikeList } from '../core/dislike/DislikeList';
 import { showSongItemMenu, showSonglistMoreMenu } from './SonglistDetail/SonglistMenus';
 import { songRowToListItem, songRowToMusicInfo, songRowToQueueItem } from '../core/list/SongMappers';
-import { appActionMenu } from '../service/DialogService';
+import { appActionMenu, appConfirm } from '../service/DialogService';
 import { ListRow } from '../components/ui/ListRow';
 import { NavBar } from '../components/ui/NavBar';
 import { InputSheet } from '../components/ui/InputSheet';
@@ -35,6 +35,14 @@ import type { SongItem, SonglistInfo } from './SonglistDetail/SonglistTypes';
 import { SonglistDetailHeader } from './SonglistDetail/SonglistDetailHeader';
 import { SonglistBatchBar } from './SonglistDetail/SonglistBatchBar';
 import { SonglistSortSheet } from './SonglistDetail/SonglistSortSheet';
+import {
+  batchAddToDefaultList,
+  batchDownloadSongs,
+  batchRemoveFromLocalList,
+  downloadWholeList,
+  downloadOne,
+  type SonglistTarget,
+} from './SonglistDetail/SonglistActions';
 import type { MusicInfo } from '../types/MusicTypes';
 import { DesignTokens } from '../theme/DesignTokens';
 import { formatPlayTime } from '../utils/CommonUtils';
@@ -710,120 +718,59 @@ export struct SonglistDetailPage {
     showAppToast(this.getUIContext(), message, TOAST_DURATION_SHORT);
   }
 
-  // 下载歌单
+
+
+
+
+  /** 整列表下载：流程在 SonglistDetail/SonglistActions */
   async downloadAll(): Promise<void> {
-    try {
-      hilog.info(0x0001, 'SonglistDetail', 'Download songlist: %{public}s', this.listInfo.name);
-      
-      if (this.songList.length === 0) {
-        this.showToast(t('toast_songlist_empty'));
-        return;
-      }
-      
-      // 确认下载
-      const confirmed = await this.showConfirmDialog(
-        t('download_confirm_title'),
-        tf('confirm_download_songlist', [this.listInfo.name, this.songList.length.toString()])
-      );
-      
-      if (!confirmed) {
-        this.showToast(t('toast_cancel_download'));
-        return;
-      }
-      
-      // 开始下载
-      let successCount = 0;
-      let failCount = 0;
-      
-      for (let i = 0; i < this.songList.length; i++) {
-        const song = this.songList[i];
-        try {
-          await this.downloadSong(song);
-          successCount++;
-          
-          // 更新进度
-          this.showToast(tf('toast_downloading_progress', [(i + 1).toString(), this.songList.length.toString()]));
-        } catch (err) {
-          hilog.error(0x0001, 'SonglistDetail', 'Failed to download song %{public}s: %{public}s', 
-            song.name, JSON.stringify(err));
-          failCount++;
-        }
-      }
-      
-      // 显示结果
-      if (successCount > 0) {
-        this.showToast(tf('toast_download_summary', [successCount.toString(), failCount.toString()]));
-      } else {
-        this.showToast(t('toast_download_failed_network'));
-      }
-      
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
-      hilog.error(0x0001, 'SonglistDetail', 'Failed to download songlist: %{public}s', errorMsg);
-      this.showToast(t('toast_download_failed') + ': ' + errorMsg);
-    }
+    await downloadWholeList(this.actionTarget(), this.songList, this.confirm(), this.toast());
   }
 
-
-
-  // 下载单首歌曲
-  private async downloadSong(song: SongItem): Promise<void> {
-    try {
-      const musicInfo: MusicInfo = songRowToMusicInfo(song);
-      // 使用真实的下载服务
-      const taskId = await download.startDownload({
-        musicInfo: musicInfo,
-      });
-      hilog.info(0x0001, 'SonglistDetail', 'Download started: %{public}s, taskId: %{public}s', song.name, taskId);
-    } catch (err) {
-      hilog.error(0x0001, 'SonglistDetail', 'Failed to download song %{public}s: %{public}s',
-        song.name, JSON.stringify(err));
-      const msg = err instanceof Error ? err.message : JSON.stringify(err);
-      throw new Error(msg);
-    }
+  private actionTarget(): SonglistTarget {
+    return { source: this.listInfo.source, listId: this.listInfo.id, name: this.listInfo.name };
   }
 
-  /** 系统确认对话框（Promise 化，取消返回 false） */
+  /** 批量加入默认列表 */
+  private async batchAddToPlaylist(): Promise<void> {
+    await batchAddToDefaultList(this.selectedSongs(), this.toast());
+    this.exitSelectMode();
+  }
+
+  /** 批量下载 */
+  private async batchDownload(): Promise<void> {
+    await batchDownloadSongs(this.selectedSongs(), this.confirm(), this.toast());
+    this.exitSelectMode();
+  }
+
+  /** 批量移出本地歌单（在线歌单只读） */
+  private async batchRemove(): Promise<void> {
+    const songs = this.selectedSongs();
+    const removed = await batchRemoveFromLocalList(
+      this.actionTarget(), songs, this.confirm(), this.toast());
+    if (removed < 0) {
+      return;
+    }
+    this.songList = this.songList.filter((song: SongItem) => !this.containsSong(songs, song));
+    this.exitSelectMode();
+  }
+
+  /** 二次确认：统一走 DialogService.appConfirm（取消返回 false） */
   private showConfirmDialog(title: string, message: string): Promise<boolean> {
-    return new Promise<boolean>((resolve: (value: boolean) => void) => {
-      try {
-        this.getUIContext().getPromptAction().showDialog({
-          title,
-          message,
-          buttons: [
-            { text: t('cancel'), color: DesignTokens.labelSecondary(this.theme) },
-            { text: t('confirm'), color: DesignTokens.accent() },
-          ],
-        }, (err: object, data: PromptActionResult) => {
-          resolve(!err && data.index === 1);
-        });
-      } catch (err) {
-        hilog.warn(0x0001, 'SonglistDetail', 'showConfirmDialog failed: %{public}s', JSON.stringify(err));
-        resolve(false);
-      }
-    });
+    return appConfirm(title, message);
   }
 
+  /** 传给动作模块的两个回调 */
+  private confirm(): (title: string, message: string) => Promise<boolean> {
+    return (title: string, message: string): Promise<boolean> => this.showConfirmDialog(title, message);
+  }
 
-  // 显示操作菜单
+  private toast(): (message: string) => void {
+    return (message: string): void => {
+      this.showToast(message);
+    };
+  }
 
-  /** 二级菜单：多选 / 不喜欢 / 来源详情 / 查看歌手 / 查看专辑 */
-
-  /** 下一首播放（插到当前曲目之后） */
-
-  /** 打开该歌曲在对应平台的详情页 */
-
-  /** 打开外部链接 */
-
-  /** 不喜欢：按 歌曲 / 歌手 / 歌名 三种粒度屏蔽（与播放页一致） */
-
-  /** 写入屏蔽规则（与播放页 addDislike 行为一致） */
-
-  /** SongItem -> MusicInfo（分享/详情页链接用） */
-
-  // ===== 多选批量操作 =====
-
-  /** 进入多选模式，并把触发的那首歌默认选中 */
   private enterSelectMode(song?: SongItem): void {
     this.selectMode = true;
     if (song) {
@@ -886,79 +833,8 @@ export struct SonglistDetailPage {
     return result;
   }
 
-  /** 批量添加到自建歌单（默认列表） */
-  private async batchAddToPlaylist(): Promise<void> {
-    const songs = this.selectedSongs();
-    if (songs.length === 0) {
-      this.showToast(t('toast_no_selection'));
-      return;
-    }
-    let added = 0;
-    for (let i = 0; i < songs.length; i++) {
-      try {
-        await addMusicToList(LIST_IDS.DEFAULT, songRowToListItem(songs[i]));
-        added++;
-      } catch (err) {
-        hilog.warn(0x0001, 'SonglistDetail', 'batch add failed: %{public}s', JSON.stringify(err));
-      }
-    }
-    this.showToast(tf('toast_batch_added', [added.toString()]));
-    this.exitSelectMode();
-  }
 
-  /** 批量下载 */
-  private async batchDownload(): Promise<void> {
-    const songs = this.selectedSongs();
-    if (songs.length === 0) {
-      this.showToast(t('toast_no_selection'));
-      return;
-    }
-    const confirmed = await this.showConfirmDialog(
-      t('player_download'),
-      tf('confirm_download_songs', [songs.length.toString()]));
-    if (!confirmed) {
-      return;
-    }
-    let done = 0;
-    for (let i = 0; i < songs.length; i++) {
-      try {
-        await this.downloadSong(songs[i]);
-        done++;
-        this.showToast(tf('toast_downloading_progress', [(i + 1).toString(), songs.length.toString()]));
-      } catch (err) {
-        hilog.warn(0x0001, 'SonglistDetail', 'batch download failed: %{public}s', JSON.stringify(err));
-      }
-    }
-    this.showToast(tf('toast_batch_downloaded', [done.toString()]));
-    this.exitSelectMode();
-  }
 
-  /** 批量移出本地歌单（在线歌单不支持，避免用户误以为云端被改） */
-  private async batchRemove(): Promise<void> {
-    const songs = this.selectedSongs();
-    if (songs.length === 0) {
-      this.showToast(t('toast_no_selection'));
-      return;
-    }
-    if (this.listInfo.source !== 'local') {
-      this.showToast(t('toast_online_list_readonly'));
-      return;
-    }
-    const confirmed = await this.showConfirmDialog(
-      t('list_remove_songs'),
-      tf('confirm_remove_songs', [songs.length.toString()]));
-    if (!confirmed) {
-      return;
-    }
-    const ids: string[] = [];
-    for (let i = 0; i < songs.length; i++) {
-      ids.push(songs[i].id);
-    }
-    const removed = await removeMusicsFromList(this.listInfo.id, ids);
-    this.songList = this.songList.filter((song: SongItem) => !this.containsSong(songs, song));
-    this.exitSelectMode();
-    this.showToast(tf('toast_removed_count', [removed.toString()]));
-  }
 
   private containsSong(songs: SongItem[], target: SongItem): boolean {
     for (let i = 0; i < songs.length; i++) {
@@ -1309,8 +1185,7 @@ export struct SonglistDetailPage {
   // 下载单曲（从菜单调用）
   private async downloadSongFromMenu(song: SongItem): Promise<void> {
     try {
-      // 调用之前实现的downloadSong方法
-      await this.downloadSong(song);
+      await downloadOne(song);
       this.showToast(tf('toast_download_start_song', [song.name]));
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
