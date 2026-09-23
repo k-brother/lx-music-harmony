@@ -695,21 +695,21 @@ inputRow / infoRow` 五个工厂把「一行 = 标题 + 值 + 选项 + 回调」
 ### 自检与出包（一条命令）
 
 ```
-./scripts/check.sh     # 静态检查（30 个脚本 / 235 项功能判据）：
+./scripts/check.sh     # 静态检查（36 个脚本 / 322 项功能判据）：
                        #   check_imports / check_dead（含类成员、@State）
                        #   check_unused_exports / check_reachable / check_routes
                        #   check_storage_bindings / check_permissions
-                       #   check_i18n / check_symbols
+                       #   check_kit_imports（@kit.* 能力集入口）/ check_i18n / check_symbols
                        #   check_settings_copy / check_settings_reset
                        #   check_settings_ui / check_mini_player / check_responsive
                        #   check_keyboard / check_style_noise / check_duplicate_blocks
-                       #   check_duplicate_impls / verify_features(235 项)
+                       #   check_duplicate_impls / verify_features(322 项)
 ./scripts/release.sh   # 先自检，再出已签名的 Release HAP
-./scripts/device_all.sh  # 真机批量回归（需要设备在线）
 ```
 
-真机验证脚本（`scripts/device_*.sh` + `scripts/ui.sh`）在**重构期间不使用**：
-重构未完成前只跑静态自检与编译，避免把时间花在反复装机上。
+**验收口径（本轮最终确定）**：以「静态判据全绿 + 编译通过 + 已签名 Release HAP 出包」
+为完成标准，不把真机回归算作完成条件。真机脚本（`scripts/device_*.sh` + `scripts/ui.sh`）
+保留在仓库里，需要时手动跑，不再是流程环节。
 
 ### 本轮修正（真机日志暴露的问题 + 对齐补口）
 
@@ -833,7 +833,7 @@ const size = await sheetService.input('字体大小', '14', { numberOnly: true }
 ## 本轮重构总览（结构 + 一致性）
 
 **拆分原则**：只搬代码不改行为；页面只留编排，动作/映射/守卫下沉到模块；
-同一件事只留一个实现出口。每一步都跑 `assembleApp` + `check.sh`（现在 182 项）。
+同一件事只留一个实现出口。每一步都跑 `assembleApp` + `check.sh`（现在 322 项）。
 
 当前最大文件与职责（拆分后）：
 
