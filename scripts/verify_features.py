@@ -174,7 +174,7 @@ CHECKS = [
  ('设置项走全局面板', 'components/ui/SettingsSection.ets', r'sheetService\.(select|input)'),
  ('主题写入走设置服务(单一入口)', 'service/ThemeService.ets', r'settingsService\.update\(\{ themeId \}\)'),
  ('切源自动重载歌单列表', 'pages/Home/SongListView.ets', r'@Watch\(.onSourceIdChange.\)'),
- ('歌单卡片音源以数据来源为准', 'pages/Home/SongListView.ets', r'source: sl\.source \|\| this\.sourceId'),
+ ('歌单卡片音源以数据来源为准', 'pages/Home/SongList/SongListLoader.ets', r'source: sl\.source \|\| sourceId'),
  ('QQ歌单详情用可用接口', 'core/music/sources/tx/songList.ets', r'fcg_v8_playlist_cp\.fcg'),
  ('QQ歌单详情兼容两种外层结构', 'core/music/sources/tx/songList.ets', r'body\.data\?\.cdlist \?\? body\.cdlist'),
  # 拖拽排序从「系统拖放 onDragStart/onDrop」改为「手柄 + 原始触摸」：

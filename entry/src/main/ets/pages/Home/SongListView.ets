@@ -2,16 +2,16 @@ import { t } from '../../service/LocalizationService';
 import type { SongListItemData } from './SongListTypes';
 import { SongListCard } from './SongList/SongListCard';
 import { StateView } from '../../components/ui/StateView';
+import {
+  fetchSongListPage,
+  fetchSongListTags,
+  type SongListPageResult,
+  type TagOption,
+} from './SongList/SongListLoader';
 // SongList 视图 - 歌单列表视图
 // 优化：字体放大、标签筛选、下拉刷新
 
 import hilog from '@ohos.hilog';
-import {
-  musicSdk,
-  type SongListResult,
-  type SongListInfo,
-  type SingleMusicSdkInterface,
-} from '../../core/music/MusicFeatureEntry';
 import { RouteName, navigateTo, NavigationParams } from '../../service/NavigationService';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { SearchStrip, SearchStripActions } from '../../components/common/SearchStrip';
@@ -27,11 +27,6 @@ interface SortOption {
 }
 
 // 标签选项接口
-interface TagOption {
-  name: string;
-  tid: string;
-}
-
 // 歌单项接口
 @Component
 export struct SongListView {
@@ -169,37 +164,16 @@ export struct SongListView {
   }
 
   // 加载标签
+  /** 标签：SDK 选择与字段映射在 SongList/SongListLoader */
   async loadTags(): Promise<void> {
-    try {
-      let sdk: SingleMusicSdkInterface | undefined;
-      if (this.sourceId === 'kw') sdk = musicSdk.kw;
-      else if (this.sourceId === 'kg') sdk = musicSdk.kg;
-      else if (this.sourceId === 'tx') sdk = musicSdk.tx;
-      else if (this.sourceId === 'wy') sdk = musicSdk.wy;
-      else if (this.sourceId === 'mg') sdk = musicSdk.mg;
-
-      if (!sdk?.songList) return;
-
-      const result = await sdk.songList.getTags();
-      if (result && result.tags) {
-        const tags: TagOption[] = [];
-        tags.push({ name: t('filter_all'), tid: '' });
-        for (let i = 0; i < result.tags.length; i++) {
-          const t = result.tags[i];
-          tags.push({ name: t.name || '', tid: t.id || '' });
-        }
-        this.tagOptions = tags;
-        const keep = tags.some((t: TagOption) => t.tid === this.selectedTag);
-        if (!keep) {
-          this.selectedTag = '';
-        }
-      }
-    } catch (err) {
-      hilog.error(0x0001, 'SongListView', 'Load tags failed: %{public}s', JSON.stringify(err));
+    const tags: TagOption[] = await fetchSongListTags(this.sourceId);
+    this.tagOptions = tags;
+    const keep = tags.some((item: TagOption): boolean => item.tid === this.selectedTag);
+    if (!keep) {
+      this.selectedTag = '';
     }
   }
 
-  // 加载歌单列表
   async loadSongList(isRefresh: boolean = false): Promise<void> {
     if (this.isLoading && !isRefresh) return;
     // 递增版本号，标记新的请求开始
@@ -215,21 +189,14 @@ export struct SongListView {
     this.isLoading = true;
 
     try {
-      let sdk: SingleMusicSdkInterface | undefined;
-      if (this.sourceId === 'kw') sdk = musicSdk.kw;
-      else if (this.sourceId === 'kg') sdk = musicSdk.kg;
-      else if (this.sourceId === 'tx') sdk = musicSdk.tx;
-      else if (this.sourceId === 'wy') sdk = musicSdk.wy;
-      else if (this.sourceId === 'mg') sdk = musicSdk.mg;
-
-      if (!sdk?.songList) {
+      const tagId = this.selectedTag || '';
+      const sortId = this.selectedSort === 'default' ? '' : this.selectedSort;
+      const pageResult: SongListPageResult | null =
+        await fetchSongListPage(this.sourceId, sortId, tagId, this.currentPage);
+      if (!pageResult) {
         this.isLoading = false;
         return;
       }
-
-      const tagId = this.selectedTag || '';
-      const sortId = this.selectedSort === 'default' ? '' : this.selectedSort;
-      const result: SongListResult = await sdk.songList.getList(sortId, tagId, this.currentPage);
 
       // 检查版本是否过期（用户可能已切换到其他源）
       if (currentEpoch !== this.requestEpoch) {
@@ -237,24 +204,7 @@ export struct SongListView {
         return;
       }
 
-      const items: SongListItemData[] = [];
-      for (let i = 0; i < result.list.length; i++) {
-        const sl: SongListInfo = result.list[i];
-        const item: SongListItemData = {
-          id: sl.id || '',
-          name: sl.name || '',
-          author: sl.author || '',
-          img: sl.img || '',
-          play_count: sl.play_count || '0',
-          desc: sl.desc || '',
-          total: sl.total || 0,
-          // 以数据自身的来源为准：切源瞬间旧数据可能仍在屏幕上，
-          // 用 this.sourceId 会让详情页拿 A 源的 id 去问 B 源（真机表现为「该歌单暂无歌曲」）
-          source: sl.source || this.sourceId,
-        };
-        items.push(item);
-      }
-
+      const items: SongListItemData[] = pageResult.items;
       if (isRefresh) {
         this.songLists = items;
       } else {
@@ -268,7 +218,7 @@ export struct SongListView {
         this.scrollToTopSoon();
       }
 
-      this.hasMore = items.length >= (result.limit || 20);
+      this.hasMore = pageResult.hasMore;
       this.currentPage++;
     } catch (err) {
       // 检查版本是否过期
