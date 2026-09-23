@@ -173,9 +173,10 @@ function filterRankObjectInfoList(rawList: MgRankSongInfo[]): MusicInfo[] {
       name: item.songName ?? '',
       singer: formatRankSingers(item),
       albumName: item.album,
-      albumId: item.albumId,
-      songmid: sid,
-      copyrightId: item.copyrightId || '',
+      // 咪咕接口的 albumId/songId 实际是数字，统一转字符串（否则播控元数据被拒收）
+      albumId: String(item.albumId ?? ''),
+      songmid: String(sid ?? ''),
+      copyrightId: String(item.copyrightId ?? ''),
       source: 'mg',
       interval: intervalOut,
       img,

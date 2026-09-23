@@ -15,6 +15,7 @@ import type { AvMediaMetadata, AvSessionCallbacks } from '../BackgroundRunningMa
 import type { PlayMode } from '../SettingsService';
 import type { MusicInfo } from '../../types/MusicTypes';
 import { t } from '../LocalizationService';
+import { asText, asNumber } from '../../utils/ValueCoerce';
 import type { SongInfo } from '../PlayerService';
 
 const TAG = 'PlaybackSession';
@@ -74,20 +75,25 @@ export interface AvMetadataInput {
  * 拼装系统播控元数据。
  * 注意 assetId 不能为空（官方要求），否则 setAVMetadata 会失败；
  * duration 必须是正数，未知时长兜底 1 秒。
+ *
+ * assetId/title/artist/album 必须强制成字符串：源 JSON 的 id/songmid 可能是数字
+ * （酷狗 Audioid、酷我 id、咪咕 songId），非字符串会被系统播控直接拒收——
+ * 日志：`[GetAssetId] test (status == napi_ok) failed` → `Failed to set AVMetadata`，
+ * 真机表现就是「这首歌没有接入灵动岛/胶囊，其它歌正常」。
  */
 export function buildAvMetadata(input: AvMetadataInput): AvMediaMetadata {
   const info = input.musicInfo;
-  const imgUrl = info.pic || info.img;
-  const assetId = info.id || info.songmid || `track_${Date.now()}`;
+  const imgUrl: string = asText(info.pic, asText(info.img));
+  const assetId: string = asText(info.id, asText(info.songmid, `track_${Date.now()}`));
   const metadata: AvMediaMetadata = {
     assetId: assetId,
     // 锁屏/控制中心会直接展示这两个兜底文案，必须跟随语言
-    title: info.name || t('unknown_song'),
-    artist: info.singer || t('unknown_artist'),
-    album: info.albumName ?? info.album,
-    duration: Math.max(input.durationSeconds, 1) * 1000,
+    title: asText(info.name, t('unknown_song')),
+    artist: asText(info.singer, t('unknown_artist')),
+    album: asText(info.albumName, asText(info.album)),
+    duration: Math.max(asNumber(input.durationSeconds, 0), 1) * 1000,
   };
-  if (imgUrl) {
+  if (imgUrl.length > 0) {
     metadata.mediaImage = imgUrl;
   }
   return metadata;

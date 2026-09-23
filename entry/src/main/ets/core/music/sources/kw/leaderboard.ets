@@ -224,8 +224,9 @@ function handleSongData(rawList: KwBangMusicItem[], chartCover: string | null): 
       name: decodeHtmlEntities(item.name || ''),
       singer: formatSinger(decodeHtmlEntities(item.artist || '')),
       source: 'kw',
-      songmid: item.id || '',
-      albumId: item.albumId || '',
+      // 酷我接口的 id/albumId 实际是数字，统一转字符串（否则播控元数据被拒收）
+      songmid: String(item.id ?? ''),
+      albumId: String(item.albumId ?? ''),
       interval: formatPlayTime(parseInt(item.duration || '0')),
       albumName: decodeHtmlEntities(item.album || ''),
       img: normalizeKwCoverUrl(item.pic) ?? chartCover,

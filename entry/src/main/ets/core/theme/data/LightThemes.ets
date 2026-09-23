@@ -165,7 +165,9 @@ export const LIGHT_THEMES: ThemeItem[] = [
       ['c-000', 'rgb(255,255,255)'],
     ]),
     createExtInfo(
-      'rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.8)', 'china_ink.jpg',
+      // 主题壁纸：鸿蒙端未实现渲染（bgImage 没有任何消费方），
+      // 对应图片已从资源里删掉（省 2.2MB 包体），这里留空避免引用不存在的资源
+      'rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.8)', '',
       'center', 'cover',
       'rgba(137, 70, 70, 1)', 'rgba(67, 139, 65, 1)', 'rgba(132, 135, 65, 1)'
     )
@@ -273,7 +275,7 @@ export const LIGHT_THEMES: ThemeItem[] = [
       ['c-000', 'rgb(255,255,255)'],
     ]),
     createExtInfo(
-      'var(c-primary-light-600-alpha-700)', 'rgba(255, 255, 255, 1)', 'jqbg.jpg',
+      'var(c-primary-light-600-alpha-700)', 'rgba(255, 255, 255, 1)', '',
       'center', 'cover',
       'var(c-primary)', '#f4a261', '#f4a261'
     )
@@ -327,7 +329,7 @@ export const LIGHT_THEMES: ThemeItem[] = [
       ['c-000', 'rgb(255,255,255)'],
     ]),
     createExtInfo(
-      'rgba(255, 255, 255, 0.15)', 'rgba(255, 255, 255, 0.8)', 'xnkl.png',
+      'rgba(255, 255, 255, 0.15)', 'rgba(255, 255, 255, 0.8)', '',
       'center', 'cover',
       '#7fb575', '#dfbb6b', 'var(c-primary-light-100)'
     )

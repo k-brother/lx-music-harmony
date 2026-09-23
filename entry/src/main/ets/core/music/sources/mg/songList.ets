@@ -239,9 +239,10 @@ function filterMusicInfoListV5(rawList: MgSongRow[]): MusicInfo[] {
       singer: formatMgSingers(item.singerList),
       name: item.songName ?? '',
       albumName: item.album,
-      albumId: item.albumId,
-      songmid: item.songId,
-      copyrightId: item.copyrightId,
+      // 咪咕接口的 albumId/songId 实际是数字，统一转字符串（否则播控元数据被拒收）
+      albumId: String(item.albumId ?? ''),
+      songmid: String(item.songId ?? ''),
+      copyrightId: String(item.copyrightId ?? ''),
       source: 'mg',
       interval: formatPlayTime(item.duration ?? 0),
       img: item.img3 ?? item.img2 ?? item.img1 ?? null,
@@ -487,4 +488,3 @@ class MgSongListImpl implements MgSongListModule {
 export const songList: MgSongListModule = new MgSongListImpl();
 
 export default songList;
-

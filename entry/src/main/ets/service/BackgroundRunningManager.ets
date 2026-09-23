@@ -14,6 +14,7 @@ import { avSession } from '@kit.AVSessionKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { registerMediaControlCommands } from './player/MediaControlCommands';
 import type { AvMediaMetadata, AvSessionCallbacks } from './player/AvSessionTypes';
+import { asText, asNumber } from '../utils/ValueCoerce';
 
 const TAG: string = 'BackgroundRunningMgr';
 const DOMAIN: number = 0x0002;
@@ -296,26 +297,33 @@ export class BackgroundRunningManager {
       return;
     }
     try {
+      // 送进系统的字段必须是标量且类型正确：源 JSON 里的 id/duration 可能是字符串或数字，
+      // 类型不符时系统侧只回一句 `get metaData failed`（元数据整条丢弃，灵动岛/播控不刷新），
+      // 所以这里是最后一道强制收敛。
       const avMetadata: avSession.AVMetadata = {
-        assetId: metadata.assetId,
-        title: metadata.title,
-        artist: metadata.artist,
-        duration: metadata.duration,
+        assetId: asText(metadata.assetId, `track_${Date.now()}`),
+        title: asText(metadata.title),
+        artist: asText(metadata.artist),
+        duration: asNumber(metadata.duration, 1000),
       };
-      if (metadata.album) {
-        avMetadata.album = metadata.album;
+      const album: string = asText(metadata.album);
+      if (album.length > 0) {
+        avMetadata.album = album;
       }
       // 播控封面可关（安卓版 player.isShowNotificationImage）；关闭时只发文本元数据，减少抖动
-      if (metadata.mediaImage && this.showNotificationImage) {
-        avMetadata.mediaImage = metadata.mediaImage;
+      const mediaImage: string = asText(metadata.mediaImage);
+      if (mediaImage.length > 0 && this.showNotificationImage) {
+        avMetadata.mediaImage = mediaImage;
       }
       // 整段 LRC：蓝牙歌词或系统桌面歌词开启时必须下发（后者靠它逐句滚动）；
       // 当前句始终下发，保证锁屏/播控/胶囊的单行歌词
-      if (metadata.lyric && (this.showBluetoothLyric || this.systemDesktopLyricActive)) {
-        avMetadata.lyric = metadata.lyric;
+      const lyric: string = asText(metadata.lyric);
+      if (lyric.length > 0 && (this.showBluetoothLyric || this.systemDesktopLyricActive)) {
+        avMetadata.lyric = lyric;
       }
-      if (metadata.singleLyricText) {
-        avMetadata.singleLyricText = metadata.singleLyricText;
+      const singleLyricText: string = asText(metadata.singleLyricText);
+      if (singleLyricText.length > 0) {
+        avMetadata.singleLyricText = singleLyricText;
       }
       await this.session.setAVMetadata(avMetadata);
       hilog.info(DOMAIN, TAG,

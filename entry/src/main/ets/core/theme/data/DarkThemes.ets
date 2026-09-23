@@ -57,7 +57,8 @@ export const DARK_THEMES: ThemeItem[] = [
       ['c-000', 'rgb(0,0,0)'],
     ]),
     createExtInfo(
-      'rgba(0, 0, 0, 0)', 'rgba(19, 19, 19, 0.95)', 'landingMoon2.png',
+      // 主题壁纸：鸿蒙端未实现渲染（bgImage 没有任何消费方），图片已从资源里删除
+      'rgba(0, 0, 0, 0)', 'rgba(19, 19, 19, 0.95)', '',
       'center', 'cover',
       'var(c-primary-dark-200)', 'var(c-primary)', 'var(c-primary-dark-300)'
     )

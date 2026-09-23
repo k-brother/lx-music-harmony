@@ -8,6 +8,8 @@
 3. `resources/rawfile/*` 原始资源（脚本、数据）。
 
 判定：文件名/资源名在全工程（ets + json5 + 资源 json）里找不到引用即报告。
+匹配用「词边界」而不是子串：以前子串匹配会让 `background.png` 被
+`background_permission_reason` 这类无关字符串"碰巧引用"到，漏报真·无用资源。
 注意 `$media:layered_image` 这类间接引用会在 layered_image.json 里出现，天然被覆盖。
 
 用法：python3 scripts/check_resources.py
@@ -43,14 +45,14 @@ def main():
         for f in sorted(media_dir.iterdir()):
             if not f.is_file():
                 continue
-            if f.stem not in refs:
+            if re.search(r'\b' + re.escape(f.stem) + r'\b', refs) is None:
                 problems.append(f'未被引用的图片资源: {f.relative_to(MAIN)}')
 
     string_json = MAIN / 'resources/base/element/string.json'
     if string_json.exists():
         for item in json.loads(string_json.read_text()).get('string', []):
             name = item['name']
-            if f'string:{name}' not in refs and f"'{name}'" not in refs:
+            if re.search(r'\b' + re.escape(name) + r'\b', refs) is None:
                 problems.append(f'未被引用的字符串资源: {name}')
 
     raw_dir = MAIN / 'resources/rawfile'

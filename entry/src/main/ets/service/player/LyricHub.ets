@@ -15,6 +15,7 @@ import { parseLrc, getCurrentLyricIndex, type LyricLine } from '../../core/music
 import { convertChinese } from '../../core/lyric/ChineseConvert';
 import { getLyricInfo } from '../../core/music/MusicFeatureEntry';
 import { settingsService } from '../SettingsService';
+import { playKeyOf } from '../../core/music/PlayKeys';
 import type { MusicInfo, LyricInfo } from '../../types/MusicTypes';
 
 const DOMAIN = 0x0002;
@@ -119,7 +120,7 @@ export class LyricHub {
 
   /** 切歌后自动拉取歌词（走歌词缓存，重复播放不重复请求） */
   loadForSong(musicInfo: MusicInfo): void {
-    const key = `${musicInfo.source ?? ''}_${musicInfo.songmid ?? musicInfo.id ?? ''}`;
+    const key = playKeyOf(musicInfo);
     if (key === this.loadKey) {
       return;
     }

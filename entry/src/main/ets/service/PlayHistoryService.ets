@@ -1,5 +1,6 @@
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { getStorageService } from '../core/interfaces/IStorageService';
+import { asText, asNumber } from '../utils/ValueCoerce';
 
 const DOMAIN = 0x0006;
 const TAG = 'PlayHistoryService';
@@ -30,20 +31,23 @@ export interface PlayHistoryInput {
 }
 
 function normalizeHistoryItem(input: PlayHistoryInput): PlayHistoryItem | null {
-  const id = (input.id || input.songmid || '').trim();
-  const name = (input.name || '').trim();
-  if (!id || !name) {
+  // 一律走 asText/asNumber：源 JSON 里的 id/songmid 可能是数字（酷狗 Audioid 等），
+  // 直接 .trim() 会在真机上抛「trim is not callable」，历史静默写不进去。
+  const songmid: string = asText(input.songmid).trim();
+  const id: string = (asText(input.id, songmid)).trim();
+  const name: string = asText(input.name).trim();
+  if (id.length === 0 || name.length === 0) {
     return null;
   }
   return {
     id,
     name,
-    singer: (input.singer || '').trim(),
-    album: (input.album || '').trim(),
-    pic: (input.pic || '').trim(),
-    source: (input.source || 'kw').trim(),
-    duration: Math.max(0, input.duration || 0),
-    songmid: (input.songmid || id).trim(),
+    singer: asText(input.singer).trim(),
+    album: asText(input.album).trim(),
+    pic: asText(input.pic).trim(),
+    source: asText(input.source, 'kw').trim(),
+    duration: Math.max(0, asNumber(input.duration, 0)),
+    songmid: (songmid.length > 0 ? songmid : id),
     playedAt: Date.now(),
   };
 }

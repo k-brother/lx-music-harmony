@@ -166,9 +166,11 @@ export const musicSearch: MusicSearchInterface = {
       name: decodeName(rawData.SongName),
       singer: decodeName(formatSingerName(rawData.Singers, 'name')),
       source: 'kg',
-      songmid: rawData.Audioid,
-      hash: rawData.FileHash,
-      albumId: rawData.AlbumID,
+      // 酷狗接口的 audioid/albumid 实际是数字（接口声明写的是 string），
+      // 直接透传会让播控 assetId 变成数字 → 系统拒收元数据（灵动岛不显示）
+      songmid: String(rawData.Audioid ?? ''),
+      hash: String(rawData.FileHash ?? ''),
+      albumId: String(rawData.AlbumID ?? ''),
       albumName: decodeName(rawData.AlbumName),
       interval: formatPlayTime(rawData.Duration),
       img: '',
@@ -180,4 +182,3 @@ export const musicSearch: MusicSearchInterface = {
     };
   },
 };
-

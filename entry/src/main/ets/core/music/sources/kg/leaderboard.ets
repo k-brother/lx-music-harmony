@@ -310,9 +310,10 @@ function buildMusicInfo(item: KGMusicItem): MusicInfo {
     name: decodeName(item.songname),
     singer: formatSingerName(authors.map((a: KMAuthor) => a.author_name)),
     source: 'kg',
-    songmid: item.audio_id,
-    hash: item.hash,
-    albumId: item.album_id,
+    // 榜单接口的 audio_id/album_id 实际是数字，统一转字符串（否则播控元数据被拒收）
+    songmid: String(item.audio_id ?? ''),
+    hash: String(item.hash ?? ''),
+    albumId: String(item.album_id ?? ''),
     albumName: decodeName(item.remark),
     interval: formatPlayTime(item.duration),
     img: kgCoverFromRankItem(item),

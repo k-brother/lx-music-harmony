@@ -6,6 +6,7 @@
  */
 import type { MusicInfo, MusicSource } from '../../types/MusicTypes';
 import { formatClock } from '../../utils/FormatTools';
+import { asText } from '../../utils/ValueCoerce';
 import type { MusicItem } from '../../service/ListService';
 import type { SongInfo } from '../../service/PlayerService';
 
@@ -33,21 +34,25 @@ export function secondsToInterval(seconds: number): string {
 
 /** 列表行 -> 平台音乐对象（取链、评论、分享、详情页链接都用它） */
 export function songRowToMusicInfo(song: SongRowLike): MusicInfo {
+  // id/songmid 必须字符串化：源 JSON 里可能是数字，透传到系统播控会被拒收元数据
+  const songmid: string = asText(song.songmid, asText(song.id));
+  const id: string = asText(song.id, songmid);
+  const pic: string = asText(song.pic);
   return {
-    id: song.id,
-    name: song.name,
-    singer: song.singer,
-    source: song.source as MusicSource,
-    songmid: song.songmid || song.id,
-    strMediaMid: song.strMediaMid,
-    hash: song.hash ?? '',
-    copyrightId: song.copyrightId ?? '',
-    albumId: song.albumId ?? '',
-    albumName: song.album,
-    album: song.album,
+    id: id,
+    name: asText(song.name),
+    singer: asText(song.singer),
+    source: asText(song.source, 'kw') as MusicSource,
+    songmid: songmid,
+    strMediaMid: asText(song.strMediaMid),
+    hash: asText(song.hash),
+    copyrightId: asText(song.copyrightId),
+    albumId: asText(song.albumId),
+    albumName: asText(song.album),
+    album: asText(song.album),
     interval: secondsToInterval(song.duration),
-    img: song.pic.length > 0 ? song.pic : null,
-    pic: song.pic.length > 0 ? song.pic : undefined,
+    img: pic.length > 0 ? pic : null,
+    pic: pic.length > 0 ? pic : undefined,
     lrc: null,
   };
 }
@@ -55,35 +60,36 @@ export function songRowToMusicInfo(song: SongRowLike): MusicInfo {
 /** 列表行 -> 本地列表项（加入我的列表时用） */
 export function songRowToListItem(song: SongRowLike): MusicItem {
   return {
-    id: song.id,
-    name: song.name,
-    singer: song.singer,
-    album: song.album,
-    albumId: song.albumId ?? null,
+    id: asText(song.id, asText(song.songmid)),
+    name: asText(song.name),
+    singer: asText(song.singer),
+    album: asText(song.album),
+    albumId: asText(song.albumId) || null,
     duration: song.duration,
-    source: song.source,
-    pic: song.pic,
+    source: asText(song.source, 'kw'),
+    pic: asText(song.pic),
     lrc: null,
   };
 }
 
 /** 列表行 -> 播放队列项（url 留空由播放器按索引取链） */
 export function songRowToQueueItem(song: SongRowLike, url: string = '', fallbackCover: string = ''): SongInfo {
-  const cover = song.pic.length > 0 ? song.pic : fallbackCover;
+  const songmid: string = asText(song.songmid, asText(song.id));
+  const cover: string = asText(song.pic, fallbackCover);
   return {
-    id: song.id,
-    songmid: song.songmid || song.id,
+    id: asText(song.id, songmid),
+    songmid: songmid,
     url,
-    title: song.name,
-    artist: song.singer,
-    album: song.album,
+    title: asText(song.name),
+    artist: asText(song.singer),
+    album: asText(song.album),
     artwork: cover.length > 0 ? cover : null,
     duration: song.duration,
-    source: song.source,
-    hash: song.hash,
-    strMediaMid: song.strMediaMid,
-    albumId: song.albumId,
-    copyrightId: song.copyrightId,
+    source: asText(song.source, 'kw'),
+    hash: asText(song.hash),
+    strMediaMid: asText(song.strMediaMid),
+    albumId: asText(song.albumId),
+    copyrightId: asText(song.copyrightId),
   };
 }
 
@@ -94,16 +100,17 @@ export function songRowToQueueItem(song: SongRowLike, url: string = '', fallback
  * 这里统一转换，避免各页面再手写一遍。
  */
 export function musicItemToQueueItem(item: MusicItem, fallbackCover: string = ''): SongInfo {
-  const cover = item.pic.length > 0 ? item.pic : fallbackCover;
+  const id: string = asText(item.id);
+  const cover: string = asText(item.pic, fallbackCover);
   return {
-    id: item.id,
-    songmid: item.id,
+    id: id,
+    songmid: id,
     url: '',
-    title: item.name,
-    artist: item.singer,
-    album: item.album,
+    title: asText(item.name),
+    artist: asText(item.singer),
+    album: asText(item.album),
     artwork: cover.length > 0 ? cover : null,
     duration: item.duration,
-    source: item.source,
+    source: asText(item.source, 'kw'),
   };
 }

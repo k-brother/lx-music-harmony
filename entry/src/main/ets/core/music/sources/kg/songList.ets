@@ -439,13 +439,14 @@ function filterBatchMusicData(rawList: KGMusicBatchItem[]): MusicInfo[] {
       name: decodeName(item.songname),
       singer: decodeName(item.author_name),
       source: 'kg',
-      songmid: audioId,
-      albumId: item.album_info.album_id,
+      // 接口返回的 audioid/album_id 实际是数字，统一转字符串（否则播控元数据被拒收）
+      songmid: String(audioId ?? ''),
+      albumId: String(item.album_info.album_id ?? ''),
       interval: formatPlayTime(parseInt(item.audio_info.timelength) / 1000),
       albumName: decodeName(item.album_info.album_name),
       img: null,
       lrc: null,
-      hash: item.audio_info.hash,
+      hash: String(item.audio_info.hash ?? ''),
       types,
       _types,
       typeUrl: new Map(),
@@ -676,8 +677,8 @@ function toSimpleMusicInfo(item: KGSongRawItem): MusicInfo {
     name: decodeName(item.songname) || '',
     singer: decodeName(item.singername) || '',
     source: 'kg',
-    songmid: item.hash || '',
-    albumId: item.album_id || '',
+    songmid: String(item.hash ?? ''),
+    albumId: String(item.album_id ?? ''),
     interval: item.duration ? formatPlayTime(item.duration) : '00:00',
     albumName: decodeName(item.album_name) || '',
     img: item.img || null,
@@ -686,7 +687,7 @@ function toSimpleMusicInfo(item: KGSongRawItem): MusicInfo {
     _types: new Map<Quality, QualityDetail>(),
     typeUrl: new Map<string, string>(),
     otherSource: null,
-    hash: item.hash,
+    hash: String(item.hash ?? ''),
   };
 }
 

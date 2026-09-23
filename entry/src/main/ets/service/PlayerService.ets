@@ -27,6 +27,7 @@ import { formatPlayTime } from '../utils/CommonUtils';
 import { recordPlayedSong } from './PlayHistoryService';
 import { backgroundRunningManager, type AvMediaMetadata, type AvSessionCallbacks } from './BackgroundRunningManager';
 import { getMusicUrl, getPicPath } from '../core/music/MusicFeatureEntry';
+import { playKeyOf } from '../core/music/PlayKeys';
 import { settingsService, type PlayMode as SettingsPlayMode } from './SettingsService';
 import { dislikeList } from '../core/dislike/DislikeList';
 import { on, EventTypes } from './EventBus';
@@ -811,7 +812,9 @@ export class PlayerService {
   private recordPlayedSongSafe(song: SongInfo): void {
     recordPlayedSong({
       id: song.id,
-      songmid: song.id,
+      // songmid 必须用歌曲自己的 mid：以前这里传的是 song.id，
+      // 搜索/部分源只给 songmid、不给 id 时历史就整条写不进去
+      songmid: song.songmid ?? song.id,
       name: song.title,
       singer: song.artist,
       album: song.album,
@@ -1333,7 +1336,7 @@ export class PlayerService {
 
   /** 当前歌曲的稳定 key（源 + songmid/id），用于丢弃过期的歌词请求 */
   private currentSongKey(): string {
-    return `${playerStateData.musicInfo.source ?? ''}_${playerStateData.musicInfo.songmid ?? playerStateData.musicInfo.id ?? ''}`;
+    return playKeyOf(playerStateData.musicInfo);
   }
 
 
@@ -1519,22 +1522,9 @@ export const playerService = new PlayerService();
  *
  * 各列表页此前各自维护 playingId / isPlaying，自动切歌后高亮会停在旧行；
  * 现在统一写进 AppStorage['playingSongKey']，页面用 @StorageProp 读它比较即可。
+ *
+ * 实现在 core/music/PlayKeys（歌词中枢也要用同一份，放在这里会形成循环引用）。
  */
-export function playKeyOfIds(
-  source: string | undefined, songmid: string | undefined, id: string | undefined): string {
-  const primary: string = songmid && songmid.length > 0 ? songmid : (id ?? '');
-  if (primary.length === 0) {
-    return '';
-  }
-  return `${source ?? ''}|${primary}`;
-}
-
-/** MusicInfo 版本（播控/播放服务内部用） */
-export function playKeyOf(info: MusicInfo | null | undefined): string {
-  if (!info) {
-    return '';
-  }
-  return playKeyOfIds(info.source, info.songmid, info.id);
-}
+export { playKeyOf, playKeyOfIds } from '../core/music/PlayKeys';
 
 export default playerService;

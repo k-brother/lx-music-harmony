@@ -485,7 +485,15 @@ CHECKS = [
   r'async play\(\)[\s\S]{0,1600}?this\.recordPlayedSongIfNeeded\(\)'),
  ('播放历史按歌曲去重', 'service/PlayerService.ets', r'recordedSongKey'),
  # 「正在播放」高亮单一真相源：播放器发布全局 key，各列表页比较它（自动切歌也跟随）
- ('播放 key 统一实现', 'service/PlayerService.ets', r'export function playKeyOfIds'),
+ ('播放 key 统一实现', 'core/music/PlayKeys.ets', r'export function playKeyOfIds'),
+ # 源 JSON 的 id 可能是数字：播控元数据必须字符串化，否则系统整条丢弃（灵动岛不刷新）
+ ('播控 assetId 字符串化', 'service/player/PlaybackSession.ets', r'const assetId: string = asText\('),
+ ('播控元数据下发前收敛类型', 'service/BackgroundRunningManager.ets',
+  r'assetId: asText\(metadata\.assetId'),
+ ('播放历史字段收敛（数字 id 不炸）', 'service/PlayHistoryService.ets',
+  r'const id: string = \(asText\(input\.id'),
+ ('酷狗歌曲 id 字符串化', 'core/music/sources/kg/musicSearch.ets', r'songmid: String\(rawData\.Audioid'),
+ ('列表行 id 字符串化', 'core/list/SongMappers.ets', r'const songmid: string = asText\(song\.songmid'),
  ('播放器发布正在播放 key', 'service/PlayerService.ets', r"AppStorage\.setOrCreate\('playingSongKey'"),
  ('歌单详情高亮跟随播放器', 'pages/SonglistDetailPage.ets',
   r'active: playKeyOfIds\(song\.source, song\.songmid, song\.id\) === this\.playingSongKey'),
