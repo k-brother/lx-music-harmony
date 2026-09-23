@@ -17,6 +17,8 @@ import { appActionMenu, appToast } from '../service/DialogService';
 import { NavBar } from '../components/ui/NavBar';
 import { ListRow } from '../components/ui/ListRow';
 import { StateView } from '../components/ui/StateView';
+import { RefreshContainer } from '../components/ui/RefreshContainer';
+import { hapticService } from '../service/HapticService';
 
 const DOMAIN = 0x0001;
 const TAG = 'LoveListPage';
@@ -41,6 +43,8 @@ export struct LoveListPage {
   /** LazyForEach 数据源：长列表只创建可视区的行 */
   private loveSource: LazyDataSource<SongRow> = new LazyDataSource<SongRow>();
   @State isLoading: boolean = true;
+  /** 下拉刷新中（静默重读，保留当前列表不闪骨架） */
+  @State isRefreshing: boolean = false;
   /** 大标题滚动收缩：列表下滚后切到居中常规标题 */
   @State navCollapsed: boolean = false;
   private listScroller: Scroller = new Scroller();
@@ -51,8 +55,18 @@ export struct LoveListPage {
     this.loadSongs();
   }
 
-  private loadSongs(): void {
-    this.isLoading = true;
+  /** 下拉刷新入口：重读「我喜欢」（本地数据，很快） */
+  private onPullRefresh(): void {
+    hapticService.selection();
+    this.isRefreshing = true;
+    this.loadSongs(true);
+  }
+
+  /** silent = true 表示下拉刷新：不闪骨架，失败也不清空现有列表 */
+  private loadSongs(silent: boolean = false): void {
+    if (!silent) {
+      this.isLoading = true;
+    }
     try {
       const loveList: MusicItem[] = getLoveList();
       const rows: SongRow[] = [];
@@ -72,10 +86,13 @@ export struct LoveListPage {
       this.loveSource.reload(this.songs);
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to load: %{public}s', JSON.stringify(err));
-      this.songs = [];
-      this.loveSource.reload(this.songs);
+      if (!silent) {
+        this.songs = [];
+        this.loveSource.reload(this.songs);
+      }
     } finally {
       this.isLoading = false;
+      this.isRefreshing = false;
     }
   }
 
@@ -199,56 +216,72 @@ export struct LoveListPage {
         }
         .width('100%')
         .layoutWeight(1)
-          .layoutWeight(1)
-          .width('100%')
       } else if (this.songs.length === 0) {
         StateView({ state: 'empty', iconRes: $r('sys.symbol.heart'), message: t('love_empty_hint') })
           .layoutWeight(1)
           .width('100%')
       } else {
-        List({ scroller: this.listScroller }) {
-          LazyForEach(this.loveSource, (song: SongRow, index: number) => {
-            ListItem() {
-              ListRow({
-                index: index + 1,
-                title: song.name,
-                subtitle: song.album ? `${song.singer} · ${song.album}` : song.singer,
-                active: song.id === this.playingId,
-                divider: index < this.songs.length - 1,
-                onTap: (): void => {
-                  void this.playSong(index);
-                },
-                onLongPress: (): void => {
-                  void this.openSongMenu(song, index);
-                },
-                trailing: (): void => {
-                  this.rowTrailing(song, index);
-                },
-              })
-            }
-            .padding({ left: 16, right: 8 })
-          }, (song: SongRow, index: number) => `${song.id}_${index}`)
+        // 下拉刷新：重读「我喜欢」（自定义组件后面不能直接挂通用属性，用一层 Column 承担剩余高度）
+        Column() {
+          RefreshContainer({
+            refreshing: $isRefreshing,
+            onRefresh: (): void => {
+              this.onPullRefresh();
+            },
+          }) {
+            this.LoveList()
+          }
         }
         .layoutWeight(1)
         .width('100%')
-        .scrollBar(BarState.Off)
-        .onDidScroll(() => {
-          const y = scrollerOffsetY(this.listScroller);
-          if (y > 18 && !this.navCollapsed) {
-            this.navCollapsed = true;
-          } else if (y <= 4 && this.navCollapsed) {
-            this.navCollapsed = false;
-          }
-        })
-    .cachedCount(6)
-        .padding({
-          left: Breakpoints.contentInset(this.windowWidthVp),
-          right: Breakpoints.contentInset(this.windowWidthVp),
-        })
       }
     }
     .width('100%')
     .height('100%')
     .backgroundColor(DesignTokens.pageBg(this.theme))
+  }
+
+  /** 喜欢列表（LazyForEach + 大标题滚动收缩 + 大屏内容列居中） */
+  @Builder
+  LoveList() {
+    List({ scroller: this.listScroller }) {
+      LazyForEach(this.loveSource, (song: SongRow, index: number) => {
+        ListItem() {
+          ListRow({
+            index: index + 1,
+            title: song.name,
+            subtitle: song.album ? `${song.singer} · ${song.album}` : song.singer,
+            active: song.id === this.playingId,
+            divider: index < this.songs.length - 1,
+            onTap: (): void => {
+              void this.playSong(index);
+            },
+            onLongPress: (): void => {
+              void this.openSongMenu(song, index);
+            },
+            trailing: (): void => {
+              this.rowTrailing(song, index);
+            },
+          })
+        }
+        .padding({ left: 16, right: 8 })
+      }, (song: SongRow, index: number) => `${song.id}_${index}`)
+    }
+    .layoutWeight(1)
+    .width('100%')
+    .scrollBar(BarState.Off)
+    .onDidScroll(() => {
+      const y = scrollerOffsetY(this.listScroller);
+      if (y > 18 && !this.navCollapsed) {
+        this.navCollapsed = true;
+      } else if (y <= 4 && this.navCollapsed) {
+        this.navCollapsed = false;
+      }
+    })
+    .cachedCount(6)
+    .padding({
+      left: Breakpoints.contentInset(this.windowWidthVp),
+      right: Breakpoints.contentInset(this.windowWidthVp),
+    })
   }
 }

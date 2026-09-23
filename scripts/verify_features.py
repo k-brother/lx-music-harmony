@@ -276,6 +276,14 @@ CHECKS = [
  ('进度轮询器独立成文件', 'service/player/ProgressPoller.ets', r'export class ProgressPoller'),
  ('进度轮询失败自动停表', 'service/player/ProgressPoller.ets', r'MAX_FAILURES'),
  ('播放服务用进度轮询器', 'service/PlayerService.ets', r'this\.poller\.start\(\)'),
+ # 下拉刷新：容器统一成一个组件，各列表页都要真的接上（入口方法名各页统一）
+ ('下拉刷新容器统一实现', 'components/ui/RefreshContainer.ets', r'export struct RefreshContainer'),
+ ('歌单详情下拉刷新', 'pages/SonglistDetailPage.ets', r'RefreshContainer[\s\S]*?onPullRefresh\(\): void'),
+ ('本地音乐下拉刷新重新扫描', 'pages/LocalMusicPage.ets', r'refreshLibrary\(\): Promise<void>[\s\S]*?localMusicService\.rescan\(\)'),
+ ('播放历史下拉刷新', 'pages/HistoryListPage.ets', r'RefreshContainer[\s\S]*?loadHistory\(true\)'),
+ ('我喜欢下拉刷新', 'pages/LoveListPage.ets', r'RefreshContainer[\s\S]*?loadSongs\(true\)'),
+ # 下拉刷新必须保留列表：静默刷新不能把 isLoading 置回 true 导致闪骨架
+ ('下拉刷新保留列表不闪骨架', 'pages/SonglistDetailPage.ets', r'if \(!silent\) \{\s*\n\s*this\.isLoading = true;'),
 ]
 
 fails = []

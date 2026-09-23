@@ -22,6 +22,8 @@ import {
 } from './SonglistDetail/SonglistMoveActions';
 import { appActionMenu, appConfirm } from '../service/DialogService';
 import { ListRow } from '../components/ui/ListRow';
+import { RefreshContainer } from '../components/ui/RefreshContainer';
+import { hapticService } from '../service/HapticService';
 import { NavBar } from '../components/ui/NavBar';
 import { InputSheet } from '../components/ui/InputSheet';
 import { SelectSheet } from '../components/ui/SelectSheet';
@@ -121,6 +123,8 @@ export struct SonglistDetailPage {
   private songListSource: LazyDataSource<SongItem> = new LazyDataSource<SongItem>();
   @State isLoading: boolean = true;
   @State hasError: boolean = false;
+  /** 下拉刷新中（刷新时保留当前列表，不整屏换成骨架） */
+  @State isRefreshing: boolean = false;
   @State headerCompact: boolean = false;
   @State listCoverLoadFailed: boolean = false;
 
@@ -182,6 +186,20 @@ export struct SonglistDetailPage {
       return;
     }
     void this.loadSonglistDetail(this.lastSourceId, this.lastListId);
+  }
+
+  /**
+   * 下拉刷新：重新拉取当前歌单。
+   * 与「失败重试」的区别只在于保留当前列表（静默刷新），刷新结束由加载流程统一收尾。
+   */
+  private onPullRefresh(): void {
+    if (this.lastSourceId.length === 0 || this.lastListId.length === 0) {
+      this.isRefreshing = false;
+      return;
+    }
+    hapticService.selection();
+    this.isRefreshing = true;
+    void this.loadSonglistDetail(this.lastSourceId, this.lastListId, true);
   }
 
   /** 列表副标题：歌手 [· 专辑] [· 音源]，按设置裁剪 */
@@ -416,10 +434,15 @@ export struct SonglistDetailPage {
     }
   }
 
-  /** 加载歌单详情：数据在 SonglistDetail/SonglistLoader，页面只应用结果 */
-  async loadSonglistDetail(source: string, id: string) {
+  /**
+   * 加载歌单详情：数据在 SonglistDetail/SonglistLoader，页面只应用结果。
+   * silent = true 表示下拉刷新（保留当前列表，不显示骨架屏）。
+   */
+  async loadSonglistDetail(source: string, id: string, silent: boolean = false) {
     hilog.info(0x0001, 'SonglistDetail', 'Loading detail for source: %{public}s, id: %{public}s', source, id);
-    this.isLoading = true;
+    if (!silent) {
+      this.isLoading = true;
+    }
     this.hasError = false;
     this.lastSourceId = source;
     this.lastListId = id;
@@ -435,13 +458,26 @@ export struct SonglistDetailPage {
       this.songListSource.reload(this.songList);
       this.detailLoaded = true;
       this.isLoading = false;
-      void this.restoreScrollPosition();
+      this.isRefreshing = false;
+      // 下拉刷新时不还原滚动位置：用户正在看的位置不该被跳走
+      if (!silent) {
+        void this.restoreScrollPosition();
+      }
+      return;
+    }
+    // 下拉刷新失败：保留旧列表（用户正在看的内容不该被清掉），只提示一次
+    if (silent && this.songList.length > 0) {
+      this.hasError = false;
+      this.isLoading = false;
+      this.isRefreshing = false;
+      showAppToast(this.getUIContext(), t('load_failed_hint'), TOAST_DURATION_SHORT);
       return;
     }
     // unsupported（该源没有详情接口）与 error 都按「加载失败」处理，页面展示错误态
     this.hasError = outcome.status === 'error';
     this.detailLoaded = false;
     this.isLoading = false;
+    this.isRefreshing = false;
   }
 
 
@@ -923,8 +959,20 @@ export struct SonglistDetailPage {
         // 歌单信息头部
         this.Header()
 
-        // 歌曲列表
-        this.SongList()
+        // 歌曲列表（下拉刷新：重新拉取当前歌单，刷新时保留列表不闪骨架）
+        // 自定义组件后面不能直接挂通用属性，用一层 Column 承担剩余高度
+        Column() {
+          RefreshContainer({
+            refreshing: $isRefreshing,
+            onRefresh: (): void => {
+              this.onPullRefresh();
+            },
+          }) {
+            this.SongList()
+          }
+        }
+        .layoutWeight(1)
+        .width('100%')
 
         // 多选批量操作栏
         if (this.selectMode) {

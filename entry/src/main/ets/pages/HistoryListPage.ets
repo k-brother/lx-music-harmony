@@ -20,6 +20,8 @@ import { appConfirm, appToast } from '../service/DialogService';
 import { NavBar } from '../components/ui/NavBar';
 import { ListRow } from '../components/ui/ListRow';
 import { StateView } from '../components/ui/StateView';
+import { RefreshContainer } from '../components/ui/RefreshContainer';
+import { hapticService } from '../service/HapticService';
 
 const DOMAIN = 0x0001;
 const TAG = 'HistoryListPage';
@@ -33,6 +35,8 @@ export struct HistoryListPage {
   @StorageProp('windowWidthVp') windowWidthVp: number = 360;
   @StorageProp('langVersion') langVersion: number = 0;
   @State isLoading: boolean = true;
+  /** 下拉刷新中（静默刷新，保留当前列表不闪骨架） */
+  @State isRefreshing: boolean = false;
   /** 大标题滚动收缩：列表下滚后切到居中常规标题 */
   @State navCollapsed: boolean = false;
   private listScroller: Scroller = new Scroller();
@@ -44,18 +48,33 @@ export struct HistoryListPage {
     void this.loadHistory();
   }
 
-  private async loadHistory(): Promise<void> {
-    this.isLoading = true;
+  /**
+   * 读取播放历史。silent = true 表示下拉刷新：不显示骨架、失败也不清空现有列表。
+   */
+  private async loadHistory(silent: boolean = false): Promise<void> {
+    if (!silent) {
+      this.isLoading = true;
+    }
     try {
       this.playHistory = await getPlayHistory(HISTORY_LIMIT);
       this.historySource.reload(this.playHistory);
     } catch (err) {
       hilog.warn(DOMAIN, TAG, 'loadHistory failed: %{public}s', JSON.stringify(err));
-      this.playHistory = [];
-      this.historySource.reload(this.playHistory);
+      if (!silent) {
+        this.playHistory = [];
+        this.historySource.reload(this.playHistory);
+      }
     } finally {
       this.isLoading = false;
+      this.isRefreshing = false;
     }
+  }
+
+  /** 下拉刷新入口：重读本地历史 */
+  private onPullRefresh(): void {
+    hapticService.selection();
+    this.isRefreshing = true;
+    void this.loadHistory(true);
   }
 
   private async clearHistory(): Promise<void> {
@@ -175,8 +194,6 @@ export struct HistoryListPage {
         }
         .width('100%')
         .layoutWeight(1)
-          .layoutWeight(1)
-          .width('100%')
       } else if (this.playHistory.length === 0) {
         StateView({
           state: 'empty',
@@ -186,53 +203,70 @@ export struct HistoryListPage {
           .layoutWeight(1)
           .width('100%')
       } else {
-        List({ scroller: this.listScroller }) {
-          LazyForEach(this.historySource, (song: PlayHistoryItem, index: number) => {
-            ListItem() {
-              ListRow({
-                index: index + 1,
-                title: song.name,
-                subtitle: song.album ? `${song.singer} · ${song.album}` : song.singer,
-                trailingText: song.duration > 0 ? formatPlayTime(song.duration) : '',
-                divider: index < this.playHistory.length - 1,
-                onTap: (): void => {
-                  void this.playHistorySong(song);
-                },
-              })
-            }
-            .padding({ left: 16, right: 16 })
-          }, (song: PlayHistoryItem, index: number) => `${song.id}_${song.source}_${song.playedAt}_${index}`)
-
-          ListItem() {
-            Text(tf('history_count', [this.playHistory.length.toString()]))
-              .fontSize(DesignTokens.fontCaption())
-              .fontColor(DesignTokens.labelTertiary(this.theme))
-              .width('100%')
-              .textAlign(TextAlign.Center)
-              .padding({ top: 14, bottom: 18 })
+        // 下拉刷新：重读本地历史（自定义组件后面不能直接挂通用属性，用一层 Column 承担剩余高度）
+        Column() {
+          RefreshContainer({
+            refreshing: $isRefreshing,
+            onRefresh: (): void => {
+              this.onPullRefresh();
+            },
+          }) {
+            this.HistoryList()
           }
         }
         .layoutWeight(1)
         .width('100%')
-        .scrollBar(BarState.Off)
-        .onDidScroll(() => {
-          const y = scrollerOffsetY(this.listScroller);
-          if (y > 18 && !this.navCollapsed) {
-            this.navCollapsed = true;
-          } else if (y <= 4 && this.navCollapsed) {
-            this.navCollapsed = false;
-          }
-        })
-        .cachedCount(6)
-        .padding({
-          left: Breakpoints.contentInset(this.windowWidthVp),
-          right: Breakpoints.contentInset(this.windowWidthVp),
-        })
-
       }
     }
     .width('100%')
     .height('100%')
     .backgroundColor(DesignTokens.pageBg(this.theme))
+  }
+
+  /** 历史列表（LazyForEach + 大标题滚动收缩 + 大屏内容列居中） */
+  @Builder
+  HistoryList() {
+    List({ scroller: this.listScroller }) {
+      LazyForEach(this.historySource, (song: PlayHistoryItem, index: number) => {
+        ListItem() {
+          ListRow({
+            index: index + 1,
+            title: song.name,
+            subtitle: song.album ? `${song.singer} · ${song.album}` : song.singer,
+            trailingText: song.duration > 0 ? formatPlayTime(song.duration) : '',
+            divider: index < this.playHistory.length - 1,
+            onTap: (): void => {
+              void this.playHistorySong(song);
+            },
+          })
+        }
+        .padding({ left: 16, right: 16 })
+      }, (song: PlayHistoryItem, index: number) => `${song.id}_${song.source}_${song.playedAt}_${index}`)
+
+      ListItem() {
+        Text(tf('history_count', [this.playHistory.length.toString()]))
+          .fontSize(DesignTokens.fontCaption())
+          .fontColor(DesignTokens.labelTertiary(this.theme))
+          .width('100%')
+          .textAlign(TextAlign.Center)
+          .padding({ top: 14, bottom: 18 })
+      }
+    }
+    .layoutWeight(1)
+    .width('100%')
+    .scrollBar(BarState.Off)
+    .onDidScroll(() => {
+      const y = scrollerOffsetY(this.listScroller);
+      if (y > 18 && !this.navCollapsed) {
+        this.navCollapsed = true;
+      } else if (y <= 4 && this.navCollapsed) {
+        this.navCollapsed = false;
+      }
+    })
+    .cachedCount(6)
+    .padding({
+      left: Breakpoints.contentInset(this.windowWidthVp),
+      right: Breakpoints.contentInset(this.windowWidthVp),
+    })
   }
 }

@@ -13,6 +13,7 @@ import { localMusicService } from '../service/LocalMusicService';
 import { playerService, type SongInfo } from '../service/PlayerService';
 import { getLocalPicUrl, type LocalMusicInfo } from '../core/music/local/LocalPlayback';
 import { NavBar } from '../components/ui/NavBar';
+import { RefreshContainer } from '../components/ui/RefreshContainer';
 import { StateView } from '../components/ui/StateView';
 import { hapticService } from '../service/HapticService';
 import { appActionMenu, appConfirm } from '../service/DialogService';
@@ -39,6 +40,8 @@ export struct LocalMusicPage {
   private trackSource: LazyDataSource<LocalMusicInfo> = new LazyDataSource<LocalMusicInfo>();
   @State isLoading: boolean = false;
   @State playingId: string = '';
+  /** 下拉刷新中（重新扫描曲库时保留当前列表） */
+  @State isRefreshing: boolean = false;
   /** 元数据编辑弹窗 */
   @State showEditDialog: boolean = false;
   private editingTrack: LocalMusicInfo | null = null;
@@ -108,6 +111,21 @@ export struct LocalMusicPage {
       this.showToast(tf('local_imported', [this.tracks.length.toString()]));
     } finally {
       this.isLoading = false;
+    }
+  }
+
+  /**
+   * 下拉刷新：重新扫描本地曲库。
+   * 与顶栏「重新扫描」的区别：不显示骨架、不弹提示，只在顶部转一圈（用户主动下拉时不打断当前浏览）。
+   */
+  private async refreshLibrary(): Promise<void> {
+    try {
+      await localMusicService.rescan();
+      await this.loadLibrary();
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'refreshLibrary failed: %{public}s', JSON.stringify(err));
+    } finally {
+      this.isRefreshing = false;
     }
   }
 
@@ -324,44 +342,21 @@ export struct LocalMusicPage {
       } else if (this.tracks.length === 0) {
         this.EmptyState()
       } else {
-        List() {
-          LazyForEach(this.trackSource, (track: LocalMusicInfo, index: number) => {
-            ListItem() {
-              TrackRow({
-                title: track.name,
-                subtitle: this.buildSubtitle(track),
-                durationText: this.formatDuration(track.duration),
-                coverUrl: track.picUrl ?? '',
-                active: this.playingId === track.id,
-                onTap: (): void => {
-                  void this.playTrack(index);
-                },
-                onLongPress: (): void => {
-                  void this.showTrackMenu(track);
-                },
-              })
-            }
-            // 侧滑删除：删除的是应用沙箱内的副本，仍给一次确认（误触代价高）
-            .swipeAction({
-              end: {
-                builder: (): void => {
-                  this.DeleteAction(index);
-                },
-                onAction: (): void => {
-                  this.confirmRemoveTrack(index);
-                },
-                actionAreaDistance: 56,
-              },
-            })
-          }, (track: LocalMusicInfo) => track.id)
+        // 下拉刷新：重新扫描曲库（自定义组件后面不能直接挂通用属性，用一层 Column 承担剩余高度）
+        Column() {
+          RefreshContainer({
+            refreshing: $isRefreshing,
+            onRefresh: (): void => {
+              hapticService.selection();
+              this.isRefreshing = true;
+              void this.refreshLibrary();
+            },
+          }) {
+            this.TrackList()
+          }
         }
-        .width('100%')
         .layoutWeight(1)
-        .cachedCount(6)
-        .padding({
-          left: Breakpoints.contentInset(this.windowWidthVp),
-          right: Breakpoints.contentInset(this.windowWidthVp),
-        })
+        .width('100%')
       }
 
       PlayerBar()
@@ -384,6 +379,49 @@ export struct LocalMusicPage {
     .width('100%')
     .height('100%')
     .backgroundColor(DesignTokens.pageBg(this.theme))
+  }
+
+  /** 本地曲库列表（LazyForEach + 侧滑删除 + 大屏内容列居中） */
+  @Builder
+  TrackList() {
+    List() {
+      LazyForEach(this.trackSource, (track: LocalMusicInfo, index: number) => {
+        ListItem() {
+          TrackRow({
+            title: track.name,
+            subtitle: this.buildSubtitle(track),
+            durationText: this.formatDuration(track.duration),
+            coverUrl: track.picUrl ?? '',
+            active: this.playingId === track.id,
+            onTap: (): void => {
+              void this.playTrack(index);
+            },
+            onLongPress: (): void => {
+              void this.showTrackMenu(track);
+            },
+          })
+        }
+        // 侧滑删除：删除的是应用沙箱内的副本，仍给一次确认（误触代价高）
+        .swipeAction({
+          end: {
+            builder: (): void => {
+              this.DeleteAction(index);
+            },
+            onAction: (): void => {
+              this.confirmRemoveTrack(index);
+            },
+            actionAreaDistance: 56,
+          },
+        })
+      }, (track: LocalMusicInfo) => track.id)
+    }
+    .width('100%')
+    .layoutWeight(1)
+    .cachedCount(6)
+    .padding({
+      left: Breakpoints.contentInset(this.windowWidthVp),
+      right: Breakpoints.contentInset(this.windowWidthVp),
+    })
   }
 }
 

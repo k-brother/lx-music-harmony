@@ -77,7 +77,8 @@ export struct DesktopLyricSection {
     this.lyricMaxLines = settings.desktopLyricMaxLines;
     this.animEnabled = settings.desktopLyricAnim;
     this.lyricShadowColor = settings.desktopLyricShadowColor;
-    this.locked = settings.desktopLyricLocked;  }
+    this.locked = settings.desktopLyricLocked;
+  }
 
   /** 外观类设置改动后让子窗口立即重算尺寸/配色 */
   private persistAppearance(patch: SettingsPatch): void {
