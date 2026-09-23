@@ -92,7 +92,11 @@ CHECKS = [
  ('窗口背景必须不透明', 'service/WindowService.ets', r'opaqueOrFallback'),
  ('页面绘制底部安全区', 'pages/Home/SettingView.ets',
   r'expandSafeArea\(\[SafeAreaType\.SYSTEM\], \[SafeAreaEdge\.TOP, SafeAreaEdge\.BOTTOM\]\)'),
- ('榜单卡片封面与歌名对齐', 'pages/Home/Leaderboard/ChartCard.ets', r'HEADER_LEFT_INSET'),
+ # 封面/展开试听与列表序号对齐：三者共用 PREVIEW_ROW_PADDING，歌名与分割线用 PREVIEW_TITLE_INSET
+ ('榜单卡片封面与序号对齐', 'pages/Home/Leaderboard/ChartCard.ets',
+  r'PREVIEW_ROW_PADDING', r'HEADER_LEFT_INSET'),
+ ('榜单卡片展开试听与序号对齐', 'pages/Home/Leaderboard/ChartCard.ets',
+  r'padding\(\{ left: PREVIEW_ROW_PADDING, right: PREVIEW_ROW_PADDING, top: 4, bottom: 6 \}\)'),
  ('顶栏无右侧动作时补对称占位', 'components/ui/NavBar.ets', r'等宽的占位'),
  ('法律文本点击直接开内容弹层', 'pages/Home/Setting/AboutSection.ets',
   r'this\.showPact = true', r'openLegalMenu'),

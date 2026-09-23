@@ -12,11 +12,12 @@ import { t, tf, playCountUnits } from '../../../service/LocalizationService';
 import { formatPlayCount } from '../../../utils/FormatTools';
 import type { BoardMusicItem } from '../../../store/leaderboard/LeaderboardStoreState';
 
-/** 预览行的行内边距与序号列宽 */
+/** 卡片内统一的行内边距：封面、序号、底部「展开试听」都从这里开始 */
 const PREVIEW_ROW_PADDING: number = 12;
+/** 预览行的序号列宽 */
 const PREVIEW_RANK_WIDTH: number = 32;
-/** 头部封面左边界 = 行内边距 + 序号列宽（与下面的歌名对齐） */
-const HEADER_LEFT_INSET: number = PREVIEW_ROW_PADDING + PREVIEW_RANK_WIDTH;
+/** 歌名与分割线的起点 = 行内边距 + 序号列宽 */
+const PREVIEW_TITLE_INSET: number = PREVIEW_ROW_PADDING + PREVIEW_RANK_WIDTH;
 
 @Component
 export struct ChartCard {
@@ -142,7 +143,7 @@ export struct ChartCard {
       })
     }
     .width('100%')
-    .padding({ left: 14, right: 14, bottom: 12 })
+    .padding({ left: PREVIEW_ROW_PADDING, right: PREVIEW_ROW_PADDING, bottom: 12 })
   }
 
   @Builder
@@ -164,7 +165,7 @@ export struct ChartCard {
         })
     }
     .width('100%')
-    .padding({ left: 14, right: 14, bottom: 12 })
+    .padding({ left: PREVIEW_ROW_PADDING, right: PREVIEW_ROW_PADDING, bottom: 12 })
     .alignItems(VerticalAlign.Center)
   }
 
@@ -221,7 +222,7 @@ export struct ChartCard {
             Divider()
               .strokeWidth(0.5)
               .color(DesignTokens.cardBorder(this.theme))
-              .margin({ left: HEADER_LEFT_INSET, right: 0 })
+              .margin({ left: PREVIEW_TITLE_INSET, right: 0 })
           }
         }
         .width('100%')
@@ -248,8 +249,8 @@ export struct ChartCard {
 
   /**
    * 卡片头部：封面 + 榜单名/播放量 + 展开与进入按钮。
-   * 左侧留出与歌曲行「序号列」等宽的内边距 —— 封面左边界因此与下面的歌名对齐
-   * （真机反馈：封面贴着卡片左边缘，和歌曲列表不在一条竖线上）。
+   * 左侧内边距与歌曲行一致 —— 封面左边界与下面列表的**序号**对齐
+   * （真机反馈：先是贴着卡片左边缘，改成和歌名对齐后又太靠右，最终与序号对齐）。
    */
   @Builder
   CardHeader() {
@@ -313,7 +314,7 @@ export struct ChartCard {
       .alignItems(VerticalAlign.Center)
     }
     .width('100%')
-    .padding({ left: HEADER_LEFT_INSET, right: 14, top: 4, bottom: 12 })
+    .padding({ left: PREVIEW_ROW_PADDING, right: PREVIEW_ROW_PADDING, top: 4, bottom: 12 })
   }
 
   /** 试听列表区（加载中骨架 / 失败重试 / 空 / 列表） */
@@ -327,7 +328,7 @@ export struct ChartCard {
       Text(t('no_data'))
         .fontSize(DesignTokens.fontCallout())
         .fontColor(DesignTokens.labelTertiary(this.theme))
-        .padding({ left: 14, right: 14, bottom: 12 })
+        .padding({ left: PREVIEW_ROW_PADDING, right: PREVIEW_ROW_PADDING, bottom: 12 })
     } else {
       this.PreviewList()
     }
@@ -379,7 +380,7 @@ export struct ChartCard {
       })
     }
     .width('100%')
-    .padding({ left: 14, right: 14, top: 4, bottom: 6 })
+    .padding({ left: PREVIEW_ROW_PADDING, right: PREVIEW_ROW_PADDING, top: 4, bottom: 6 })
     .alignItems(VerticalAlign.Center)
   }
 
