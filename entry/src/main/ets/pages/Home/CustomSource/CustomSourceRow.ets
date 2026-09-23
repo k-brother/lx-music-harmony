@@ -36,74 +36,13 @@ export struct CustomSourceRow {
   build() {
     Column() {
       Row() {
-        Column() {
-          Row() {
-            Text(this.sourceName.length > 0 ? this.sourceName : this.sourceUrl)
-              .fontSize(DesignTokens.fontSubhead())
-              .fontColor(DesignTokens.labelPrimary(this.theme))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .layoutWeight(1)
-            if (this.isEnabled) {
-              Text(t('custom_source_in_use'))
-                .fontSize(DesignTokens.fontBadge())
-                .fontColor(DesignTokens.accent())
-                .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-                .borderRadius(8)
-                .border({ width: 1, color: DesignTokens.accent() })
-                .margin({ left: 6 })
-            }
-          }
-          .width('100%')
-
-          Text(this.subtitle())
-            .fontSize(DesignTokens.fontMicro())
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .margin({ top: 4 })
-            .width('100%')
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
-
-        Toggle({ type: ToggleType.Switch, isOn: this.isEnabled })
-          .enabled(!this.busy)
-          .onChange((isOn: boolean) => {
-            if (isOn === this.isEnabled) {
-              return;
-            }
-            if (this.onToggle) {
-              this.onToggle(this.sourceId, isOn);
-            }
-          })
+        this.SourceInfo()
+        this.EnabledToggle()
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
 
-      Row({ space: 16 }) {
-        Text(t('custom_source_update'))
-          .fontSize(DesignTokens.fontCallout())
-          .fontColor(DesignTokens.accent())
-          .padding({ top: 6, bottom: 2, right: 8 })
-          .onClick(() => {
-            if (this.onUpdate) {
-              this.onUpdate(this.sourceId);
-            }
-          })
-        Text(t('delete'))
-          .fontSize(DesignTokens.fontCallout())
-          .fontColor(DesignTokens.danger())
-          .padding({ top: 6, bottom: 2 })
-          .onClick(() => {
-            if (this.onRemove) {
-              this.onRemove(this.sourceId);
-            }
-          })
-      }
-      .width('100%')
-      .justifyContent(FlexAlign.End)
-      .margin({ top: 4 })
+      this.RowActions()
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 12, bottom: 12 })
@@ -111,5 +50,83 @@ export struct CustomSourceRow {
     .borderRadius(10)
     .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
     .margin({ left: 16, right: 16, bottom: 8 })
+  }
+
+  /** 源名（缺失时退回 URL）+ 「使用中」角标 + 副标题 */
+  @Builder
+  SourceInfo() {
+    Column() {
+      Row() {
+        Text(this.sourceName.length > 0 ? this.sourceName : this.sourceUrl)
+          .fontSize(DesignTokens.fontSubhead())
+          .fontColor(DesignTokens.labelPrimary(this.theme))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .layoutWeight(1)
+        if (this.isEnabled) {
+          Text(t('custom_source_in_use'))
+            .fontSize(DesignTokens.fontBadge())
+            .fontColor(DesignTokens.accent())
+            .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+            .borderRadius(8)
+            .border({ width: 1, color: DesignTokens.accent() })
+            .margin({ left: 6 })
+        }
+      }
+      .width('100%')
+
+      Text(this.subtitle())
+        .fontSize(DesignTokens.fontMicro())
+        .fontColor(DesignTokens.labelTertiary(this.theme))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .margin({ top: 4 })
+        .width('100%')
+    }
+    .layoutWeight(1)
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  /** 启用开关（busy 期间禁用，避免重复提交） */
+  @Builder
+  EnabledToggle() {
+    Toggle({ type: ToggleType.Switch, isOn: this.isEnabled })
+      .enabled(!this.busy)
+      .onChange((isOn: boolean) => {
+        if (isOn === this.isEnabled) {
+          return;
+        }
+        if (this.onToggle) {
+          this.onToggle(this.sourceId, isOn);
+        }
+      })
+  }
+
+  /** 行尾操作：更新 / 删除（删除用危险色） */
+  @Builder
+  RowActions() {
+    Row({ space: 16 }) {
+      Text(t('custom_source_update'))
+        .fontSize(DesignTokens.fontCallout())
+        .fontColor(DesignTokens.accent())
+        .padding({ top: 6, bottom: 2, right: 8 })
+        .onClick(() => {
+          if (this.onUpdate) {
+            this.onUpdate(this.sourceId);
+          }
+        })
+      Text(t('delete'))
+        .fontSize(DesignTokens.fontCallout())
+        .fontColor(DesignTokens.danger())
+        .padding({ top: 6, bottom: 2 })
+        .onClick(() => {
+          if (this.onRemove) {
+            this.onRemove(this.sourceId);
+          }
+        })
+    }
+    .width('100%')
+    .justifyContent(FlexAlign.End)
+    .margin({ top: 4 })
   }
 }

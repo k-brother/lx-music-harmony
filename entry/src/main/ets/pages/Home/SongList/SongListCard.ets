@@ -49,66 +49,8 @@ export struct SongListCard {
 
   build() {
     Column() {
-      Stack() {
-        if (this.canRenderCover()) {
-          Image(this.lightweightCoverUrl(this.item.img || ''))
-            .width('100%')
-            .aspectRatio(1)
-            .borderRadius(DesignTokens.radiusCover())
-            .objectFit(ImageFit.Cover)
-            .onError(() => {
-              // 单卡封面失败时降级占位，避免重复解码/重试风暴
-              this.item.img = '';
-            })
-        } else {
-          Image($r('app.media.ic_player_cover_placeholder'))
-            .width('100%')
-            .aspectRatio(1)
-            .borderRadius(DesignTokens.radiusCover())
-            .objectFit(ImageFit.Cover)
-        }
-
-        // 播放量角标
-        Row() {
-          SymbolGlyph($r('sys.symbol.play_fill'))
-            .fontSize(DesignTokens.fontCaption())
-            .fontColor([DesignTokens.onAccent()])
-          Text(this.playCountText(this.item.play_count))
-            .fontSize(DesignTokens.fontBadge())
-            .fontColor(DesignTokens.onAccent())
-            .margin({ left: 3 })
-        }
-        .padding({ left: 6, right: 6, top: 3, bottom: 3 })
-        .backgroundColor(DesignTokens.scrim())
-        .borderRadius(DesignTokens.radiusCover())
-        .position({ x: 6, y: 6 })
-      }
-      .width('100%')
-      .aspectRatio(1)
-      // 封面投影：无卡片底色时提供层次（主流音乐 App 的歌单网格做法）
-      .shadow(DesignTokens.softShadow())
-
-      Column() {
-        Text(this.item.name)
-          .fontSize(DesignTokens.fontBody())
-          .fontWeight(FontWeight.Medium)
-          .fontColor(DesignTokens.labelPrimary(this.theme))
-          .maxLines(2)
-          .lineHeight(19)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .width('100%')
-
-        Text(this.item.author)
-          .fontSize(DesignTokens.fontCaption())
-          .fontColor(DesignTokens.labelTertiary(this.theme))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .width('100%')
-          .margin({ top: 5 })
-      }
-      .alignItems(HorizontalAlign.Start)
-      .width('100%')
-      .padding({ top: 8 })
+      this.CoverWithBadge()
+      this.CardTexts()
     }
     .width('100%')
     .onClick(() => {
@@ -124,5 +66,72 @@ export struct SongListCard {
         this.onTap();
       }
     })
+  }
+
+  /** 封面 + 播放量角标（封面失败降级为占位图，避免重复解码/重试风暴） */
+  @Builder
+  CoverWithBadge() {
+    Stack() {
+      if (this.canRenderCover()) {
+        Image(this.lightweightCoverUrl(this.item.img || ''))
+          .width('100%')
+          .aspectRatio(1)
+          .borderRadius(DesignTokens.radiusCover())
+          .objectFit(ImageFit.Cover)
+          .onError(() => {
+            this.item.img = '';
+          })
+      } else {
+        Image($r('app.media.ic_player_cover_placeholder'))
+          .width('100%')
+          .aspectRatio(1)
+          .borderRadius(DesignTokens.radiusCover())
+          .objectFit(ImageFit.Cover)
+      }
+
+      Row() {
+        SymbolGlyph($r('sys.symbol.play_fill'))
+          .fontSize(DesignTokens.fontCaption())
+          .fontColor([DesignTokens.onAccent()])
+        Text(this.playCountText(this.item.play_count))
+          .fontSize(DesignTokens.fontBadge())
+          .fontColor(DesignTokens.onAccent())
+          .margin({ left: 3 })
+      }
+      .padding({ left: 6, right: 6, top: 3, bottom: 3 })
+      .backgroundColor(DesignTokens.scrim())
+      .borderRadius(DesignTokens.radiusCover())
+      .position({ x: 6, y: 6 })
+    }
+    .width('100%')
+    .aspectRatio(1)
+    // 封面投影：无卡片底色时提供层次（主流音乐 App 的歌单网格做法）
+    .shadow(DesignTokens.softShadow())
+  }
+
+  /** 歌单名（最多两行）+ 创建者 */
+  @Builder
+  CardTexts() {
+    Column() {
+      Text(this.item.name)
+        .fontSize(DesignTokens.fontBody())
+        .fontWeight(FontWeight.Medium)
+        .fontColor(DesignTokens.labelPrimary(this.theme))
+        .maxLines(2)
+        .lineHeight(19)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width('100%')
+
+      Text(this.item.author)
+        .fontSize(DesignTokens.fontCaption())
+        .fontColor(DesignTokens.labelTertiary(this.theme))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width('100%')
+        .margin({ top: 5 })
+    }
+    .alignItems(HorizontalAlign.Start)
+    .width('100%')
+    .padding({ top: 8 })
   }
 }

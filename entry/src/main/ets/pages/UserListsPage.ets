@@ -433,43 +433,7 @@ export struct UserListsPage {
           },
         })
 
-        if (this.isLoading) {
-          StateView({ state: 'loading' })
-            .width('100%')
-            .layoutWeight(1)
-        } else if (this.userLists.length === 0) {
-          StateView({ state: 'empty', iconRes: $r('sys.symbol.folder'), message: t('user_lists_empty_hint') })
-            .width('100%')
-            .layoutWeight(1)
-        } else {
-          Scroll(this.scrollController) {
-            Column({ space: 10 }) {
-              ForEach(this.userLists, (list: UserListRow, index: number) => {
-                this.ListCard(index)
-              }, (list: UserListRow) => `${list.id}_${list.count}_${list.bindingListId}`)
-            }
-            .width('100%')
-            .padding({
-              left: 16 + Breakpoints.contentInset(this.windowWidthVp),
-              right: 16 + Breakpoints.contentInset(this.windowWidthVp),
-              top: 8,
-              bottom: 20,
-            })
-          }
-          .align(Alignment.TopStart)
-          .width('100%')
-          .layoutWeight(1)
-          .scrollBar(BarState.Auto)
-          .edgeEffect(EdgeEffect.Spring)
-          .onDidScroll(() => {
-            const y = scrollerOffsetY(this.scrollController);
-            if (y > 18 && !this.navCollapsed) {
-              this.navCollapsed = true;
-            } else if (y <= 4 && this.navCollapsed) {
-              this.navCollapsed = false;
-            }
-          })
-        }
+        this.Body()
 
         // 迷你播放条（页面底部沉浸到安全区，与歌单详情页一致）
         PlayerBar({ immersiveBottom: true })
@@ -501,5 +465,56 @@ export struct UserListsPage {
     .width('100%')
     .height('100%')
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+  }
+
+  /** 主体：加载态 / 空态（带新建入口）/ 歌单列表（大标题随滚动收缩） */
+  @Builder
+  Body() {
+    if (this.isLoading) {
+      StateView({ state: 'loading' })
+        .width('100%')
+        .layoutWeight(1)
+    } else if (this.userLists.length === 0) {
+      // 空态直接给「新建歌单」入口：不必回到右上角找按钮（主流列表页的空态都给行动项）
+      StateView({
+        state: 'empty',
+        iconRes: $r('sys.symbol.folder'),
+        message: t('user_lists_empty_hint'),
+        actionText: t('list_create_title'),
+        onAction: (): void => {
+          this.showCreateSheet = true;
+        },
+      })
+        .width('100%')
+        .layoutWeight(1)
+    } else {
+      Scroll(this.scrollController) {
+        Column({ space: 10 }) {
+          ForEach(this.userLists, (list: UserListRow, index: number) => {
+            this.ListCard(index)
+          }, (list: UserListRow) => `${list.id}_${list.count}_${list.bindingListId}`)
+        }
+        .width('100%')
+        .padding({
+          left: 16 + Breakpoints.contentInset(this.windowWidthVp),
+          right: 16 + Breakpoints.contentInset(this.windowWidthVp),
+          top: 8,
+          bottom: 20,
+        })
+      }
+      .align(Alignment.TopStart)
+      .width('100%')
+      .layoutWeight(1)
+      .scrollBar(BarState.Auto)
+      .edgeEffect(EdgeEffect.Spring)
+      .onDidScroll(() => {
+        const y = scrollerOffsetY(this.scrollController);
+        if (y > 18 && !this.navCollapsed) {
+          this.navCollapsed = true;
+        } else if (y <= 4 && this.navCollapsed) {
+          this.navCollapsed = false;
+        }
+      })
+    }
   }
 }
