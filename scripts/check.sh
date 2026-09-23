@@ -14,6 +14,9 @@ python3 "${SCRIPT_DIR}/check_dead.py"
 echo "== 零引用的导出（有实现没入口）=="
 python3 "${SCRIPT_DIR}/check_unused_exports.py"
 
+echo "== 入口可达性（死模块）=="
+python3 "${SCRIPT_DIR}/check_reachable.py"
+
 echo "== i18n 词条对齐 =="
 python3 "${SCRIPT_DIR}/check_i18n.py"
 
