@@ -338,6 +338,9 @@ CHECKS = [
  ('排行榜失败态可重试', 'pages/Home/LeaderboardView.ets', r"state: 'error'[\s\S]{0,220}?loadBoardList\(\)"),
  ('歌单广场失败态可重试', 'pages/Home/SongListView.ets', r"state: 'error'[\s\S]{0,220}?loadSongList\(true\)"),
  ('评论失败态可重试', 'pages/CommentPage.ets', r"state: 'error'[\s\S]{0,220}?loadComments\(true\)"),
+ # 启动不再用默认值覆盖用户偏好（曾经 setPlaybackRate(1.0) 会把倍速写回成 1.0）
+ ('启动应用上次倍速', 'app/entryability/EntryAbility.ets', r'applySavedPlaybackRate\(\)'),
+ ('倍速启动同步不写回设置', 'service/PlayerService.ets', r'async applySavedPlaybackRate\(\)'),
 ]
 
 fails = []

@@ -247,8 +247,8 @@ export default class EntryAbility extends UIAbility {
           // 设置音量
           await playerService.setVolume(settingsService.get().volume / 100);
 
-          // 设置播放速率
-          await playerService.setPlaybackRate(1.0);
+          // 应用上次的倍速（不能用 setPlaybackRate(1.0)：那会把用户偏好写回成默认值）
+          await playerService.applySavedPlaybackRate();
 
           // 恢复上次播放的歌曲与进度（续播；不自动播放）
           await playerService.restoreLastPlayback();

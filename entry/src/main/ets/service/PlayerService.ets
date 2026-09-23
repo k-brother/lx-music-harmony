@@ -897,6 +897,27 @@ export class PlayerService {
     hilog.info(DOMAIN, TAG, 'Playback rate set to: %{public}s', safeRate.toString());
   }
 
+  /**
+   * 启动阶段应用「上次的倍速」。
+   *
+   * 刻意不走 setPlaybackRate()：那个入口会把当前值持久化，启动时若用默认值调用
+   * （曾经就是 setPlaybackRate(1.0)），会把用户上次选的 1.25x/1.5x 直接抹掉，
+   * 表现为「重启后倍速设置丢了」。这里只同步状态 + 交给播放器，不写回设置。
+   */
+  async applySavedPlaybackRate(): Promise<void> {
+    const rate: number = settingsService.get().playRate;
+    this.playbackRate = rate;
+    playerStateData.playRate = rate;
+    playerState.playRate = rate;
+    try {
+      await avSetPlaybackSpeed(rate);
+      hilog.info(DOMAIN, TAG, 'Applied saved playback rate: %{public}s', rate.toString());
+    } catch (err) {
+      // 播放器可能还没创建：真正的应用会在下一次 setSource 时随 prepare 生效
+      hilog.warn(DOMAIN, TAG, 'Deferred saved playback rate: %{public}s', JSON.stringify(err));
+    }
+  }
+
   // 播放下一曲
   async playNext(): Promise<void> {
     if (this.playList.length === 0) {
