@@ -903,61 +903,7 @@ export struct SonglistDetailPage {
         },
       })
 
-      if (this.isLoading) {
-        // 加载中：用骨架列表代替转圈，避免整屏白等
-        Column() {
-          ForEach([0, 1, 2, 3, 4, 5], (index: number) => {
-            SkeletonListItem()
-          }, (index: number) => `songlist_skeleton_${index}`)
-        }
-        .width('100%')
-        .layoutWeight(1)
-      } else if (this.hasError) {
-        // 失败态：统一状态视图（带重试按钮），与其它页面同一套
-        StateView({
-          state: 'error',
-          message: t('load_failed_hint'),
-          actionText: t('retry'),
-          onAction: (): void => {
-            this.reloadDetail();
-          },
-        })
-          .width('100%')
-          .layoutWeight(1)
-      } else if (this.songList.length === 0) {
-        // 空状态
-        Column() {
-          Text(t('songlist_empty'))
-            .fontSize(DesignTokens.fontBody())
-            .fontColor(DesignTokens.labelSecondary(this.theme))
-        }
-        .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-      } else {
-        // 歌单信息头部
-        this.Header()
-
-        // 歌曲列表（下拉刷新：重新拉取当前歌单，刷新时保留列表不闪骨架）
-        // 自定义组件后面不能直接挂通用属性，用一层 Column 承担剩余高度
-        Column() {
-          RefreshContainer({
-            refreshing: $isRefreshing,
-            onRefresh: (): void => {
-              this.onPullRefresh();
-            },
-          }) {
-            this.SongList()
-          }
-        }
-        .layoutWeight(1)
-        .width('100%')
-
-        // 多选批量操作栏
-        if (this.selectMode) {
-          this.BatchBar()
-        }
-      }
+      this.Body()
 
       // 播放器栏（组件内部处理底部沉浸）
       PlayerBar({ immersiveBottom: true })
@@ -971,6 +917,75 @@ export struct SonglistDetailPage {
     .height('100%')
     .backgroundColor(DesignTokens.pageBg(this.theme))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+  }
+
+  /** 主体：骨架 / 失败态 / 空态 / 歌单内容（头部 + 下拉刷新的歌曲列表 + 多选操作栏） */
+  @Builder
+  Body() {
+    if (this.isLoading) {
+      this.LoadingSkeleton()
+    } else if (this.hasError) {
+      StateView({
+        state: 'error',
+        message: t('load_failed_hint'),
+        actionText: t('retry'),
+        onAction: (): void => {
+          this.reloadDetail();
+        },
+      })
+        .width('100%')
+        .layoutWeight(1)
+    } else if (this.songList.length === 0) {
+      this.EmptyState()
+    } else {
+      // 歌单信息头部
+      this.Header()
+
+      // 歌曲列表（下拉刷新：重新拉取当前歌单，刷新时保留列表不闪骨架）
+      // 自定义组件后面不能直接挂通用属性，用一层 Column 承担剩余高度
+      Column() {
+        RefreshContainer({
+          refreshing: $isRefreshing,
+          onRefresh: (): void => {
+            this.onPullRefresh();
+          },
+        }) {
+          this.SongList()
+        }
+      }
+      .layoutWeight(1)
+      .width('100%')
+
+      // 多选批量操作栏
+      if (this.selectMode) {
+        this.BatchBar()
+      }
+    }
+  }
+
+  /** 加载中：骨架列表代替转圈，避免整屏白等 */
+  @Builder
+  LoadingSkeleton() {
+    Column() {
+      ForEach([0, 1, 2, 3, 4, 5], (index: number) => {
+        SkeletonListItem()
+      }, (index: number) => `songlist_skeleton_${index}`)
+    }
+    .width('100%')
+    .layoutWeight(1)
+  }
+
+  /** 空歌单（源返回了歌单信息但曲目为空） */
+  @Builder
+  EmptyState() {
+    Column() {
+      Text(t('songlist_empty'))
+        .fontSize(DesignTokens.fontBody())
+        .fontColor(DesignTokens.labelSecondary(this.theme))
+    }
+    .width('100%')
+    .layoutWeight(1)
+    .justifyContent(FlexAlign.Center)
   }
 
   /** 顶栏右侧：普通态给「更多」，多选态给「完成」 */

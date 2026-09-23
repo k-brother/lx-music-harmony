@@ -61,53 +61,8 @@ export struct EditMetadataSheet {
           .width('100%')
           .textAlign(TextAlign.Start)
 
-        MetadataField({
-          label: t('metadata_name'),
-          value: this.draftName,
-          focusKey: METADATA_NAME_KEY,
-          onValueChange: (text: string): void => {
-            this.draftName = text;
-          },
-        })
-        MetadataField({
-          label: t('metadata_singer'),
-          value: this.draftSinger,
-          onValueChange: (text: string): void => {
-            this.draftSinger = text;
-          },
-        })
-        MetadataField({
-          label: t('metadata_album'),
-          value: this.draftAlbum,
-          onValueChange: (text: string): void => {
-            this.draftAlbum = text;
-          },
-        })
-
-        Row({ space: 10 }) {
-          Button(t('cancel'))
-            .fontSize(DesignTokens.fontSubhead())
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-            .backgroundColor(DesignTokens.mutedFill(this.theme))
-            .borderRadius(18)
-            .layoutWeight(1)
-            .onClick(() => {
-              this.cancel();
-            })
-          Button(t('confirm'))
-            .fontSize(DesignTokens.fontSubhead())
-            .fontColor(DesignTokens.onAccent())
-            .backgroundColor(DesignTokens.accent())
-            .borderRadius(18)
-            .layoutWeight(1)
-            .onClick(() => {
-              if (this.onSave) {
-                this.onSave(this.draftName, this.draftSinger, this.draftAlbum);
-              }
-            })
-        }
-        .width('100%')
-        .margin({ top: 6 })
+        this.Fields()
+        this.Actions()
       }
       .width('86%')
       .padding(18)
@@ -119,6 +74,62 @@ export struct EditMetadataSheet {
     }
     .width('100%')
     .height('100%')
+  }
+
+  /** 三个可编辑字段（歌名 / 歌手 / 专辑） */
+  @Builder
+  Fields() {
+    MetadataField({
+      label: t('metadata_name'),
+      value: this.draftName,
+      focusKey: METADATA_NAME_KEY,
+      onValueChange: (text: string): void => {
+        this.draftName = text;
+      },
+    })
+    MetadataField({
+      label: t('metadata_singer'),
+      value: this.draftSinger,
+      onValueChange: (text: string): void => {
+        this.draftSinger = text;
+      },
+    })
+    MetadataField({
+      label: t('metadata_album'),
+      value: this.draftAlbum,
+      onValueChange: (text: string): void => {
+        this.draftAlbum = text;
+      },
+    })
+  }
+
+  /** 取消 / 保存 */
+  @Builder
+  Actions() {
+    Row({ space: 10 }) {
+      Button(t('cancel'))
+        .fontSize(DesignTokens.fontSubhead())
+        .fontColor(DesignTokens.labelPrimary(this.theme))
+        .backgroundColor(DesignTokens.mutedFill(this.theme))
+        .borderRadius(18)
+        .layoutWeight(1)
+        .onClick(() => {
+          this.cancel();
+        })
+      Button(t('confirm'))
+        .fontSize(DesignTokens.fontSubhead())
+        .fontColor(DesignTokens.onAccent())
+        .backgroundColor(DesignTokens.accent())
+        .borderRadius(18)
+        .layoutWeight(1)
+        .onClick(() => {
+          if (this.onSave) {
+            this.onSave(this.draftName, this.draftSinger, this.draftAlbum);
+          }
+        })
+    }
+    .width('100%')
+    .margin({ top: 6 })
   }
 }
 
