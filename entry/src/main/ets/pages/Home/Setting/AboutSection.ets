@@ -55,7 +55,6 @@ export struct AboutSection {
         onChangeToggle: (value: boolean): void => {
           this.enableVerboseLog = value;
           void settingsService.update({ enableVerboseLog: value });
-          logService.setVerbose(value);
         },
       },
       {

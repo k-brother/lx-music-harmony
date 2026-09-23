@@ -19,6 +19,7 @@ import {
   LOG_LEVEL_ERROR
 } from '../core/log/LogStore';
 import { settingsService } from './SettingsService';
+import { on, EventTypes, type SettingChangedData } from './EventBus';
 
 const TAG = 'LogService';
 /** 单个日志文件上限 512KB，超出后滚动到 app.log.1 */
@@ -54,6 +55,14 @@ class LogServiceImpl {
       logStore.setVerbose(settingsService.get().enableVerboseLog);
       logStore.setSink((record: LogRecord): void => {
         this.enqueue(record);
+      });
+      // 设置变化时同步「记录详细日志」开关：恢复备份 / 同步下发改了它也能立即生效
+      // （只靠启动时读一次 + 设置页手动调用，会漏掉这两条入口）
+      on(EventTypes.SETTING_CHANGED, (data?: Object): void => {
+        const key: string = data ? ((data as SettingChangedData).key ?? '') : '';
+        if (key === 'enableVerboseLog' || key === 'all' || key.length === 0) {
+          this.setVerbose(settingsService.get().enableVerboseLog);
+        }
       });
       this.startTimer();
       this.appendSystemLine('INFO', TAG, 'LogService initialized');

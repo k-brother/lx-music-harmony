@@ -406,6 +406,11 @@ CHECKS = [
  ('主题跟随设置变化', 'service/ThemeService.ets', r'bindThemeSettingsSync'),
  ('手动选主题退出自动跟随', 'pages/Home/Setting/AppearanceSection.ets',
   r'private async applyTheme\(themeId: string\)[\s\S]{0,400}?autoTheme: false'),
+ # 设置变化要「落到服务/引擎」：详细日志与同步配置在外部改写后也要立即生效
+ ('详细日志开关跟随设置', 'service/LogService.ets',
+  r"SETTING_CHANGED[\s\S]{0,300}?enableVerboseLog"),
+ ('同步配置跟随设置', 'service/SyncService.ets',
+  r"SETTING_CHANGED[\s\S]{0,300}?loadConfig\(\)"),
  # 评论点赞落盘（源的评论接口没有登录态，只能本地记，但不能刷新就没）
  ('评论点赞本地持久化', 'service/comment/CommentLikeStore.ets', r'export async function loadLikedIds'),
  ('评论点赞打开时套用本地状态', 'pages/CommentPage.ets', r'applyLikedState\(newComments'),

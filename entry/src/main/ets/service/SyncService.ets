@@ -6,6 +6,7 @@ import { appLog as hilog } from '../core/log/AppLogger';
 import { common } from '@kit.AbilityKit';
 
 import { settingsService } from './SettingsService';
+import { on, EventTypes, type SettingChangedData } from './EventBus';
 import { t } from './LocalizationService';
 import {
   SyncStatus,
@@ -59,6 +60,8 @@ export class SyncService {
   
   private statusListeners: Array<(status: SyncStatusInfo) => void> = [];
   private syncTimer: number | null = null;
+  /** 是否已订阅设置变化（避免重复订阅） */
+  private settingsBound: boolean = false;
   /** 传输层：连接/重连/收发都在里面（见 sync/SyncTransport） */
   private transport: SyncTransport = new SyncTransport({
     onMessage: (message: SyncMessage): void => {
@@ -94,7 +97,17 @@ export class SyncService {
       if (this.config.enabled && this.config.autoSync) {
         this.startAutoSync();
       }
-      
+      // 同步相关设置被外部改写（恢复备份 / 同步下发 / 恢复默认设置）时重读配置：
+      // 否则服务里缓存的服务器地址与开关会一直是旧值，界面显示的也是旧值。
+      if (!this.settingsBound) {
+        this.settingsBound = true;
+        on(EventTypes.SETTING_CHANGED, (data?: Object): void => {
+          const key: string = data ? ((data as SettingChangedData).key ?? '') : '';
+          if (key === 'all' || key.length === 0 || key.startsWith('sync')) {
+            void this.loadConfig();
+          }
+        });
+      }
       hilog.info(DOMAIN, TAG, 'Sync service initialized');
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to initialize sync service: %{public}s', JSON.stringify(err));
