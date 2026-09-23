@@ -1,36 +1,22 @@
-import { formatPlayCount as formatPlayCountCore } from './FormatTools';
+import {
+  formatClockWithHours,
+  formatPlayCount as formatPlayCountCore,
+  parsePlayTimeText,
+} from './FormatTools';
 
-// 格式化播放时间 - 对应 src/utils/format.ts
+// 格式化播放时间 - 对应 src/utils/format.ts（实现统一在 FormatTools）
 export function formatPlayTime(time: number): string {
-  if (isNaN(time) || time < 0) return '00:00';
-  const mins = Math.floor(time / 60);
-  const secs = Math.floor(time % 60);
-  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  return formatClockWithHours(time);
 }
 
-// 格式化播放时间（从字符串格式如 "03:55" 转秒数）
+// 时间文本 → 秒（实现统一在 FormatTools）
 export function parsePlayTime(timeStr: string): number {
-  if (!timeStr) return 0;
-  const parts = timeStr.split(':');
-  let seconds = 0;
-  let multiplier = 1;
-  for (let i = parts.length - 1; i >= 0; i--) {
-    seconds += parseInt(parts[i]) * multiplier;
-    multiplier *= 60;
-  }
-  return seconds;
+  return parsePlayTimeText(timeStr);
 }
 
 // 格式化播放时间（带小时）
 export function formatPlayTime2(time: number): string {
-  if (isNaN(time) || time < 0) return '00:00:00';
-  const hours = Math.floor(time / 3600);
-  const mins = Math.floor((time % 3600) / 60);
-  const secs = Math.floor(time % 60);
-  if (hours > 0) {
-    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }
-  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  return formatClockWithHours(time);
 }
 
 // 判断是否为空

@@ -61,6 +61,58 @@ export function formatDuration(seconds: number): string {
 }
 
 /**
+ * 秒 → `mm:ss`，非法/非正值返回 `00:00`。
+ * 与 formatDuration 的区别：列表列用「--:--」表示未知，而接口/播放场景需要 `00:00`。
+ */
+export function formatClock(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return '00:00';
+  }
+  const total = Math.floor(seconds);
+  const minute = Math.floor(total / 60);
+  const second = total % 60;
+  const pad = (value: number): string => (value < 10 ? `0${value}` : `${value}`);
+  return `${pad(minute)}:${pad(second)}`;
+}
+
+/** 秒 → 超过 1 小时给 `hh:mm:ss`，否则 `mm:ss`（播放页/播控显示用） */
+export function formatClockWithHours(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    return '00:00';
+  }
+  const total = Math.floor(seconds);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+  const pad = (value: number): string => (value < 10 ? `0${value}` : `${value}`);
+  if (hours > 0) {
+    return `${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
+  }
+  return `${pad(minutes)}:${pad(secs)}`;
+}
+
+/**
+ * `mm:ss` / `hh:mm:ss` → 秒（从后往前按 60 进位，容忍多余空格与空段）。
+ * 之前 utils/CommonUtils、core/music/MusicParsingUtils、core/list/SongMappers 各有一份等价实现。
+ */
+export function parsePlayTimeText(text: string | null | undefined): number {
+  if (!text || text.length === 0) {
+    return 0;
+  }
+  const parts = text.split(':');
+  let seconds = 0;
+  let unit = 1;
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const value = parseInt(parts[i].trim(), 10);
+    if (!isNaN(value)) {
+      seconds += value * unit;
+    }
+    unit *= 60;
+  }
+  return seconds;
+}
+
+/**
  * 播放量/播放次数：`8550` / `5.5 万` / `1.2 亿`
  *
  * 之前这段逻辑在排行榜卡片、歌单卡片、歌单详情、搜索结果里各写了一遍，

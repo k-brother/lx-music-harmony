@@ -252,6 +252,13 @@ CHECKS = [
  # 播放量格式化只允许一份实现：CommonUtils 的同名函数必须委托给 FormatTools
  ('音源侧的播放量格式化也走统一实现', 'utils/CommonUtils.ets', r'formatPlayCountCore\(',
   r"toFixed\(1\) \+ '万'"),
+ # 时间解析/格式化只允许一份实现（FormatTools），其它入口必须是薄委托
+ ('时间解析统一实现', 'utils/FormatTools.ets', r'export function parsePlayTimeText'),
+ ('时钟格式化统一实现', 'utils/FormatTools.ets', r'export function formatClock\('),
+ ('CommonUtils 时长格式化委托统一实现', 'utils/CommonUtils.ets', r'formatClockWithHours\(time\)',
+  r"padStart\(2, '0'\)"),
+ ('歌单映射的时长函数委托统一实现', 'core/list/SongMappers.ets', r'parsePlayTimeText\(interval\)'),
+ ('音源解析的时长函数委托统一实现', 'core/music/MusicParsingUtils.ets', r'parsePlayTimeText\(interval\)'),
 ]
 
 fails = []

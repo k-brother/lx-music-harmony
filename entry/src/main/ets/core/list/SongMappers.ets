@@ -5,6 +5,7 @@
  * 现在收敛到一处：任何页面要"把列表行变成可播放/可下载的对象"都用这里。
  */
 import type { MusicInfo, MusicSource } from '../../types/MusicTypes';
+import { formatClock, parsePlayTimeText } from '../../utils/FormatTools';
 import type { MusicItem } from '../../service/ListService';
 import type { SongInfo } from '../../service/PlayerService';
 
@@ -24,28 +25,14 @@ export interface SongRowLike {
   copyrightId?: string;
 }
 
-/** 秒 -> "mm:ss"（播放/下载接口需要的时长文本） */
+/** 秒 → "mm:ss"（实现统一在 FormatTools，这里保留原函数名） */
 export function secondsToInterval(seconds: number): string {
-  const safe = isNaN(seconds) || seconds < 0 ? 0 : seconds;
-  const minutes = Math.floor(safe / 60);
-  const remainder = Math.floor(safe % 60);
-  return `${minutes.toString().padStart(2, '0')}:${remainder.toString().padStart(2, '0')}`;
+  return formatClock(seconds);
 }
 
-/** "mm:ss" -> 秒 */
+/** "mm:ss" → 秒（实现统一在 FormatTools，这里保留原函数名） */
 export function intervalToSeconds(interval: string | null | undefined): number {
-  if (!interval) {
-    return 0;
-  }
-  const parts = interval.split(':');
-  let seconds = 0;
-  for (let i = 0; i < parts.length; i++) {
-    const value = parseInt(parts[i], 10);
-    if (!isNaN(value)) {
-      seconds = seconds * 60 + value;
-    }
-  }
-  return seconds;
+  return parsePlayTimeText(interval);
 }
 
 /** 列表行 -> 平台音乐对象（取链、评论、分享、详情页链接都用它） */

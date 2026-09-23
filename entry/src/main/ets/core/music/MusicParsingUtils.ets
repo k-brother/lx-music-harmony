@@ -1,6 +1,7 @@
 // 歌词与时长、音质等解析/格式化工具（原 utils.ets）
 
 import type { MusicInfo, LyricInfo, Quality, MusicQualityType, MusicSource, OtherSourceInfo, QualityDetail } from '../../types/MusicTypes';
+import { formatClock, parsePlayTimeText } from '../../utils/FormatTools';
 
 // 尝试获取的音乐品质列表
 export const TRY_QUALITYS_LIST: string[] = ['flac24bit', 'flac', '320k', '128k'];
@@ -9,35 +10,15 @@ export const TRY_QUALITYS_LIST: string[] = ['flac24bit', 'flac', '320k', '128k']
  * 解析时长字符串为秒数
  */
 export function parseInterval(interval: string): number {
-  if (!interval) return 0;
-
-  const parts = interval.split(':');
-  let seconds = 0;
-  let unit = 1;
-
-  // 从后往前解析
-  for (let i = parts.length - 1; i >= 0; i--) {
-    const part = parts[i].trim();
-    const num = parseInt(part, 10);
-    if (!isNaN(num)) {
-      seconds += num * unit;
-    }
-    unit *= 60;
-  }
-
-  return seconds;
+  // 实现统一在 utils/FormatTools（原来这里另写了一份从后往前解析）
+  return parsePlayTimeText(interval);
 }
 
 /**
- * 格式化秒数为时长字符串
+ * 格式化秒数为时长字符串（实现统一在 utils/FormatTools）
  */
 export function formatInterval(seconds: number): string {
-  if (!seconds || seconds <= 0) return '00:00';
-
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  return formatClock(seconds);
 }
 
 /**
