@@ -184,20 +184,13 @@ class PluginManagerImpl {
       hilog.info(DOMAIN, TAG, 'Script downloaded, length: %{public}d', scriptContent.length);
 
       // 解析插件信息
-      this.pluginMeta = this.parsePluginMeta(scriptContent);
+      const meta: PluginMeta = this.parsePluginMeta(scriptContent);
+      this.pluginMeta = meta;
 
       // 创建自定义源插件
       const pluginId = 'custom_' + Date.now();
       createdPluginId = pluginId;
-      const customPlugin: Plugin = new CustomSourcePlugin(
-        pluginId,
-        this.pluginMeta.name,
-        this.pluginMeta.description,
-        this.pluginMeta.version,
-        this.pluginMeta.author,
-        this.pluginMeta.homepage,
-        scriptContent
-      );
+      const customPlugin: Plugin = this.createCustomSourcePlugin(pluginId, scriptContent, meta);
 
       // 初始化
       const inited = await customPlugin.onInit();
@@ -212,9 +205,9 @@ class PluginManagerImpl {
       // 保存URL
       await this.saveCustomSourceUrl(url);
       // 记入自定义源列表（可多源管理：启用/停用/更新/删除）
-      await this.persistLoadedSource(pluginId, url, scriptContent, this.pluginMeta);
+      await this.persistLoadedSource(pluginId, url, scriptContent, meta);
 
-      hilog.info(DOMAIN, TAG, 'Custom source loaded: %{public}s', this.pluginMeta.name);
+      hilog.info(DOMAIN, TAG, 'Custom source loaded: %{public}s', meta.name);
       this.pluginLoading = false;
       this.pluginLoaded = true;
       return true;
@@ -222,19 +215,39 @@ class PluginManagerImpl {
     } catch (error) {
       const errMsg = (error as Error).message;
       hilog.error(DOMAIN, TAG, 'Failed to load custom source: %{public}s', errMsg);
-      // 仅清理本次新建但失败的插件，避免误删之前可用插件
-      if (createdPluginId && this.plugins.has(createdPluginId)) {
-        this.unregister(createdPluginId);
-      }
-      if (previousActivePluginId && this.plugins.has(previousActivePluginId)) {
-        this.activePluginId = previousActivePluginId;
-      } else if (this.activePluginId === createdPluginId) {
-        this.activePluginId = null;
-      }
+      this.rollbackFailedLoad(createdPluginId, previousActivePluginId);
       this.pluginError = errMsg;
       this.pluginLoading = false;
       this.pluginLoaded = false;
       return false;
+    }
+  }
+
+  /** 用当前解析出的元信息建插件实例（元信息字段较多，集中在这里避免散落） */
+  private createCustomSourcePlugin(pluginId: string, scriptContent: string, meta: PluginMeta): Plugin {
+    return new CustomSourcePlugin(
+      pluginId,
+      meta.name,
+      meta.description,
+      meta.version,
+      meta.author,
+      meta.homepage,
+      scriptContent
+    );
+  }
+
+  /**
+   * 加载失败后的回滚：只清理本次新建的插件，并把激活源还原成之前那个，
+   * 避免一次失败的「更新自定义源」把正在用的旧插件也一起弄丢。
+   */
+  private rollbackFailedLoad(createdPluginId: string | null, previousActivePluginId: string | null): void {
+    if (createdPluginId && this.plugins.has(createdPluginId)) {
+      this.unregister(createdPluginId);
+    }
+    if (previousActivePluginId && this.plugins.has(previousActivePluginId)) {
+      this.activePluginId = previousActivePluginId;
+    } else if (this.activePluginId === createdPluginId) {
+      this.activePluginId = null;
     }
   }
 

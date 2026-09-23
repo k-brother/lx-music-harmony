@@ -145,10 +145,15 @@ export struct HomePage {
       this.isPlay = isPlayStr === 'true';
     };
     this.onPlayerMusicInfoChanged = (musicInfoStr: string) => {
-      const musicInfo: MusicInfoType = JSON.parse(musicInfoStr);
-      this.musicName = musicInfo.name || '';
-      this.singer = musicInfo.singer || '';
-      this.pic = musicInfo.pic || '';
+      // 事件里的载荷是序列化字符串：脏数据不能把事件回调炸掉（回调抛错无人接）
+      try {
+        const musicInfo: MusicInfoType = JSON.parse(musicInfoStr);
+        this.musicName = musicInfo.name || '';
+        this.singer = musicInfo.singer || '';
+        this.pic = musicInfo.pic || '';
+      } catch (err) {
+        hilog.warn(0x0001, 'HomePage', 'playerMusicInfoChanged parse failed: %{public}s', JSON.stringify(err));
+      }
     };
     stateEvent.on('playStateChanged', this.onPlayStateChanged);
     stateEvent.on('playerMusicInfoChanged', this.onPlayerMusicInfoChanged);
