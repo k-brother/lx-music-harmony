@@ -22,6 +22,18 @@ import { hapticService } from '../../service/HapticService';
 import { DeferredScrollToTop } from '../../utils/ScrollTools';
 import { Breakpoints } from '../../theme/Breakpoints';
 import { LazyDataSource } from '../../utils/LazyDataSource';
+import { getStorageService } from '../../core/interfaces/IStorageService';
+
+/** 每源记住上次的分类/排序（标签集随源不同，所以按源分开存） */
+function songListFilterKey(sourceId: string): string {
+  return `songlist.lastFilter.${sourceId}`;
+}
+
+/** 落盘的筛选快照 */
+interface SongListFilterSnapshot {
+  sort: string;
+  tag: string;
+}
 
 // 排序选项接口
 interface SortOption {
@@ -119,8 +131,43 @@ export struct SongListView {
     const newOption: SortOption = { name: t('sort_new'), tid: 'new' };
     this.sortOptions = [defaultOption, hotOption, newOption];
     this.scrollToTopSoon();
+    // 先恢复上次的筛选再拉数据：避免先用默认筛选请求一次、再被恢复的值覆盖
+    void this.restoreFilterThenLoad();
+  }
+
+  /**
+   * 恢复该源上次的分类/排序，然后加载标签与第一页。
+   * 标签集随源不同，所以快照按源分开存；失效的标签由 loadTags 的 keep 校验兜底清空。
+   */
+  private async restoreFilterThenLoad(): Promise<void> {
+    // 连点切源时：只有最后一次请求的结果算数（与页面其它请求同一套 epoch 防竞态）
+    const epoch: number = this.reCreateKey;
+    try {
+      const raw: string = await getStorageService().getString(songListFilterKey(this.sourceId), '');
+      if (epoch === this.reCreateKey && raw.length > 0) {
+        const snapshot = JSON.parse(raw) as SongListFilterSnapshot;
+        if (snapshot && typeof snapshot.sort === 'string' && typeof snapshot.tag === 'string') {
+          this.selectedSort = snapshot.sort;
+          this.selectedTag = snapshot.tag;
+        }
+      }
+    } catch (err) {
+      hilog.warn(0x0001, 'SongListView', 'restore filter failed: %{public}s', JSON.stringify(err));
+    }
+    if (epoch !== this.reCreateKey) {
+      return;
+    }
     this.loadTags();
     this.loadSongList(true);
+  }
+
+  /** 记住当前筛选（失败只告警：不影响本次浏览） */
+  private persistFilter(): void {
+    const snapshot: SongListFilterSnapshot = { sort: this.selectedSort, tag: this.selectedTag };
+    getStorageService().setString(songListFilterKey(this.sourceId), JSON.stringify(snapshot))
+      .catch((err: Error) => {
+        hilog.warn(0x0001, 'SongListView', 'persist filter failed: %{public}s', err.message);
+      });
   }
 
   aboutToDisappear() {
@@ -156,8 +203,8 @@ export struct SongListView {
     this.coverInteractionUnlocked = true;
     this.isFilterPinned = false;
     this.scrollToTopSoon();
-    this.loadTags();
-    this.loadSongList(true);
+    // 再恢复「新源上次用的筛选」：先归零是为了避免把上一个源的标签 id 带到新源上
+    void this.restoreFilterThenLoad();
   }
 
   // 加载标签
@@ -270,6 +317,7 @@ export struct SongListView {
     this.isFilterPinned = false;
     this.scrollToTopSoon();
     this.selectedSort = sortId;
+    this.persistFilter();
     this.loadSongList(true);
   }
 
@@ -280,6 +328,7 @@ export struct SongListView {
     this.isFilterPinned = false;
     this.scrollToTopSoon();
     this.selectedTag = tagId;
+    this.persistFilter();
     this.loadSongList(true);
   }
 

@@ -364,6 +364,11 @@ CHECKS = [
  # 评论点赞落盘（源的评论接口没有登录态，只能本地记，但不能刷新就没）
  ('评论点赞本地持久化', 'service/comment/CommentLikeStore.ets', r'export async function loadLikedIds'),
  ('评论点赞打开时套用本地状态', 'pages/CommentPage.ets', r'applyLikedState\(newComments'),
+ # 首页记住上次 Tab / 歌单广场按源记住筛选
+ ('首页记住上次 Tab', 'pages/HomePage.ets', r'restoreLastTab'),
+ ('歌单广场按源记住筛选', 'pages/Home/SongListView.ets', r'songListFilterKey'),
+ ('歌单广场换源恢复该源筛选', 'pages/Home/SongListView.ets',
+  r'reloadForSource\(\)[\s\S]{0,900}?restoreFilterThenLoad\(\)'),
 ]
 
 fails = []
