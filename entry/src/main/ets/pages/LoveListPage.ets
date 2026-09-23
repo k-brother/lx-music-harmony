@@ -8,6 +8,7 @@ import hilog from '@ohos.hilog';
 import { DesignTokens } from '../theme/DesignTokens';
 import { Breakpoints } from '../theme/Breakpoints';
 import { LazyDataSource } from '../utils/LazyDataSource';
+import { scrollerOffsetY } from '../utils/ScrollTools';
 import { getLoveList, toggleLoveList, type MusicItem } from '../service/ListService';
 import { playerService, SongInfo } from '../service/PlayerService';
 import { t, tf } from '../service/LocalizationService';
@@ -39,6 +40,9 @@ export struct LoveListPage {
   /** LazyForEach 数据源：长列表只创建可视区的行 */
   private loveSource: LazyDataSource<SongRow> = new LazyDataSource<SongRow>();
   @State isLoading: boolean = true;
+  /** 大标题滚动收缩：列表下滚后切到居中常规标题 */
+  @State navCollapsed: boolean = false;
+  private listScroller: Scroller = new Scroller();
   /** 正在播放的曲目 id（高亮行） */
   @State playingId: string = '';
 
@@ -176,6 +180,7 @@ export struct LoveListPage {
       NavBar({
         title: t('love_title'),
         largeTitle: true,
+        collapsed: this.navCollapsed,
         trailing: (): void => {
           Text(tf('count_songs_short', [this.songs.length.toString()]))
             .fontSize(DesignTokens.fontCaption())
@@ -193,7 +198,7 @@ export struct LoveListPage {
           .layoutWeight(1)
           .width('100%')
       } else {
-        List() {
+        List({ scroller: this.listScroller }) {
           LazyForEach(this.loveSource, (song: SongRow, index: number) => {
             ListItem() {
               ListRow({
@@ -219,6 +224,14 @@ export struct LoveListPage {
         .layoutWeight(1)
         .width('100%')
         .scrollBar(BarState.Off)
+        .onDidScroll(() => {
+          const y = scrollerOffsetY(this.listScroller);
+          if (y > 18 && !this.navCollapsed) {
+            this.navCollapsed = true;
+          } else if (y <= 4 && this.navCollapsed) {
+            this.navCollapsed = false;
+          }
+        })
     .cachedCount(6)
         .padding({
           left: Breakpoints.contentInset(this.windowWidthVp),

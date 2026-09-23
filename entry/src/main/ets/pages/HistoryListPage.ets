@@ -13,6 +13,7 @@ import { formatPlayTime } from '../utils/CommonUtils';
 import { DesignTokens } from '../theme/DesignTokens';
 import { Breakpoints } from '../theme/Breakpoints';
 import { LazyDataSource } from '../utils/LazyDataSource';
+import { scrollerOffsetY } from '../utils/ScrollTools';
 import { t, tf } from '../service/LocalizationService';
 import { appConfirm, appToast } from '../service/DialogService';
 import { NavBar } from '../components/ui/NavBar';
@@ -31,6 +32,9 @@ export struct HistoryListPage {
   @StorageProp('windowWidthVp') windowWidthVp: number = 360;
   @StorageProp('langVersion') langVersion: number = 0;
   @State isLoading: boolean = true;
+  /** 大标题滚动收缩：列表下滚后切到居中常规标题 */
+  @State navCollapsed: boolean = false;
+  private listScroller: Scroller = new Scroller();
   @State playHistory: PlayHistoryItem[] = [];
   /** LazyForEach 数据源：长列表只创建可视区的行 */
   private historySource: LazyDataSource<PlayHistoryItem> = new LazyDataSource<PlayHistoryItem>();
@@ -155,6 +159,7 @@ export struct HistoryListPage {
       NavBar({
         title: t('history_title'),
         largeTitle: true,
+        collapsed: this.navCollapsed,
         trailing: (): void => {
           this.trailingActions();
         },
@@ -173,7 +178,7 @@ export struct HistoryListPage {
           .layoutWeight(1)
           .width('100%')
       } else {
-        List() {
+        List({ scroller: this.listScroller }) {
           LazyForEach(this.historySource, (song: PlayHistoryItem, index: number) => {
             ListItem() {
               ListRow({
@@ -202,6 +207,14 @@ export struct HistoryListPage {
         .layoutWeight(1)
         .width('100%')
         .scrollBar(BarState.Off)
+        .onDidScroll(() => {
+          const y = scrollerOffsetY(this.listScroller);
+          if (y > 18 && !this.navCollapsed) {
+            this.navCollapsed = true;
+          } else if (y <= 4 && this.navCollapsed) {
+            this.navCollapsed = false;
+          }
+        })
         .cachedCount(6)
         .padding({
           left: Breakpoints.contentInset(this.windowWidthVp),

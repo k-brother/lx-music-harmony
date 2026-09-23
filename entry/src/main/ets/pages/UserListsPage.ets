@@ -7,6 +7,7 @@ import hilog from '@ohos.hilog';
 import { navigationService, RouteName } from '../service/NavigationService';
 import { DesignTokens } from '../theme/DesignTokens';
 import { Breakpoints } from '../theme/Breakpoints';
+import { scrollerOffsetY } from '../utils/ScrollTools';
 import { NavBar } from '../components/ui/NavBar';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { StateView } from '../components/ui/StateView';
@@ -49,6 +50,9 @@ export struct UserListsPage {
   @StorageProp('langVersion') langVersion: number = 0;
   @State userLists: UserListRow[] = [];
   @State isLoading: boolean = true;
+  /** 大标题滚动收缩：列表下滚后切到居中常规标题 */
+  @State navCollapsed: boolean = false;
+  private scrollController: Scroller = new Scroller();
   @State showCreateSheet: boolean = false;
   @State newListName: string = '';
   @State editingList: UserListRow | null = null;
@@ -401,6 +405,7 @@ export struct UserListsPage {
         NavBar({
           title: t('mylist_user_lists'),
           largeTitle: true,
+          collapsed: this.navCollapsed,
           trailing: (): void => {
             this.NavCreateAction();
           },
@@ -415,7 +420,7 @@ export struct UserListsPage {
             .width('100%')
             .layoutWeight(1)
         } else {
-          Scroll() {
+          Scroll(this.scrollController) {
             Column({ space: 10 }) {
               ForEach(this.userLists, (list: UserListRow, index: number) => {
                 this.ListCard(index)
@@ -434,6 +439,14 @@ export struct UserListsPage {
           .layoutWeight(1)
           .scrollBar(BarState.Auto)
           .edgeEffect(EdgeEffect.Spring)
+          .onDidScroll(() => {
+            const y = scrollerOffsetY(this.scrollController);
+            if (y > 18 && !this.navCollapsed) {
+              this.navCollapsed = true;
+            } else if (y <= 4 && this.navCollapsed) {
+              this.navCollapsed = false;
+            }
+          })
         }
       }
       .width('100%')
