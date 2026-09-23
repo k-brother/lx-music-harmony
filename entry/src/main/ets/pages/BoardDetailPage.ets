@@ -1,5 +1,6 @@
 import { t , tf } from '../service/LocalizationService';
 import { showAppToast, TOAST_DURATION_SHORT } from '../utils/Toast';
+import { BoardSongRow } from './BoardDetail/BoardSongRow';
 // 排行榜详情页 - 显示榜单信息和歌曲列表
 // 支持分组展示前几条歌曲作为预览
 
@@ -508,55 +509,26 @@ export struct BoardDetailPage {
   @Builder
   SongList() {
     List({ space: 8, scroller: this.songListScroller }) {
-      ForEach(this.songList, (song: BoardSongItem) => {
+      // 行组件与歌单详情同款观感（序号 / 歌名 / 歌手 / 下载 / 播放高亮）
+      ForEach(this.songList, (song: BoardSongItem, index: number) => {
         ListItem() {
-          Row() {
-            Text(song.index.toString())
-              .fontSize(DesignTokens.fontCaption())
-              .fontColor(song.isPlaying ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
-              .width(28)
-              .textAlign(TextAlign.Center)
-
-            Column({ space: 2 }) {
-              Text(song.name)
-                .fontSize(DesignTokens.fontBody())
-                .fontColor(song.isPlaying ? DesignTokens.accent() : DesignTokens.labelPrimary(this.theme))
-                .maxLines(1)
-              Text(song.singer)
-                .fontSize(DesignTokens.fontCaption())
-                .fontColor(DesignTokens.labelSecondary(this.theme))
-                .maxLines(1)
-            }
-            .alignItems(HorizontalAlign.Start)
-            .layoutWeight(1)
-            .margin({ left: 10, right: 10 })
-
-            Stack() {
-              Circle({ width: 28, height: 28 })
-                .fill(DesignTokens.mutedFill(this.theme))
-              Image($r('app.media.ic_common_download'))
-                .width(14)
-                .height(14)
-                .fillColor(DesignTokens.labelSecondary(this.theme))
-            }
-            .responseRegion(DesignTokens.touchRegion(28))
-            .onClick(() => {
+          BoardSongRow({
+            index: index + 1,
+            title: song.name,
+            singer: song.singer,
+            active: song.isPlaying,
+            divider: index < this.songList.length - 1,
+            onTap: (): void => {
+              this.playSong(index);
+            },
+            onDownload: (): void => {
               void this.downloadSong(song);
-            })
-          }
-          .width('100%')
-          .padding({ left: 10, right: 10, top: 12, bottom: 12 })
-          .backgroundColor(DesignTokens.card(this.theme))
-          .borderRadius(12)
-          .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
+            },
+          })
         }
-        .onClick(() => {
-          const idx = this.songList.indexOf(song);
-          if (idx >= 0) {
-            void this.playSong(idx);
-          }
-        })
-      })
+      },
+        // key 带上播放态：状态变化时确保行重建（否则高亮可能不刷新）
+        (song: BoardSongItem, index: number): string => `${song.id}_${index}_${song.isPlaying}`)
     }
     .width('100%')
     .layoutWeight(1)
