@@ -26,7 +26,7 @@ import type { MusicInfo, MusicSource, Quality } from '../types/MusicTypes';
 import { formatPlayTime } from '../utils/CommonUtils';
 import { recordPlayedSong } from './PlayHistoryService';
 import { backgroundRunningManager, type AvMediaMetadata, type AvSessionCallbacks } from './BackgroundRunningManager';
-import { getMusicUrl } from '../core/music/MusicFeatureEntry';
+import { getMusicUrl, getPicPath } from '../core/music/MusicFeatureEntry';
 import { settingsService, type PlayMode as SettingsPlayMode } from './SettingsService';
 import { dislikeList } from '../core/dislike/DislikeList';
 import { on, EventTypes } from './EventBus';
@@ -718,6 +718,9 @@ export class PlayerService {
     const musicInfo: MusicInfo = songInfoToMusicInfo(song);
     playerStateData.musicInfo = musicInfo;
     this.notifyMusicInfoChange();
+    // 元数据里没带封面时（搜索结果、部分源的歌单）异步补一张：
+    // 否则迷你条、播放详情页、播控中心都只剩占位图
+    this.backfillArtwork(musicInfo);
     // 换歌了：允许为新歌记一次播放历史（真正开始播放时再写，见 play()）
     this.recordedSongKey = '';
     // 切歌后异步加载歌词：既喂给系统（锁屏/控制中心/灵动岛），也供桌面歌词使用
@@ -745,6 +748,41 @@ export class PlayerService {
   }
 
   /** 播放地址预校验：不合法直接置错误态并抛出可读原因（上层据此提示/换源） */
+  /**
+   * 封面兜底：当前歌曲没有封面时，按源拉一次封面地址并回填。
+   *
+   * 搜索结果等入口的元数据里常常没有封面（酷我搜索只在有 ALBUMID 时才拼图，
+   * 插件源也常省略），不补的话迷你条、播放详情、播控中心就一直显示占位图。
+   * 异步执行、失败只记日志，绝不阻塞播放；回来时若已切歌则丢弃。
+   */
+  private backfillArtwork(song: MusicInfo): void {
+    const existing: string = (song.pic ?? song.img ?? '').trim();
+    if (existing.length > 0) {
+      return;
+    }
+    const key: string = playKeyOf(song);
+    void (async (): Promise<void> => {
+      try {
+        const url: string = await getPicPath({ musicInfo: song, isRefresh: false });
+        if (!url || url.length === 0) {
+          return;
+        }
+        // 异步期间可能已经切歌：只回填当前这首歌
+        if (playKeyOf(playerStateData.musicInfo) !== key) {
+          return;
+        }
+        playerStateData.musicInfo.pic = url;
+        playerStateData.musicInfo.img = url;
+        this.notifyMusicInfoChange();
+        this.updateAvMetadata();
+        hilog.info(DOMAIN, TAG, '封面已补: %{public}s', song.name);
+      } catch (err) {
+        hilog.info(DOMAIN, TAG, '封面补取失败（不影响播放）: %{public}s',
+          err instanceof Error ? err.message : JSON.stringify(err));
+      }
+    })();
+  }
+
   private assertPlayableUrl(song: SongInfo, url: string): void {
     const urlError: string = validatePlayUrl(url, song.title);
     if (urlError.length === 0) {

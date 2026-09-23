@@ -15,29 +15,36 @@ export struct SongRowList {
   onPlay?: (song: MylistSongRow) => void;
 
   build() {
+    // 外层只负责左右外边距：与「本地音乐」入口卡、上方快捷卡保持同一条竖线
+    // （真机反馈：我喜欢/播放历史的卡片比本地音乐那张宽出一截）
     Column() {
-      ForEach(this.songs, (song: MylistSongRow, index: number) => {
-        ListRow({
-          index: index + 1,
-          title: song.name,
-          // 副标题与时长走统一拼装（「设置 → 列表」的显示专辑/音源/时长在这里同样生效）
-          singer: song.singer,
-          album: song.album ?? '',
-          sourceId: song.source,
-          durationSeconds: song.duration,
-          divider: index < this.songs.length - 1,
-          onTap: (): void => {
-            if (this.onPlay) {
-              this.onPlay(song);
-            }
-          },
-        })
-      }, (song: MylistSongRow, index: number) => `${song.id}_${index}`)
+      Column() {
+        ForEach(this.songs, (song: MylistSongRow, index: number) => {
+          ListRow({
+            index: index + 1,
+            title: song.name,
+            // 副标题与时长走统一拼装（「设置 → 列表」的显示专辑/音源/时长在这里同样生效）
+            singer: song.singer,
+            album: song.album ?? '',
+            sourceId: song.source,
+            durationSeconds: song.duration,
+            divider: index < this.songs.length - 1,
+            onTap: (): void => {
+              if (this.onPlay) {
+                this.onPlay(song);
+              }
+            },
+          })
+        }, (song: MylistSongRow, index: number) => `${song.id}_${index}`)
+      }
+      .width('100%')
+      .padding({ left: 12, right: 12 })
+      .backgroundColor(DesignTokens.card(this.theme))
+      .borderRadius(DesignTokens.radiusCard())
+      .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
+      .clip(true)
     }
     .width('100%')
-    .padding({ left: 12, right: 12 })
-    .backgroundColor(DesignTokens.card(this.theme))
-    .borderRadius(DesignTokens.radiusCard())
-    .shadow(DesignTokens.cardShadow(this.theme))
+    .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter() })
   }
 }
