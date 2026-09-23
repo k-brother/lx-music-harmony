@@ -3,12 +3,10 @@ import { showAppToast, TOAST_DURATION_DEFAULT } from '../utils/Toast';
 import { common } from '@kit.AbilityKit';
 import { playerService, MusicInfo, ProgressInfo, SongInfo } from '../service/PlayerService';
 import { navigationService } from '../service/NavigationService';
-import { LyricView } from '../components/common/LyricView';
 import { RouteName, NavigationParams } from '../service/NavigationService';
 import { isInLoveList } from '../service/ListService';
 import { getCurrentLyricIndex, LyricLine } from '../core/music/MusicParsingUtils';
 import { DesignTokens } from '../theme/DesignTokens';
-import { NavBackButton } from '../components/common/NavBackButton';
 import { t } from '../service/LocalizationService';
 import { settingsService, type PlayMode } from '../service/SettingsService';
 import { DesktopLyricManager } from '../components/common/DesktopLyric';
@@ -17,6 +15,8 @@ import type { SleepTimerState } from '../service/SleepTimerService';
 import { formatPlayTime } from '../utils/CommonUtils';
 import { AlbumCover } from './PlayDetail/AlbumCover';
 import { PlayerControls } from './PlayDetail/PlayerControls';
+import { PlayDetailTopBar } from './PlayDetail/PlayDetailTopBar';
+import { LyricPane } from './PlayDetail/LyricPane';
 import {
   addSongToPlaylist,
   addToDislikeList,
@@ -38,7 +38,6 @@ import { VolumeSheet } from './PlayDetail/VolumeSheet';
 import { LyricOffsetSheet } from './PlayDetail/LyricOffsetSheet';
 import { QueueSheet } from './PlayDetail/QueueSheet';
 import { SourceSwitchSheet } from './PlayDetail/SourceSwitchSheet';
-import { SegmentedBar } from '../components/ui/SegmentedBar';
 import { showSpeedMenu, showLyricDisplayMenu, speedToast } from './PlayDetail/PlayDetailMenus';
 import { toRoma } from '../utils/RomaConverter';
 import { hapticService } from '../service/HapticService';
@@ -788,56 +787,41 @@ export struct PlayDetailPage {
       }
 
       Column() {
-        this.NavigationBar()
-        this.TabSwitchBar()
+        PlayDetailTopBar({
+          musicName: this.musicName,
+          singer: this.singer,
+          fontShadow: this.fontShadow,
+          currentTab: this.currentTab,
+          onMore: (): void => this.showMoreActions(),
+          onSelectTab: (tab: number): void => {
+            if (tab === 0) {
+              this.switchToCoverTab();
+            } else {
+              this.switchToLyricTab();
+            }
+          },
+        })
 
         Swiper(this.swiperController) {
           this.AlbumArt()
           // 滑动切换的视觉反馈：非当前页轻微缩小淡出（@Builder 不能链式修饰，包一层容器）
           Column() {
-            LyricView({
+            LyricPane({
               lyricLines: this.lyricLines,
               secondaryLyricLines: this.secondaryLyricLines,
               romaLines: this.romaLines,
               currentLyricIndex: this.currentLyricIndex,
+              showLyricProgress: this.showLyricProgress,
+              progress: this.progress,
+              isSeeking: this.isSeeking,
+              previewProgress: this.previewProgress,
+              currentTime: this.currentTime,
+              previewTime: this.previewTimeText(),
+              totalTime: this.totalTime,
+              onSeekChange: (value: number, mode: SliderChangeMode): void => {
+                this.handleSeekChange(value, mode);
+              },
             })
-
-            // 歌词页播放进度（设置可开）：可拖拽的进度线 + 时间文本
-            // 拖歌词区即可调进度，与安卓版 playDetail.isShowLyricProgressSetting 一致
-            if (this.showLyricProgress) {
-              Column({ space: 4 }) {
-                Slider({
-                  value: (this.isSeeking ? this.previewProgress : this.progress) * 100,
-                  min: 0,
-                  max: 100,
-                  style: SliderStyle.OutSet,
-                })
-                  .width('100%')
-                  .height(22)
-                  .blockColor(DesignTokens.accent())
-                  .trackColor(DesignTokens.mutedFill(this.theme))
-                  .selectedColor(DesignTokens.accent())
-                  .onChange((value: number, mode: SliderChangeMode) => {
-                    this.handleSeekChange(value, mode);
-                  })
-
-                Row({ space: 4 }) {
-                  Text(this.isSeeking ? this.previewTimeText() : this.currentTime)
-                    .fontSize(DesignTokens.fontMicro())
-                    .fontColor(this.isSeeking ? DesignTokens.accent() : DesignTokens.labelSecondary(this.theme))
-                  Text('/')
-                    .fontSize(DesignTokens.fontMicro())
-                    .fontColor(DesignTokens.labelTertiary(this.theme))
-                  Text(this.totalTime)
-                    .fontSize(DesignTokens.fontMicro())
-                    .fontColor(DesignTokens.labelTertiary(this.theme))
-                }
-                .width('100%')
-                .justifyContent(FlexAlign.Start)
-              }
-              .width('100%')
-              .padding({ left: 16, right: 16, bottom: 8 })
-            }
           }
           .justifyContent(FlexAlign.SpaceBetween)
           .width('100%')
@@ -971,74 +955,6 @@ export struct PlayDetailPage {
 
 
 
-
-  @Builder
-  NavigationBar() {
-    Row() {
-      NavBackButton()
-
-      Column() {
-        Text(this.musicName || t('not_playing'))
-          .fontSize(DesignTokens.fontTitle())
-          .fontColor(DesignTokens.labelPrimary(this.theme))
-          .fontWeight(FontWeight.Medium)
-          .maxLines(1)
-          .textShadow(this.fontShadow ? PLAY_TEXT_SHADOW : undefined)
-        if (this.singer && this.singer.trim().length > 0) {
-          Text(this.singer)
-            .fontSize(DesignTokens.fontCaption())
-            .fontColor(DesignTokens.labelSecondary(this.theme))
-            .maxLines(1)
-            .textShadow(this.fontShadow ? PLAY_TEXT_SHADOW : undefined)
-        }
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Center)
-
-      Blank()
-
-      Stack() {
-        Circle({ width: 34, height: 34 })
-          .fill(DesignTokens.mutedFill(this.theme))
-        Image($r('app.media.ic_pd_more'))
-          .width(16)
-          .height(16)
-          .fillColor(DesignTokens.labelSecondary(this.theme))
-      }
-      .responseRegion(DesignTokens.touchRegion(34))
-      .onClick(() => {
-        this.showMoreActions();
-      })
-    }
-    .width('100%')
-    .height(60)
-    .padding({ left: 14, right: 14, top: 8, bottom: 6 })
-    .backgroundColor(DesignTokens.chromeBar(this.theme))
-  }
-
-  @Builder
-  TabSwitchBar() {
-    Row() {
-      SegmentedBar({
-        options: [
-          { id: 'cover', label: t('play_tab_cover') },
-          { id: 'lyric', label: t('play_tab_lyric') },
-        ],
-        activeId: this.currentTab === 0 ? 'cover' : 'lyric',
-        equalWidth: true,
-        fontSize: DesignTokens.fontBody(),
-        onSelect: (id: string): void => {
-          if (id === 'cover') {
-            this.switchToCoverTab();
-          } else {
-            this.switchToLyricTab();
-          }
-        },
-      })
-    }
-    .width(176)
-    .margin({ top: 8, bottom: 10 })
-  }
 
   /** 封面：组件负责展示与手势，失败重试/降级仍由页面处理 */
   @Builder
