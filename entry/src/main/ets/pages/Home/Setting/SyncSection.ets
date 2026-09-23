@@ -23,6 +23,8 @@ export struct SyncSection {
   @State syncKey: string = '';
   @State syncMode: string = 'client';
   @State syncAutoSync: boolean = true;
+  /** 自动同步间隔（分钟）；此前只有默认值 30，界面上改不了 */
+  @State syncInterval: number = 30;
   @State historyCount: number = 0;
   private history: SyncHistoryItem[] = [];
 
@@ -48,6 +50,7 @@ export struct SyncSection {
     this.syncKey = settings.syncKey;
     this.syncMode = settings.syncMode;
     this.syncAutoSync = settings.syncAutoSync;
+    this.syncInterval = settings.syncInterval;
     void this.refreshHistory();  }
 
   private async refreshHistory(): Promise<void> {
@@ -185,6 +188,30 @@ export struct SyncSection {
         void this.syncNow();
       },
     });
+
+    // 自动同步开启时才需要间隔；两端都落库并立刻重启计时器（不必等下次进页面）
+    if (this.syncAutoSync) {
+      items.push({
+        type: 'input',
+        title: t('settings_sync_interval'),
+        description: t('settings_sync_interval_desc'),
+        value: this.syncInterval.toString(),
+        onChange: (value: string): void => {
+          const minutes = parseInt(value);
+          if (isNaN(minutes) || minutes < 1 || minutes > 1440) {
+            appToast(t('settings_sync_interval_desc'));
+            return;
+          }
+          this.syncInterval = minutes;
+          syncService.updateConfig({ syncInterval: minutes }).then((): void => {
+            syncService.startAutoSync();
+          }).catch((err: Error) => {
+            hilog.error(0x0005, TAG, 'update syncInterval failed: %{public}s', err.message);
+          });
+          appToast(`${t('settings_sync_interval')}: ${minutes}`);
+        },
+      });
+    }
 
     items.push({
       type: 'button',

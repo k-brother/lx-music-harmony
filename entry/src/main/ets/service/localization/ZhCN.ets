@@ -374,6 +374,8 @@ export function buildZhCN(): Map<string, string> {
   m.set('settings_sync_mode_server', '服务端');
   m.set('settings_theme', '主题');
   m.set('settings_sync_auto', '自动同步');
+  m.set('settings_sync_interval', '同步间隔');
+  m.set('settings_sync_interval_desc', '分钟 (1-1440，仅自动同步开启时生效)');
   m.set('settings_sync_now', '立即同步');
   m.set('settings_sync_history', '同步历史');
   m.set('settings_sync_history_use', '使用历史服务器');

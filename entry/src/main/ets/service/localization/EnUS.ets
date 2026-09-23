@@ -371,6 +371,8 @@ export function buildEnUS(): Map<string, string> {
   m.set('settings_sync_mode_server', 'Server');
   m.set('settings_theme', 'Theme');
   m.set('settings_sync_auto', 'Auto Sync');
+  m.set('settings_sync_interval', 'Sync interval');
+  m.set('settings_sync_interval_desc', 'Minutes (1-1440, applies when auto sync is on)');
   m.set('settings_sync_now', 'Sync Now');
   m.set('settings_sync_history', 'Sync History');
   m.set('settings_sync_history_use', 'Use history server');
