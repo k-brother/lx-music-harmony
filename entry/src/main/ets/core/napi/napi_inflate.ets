@@ -6,25 +6,26 @@
  * 原生模块不可用时返回 null，调用方按「该路径不可用」继续走后续兜底。
  */
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import inflateNapiSo from 'libinflate_napi.so';
+import { getInflateModule } from './NativeModules';
+import type { InflateNativeModule } from './NativeModuleTypes';
 
 const TAG = 'NapiInflate';
 const DOMAIN = 0x0001;
 
 /**
  * 内存解压（自动识别 zlib / gzip 头）
- *
- * 模块签名以 `native-modules.d.ts` 为唯一来源，这里不再本地重复声明接口：
- * ArkTS 的结构化类型校验（arkts-no-structural-typing）不允许把「形状相同但
- * 不同名」的两个接口互相赋值，重复声明会直接让 DevEco 报红。
  * @returns 解压后的字节；失败返回 null
  */
 export function zlibInflate(data: ArrayBuffer): ArrayBuffer | null {
   if (data.byteLength === 0) {
     return null;
   }
+  const module: InflateNativeModule | null = getInflateModule();
+  if (!module) {
+    return null;
+  }
   try {
-    const result: ArrayBuffer | undefined = inflateNapiSo.inflateBytes(data);
+    const result: ArrayBuffer | undefined = module.inflateBytes(data);
     if (result && result.byteLength > 0) {
       return result;
     }

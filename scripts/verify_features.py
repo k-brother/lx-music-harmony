@@ -203,6 +203,13 @@ CHECKS = [
  ('歌单排序文案跟随语言', 'pages/Home/SongListView.ets', r"@Watch\('onLanguageChanged'\)"),
  ('酷我歌词双通道+重试', 'core/music/sources/kw/lyric.ets', r'requestNewlyric|requestMobileLyric'),
  ('酷我歌词 zlib 解压(原生)', 'core/napi/napi_inflate.ets', r'zlibInflate'),
+ # 原生库收口：唯一加载入口 + 唯一句柄声明；消费方不许再直接 import *.so
+ ('原生模块统一加载入口', 'core/napi/NativeModules.ets',
+  r'export function getInflateModule\(\)[\s\S]{0,400}?export function getQuickJSModule\(\)'),
+ ('原生模块句柄类型单一声明', 'core/napi/NativeModuleTypes.ets',
+  r'export interface InflateNativeModule'),
+ ('zlib 句柄走统一注册表', 'core/napi/napi_inflate.ets', r'getInflateModule\(\)', r"from 'lib"),
+ ('QuickJS 句柄走统一注册表', 'core/napi/napi_quickjs.ets', r'getQuickJSModule\(\)', r"from 'lib"),
  ('二进制 HTTP 请求入口', 'core/network/http/HttpClient.ets', r'httpRequestBinary'),
  # 批量栏拆成独立组件后，判据变成「页面在 build 里挂载了批量栏」+「批量栏组件存在」
  ('下载页多选批量栏已挂载', 'pages/DownloadPage.ets', r'DownloadSelectionBar\(\{'),

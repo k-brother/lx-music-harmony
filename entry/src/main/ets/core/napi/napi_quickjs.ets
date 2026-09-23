@@ -1,46 +1,22 @@
 /**
- * QuickJS NAPI Native Module Interface
+ * QuickJS 原生引擎封装（自定义源插件执行环境）
  *
- * This module provides TypeScript bindings for the native QuickJS engine.
- * It enables execution of JavaScript plugin code within the HarmonyOS app.
+ * 原生库句柄不在这里直接 import：统一走 core/napi/NativeModules.ets 的
+ * getQuickJSModule() / getQuickJSLoaderModule() 取，接口形状声明在
+ * core/napi/NativeModuleTypes.ets。这里只负责引擎生命周期与脚本调用。
  */
 
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import quickjsLoaderSo from 'libquickjs_loader.so';
-import quickjsNapiSo from 'libquickjs_napi.so';
 import { utf8Decode } from '../../utils/TextCodec';
 import type { common } from '@kit.AbilityKit';
+import {
+  getQuickJSLoaderModule,
+  getQuickJSModule,
+} from './NativeModules';
+import type { QuickJSLoaderNativeModule, QuickJSNativeModule } from './NativeModuleTypes';
 
-// QuickJS NAPI native module interface
-// These methods are implemented in C++ and exposed via NAPI
-interface QuickJSNAPI {
-  /**
-   * Load a JavaScript script into the QuickJS engine
-   * @param script The JavaScript source code to execute
-   * @returns Empty string on success, error message on failure
-   */
-  loadScript(script: string): string;
-
-  /**
-   * Call a JavaScript function in the loaded script context
-   * @param action The action name to invoke
-   * @param data JSON stringified data to pass to the action
-   * @returns Result string from the JavaScript function
-   */
-  callJS(action: string, data: string): string;
-
-  /**
-   * Destroy the QuickJS context and free resources
-   */
-  destroy(): void;
-}
-
-interface QuickJSLoaderNAPI {
-  loadQuickJS(path: string): boolean;
-  loadScript(script: string): string;
-  callJS(action: string, data: string): string;
-  unload(): void;
-}
+/** QuickJS 引擎接口形状由 NativeModuleTypes.ets 单一声明，这里沿用旧类型名 */
+export type QuickJSNAPI = QuickJSNativeModule;
 
 function formatErrorMessage(err: Object): string {
   const e = err as Error;
@@ -80,9 +56,6 @@ function getQuickJSContext(): common.UIAbilityContext {
   }
   throw new Error('QuickJS context not set');
 }
-
-// Loader module reference for calling NAPI functions
-let loaderModule: QuickJSNAPI | null = null;
 
 // Native function type definitions
 type LoadScriptFn = (script: string) => string;
@@ -125,17 +98,8 @@ class QuickJSFunctionAdapter implements QuickJSNAPI {
 function loadNativeModule(): boolean {
   hilog.info(DOMAIN, MODULE_TAG, 'Loading QuickJS native module');
 
-  // 1) 优先使用外部注入的 loader
-  if (loaderModule !== null) {
-    hilog.info(DOMAIN, MODULE_TAG, 'Using injected loaderModule');
-    loadScriptFn = loaderModule.loadScript;
-    callJSFn = loaderModule.callJS;
-    destroyFn = loaderModule.destroy;
-    return true;
-  }
-
-  // 2) 直接使用静态导入的 quickjs_napi.so
-  const directNapi = quickjsNapiSo as QuickJSNAPI;
+  // 1) 优先直连 native-modules.d.ts 声明的 quickjs_napi.so
+  const directNapi: QuickJSNativeModule | null = getQuickJSModule();
   if (directNapi &&
       typeof directNapi.loadScript === 'function' &&
       typeof directNapi.callJS === 'function' &&
@@ -147,8 +111,8 @@ function loadNativeModule(): boolean {
     return true;
   }
 
-  // 3) 通过 quickjs_loader.so 按路径加载 quickjs_napi.so
-  const loaderSo = quickjsLoaderSo as QuickJSLoaderNAPI;
+  // 2) 直连不可用时，通过 quickjs_loader.so 按路径 dlopen quickjs_napi.so
+  const loaderSo: QuickJSLoaderNativeModule | null = getQuickJSLoaderModule();
   if (loaderSo && typeof loaderSo.loadQuickJS === 'function') {
     const context = getQuickJSContext();
     const bundleCodeDir = context.bundleCodeDir;
@@ -333,10 +297,3 @@ export function destroyQuickJS(): void {
     hilog.error(DOMAIN, MODULE_TAG, 'Exception destroying QuickJS: %{public}s', formatErrorMessage(e as Object));
   }
 }
-
-
-
-
-
-// Re-export types for external use
-export type { QuickJSNAPI };
