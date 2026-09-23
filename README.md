@@ -610,6 +610,9 @@ pages/Home/Home/
 | **一多（响应式）** | `module.json5` 声明了 phone/2in1，代码里没有任何窗口尺寸处理，大屏就是拉宽的手机布局 | `WindowService` 订阅 `windowSizeChange` → 广播 `breakpoint`/`windowWidthVp`；断点按鸿蒙规范 sm<600≤md<840≤lg；`theme/Breakpoints` 提供纯计算出口 |
 | **播放页大屏形态** | 只有「封面/歌词」二选一的 Swiper | md 及以上改双栏：左封面 + 右歌词同屏，顶部不再出现切换控件（窄屏形态不变，共用同一个 LyricSection） |
 | **首页大屏形态** | 底部 Tab 拉满整屏 | 宽屏改「左侧 96vp 导航栏 + 右侧顶栏/内容/播放条」，同一组件的 vertical 形态，选中态与动效共用 |
+| **我的页 / 设置页大屏** | 单列长滚动 | lg 分两列（左列常用、右列进阶），两列顺序与单列一致；分组声明只写一份（LeftSections/RightSections） |
+| **搜索浮层大屏** | 搜索框与结果横跨整屏 | 内容列居中（背景仍通栏）；歌单广场的搜索条/筛选条也与下方网格对齐 |
+| **播放控制区大屏** | 进度条与三个按钮被拉到整屏宽 | 限宽 640vp 居中 |
 | **内容列宽** | 单行文字横跨整屏 | 设置/评论/下载/本地音乐/历史/我喜欢/日志/我的/榜单/歌单详情/榜单详情 统一 1200vp 内容列居中，顶栏底栏仍通栏 |
 | **网格列数** | 手机 3 列写死 | 手机 3 / 折叠屏展开 4 / 平板横屏与 PC 6，骨架列数同档避免跳变 |
 | **长列表** | 全项目 0 处 LazyForEach，上千首歌一次性建满组件树 | 新增 `utils/LazyDataSource`（reload / notifyChanged），歌单详情、榜单详情、历史、我喜欢、本地音乐、评论、歌单广场、播放队列共 8 处改为 LazyForEach + cachedCount(6) |
@@ -620,12 +623,26 @@ pages/Home/Home/
 | **加载态** | 评论/我喜欢/历史/本地音乐是转圈 | 统一骨架屏（新增 `SkeletonCommentItem`） |
 | **评论刷新** | `onRefresh`/`isRefreshing` 定义了没有入口 | 接上 `RefreshContainer`，下拉刷新第一页 |
 | **导航栏大标题** | `collapsed` 从未被传过，「滚动收缩」是死功能 | 三个大标题页面接上滚动监听，下滚收缩、回顶展开 |
+| **播放页交互** | 歌词只能看、封面点不动、迷你条只有封面可点 | 点歌词行跳转到该句（扣歌词偏移）；窄屏点封面翻到歌词；迷你播放条点歌名区域也能进详情 |
+| **评论图片** | 点多图只能看一张 | Swiper 多图预览 + 页码指示 + 关闭按钮（单图行为不变） |
+| **焦点** | 全项目 0 处焦点管理，点搜索要再点一次输入框 | 搜索框/设置输入面板/元数据编辑弹窗打开即聚焦并弹键盘（`utils/FocusTools`） |
+| **评论区** | 楼层回复一次全铺开 | 默认折叠前两条 + 「展开全部 N 条回复 / 收起」 |
+| **设计 token** | 字号裸数值 234 处、颜色字面量散落 | 字阶补成 16 档命名并全部 token 化；颜色最后一批（歌词层次/预览底/透明底）收口；新增 `fontBadge/lyricXxx/translucentOnImage/transparent/floatingShadow` 等，并由脚本守住 |
 
 新增/强化的自检：`check_accessibility.py`（纯图标按钮必须可朗读）、
 `check_routes.py`（路由一致性）、`check_storage_bindings.py`（AppStorage 绑定闭环）、
 `check_permissions.py`（权限声明与实际调用一致）、`check_settings_reset.py`（恢复默认设置字段完整性）、
 `check_reachable.py`（入口可达性）、`check_unused_exports.py`（零引用导出）、
 `check_duplicate_impls.py`（函数体相同的重复实现）。全部挂进 `scripts/check.sh`。
+
+Phase 4 续（第二轮）又补了四道只在真机才会暴露的缺陷门禁：
+
+| 脚本 | 拦什么 |
+| --- | --- |
+| `check_builder_state_args.py` | `@Builder` 参数里传状态字段（本工程踩过多次的刷新坑），当场抓出 5 处并改成 `@Component + @Prop` |
+| `check_i18n_placeholders.py` | 中英占位符不一致、含 `{0}` 却用 `t()` 调用、`tf()` 实参个数不匹配 |
+| `check_timer_cleanup.py` / `check_subscription_cleanup.py` | 组件里的定时器与订阅必须能清理（歌单详情的滚动恢复定时器就是这样被揪出来的） |
+| `check_design_tokens.py` / `check_resources.py` | 不许裸字号与写死颜色；media/string/rawfile 资源不许没人引用 |
 
 **Phase 3（UI/UX 商业化）**：把首页/我的/下载/本地音乐/排行榜/评论页逐个套 UI Kit，
 统一大标题滚动收缩、Tab 切换动效、骨架屏与空态、深色层次、触控目标校验。
