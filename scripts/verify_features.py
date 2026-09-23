@@ -72,6 +72,9 @@ CHECKS = [
  ('我的tab绑定角标+同步', 'pages/Home/MylistView.ets', r'bindingListId'),
  ('歌单详情收藏/更新菜单', 'pages/SonglistDetailPage.ets', r'openCollectedMenu|syncBoundList'),
  ('桌面歌词文字不透明度', 'pages/DesktopLyricPage.ets', r'textOpacity'),
+ # NavBar 同时用固定高度 + expandSafeArea(TOP) 时，背景比内容高一截，标题会被色带横切
+ ('顶栏不再用 expandSafeArea(TOP)', 'components/ui/NavBar.ets',
+  r'navBarHeight\(\)', r'expandSafeArea'),
  # 源给的播放量带单位（'95.0 万'），只 parseFloat 会把单位丢掉 → 头部显示「播放: 95」
  ('歌单详情播放量按单位解析', 'pages/SonglistDetail/SonglistMapper.ets',
   r"indexOf\('万'\)", r"parseFloat\(countStr\)"),

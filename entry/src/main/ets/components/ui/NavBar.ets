@@ -5,7 +5,7 @@
  * - 返回按钮统一 44vp 触控区与按压反馈
  * - 标题支持「常规 / 大标题」两种形态：大标题在滚动收缩时切到居中常规标题
  * - 右侧动作由调用方以 @BuilderParam 传入（ArkTS V1 里 @BuilderParam 可安全传递）
- * - 沉浸式：默认 expandSafeArea 到顶部安全区
+ * - 顶部安全区由窗口/系统统一内缩；本组件不再自行做安全区扩展（见 build 末尾说明）
  */
 import { DesignTokens } from '../../theme/DesignTokens';
 import { t } from '../../service/LocalizationService';
@@ -75,6 +75,9 @@ export struct NavBar {
     .alignItems(VerticalAlign.Center)
     .backgroundColor(DesignTokens.chromeBar(this.theme))
     .border({ width: { bottom: this.collapsed ? 0.5 : 0 }, color: { bottom: DesignTokens.hairlineSeparator(this.theme) } })
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
+    // 注意：这里不能再挂顶部安全区扩展。
+    // 它与固定 height 同时使用时，背景会向状态栏方向多画一段、而内容仍按固定高度居中，
+    // 结果标题与返回按钮落到页面背景上，被一条白/灰色带横切（真机上很明显的显示异常）。
+    // 窗口本身不是全屏布局、顶部安全区由系统统一内缩，保持普通布局即可。
   }
 }
