@@ -772,7 +772,34 @@ export struct PlayDetailPage {
       onSeekChange: (value: number, mode: SliderChangeMode): void => {
         this.handleSeekChange(value, mode);
       },
+      onLineTap: (index: number): void => {
+        this.seekToLyricLine(index);
+      },
     })
+  }
+
+  /**
+   * 点击歌词行跳到该句。
+   *
+   * 显示用的行与时间轴是一一对应的（PlayMediaAssets 里 lines 由 timeline.map 得到），
+   * 因此下标可直接取时间；seek 时要减掉歌词偏移 —— 偏移是「显示提前/延后」用的，
+   * 若不减，用户点名的那句会和实际播放位置差一个偏移量。
+   */
+  private seekToLyricLine(index: number): void {
+    if (index < 0 || index >= this.lyricTimeline.length) {
+      return;
+    }
+    if (!this.allowProgressBarSeek) {
+      this.showToast(t('toast_seek_disabled'));
+      return;
+    }
+    const offset = settingsService.get().lyricOffset;
+    const target = Math.max(0, this.lyricTimeline[index].time - offset);
+    hapticService.light();
+    playerService.seekTo(target).catch((err: Error) => {
+      hilog.warn(DOMAIN, TAG, 'seekToLyricLine failed: %{public}s', err.message);
+    });
+    hilog.info(DOMAIN, TAG, 'seek to lyric line %{public}d at %{public}d s', index, target);
   }
 
   /** 切到某一页时按需补拉封面/歌词（避免首次进入空白） */

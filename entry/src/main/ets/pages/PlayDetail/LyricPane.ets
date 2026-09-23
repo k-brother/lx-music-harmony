@@ -24,6 +24,8 @@ export struct LyricPane {
   @Prop previewTime: string = '00:00';
   @Prop totalTime: string = '00:00';
   onSeekChange?: (value: number, mode: SliderChangeMode) => void;
+  /** 点击某一行歌词 → 跳到该句（0 基下标） */
+  onLineTap?: (index: number) => void;
 
   build() {
     Column() {
@@ -32,6 +34,11 @@ export struct LyricPane {
         secondaryLyricLines: this.secondaryLyricLines,
         romaLines: this.romaLines,
         currentLyricIndex: this.currentLyricIndex,
+        onLineTap: (index: number): void => {
+          if (this.onLineTap) {
+            this.onLineTap(index);
+          }
+        },
       })
 
       if (this.showLyricProgress) {

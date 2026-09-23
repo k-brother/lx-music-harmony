@@ -22,6 +22,8 @@ export struct LyricView {
   /** 罗马音（拼音）行，与 lyricLines 一一对应 */
   @Prop romaLines: string[] = [];
   @Prop @Watch('onCurrentLyricIndexChanged') currentLyricIndex: number = -1;
+  /** 点击某一行歌词（主流播放器：点哪句就跳到那句） */
+  onLineTap?: (index: number) => void;
   private lyricScroller: Scroller = new Scroller();
   private lineHeight: number = 62;
   private pendingScrollTimer: number = -1;
@@ -155,6 +157,13 @@ export struct LyricView {
             .height(this.lineHeight)
             .padding({ left: 8, right: 8 })
             .justifyContent(FlexAlign.Center)
+            // 点哪句跳到哪句（主流音乐播放器的通用交互）；PC 上补悬停反馈
+            .hoverEffect(HoverEffect.Highlight)
+            .onClick(() => {
+              if (this.onLineTap) {
+                this.onLineTap(index);
+              }
+            })
             .animation({
               // 「设置 -> 外观 -> 动画效果」关闭时不做滚动动画
               duration: this.showAnimation ? 300 : 0,
