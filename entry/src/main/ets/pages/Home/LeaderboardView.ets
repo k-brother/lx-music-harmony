@@ -42,7 +42,8 @@ interface LeaderboardFilterOption {
 export struct LeaderboardView {
   @StorageProp('theme') theme: string = 'light';
   @StorageProp('language') language: string = 'zh-CN';
-  @StorageProp('langVersion') langVersion: number = 0;
+  // 语言变化时重建筛选文案：这些文案缓存在 @State 里，不重建会残留旧语言
+  @StorageProp('langVersion') @Watch('onLanguageChanged') langVersion: number = 0;
   @Prop sourceId: string = 'kw';
   @Prop @Watch("onReCreateKeyChange") reCreateKey: number = 0;
   @State boardList: BoardItem[] = [];
@@ -693,6 +694,12 @@ export struct LeaderboardView {
       return '';
     }
     return this.resolveCardCover(this.cardStates[index]);
+  }
+
+  /** 语言切换后刷新缓存文案（数据沿用，只重建 label） */
+  private onLanguageChanged(): void {
+    this.rebuildCategoryFilterOptions();
+    this.rebuildBoardFilterOptions();
   }
 
   /** 分类筛选 -> 通用胶囊数据 */

@@ -63,7 +63,8 @@ export struct SongListView {
   }
 
   @StorageProp('language') language: string = 'zh-CN';
-  @StorageProp('langVersion') langVersion: number = 0;
+  // 语言变化时重建排序/标签文案（这些文案缓存在 @State 里）
+  @StorageProp('langVersion') @Watch('onLanguageChanged') langVersion: number = 0;
   /** 与 HomePage 全局搜索联动（置于垂直 Scroll 内首位，随列表上滑滚出） */
   @Link searchText: string;
   @Prop searchStripActions: SearchStripActions = new SearchStripActions();
@@ -513,6 +514,15 @@ export struct SongListView {
     hilog.info(0x0001, 'SongListView', 'Pull-to-refresh: reload source=%{public}s, tag=%{public}s',
       this.sourceId, this.selectedTag);
     void this.loadSongList(true);
+  }
+
+  /** 语言切换后刷新排序文案（数据沿用） */
+  private onLanguageChanged(): void {
+    const defaultOption: SortOption = { name: t('sort_default'), tid: 'default' };
+    const hotOption: SortOption = { name: t('sort_hot'), tid: 'hot' };
+    const newOption: SortOption = { name: t('sort_new'), tid: 'new' };
+    this.sortOptions = [defaultOption, hotOption, newOption];
+    this.loadTags();
   }
 
   /** 排序选项 -> 通用分段控件数据 */

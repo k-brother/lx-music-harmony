@@ -105,6 +105,9 @@ CHECKS = [
  ('榜单详情统一超时重试', 'core/leaderboard.ets', r'getLeaderboardDetailReliable'),
  ('榜单 Tab 用统一重试', 'pages/Home/LeaderboardView.ets', r'getLeaderboardDetailReliable'),
  ('榜单详情页用统一重试', 'pages/BoardDetailPage.ets', r'getLeaderboardDetailReliable'),
+ # 语言切换后缓存文案要重建（筛选/排序标签缓存在 @State 里）
+ ('榜单筛选文案跟随语言', 'pages/Home/LeaderboardView.ets', r"@Watch\('onLanguageChanged'\)"),
+ ('歌单排序文案跟随语言', 'pages/Home/SongListView.ets', r"@Watch\('onLanguageChanged'\)"),
  ('酷我歌词双通道+重试', 'core/music/sources/kw/lyric.ets', r'requestNewlyric|requestMobileLyric'),
  ('酷我歌词 zlib 解压(原生)', 'core/napi/napi_inflate.ets', r'zlibInflate'),
  ('二进制 HTTP 请求入口', 'core/network/http/HttpClient.ets', r'httpRequestBinary'),

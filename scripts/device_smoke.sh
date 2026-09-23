@@ -18,7 +18,9 @@ PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 # hdc：优先环境变量，其次 SDK 默认位置
 HDC="${HDC:-$HOME/Library/OpenHarmony/Sdk/26.0.0/toolchains/hdc}"
-TARGET="${TARGET:-}"
+# 设备地址自动识别：优先 TARGET，其次当前已连接设备（TCP 直连时 IP 可能变化）
+TARGET="${TARGET:-$("$HDC" list targets 2>/dev/null | head -1)}"
+if [ "$TARGET" = "[Empty]" ]; then TARGET=""; fi
 
 PASS=0
 FAIL=0

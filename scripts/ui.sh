@@ -13,7 +13,9 @@
 # 因为 zsh 的 -l 模式下 BASH_SOURCE 为空）。
 
 UI_HDC="${HDC:-$HOME/Library/OpenHarmony/Sdk/26.0.0/toolchains/hdc}"
-UI_TARGET="${TARGET:-}"
+# 设备地址自动识别：优先 TARGET，其次已连接设备，最后用 CONNECT 重连
+UI_TARGET="${TARGET:-$("$UI_HDC" list targets 2>/dev/null | head -1)}"
+if [ "$UI_TARGET" = "[Empty]" ]; then UI_TARGET=""; fi
 UI_TMP="${TMPDIR:-/tmp}/lx-ui-layout.json"
 # 设备走 TCP 连接时偶尔会掉线，这里记住地址以便自动重连
 UI_CONNECT="${CONNECT:-127.0.0.1:39305}"
