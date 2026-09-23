@@ -195,7 +195,6 @@ export struct DesktopLyricSection {
 
   aboutToAppear() {
     this.loadFromSettings();
-    this.usingSystemLyric = DesktopLyricManager.isUsingSystemLyric();
     // 外部改动（恢复备份 / 同步下发 / 其它入口）也要刷新本分组
     this.settingsWatch.bindSettings((): void => {
       this.loadFromSettings();
@@ -232,6 +231,9 @@ export struct DesktopLyricSection {
     this.animStyle = settings.desktopLyricAnimStyle;
     this.locked = settings.desktopLyricLocked;
     this.presetId = matchPreset(settings);
+    // 系统歌词接管状态由 DesktopLyricManager 持有：用户在系统侧关掉歌词时，
+    // 这里会随设置变化事件一起刷新，提示文案不会停在「正在使用系统原生歌词」
+    this.usingSystemLyric = DesktopLyricManager.isUsingSystemLyric();
   }
 
   /** 应用预设：一次性写入整套外观，再同步本地状态 */
