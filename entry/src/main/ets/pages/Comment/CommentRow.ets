@@ -21,7 +21,8 @@ export struct CommentRow {
   /** 最后一行不画分割线 */
   @Prop isLast: boolean = false;
   onToggleLike?: (commentId: string) => void;
-  onPreviewImage?: (url: string) => void;
+  /** 预览图片：回传整条评论的图片与其下标，页面侧可左右滑动切换 */
+  onPreviewImages?: (urls: string[], index: number) => void;
 
   /** 按压反馈：与页面其它列表行一致（变淡） */
   @Styles
@@ -134,7 +135,7 @@ export struct CommentRow {
           // 评论图片：缩略图点击查看大图
           if (this.comment.images.length > 0) {
             Flex({ wrap: FlexWrap.Wrap }) {
-              ForEach(this.comment.images, (url: string) => {
+              ForEach(this.comment.images, (url: string, imageIndex: number) => {
                 Image(url)
                   .width(96)
                   .height(96)
@@ -145,7 +146,9 @@ export struct CommentRow {
                   // 2in1（PC/平板接鼠标）下的悬停反馈
                   .hoverEffect(HoverEffect.Highlight)
                   .onClick(() => {
-                    if (this.onPreviewImage) { this.onPreviewImage(url); }
+                    if (this.onPreviewImages) {
+                      this.onPreviewImages(this.comment.images, imageIndex);
+                    }
                   })
               }, (url: string) => url)
             }

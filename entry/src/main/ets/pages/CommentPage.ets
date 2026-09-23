@@ -61,7 +61,9 @@ export struct CommentPage {
   @State musicInfo: MusicInfo | null = null;
   @State commentType: string = 'hot';
   /** 正在预览的大图（非空时显示全屏预览层） */
-  @State previewImage: string = '';
+  /** 图片预览：整组图片 + 当前下标（支持左右滑动切换，与主流评论区一致） */
+  @State previewImages: string[] = [];
+  @State previewIndex: number = 0;
 
   aboutToAppear() {
     // 获取传递的参数
@@ -237,8 +239,7 @@ export struct CommentPage {
     .stateStyles({ pressed: this.pressDim })
   }
 
-  @Builder
-  /** 全屏图片预览：点击任意处关闭（遮罩用纯黑，仅图片预览场景） */
+  /** 全屏图片预览：支持多图左右滑动、点击任意处关闭（遮罩用纯黑，仅预览场景） */
   @Builder
   buildImagePreview() {
     Stack() {
@@ -247,29 +248,71 @@ export struct CommentPage {
         .height('100%')
         .backgroundColor(Color.Black)
         .onClick(() => {
-          this.previewImage = '';
+          this.closeImagePreview();
         })
 
-      Image(this.previewImage)
-        .width('100%')
-        .objectFit(ImageFit.Contain)
+      Swiper() {
+        ForEach(this.previewImages, (url: string, index: number) => {
+          Image(url)
+            .width('100%')
+            .height('100%')
+            .objectFit(ImageFit.Contain)
+            // 点图即关闭（读屏也要能知道这个动作）
+            .accessibilityText(t('a11y_close'))
+            .onClick(() => {
+              this.closeImagePreview();
+            })
+        }, (url: string, index: number) => `${url}_${index}`)
+      }
+      .index(this.previewIndex)
+      .loop(false)
+      .indicator(this.previewImages.length > 1)
+      .width('100%')
+      .height('100%')
 
-      Column() {
+      // 多图时右上角显示「当前 / 总数」，并保留关闭按钮
+      Column({ space: 8 }) {
+        if (this.previewImages.length > 1) {
+          Text(`${this.previewIndex + 1} / ${this.previewImages.length}`)
+            .fontSize(DesignTokens.fontCaption())
+            .fontColor(DesignTokens.onAccent())
+            .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+            .backgroundColor(DesignTokens.translucentOnImage())
+            .borderRadius(16)
+        }
         Text(t('comment_image_close'))
           .fontSize(DesignTokens.fontBody())
           .fontColor(DesignTokens.onAccent())
           .padding({ left: 14, right: 14, top: 8, bottom: 8 })
           .backgroundColor(DesignTokens.translucentOnImage())
           .borderRadius(18)
+          .accessibilityText(t('a11y_close'))
+          .onClick(() => {
+            this.closeImagePreview();
+          })
       }
       .align(Alignment.TopEnd)
       .margin({ top: 60, right: 20 })
-      .onClick(() => {
-        this.previewImage = '';
-      })
     }
     .width('100%')
     .height('100%')
+  }
+
+  /** 关闭图片预览 */
+  private closeImagePreview(): void {
+    this.previewImages = [];
+    this.previewIndex = 0;
+  }
+
+  /** 加载更多评论时的骨架（占位 3 行，避免转圈） */
+  @Builder
+  buildLoadingState() {
+    Column() {
+      ForEach([0, 1, 2], (index: number) => {
+        SkeletonCommentItem()
+      }, (index: number) => `comment_skeleton_${index}`)
+    }
+    .width('100%')
   }
 
   @Builder
@@ -285,17 +328,6 @@ export struct CommentPage {
     .height('100%')
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
-  }
-
-  @Builder
-  buildLoadingState(): void {
-    // 用评论骨架代替转圈：首屏就能看出「这里将出现评论」，与歌单/榜单页一致
-    Column() {
-      ForEach([0, 1, 2], (index: number) => {
-        SkeletonCommentItem()
-      }, (index: number) => `comment_skeleton_${index}`)
-    }
-    .width('100%')
   }
 
   build() {
@@ -334,7 +366,7 @@ export struct CommentPage {
       .backgroundColor(DesignTokens.pageBg(this.theme))
 
       // 全屏图片预览
-      if (this.previewImage.length > 0) {
+      if (this.previewImages.length > 0) {
         this.buildImagePreview()
       }
     }
@@ -354,8 +386,9 @@ export struct CommentPage {
                   comment: comment,
                   isLast: index >= this.comments.length - 1,
                   onToggleLike: (commentId: string): void => this.toggleLikeComment(commentId),
-                  onPreviewImage: (url: string): void => {
-                    this.previewImage = url;
+                  onPreviewImages: (urls: string[], index: number): void => {
+                    this.previewImages = urls;
+                    this.previewIndex = Math.max(0, Math.min(index, urls.length - 1));
                   },
                 })
               }

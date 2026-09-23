@@ -103,6 +103,7 @@ export function buildEnUS(): Map<string, string> {
   m.set('a11y_select_all', 'Select all');
   m.set('a11y_refresh', 'Refresh');
   m.set('a11y_import', 'Import local music');
+  m.set('a11y_close', 'Close');
   m.set('a11y_search', 'Search');
   m.set('a11y_download', 'Download');
   m.set('a11y_delete', 'Delete');

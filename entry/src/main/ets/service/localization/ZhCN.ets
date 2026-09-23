@@ -113,6 +113,7 @@ export function buildZhCN(): Map<string, string> {
   m.set('a11y_select_all', '全选');
   m.set('a11y_refresh', '刷新');
   m.set('a11y_import', '导入本地音乐');
+  m.set('a11y_close', '关闭');
   m.set('a11y_search', '搜索');
   m.set('a11y_download', '下载');
   m.set('a11y_delete', '删除');
