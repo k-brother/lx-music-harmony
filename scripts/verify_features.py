@@ -369,6 +369,9 @@ CHECKS = [
  ('歌单广场按源记住筛选', 'pages/Home/SongListView.ets', r'songListFilterKey'),
  ('歌单广场换源恢复该源筛选', 'pages/Home/SongListView.ets',
   r'reloadForSource\(\)[\s\S]{0,900}?restoreFilterThenLoad\(\)'),
+ # 整张列表取源失败必须停下来（此前 listLoop 会从队尾绕回队首，无限重试）
+ ('整轮取源失败停下', 'service/PlayerService.ets', r'urlFailureStreak'),
+ ('取源失败收尾独立成函数', 'service/PlayerService.ets', r'handleUrlFetchFailure'),
 ]
 
 fails = []

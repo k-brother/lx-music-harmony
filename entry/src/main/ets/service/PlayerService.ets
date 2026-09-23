@@ -190,6 +190,8 @@ export class PlayerService {
   private settingsListenerRegistered: boolean = false;
   // 随机播放历史（已播歌曲索引，避免短期内重复）
   private randomHistory: number[] = [];
+  /** 连续取源失败次数：达到队列长度说明整轮都取不到地址，必须停下来（见 handleUrlFetchFailure） */
+  private urlFailureStreak: number = 0;
 
   // 事件监听器数组
   // 订阅与广播统一由 service/player/PlaybackEvents 承担（原先 6 组样板各写一遍）
@@ -473,22 +475,13 @@ export class PlayerService {
       hilog.info(DOMAIN, TAG, 'playSongByIndex: URL empty for %{public}s, fetching from music source', song.title);
       url = await this.fetchMusicUrl(song);
       if (!url) {
-        hilog.error(DOMAIN, TAG, 'playSongByIndex: failed to get URL for %{public}s', song.title);
-        if (this.playMode === 'singleLoop') {
-          await this.stop();
-        } else if (this.playMode === 'random') {
-          const nextIdx = Math.floor(Math.random() * this.playList.length);
-          await this.playSongByIndex(nextIdx);
-        } else if (index < this.playList.length - 1) {
-          // sequential / listLoop: try next song
-          await this.playSongByIndex(index + 1);
-        } else if (this.playMode === 'listLoop') {
-          await this.playSongByIndex(0);
-        }
+        await this.handleUrlFetchFailure(index, song);
         return;
       }
       // 更新 playlist 中的 url
       this.playList[index].url = url;
+      // 取到地址说明源是通的：清零连续失败计数
+      this.urlFailureStreak = 0;
     }
 
     await this.setSource(song, url);
@@ -505,6 +498,46 @@ export class PlayerService {
    */
   async playSelectedFromPlayList(index: number): Promise<void> {
     await this.playSongByIndex(index, true);
+  }
+
+  /**
+   * 取播放地址失败后的收尾：按播放模式找下一首，但**不能无限找下去**。
+   *
+   * 之前的实现每条分支都直接递归下一首：整张列表都取不到地址时（断网、源整体挂掉），
+   * 列表循环模式会从队尾跳回队首，再从头失败一遍，永远出不来——用户看到的是
+   * 「一直在切歌但没有声音」，后台还在不停地打网络请求。
+   * 现在用「连续失败次数 ≥ 队列长度」判定整轮失败，停下来并把状态置为错误。
+   */
+  private async handleUrlFetchFailure(index: number, song: SongInfo): Promise<void> {
+    hilog.error(DOMAIN, TAG, 'playSongByIndex: failed to get URL for %{public}s', song.title);
+    this.urlFailureStreak += 1;
+    const limit: number = Math.max(1, this.playList.length);
+    if (this.urlFailureStreak >= limit) {
+      hilog.error(DOMAIN, TAG, 'All %{public}d songs failed to resolve a play url, stopping', this.urlFailureStreak);
+      this.urlFailureStreak = 0;
+      this.currentStatus = 'error';
+      this.notifyStateChange();
+      return;
+    }
+    if (this.playMode === 'singleLoop') {
+      await this.stop();
+      return;
+    }
+    if (this.playMode === 'random') {
+      const nextIdx: number = pickRandomIndex(this.playList.length, index, new Set<number>());
+      if (nextIdx >= 0) {
+        await this.playSongByIndex(nextIdx);
+      }
+      return;
+    }
+    if (index < this.playList.length - 1) {
+      // sequential / listLoop: 先往后找
+      await this.playSongByIndex(index + 1);
+      return;
+    }
+    if (this.playMode === 'listLoop') {
+      await this.playSongByIndex(0);
+    }
   }
 
   /** 内部下一曲实现（处理列表循环） */
@@ -822,6 +855,7 @@ export class PlayerService {
   async stop(): Promise<void> {
     // 停止前落盘进度
     this.saveProgress();
+    this.urlFailureStreak = 0;
     if (!this.isInitialized) {
       return;
     }
@@ -966,6 +1000,8 @@ export class PlayerService {
     this.playList = list;
     this.currentIndex = startIndex;
     this.randomHistory = startIndex >= 0 ? [startIndex] : [];
+    // 换了一队就重新开始计数（上一队的失败不该影响这一队）
+    this.urlFailureStreak = 0;
     this.persistQueue();
     // 注意：这里不调用setSource，因为URL可能为空
     // 播放应该由调用方在获取到URL后显式调用setSource + play
