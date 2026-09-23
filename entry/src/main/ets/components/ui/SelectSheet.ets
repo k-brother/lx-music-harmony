@@ -8,6 +8,7 @@ import { DesignTokens } from '../../theme/DesignTokens';
 import { t } from '../../service/LocalizationService';
 import { BottomSheet, dismissSheet } from './BottomSheet';
 import type { SettingOption } from './SettingsTypes';
+import { isConfirmKey } from '../../utils/KeyboardTools';
 
 @Component
 export struct SelectSheet {
@@ -60,6 +61,17 @@ export struct SelectSheet {
           .width('100%')
           .height(DesignTokens.touchTarget())
           .alignItems(VerticalAlign.Center)
+          // 2in1：选项行给悬停反馈 + 键盘可聚焦（PC 上没有电容按压）
+          .hoverEffect(HoverEffect.Highlight)
+          .focusable(true)
+          .onKeyEvent((event: KeyEvent): void => {
+            if (isConfirmKey(event)) {
+              if (this.onPick) {
+                this.onPick(option.value);
+              }
+              this.visible = false;
+            }
+          })
         }
         .accessibilityText(t('a11y_select_all'))
         .onClick(() => {

@@ -7,6 +7,7 @@
 import { DesignTokens } from '../../theme/DesignTokens';
 import { t, sourceLabel } from '../../service/LocalizationService';
 import { BottomSheet } from '../../components/ui/BottomSheet';
+import { isConfirmKey } from '../../utils/KeyboardTools';
 import type { MusicInfo } from '../../types/MusicTypes';
 
 @Component
@@ -50,6 +51,17 @@ export struct SourceSwitchSheet {
     .width('100%')
     .height(DesignTokens.rowHeightTwoLine())
     .alignItems(VerticalAlign.Center)
+    // 2in1：候选源行给悬停反馈 + 键盘可聚焦
+    .hoverEffect(HoverEffect.Highlight)
+    .focusable(true)
+    .onKeyEvent((event: KeyEvent): void => {
+      if (isConfirmKey(event)) {
+        this.visible = false;
+        if (this.onPick) {
+          this.onPick(candidate);
+        }
+      }
+    })
     .onClick(() => {
       this.visible = false;
       if (this.onPick) {

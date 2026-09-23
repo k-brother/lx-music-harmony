@@ -10,6 +10,7 @@
  * 用户知道去哪一类里找（分组标题用小号次级色，不抢主文案）。
  */
 import { DesignTokens } from '../../theme/DesignTokens';
+import { isConfirmKey } from '../../utils/KeyboardTools';
 import { BottomSheet } from '../../components/ui/BottomSheet';
 
 /** 一行动作 */
@@ -55,6 +56,17 @@ export struct MoreActionsSheet {
     .width('100%')
     .height(DesignTokens.touchTarget())
     .alignItems(VerticalAlign.Center)
+    // 2in1：面板行同样给悬停反馈 + 键盘可聚焦（PC 上没有电容按压，反馈全靠它）
+    .hoverEffect(HoverEffect.Highlight)
+    .focusable(true)
+    .onKeyEvent((event: KeyEvent): void => {
+      if (isConfirmKey(event)) {
+        this.visible = false;
+        if (this.onPick) {
+          this.onPick(action.key);
+        }
+      }
+    })
     .onClick(() => {
       this.visible = false;
       if (this.onPick) {

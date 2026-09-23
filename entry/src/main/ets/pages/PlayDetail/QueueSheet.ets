@@ -19,6 +19,7 @@ import { BottomSheet } from '../../components/ui/BottomSheet';
 import { appActionMenu } from '../../service/DialogService';
 import { hapticService } from '../../service/HapticService';
 import type { SongInfo } from '../../service/PlayerService';
+import { isConfirmKey } from '../../utils/KeyboardTools';
 
 @Component
 export struct QueueSheet {
@@ -232,6 +233,17 @@ export struct QueueSheet {
     .shadow(this.dragFromIndex === index ? DesignTokens.cardShadow(this.theme) : undefined)
     .zIndex(this.dragFromIndex === index ? 1 : 0)
     .accessibilityText(t('a11y_play'))
+    // 2in1：队列行给悬停反馈 + 键盘可聚焦（回车 = 切到这首）
+    .hoverEffect(HoverEffect.Highlight)
+    .focusable(true)
+    .onKeyEvent((event: KeyEvent): void => {
+      if (isConfirmKey(event)) {
+        this.visible = false;
+        if (this.onPick) {
+          this.onPick(index);
+        }
+      }
+    })
     .onClick(() => {
       this.visible = false;
       if (this.onPick) {
