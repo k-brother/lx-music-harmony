@@ -4,6 +4,7 @@ import { t } from '../../service/LocalizationService';
 
 import hilog from '@ohos.hilog';
 import { DesignTokens } from '../../theme/DesignTokens';
+import { Breakpoints } from '../../theme/Breakpoints';
 import { NavBackButton } from '../../components/common/NavBackButton';
 import { showAppToast, TOAST_DURATION_DEFAULT } from '../../utils/Toast';
 import { tf } from '../../service/LocalizationService';
@@ -18,6 +19,8 @@ const DOMAIN = 0x0001;
 export struct AboutView {
   @StorageProp('theme') theme: string = 'light';
   @StorageProp('language') language: string = 'zh-CN';
+  /** 一多：窗口宽度（vp），大屏内容列居中 */
+  @StorageProp('windowWidthVp') windowWidthVp: number = 360;
   @StorageProp('langVersion') langVersion: number = 0;
 
   /** 版本检查状态：idle / checking / latest / newer / failed */
@@ -305,6 +308,11 @@ export struct AboutView {
       }
       .width('100%')
       .layoutWeight(1)
+      // 一多：平板/PC 上关于信息不拉满整屏，内容列居中（与其它页面同一套留白）
+      .padding({
+        left: Breakpoints.contentInset(this.windowWidthVp),
+        right: Breakpoints.contentInset(this.windowWidthVp),
+      })
     }
     .width('100%')
     .height('100%')

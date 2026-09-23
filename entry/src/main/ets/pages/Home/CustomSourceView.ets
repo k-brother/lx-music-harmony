@@ -14,6 +14,7 @@ import hilog from '@ohos.hilog';
 import filePicker from '@ohos.file.picker';
 import { common } from '@kit.AbilityKit';
 import { DesignTokens } from '../../theme/DesignTokens';
+import { Breakpoints } from '../../theme/Breakpoints';
 import { NavBackButton } from '../../components/common/NavBackButton';
 
 const TAG = 'CustomSource';
@@ -50,6 +51,8 @@ export struct CustomSourceView {
   @StorageProp('theme') theme: string = 'light';
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
+  /** 一多：窗口宽度（vp），大屏内容列居中 */
+  @StorageProp('windowWidthVp') windowWidthVp: number = 360;
   @State currentSource: string = 'kw';
   @State customSourceUrl: string = '';
   @State isLoading: boolean = false;
@@ -391,6 +394,11 @@ export struct CustomSourceView {
           this.HelpSection()
         }
         .width('100%')
+        // 一多：平板/PC 上自定义源列表不拉满整屏，内容列居中（与其它页面同一套留白）
+        .padding({
+          left: Breakpoints.contentInset(this.windowWidthVp),
+          right: Breakpoints.contentInset(this.windowWidthVp),
+        })
       }
       .width('100%')
       .layoutWeight(1)
