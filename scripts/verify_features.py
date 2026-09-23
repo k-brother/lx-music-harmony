@@ -309,6 +309,10 @@ CHECKS = [
  ('歌单卡片支持键盘激活', 'pages/Home/SongList/SongListCard.ets', r'isConfirmKey'),
  # 2in1：接鼠标时右键等同长按（PC 上没人愿意按住不动）
  ('列表行右键出菜单', 'components/ui/ListRow.ets', r'MouseButton\.Right'),
+ # 重启续播：此前只恢复「最后一首 + 位置」，队列被清成单曲，下一首直接没反应
+ ('播放队列快照存储', 'service/player/QueueSnapshot.ets', r'export async function loadQueueSnapshot'),
+ ('队列变更统一落盘出口', 'service/PlayerService.ets', r'private persistQueue\(\): void'),
+ ('重启恢复整队列', 'service/PlayerService.ets', r'restoreQueue\(song, savedQueue\)'),
 ]
 
 fails = []

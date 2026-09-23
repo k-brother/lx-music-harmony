@@ -55,6 +55,12 @@ import {
   clearPlaybackSnapshot,
   SAVE_PROGRESS_INTERVAL_MS,
 } from './player/PlaybackProgressStore';
+import {
+  saveQueueSnapshot,
+  loadQueueSnapshot,
+  clearQueueSnapshot,
+  type QueueSnapshot,
+} from './player/QueueSnapshot';
 import type {
   StateChangeListener,
   PlayStateListener,
@@ -405,6 +411,7 @@ export class PlayerService {
     this.randomHistory = [];
     hilog.info(DOMAIN, TAG, 'Auto cleaned played song from queue: %{public}s (left=%{public}d)',
       song.title, this.playList.length);
+    this.persistQueue();
   }
 
   /** 随机播放下一首（避开当前与最近播放过的一半，避免短时间内重复） */
@@ -443,6 +450,8 @@ export class PlayerService {
     }
     this.currentIndex = index;
     const song = this.playList[index];
+    // 切歌会改当前下标：队列快照同步（否则重启后回到的是旧位置）
+    this.persistQueue();
 
     // 不喜欢列表：命中的歌曲自动跳过（最多跳过整份列表长度，避免死循环）
     if (skipDepth < this.playList.length && dislikeList.isDisliked(song.title, song.artist)) {
@@ -936,6 +945,7 @@ export class PlayerService {
     this.playList = list;
     this.currentIndex = startIndex;
     this.randomHistory = startIndex >= 0 ? [startIndex] : [];
+    this.persistQueue();
     // 注意：这里不调用setSource，因为URL可能为空
     // 播放应该由调用方在获取到URL后显式调用setSource + play
   }
@@ -965,6 +975,7 @@ export class PlayerService {
     }
     hilog.info(DOMAIN, TAG, 'Inserted as next: %{public}s (queue=%{public}d, index=%{public}d)',
       song.title, this.playList.length, this.currentIndex);
+    this.persistQueue();
   }
 
   /**
@@ -991,6 +1002,7 @@ export class PlayerService {
     this.currentIndex = nextIndex;
     hilog.info(DOMAIN, TAG, 'Queue refined with full list: %{public}d songs, index=%{public}d',
       fullList.length, nextIndex);
+    this.persistQueue();
   }
 
   // 获取当前播放状态
@@ -1030,6 +1042,7 @@ export class PlayerService {
     this.currentIndex = indexAfterMove(this.currentIndex, from, to);
     hilog.info(DOMAIN, TAG, 'Queue reordered: %{public}d -> %{public}d (index=%{public}d)',
       from, to, this.currentIndex);
+    this.persistQueue();
     return true;
   }
 
@@ -1048,6 +1061,7 @@ export class PlayerService {
     this.currentIndex = indexAfterRemoveAt(this.currentIndex, index, this.playList.length);
     hilog.info(DOMAIN, TAG, 'Removed from queue: %{public}s (queue=%{public}d, index=%{public}d)',
       removed?.title ?? '', this.playList.length, this.currentIndex);
+    this.persistQueue();
     return true;
   }
 
@@ -1219,6 +1233,18 @@ export class PlayerService {
   /** 清除进度（用户关闭设置或清空数据时） */
   clearSavedProgress(): void {
     void clearPlaybackSnapshot();
+    void clearQueueSnapshot();
+  }
+
+  /**
+   * 队列落盘的唯一出口。
+   *
+   * 队列的每一次变更（换列表 / 插队 / 调序 / 移除 / 自动清理 / 切歌）都要走这里，
+   * 这样「重启后队列还在」与「队列状态」天然一致；入口分散时漏一处就会出现
+   * 「界面里明明加过，重启就没了」这类只有真机能发现的问题。
+   */
+  private persistQueue(): void {
+    void saveQueueSnapshot(this.playList, this.currentIndex, settingsService.get().savePlayTime);
   }
 
   /**
@@ -1236,8 +1262,8 @@ export class PlayerService {
       }
       const song = snapshot.song;
       this.currentSong = song;
-      this.playList = [song];
-      this.currentIndex = 0;
+      const savedQueue: QueueSnapshot | null = await loadQueueSnapshot(true);
+      this.restoreQueue(song, savedQueue);
       // 与 setSource 用同一份映射（此前这里手写了一遍，字段口径已经出现偏差）
       playerStateData.musicInfo = songInfoToMusicInfo(song);
       playerStateData.progress.nowPlayTime = snapshot.position;
@@ -1253,6 +1279,30 @@ export class PlayerService {
       hilog.warn(DOMAIN, TAG, 'restoreLastPlayback failed: %{public}s',
         err instanceof Error ? err.message : JSON.stringify(err));
     }
+  }
+
+  /**
+   * 恢复播放队列：优先用队列快照（重启后「下一首/队列面板」仍然可用）；
+   * 快照里没有当前这首歌（例如用户中途换过歌）时把它插到队首，保证「当前曲目」一定在队列里。
+   */
+  private restoreQueue(currentSong: SongInfo, saved: QueueSnapshot | null): void {
+    if (!saved || saved.songs.length === 0) {
+      this.playList = [currentSong];
+      this.currentIndex = 0;
+      return;
+    }
+    const songs: SongInfo[] = saved.songs.slice();
+    const at: number = songs.findIndex((item: SongInfo) => item.id === currentSong.id
+      && (item.source ?? '') === (currentSong.source ?? ''));
+    if (at >= 0) {
+      songs[at] = currentSong;
+      this.playList = songs;
+      this.currentIndex = at;
+      return;
+    }
+    songs.unshift(currentSong);
+    this.playList = songs;
+    this.currentIndex = 0;
   }
 
   /** 把整段歌词与当前句推给 AVSession（锁屏/控制中心/灵动岛歌词） */

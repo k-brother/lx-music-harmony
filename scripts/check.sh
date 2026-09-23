@@ -35,6 +35,9 @@ python3 "${SCRIPT_DIR}/check_mini_player.py"
 echo "== 2in1 键盘操作 =="
 python3 "${SCRIPT_DIR}/check_keyboard.py"
 
+echo "== 播放队列落盘出口 =="
+python3 "${SCRIPT_DIR}/check_queue_persist.py"
+
 echo "== 一多（响应式）覆盖 =="
 python3 "${SCRIPT_DIR}/check_responsive.py"
 
