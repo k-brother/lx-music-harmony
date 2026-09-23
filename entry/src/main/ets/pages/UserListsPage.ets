@@ -12,6 +12,7 @@ import { NavBar } from '../components/ui/NavBar';
 import { PlayerBar } from '../components/player/PlayerBar';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { StateView } from '../components/ui/StateView';
+import { SheetHeader } from '../components/ui/SheetHeader';
 import {
   getUserList,
   getUserListMusic,
@@ -315,22 +316,18 @@ export struct UserListsPage {
 
   @Builder
   NavCreateAction() {
-    Button({ type: ButtonType.Capsule }) {
-      Row({ space: 4 }) {
-        Image($r('app.media.ic_common_create'))
-          .width(14)
-          .height(14)
-          .fillColor(Color.White)
-        Text(t('list_create_short'))
-          .fontSize(DesignTokens.fontCallout())
-          .fontWeight(FontWeight.Medium)
-          .fontColor(Color.White)
-      }
+    // 与本地音乐页右上角同款：圆底 + 红色十字图标（图标按钮，不带文字）
+    Stack() {
+      Circle({ width: 34, height: 34 })
+        .fill(DesignTokens.accentSoft(this.theme))
+      SymbolGlyph($r('sys.symbol.plus'))
+        .fontSize(DesignTokens.iconLg())
+        .fontColor([DesignTokens.accent()])
     }
-    .height(32)
-    .padding({ left: 12, right: 12 })
-    .backgroundColor(DesignTokens.accent())
-    .responseRegion({ x: 0, y: -6, width: '100%', height: 44 })
+    .width(DesignTokens.touchTarget())
+    .height(DesignTokens.touchTarget())
+    .align(Alignment.Center)
+    .accessibilityText(t('list_create_title'))
     .onClick(() => {
       this.newListName = '';
       this.showCreateSheet = true;
@@ -341,6 +338,16 @@ export struct UserListsPage {
   @Builder
   CreateSheetContent() {
     Column() {
+      SheetHeader({
+        title: t('list_create_title'),
+        onClose: (): void => {
+          this.showCreateSheet = false;
+          this.newListName = '';
+        },
+      })
+      // 标题行与输入框间距
+      .margin({ bottom: 12 })
+
       TextInput({ placeholder: t('input_playlist_name'), text: this.newListName })
         .height(DesignTokens.touchTarget())
         .width('100%')
@@ -354,16 +361,8 @@ export struct UserListsPage {
           this.newListName = value;
         })
 
-      Row({ space: 12 }) {
-        Button(t('cancel'))
-          .type(ButtonType.Capsule)
-          .fontColor(DesignTokens.labelSecondary(this.theme))
-          .backgroundColor(DesignTokens.mutedFill(this.theme))
-          .layoutWeight(1)
-          .onClick(() => {
-            this.showCreateSheet = false;
-            this.newListName = '';
-          })
+      // 取消收进面板右上角 ×，这里只留主操作
+      Row() {
         Button(t('create_list_btn'))
           .type(ButtonType.Capsule)
           .fontColor(Color.White)
@@ -383,6 +382,15 @@ export struct UserListsPage {
   @Builder
   RenameSheetContent() {
     Column() {
+      SheetHeader({
+        title: t('list_rename_title'),
+        onClose: (): void => {
+          this.editingList = null;
+          this.editName = '';
+        },
+      })
+      .margin({ bottom: 12 })
+
       TextInput({ placeholder: t('input_playlist_name'), text: this.editName })
         .height(DesignTokens.touchTarget())
         .width('100%')
@@ -396,16 +404,8 @@ export struct UserListsPage {
           this.editName = value;
         })
 
-      Row({ space: 12 }) {
-        Button(t('cancel'))
-          .type(ButtonType.Capsule)
-          .fontColor(DesignTokens.labelSecondary(this.theme))
-          .backgroundColor(DesignTokens.mutedFill(this.theme))
-          .layoutWeight(1)
-          .onClick(() => {
-            this.editingList = null;
-            this.editName = '';
-          })
+      // 取消同样收进右上角 ×
+      Row() {
         Button(t('save'))
           .type(ButtonType.Capsule)
           .fontColor(Color.White)
@@ -445,7 +445,8 @@ export struct UserListsPage {
       if (this.showCreateSheet) {
         BottomSheet({
           visible: $showCreateSheet,
-          title: t('list_create_title'),
+          // 标题自绘（左标题 + 右上角关闭）
+          title: '',
           content: (): void => {
             this.CreateSheetContent();
           },
@@ -455,7 +456,7 @@ export struct UserListsPage {
       if (this.editingList !== null) {
         BottomSheet({
           visible: $showRenameSheet,
-          title: t('list_rename_title'),
+          title: '',
           content: (): void => {
             this.RenameSheetContent();
           },
@@ -475,15 +476,11 @@ export struct UserListsPage {
         .width('100%')
         .layoutWeight(1)
     } else if (this.userLists.length === 0) {
-      // 空态直接给「新建歌单」入口：不必回到右上角找按钮（主流列表页的空态都给行动项）
+      // 空态只给提示：新建入口统一放在右上角（图标按钮），避免同一动作出现两个入口
       StateView({
         state: 'empty',
         iconRes: $r('sys.symbol.folder'),
         message: t('user_lists_empty_hint'),
-        actionText: t('list_create_title'),
-        onAction: (): void => {
-          this.showCreateSheet = true;
-        },
       })
         .width('100%')
         .layoutWeight(1)

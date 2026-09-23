@@ -7,6 +7,8 @@ import { DesignTokens } from '../../theme/DesignTokens';
 import { t } from '../../service/LocalizationService';
 import { BottomSheet, dismissSheet } from './BottomSheet';
 import { requestFocusSafe } from '../../utils/FocusTools';
+import { SheetHeader } from './SheetHeader';
+import { isConfirmKey } from '../../utils/KeyboardTools';
 
 /** 输入框焦点键：面板出现即聚焦，省掉用户多点一次 */
 const INPUT_SHEET_KEY: string = 'sheetTextInput';
@@ -35,15 +37,16 @@ export struct InputSheet {
     this.draft = this.value;
   }
 
-  /** 输入面板高度：标题 + 输入框 + 按钮，正好装下内容 */
+  /** 输入面板高度：标题行 + 输入框 + 确认按钮，正好装下内容（取消收进右上角） */
   private sheetHeightVp(): number {
-    return 232;
+    return 196;
   }
 
   build() {
     BottomSheet({
       visible: $visible,
-      title: this.title,
+      // 标题自绘（左对齐 + 右上角关闭）
+      title: '',
       sheetHeightVp: this.sheetHeightVp(),
       onDismiss: (): void => {
         this.cancel();
@@ -57,6 +60,15 @@ export struct InputSheet {
   @Builder
   Form() {
     Column() {
+      // 标题行：左标题 + 右上角关闭（取消不再占一行按钮）
+      SheetHeader({
+        title: this.title,
+        onClose: (): void => {
+          this.cancel();
+        },
+      })
+      .margin({ bottom: 8 })
+
       TextInput({ placeholder: this.placeholder, text: this.draft })
         .type(this.numberOnly ? InputType.Number : InputType.Normal)
         .key(INPUT_SHEET_KEY)
@@ -76,17 +88,7 @@ export struct InputSheet {
           this.draft = value;
         })
 
-      Row({ space: 12 }) {
-        Button(t('cancel'))
-          .type(ButtonType.Capsule)
-          .layoutWeight(1)
-          .height(DesignTokens.touchTarget())
-          .fontSize(DesignTokens.fontTitle())
-          .fontColor(DesignTokens.labelSecondary(this.theme))
-          .backgroundColor(DesignTokens.mutedFill(this.theme))
-          .onClick(() => {
-            this.cancel();
-          })
+      Row() {
         Button(t('confirm'))
           .type(ButtonType.Capsule)
           .layoutWeight(1)

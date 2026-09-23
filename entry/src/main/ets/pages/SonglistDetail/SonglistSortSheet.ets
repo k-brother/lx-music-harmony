@@ -8,6 +8,7 @@ import { DesignTokens } from '../../theme/DesignTokens';
 import { t } from '../../service/LocalizationService';
 import { BottomSheet } from '../../components/ui/BottomSheet';
 import { SettingsSection } from '../../components/ui/SettingsSection';
+import { SheetHeader } from '../../components/ui/SheetHeader';
 import type { SettingOption, SettingSectionItem } from '../../components/ui/SettingsTypes';
 
 @Component
@@ -71,6 +72,14 @@ export struct SonglistSortSheet {
   @Builder
   Content() {
     Column() {
+      SheetHeader({
+        title: t('list_sort'),
+        onClose: (): void => {
+          this.visible = false;
+        },
+      })
+      .margin({ bottom: 8 })
+
       // 排序方式用胶囊直接切换（比再点一层面板更快）
       Row({ space: 8 }) {
         ForEach(this.orderOptions(), (option: SettingOption) => {
@@ -92,17 +101,7 @@ export struct SonglistSortSheet {
 
       SettingsSection({ title: '', items: this.buildItems() })
 
-      Row({ space: 12 }) {
-        Button(t('cancel'))
-          .type(ButtonType.Capsule)
-          .layoutWeight(1)
-          .height(DesignTokens.touchTarget())
-          .fontSize(DesignTokens.fontTitle())
-          .fontColor(DesignTokens.labelSecondary(this.theme))
-          .backgroundColor(DesignTokens.mutedFill(this.theme))
-          .onClick(() => {
-            this.visible = false;
-          })
+      Row() {
         Button(t('confirm'))
           .type(ButtonType.Capsule)
           .layoutWeight(1)
@@ -111,10 +110,11 @@ export struct SonglistSortSheet {
           .fontColor(DesignTokens.onAccent())
           .backgroundColor(DesignTokens.accent())
           .onClick(() => {
-            this.visible = false;
+            // 先回调再关闭（关闭事件按取消处理）
             if (this.onApply) {
               this.onApply(this.draftField, this.draftOrder);
             }
+            this.visible = false;
           })
       }
       .width('100%')
@@ -126,7 +126,8 @@ export struct SonglistSortSheet {
   build() {
     BottomSheet({
       visible: $visible,
-      title: t('list_sort'),
+      // 标题自绘（左标题 + 右上角关闭）
+      title: '',
       content: (): void => {
         this.Content();
       },

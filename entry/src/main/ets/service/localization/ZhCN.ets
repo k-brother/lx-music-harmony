@@ -421,7 +421,6 @@ export function buildZhCN(): Map<string, string> {
   // 空态行动项：直接回歌单广场挑一张来播（不然用户只能干看着空列表）
   m.set('empty_go_songlist', '去歌单广场');
   m.set('mylist_loved_songs', '收藏的歌曲');
-  m.set('list_create_short', '新建');
   m.set('list_create_title', '新建歌单');
   m.set('mylist_local_hint', '本地保存的播放列表');
   m.set('view_all', '查看全部');

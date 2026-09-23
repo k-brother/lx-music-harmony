@@ -10,6 +10,7 @@ import { DesignTokens } from '../../theme/DesignTokens';
 import { t } from '../../service/LocalizationService';
 import { dismissSheet } from '../../components/ui/BottomSheet';
 import { requestFocusSafe } from '../../utils/FocusTools';
+import { SheetHeader } from '../../components/ui/SheetHeader';
 
 /** 第一个输入框的焦点键 */
 const METADATA_NAME_KEY: string = 'editMetadataName';
@@ -54,12 +55,12 @@ export struct EditMetadataSheet {
         })
 
       Column({ space: 10 }) {
-        Text(t('edit_metadata'))
-          .fontSize(DesignTokens.fontHeadline())
-          .fontWeight(FontWeight.Medium)
-          .fontColor(DesignTokens.labelPrimary(this.theme))
-          .width('100%')
-          .textAlign(TextAlign.Start)
+        SheetHeader({
+          title: t('edit_metadata'),
+          onClose: (): void => {
+            this.cancel();
+          },
+        })
 
         this.Fields()
         this.Actions()
@@ -103,19 +104,10 @@ export struct EditMetadataSheet {
     })
   }
 
-  /** 取消 / 保存 */
+  /** 保存（取消收进标题行右上角的 ×） */
   @Builder
   Actions() {
     Row({ space: 10 }) {
-      Button(t('cancel'))
-        .fontSize(DesignTokens.fontSubhead())
-        .fontColor(DesignTokens.labelPrimary(this.theme))
-        .backgroundColor(DesignTokens.mutedFill(this.theme))
-        .borderRadius(18)
-        .layoutWeight(1)
-        .onClick(() => {
-          this.cancel();
-        })
       Button(t('confirm'))
         .fontSize(DesignTokens.fontSubhead())
         .fontColor(DesignTokens.onAccent())

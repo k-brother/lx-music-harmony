@@ -36,6 +36,7 @@ import type { UserListRow } from './Mylist/MylistTypes';
 import { RefreshContainer } from '../../components/ui/RefreshContainer';
 import { hapticService } from '../../service/HapticService';
 import { Breakpoints } from '../../theme/Breakpoints';
+import { SheetHeader } from '../../components/ui/SheetHeader';
 
 interface PromptActionResult {
   index: number;
@@ -306,15 +307,9 @@ LeftSections() {
       title: t('songlist_title'),
       subtitle: t('mylist_local_hint'),
       actionText: t('view_all'),
-      showPrimaryAction: true,
-      primaryText: t('my_create_list'),
       topPadding: 12,
       onAction: (): void => {
         navigationService.navigateTo(RouteName.USER_LISTS);
-      },
-      onPrimaryAction: (): void => {
-        this.newListName = '';
-        this.showCreateSheet = true;
       },
     })
     if (this.userLists.length === 0) {
@@ -431,6 +426,15 @@ LeftSections() {
   @Builder
   CreateListForm() {
     Column() {
+      SheetHeader({
+        title: t('my_create_list'),
+        onClose: (): void => {
+          this.showCreateSheet = false;
+          this.newListName = '';
+        },
+      })
+      .margin({ bottom: 12 })
+
       TextInput({ placeholder: t('input_playlist_name'), text: this.newListName })
         .height(DesignTokens.touchTarget())
         .width('100%')
@@ -444,18 +448,8 @@ LeftSections() {
           this.newListName = value;
         })
 
-      Row({ space: 12 }) {
-        Button(t('cancel'))
-          .type(ButtonType.Capsule)
-          .layoutWeight(1)
-          .height(DesignTokens.touchTarget())
-          .fontSize(DesignTokens.fontTitle())
-          .fontColor(DesignTokens.labelSecondary(this.theme))
-          .backgroundColor(DesignTokens.mutedFill(this.theme))
-          .onClick(() => {
-            this.showCreateSheet = false;
-            this.newListName = '';
-          })
+      // 取消收进标题行右上角 ×，这里只留创建
+      Row() {
         Button(t('create_list_btn'))
           .type(ButtonType.Capsule)
           .layoutWeight(1)

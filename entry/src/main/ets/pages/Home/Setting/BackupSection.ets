@@ -8,7 +8,7 @@ import { common } from '@kit.AbilityKit';
 import { picker as filePicker } from '@kit.CoreFileKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { t, tf } from '../../../service/LocalizationService';
-import { appActionMenu, appConfirm, appToast } from '../../../service/DialogService';
+import { appActionMenu, appConfirmSystem, appToast } from '../../../service/DialogService';
 import { backupService, BackupDataType } from '../../../service/BackupService';
 import type { BackupFileInfo } from '../../../service/BackupService';
 import { initListService } from '../../../service/ListService';
@@ -197,7 +197,7 @@ export struct BackupSection {
    * @returns 是否真的恢复了
    */
   private async applyRestore(file: BackupFileInfo): Promise<boolean> {
-    const confirmed = await appConfirm(
+    const confirmed = await appConfirmSystem(
       t('restore_confirm_title'),
       tf('confirm_restore_backup', [file.fileName]),
       { danger: true });
@@ -221,7 +221,7 @@ export struct BackupSection {
   }
 
   private async deleteFromList(file: BackupFileInfo): Promise<void> {
-    const confirmed = await appConfirm(
+    const confirmed = await appConfirmSystem(
       t('settings_backup_delete'),
       tf('confirm_delete_backup', [file.fileName]),
       { danger: true });

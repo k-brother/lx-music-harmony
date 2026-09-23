@@ -7,7 +7,7 @@
 import { common } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { t, tf } from '../../../service/LocalizationService';
-import { appConfirm, appToast } from '../../../service/DialogService';
+import { appConfirmSystem, appToast } from '../../../service/DialogService';
 import { cacheService, formatCacheSize } from '../../../service/CacheService';
 import { Subscription } from '../../../service/Subscription';
 import { SettingsSection } from '../../../components/ui/SettingsSection';
@@ -57,7 +57,7 @@ export struct StorageSection {
       appToast(t('settings_cache_empty'));
       return;
     }
-    const confirmed = await appConfirm(
+    const confirmed = await appConfirmSystem(
       t('settings_cache_meta'),
       tf('confirm_clear_cache_msg', [t('settings_cache_meta')]),
       { danger: true });
@@ -81,7 +81,7 @@ export struct StorageSection {
       appToast(t('settings_cache_empty'));
       return;
     }
-    const confirmed = await appConfirm(
+    const confirmed = await appConfirmSystem(
       t('settings_cache_resource'),
       tf('confirm_clear_cache_msg', [t('settings_cache_resource')]),
       { danger: true });
@@ -100,7 +100,7 @@ export struct StorageSection {
 
   /** 一键清理（含搜索/播放历史与历史遗留目录） */
   private async clearAll(): Promise<void> {
-    const confirmed = await appConfirm(
+    const confirmed = await appConfirmSystem(
       t('settings_clear_cache'),
       t('settings_clear_cache_desc'),
       { danger: true });

@@ -7,7 +7,7 @@
 import { settingsService } from '../../../service/SettingsService';
 import { t, tf } from '../../../service/LocalizationService';
 import { navigationService, RouteName } from '../../../service/NavigationService';
-import { appConfirm, appToast } from '../../../service/DialogService';
+import { appConfirmSystem, appToast } from '../../../service/DialogService';
 import { logService } from '../../../service/LogService';
 import { APP_VERSION } from '../../../service/VersionCheckService';
 import { PactDialog } from '../../../components/common/PactDialog';
@@ -117,7 +117,7 @@ export struct AboutSection {
    * 已同意过协议的状态不会被回退，避免用户莫名其妙被重新拦住。
    */
   private async resetSettings(): Promise<void> {
-    const confirmed = await appConfirm(
+    const confirmed = await appConfirmSystem(
       t('settings_reset'),
       t('confirm_reset_settings'),
       { danger: true });

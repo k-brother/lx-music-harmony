@@ -13,6 +13,7 @@ import { DesignTokens } from '../../theme/DesignTokens';
 import { t } from '../../service/LocalizationService';
 import { BottomSheet, dismissSheet } from './BottomSheet';
 import { isConfirmKey } from '../../utils/KeyboardTools';
+import { SheetHeader } from './SheetHeader';
 import type { SheetRow } from '../../service/SheetService';
 
 @Component
@@ -91,21 +92,13 @@ export struct MenuSheet {
   @Builder
   Content() {
     Column() {
-      // 标题行：左标题 + 右上角关闭。
-      // 「取消」不再单独占一行（用户要求：取消收进右上角图标）
-      Row() {
-        Text(this.title)
-          .fontSize(DesignTokens.fontSubhead())
-          .fontWeight(FontWeight.Medium)
-          .fontColor(DesignTokens.labelPrimary(this.theme))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .layoutWeight(1)
-          .textAlign(TextAlign.Start)
-        this.CloseButton()
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
+      // 标题行：左标题 + 右上角关闭（取消不单独占一行）
+      SheetHeader({
+        title: this.title,
+        onClose: (): void => {
+          this.cancel();
+        },
+      })
       .padding({ bottom: this.message.length > 0 ? 4 : 6 })
 
       if (this.message.length > 0) {
@@ -137,32 +130,6 @@ export struct MenuSheet {
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
-  }
-
-  /** 右上角关闭：圆底 × 图标，语义与「取消」一致 */
-  @Builder
-  CloseButton() {
-    Stack() {
-      Circle({ width: 28, height: 28 })
-        .fill(DesignTokens.mutedFill(this.theme))
-      SymbolGlyph($r('sys.symbol.xmark'))
-        .fontSize(DesignTokens.iconLg())
-        .fontColor([DesignTokens.labelSecondary(this.theme)])
-    }
-    .width(DesignTokens.touchTarget())
-    .height(DesignTokens.touchTarget())
-    .align(Alignment.Center)
-    .accessibilityText(t('close'))
-    .hoverEffect(HoverEffect.Highlight)
-    .focusable(true)
-    .onKeyEvent((event: KeyEvent): void => {
-      if (isConfirmKey(event)) {
-        this.cancel();
-      }
-    })
-    .onClick(() => {
-      this.cancel();
-    })
   }
 
   /** 单个动作行：左图标 + 右文案（左对齐，行高统一） */

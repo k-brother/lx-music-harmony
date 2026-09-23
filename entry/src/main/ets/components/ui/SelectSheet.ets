@@ -8,6 +8,7 @@ import { DesignTokens } from '../../theme/DesignTokens';
 import { t } from '../../service/LocalizationService';
 import { BottomSheet, dismissSheet } from './BottomSheet';
 import type { SettingOption } from './SettingsTypes';
+import { SheetHeader } from './SheetHeader';
 import { isConfirmKey } from '../../utils/KeyboardTools';
 
 @Component
@@ -46,7 +47,8 @@ export struct SelectSheet {
   build() {
     BottomSheet({
       visible: $visible,
-      title: this.title,
+      // 标题自绘（左对齐 + 右上角关闭），不用 BottomSheet 的居中标题栏
+      title: '',
       sheetHeightVp: this.sheetHeightVp(),
       onDismiss: (): void => {
         this.cancel();
@@ -59,6 +61,14 @@ export struct SelectSheet {
 
   @Builder
   Options() {
+    // 标题行：左标题 + 右上角关闭（取消不再单独占一行，与其他面板统一）
+    SheetHeader({
+      title: this.title,
+      onClose: (): void => {
+        this.cancel();
+      },
+    })
+
     List() {
       ForEach(this.options, (option: SettingOption) => {
         ListItem() {
@@ -107,16 +117,5 @@ export struct SelectSheet {
     .scrollBar(BarState.Off)
     .margin({ top: 4 })
 
-    Button(t('cancel'))
-      .type(ButtonType.Capsule)
-      .width('100%')
-      .height(DesignTokens.touchTarget())
-      .fontSize(DesignTokens.fontTitle())
-      .fontColor(DesignTokens.labelPrimary(this.theme))
-      .backgroundColor(DesignTokens.mutedFill(this.theme))
-      .margin({ top: 12 })
-      .onClick(() => {
-        this.cancel();
-      })
   }
 }

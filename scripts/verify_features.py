@@ -72,6 +72,17 @@ CHECKS = [
  ('我的tab绑定角标+同步', 'pages/Home/MylistView.ets', r'bindingListId'),
  ('歌单详情收藏/更新菜单', 'pages/SonglistDetailPage.ets', r'openCollectedMenu|syncBoundList'),
  ('桌面歌词文字不透明度', 'pages/DesktopLyricPage.ets', r'textOpacity'),
+ # 面板统一规则（真机反馈定的）：取消不收成单独一行，一律右上角 ×；高度按内容行数自适应
+ ('面板标题行统一（左标题+右上角关闭）', 'components/ui/SheetHeader.ets', r'export struct SheetHeader'),
+ ('选择面板用共享标题行', 'components/ui/SelectSheet.ets', r'SheetHeader\(\{', r"Button\(t\('cancel'\)\)"),
+ ('输入面板用共享标题行', 'components/ui/InputSheet.ets', r'SheetHeader\(\{', r"Button\(t\('cancel'\)\)"),
+ ('我的页歌单分组只留查看全部', 'pages/Home/MylistView.ets', r"actionText: t\('view_all'\)",
+  r'showPrimaryAction: true'),
+ ('歌单列表右上角为图标新建按钮', 'pages/UserListsPage.ets', r'sys\.symbol\.plus', r"Button\(t\('cancel'\)\)"),
+ ('歌单列表空态不再放新建入口', 'pages/UserListsPage.ets', r"user_lists_empty_hint'\),\n\s*\}\)",
+  r"actionText: t\('list_create_title'\)"),
+ ('设置页确认走系统弹框', 'pages/Home/Setting/StorageSection.ets', r'appConfirmSystem\(',
+  r'appConfirm\('),
  # NavBar 同时用固定高度 + expandSafeArea(TOP) 时，背景比内容高一截，标题会被色带横切
  ('顶栏不再用 expandSafeArea(TOP)', 'components/ui/NavBar.ets',
   r'navBarHeight\(\)', r'expandSafeArea'),
