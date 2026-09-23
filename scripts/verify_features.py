@@ -259,6 +259,12 @@ CHECKS = [
   r"padStart\(2, '0'\)"),
  ('歌单映射的时长函数委托统一实现', 'core/list/SongMappers.ets', r'parsePlayTimeText\(interval\)'),
  ('音源解析的时长函数委托统一实现', 'core/music/MusicParsingUtils.ets', r'parsePlayTimeText\(interval\)'),
+ # 通用小工具只留一份实现（delayMs / generateId / bytesToString / 歌名过滤 / 内建源判断）
+ ('等待工具统一实现', 'utils/Utils.ets', r'export function delayMs'),
+ ('ID 生成统一实现', 'utils/CommonUtils.ets', r"export \{ generateId \} from './Utils'"),
+ ('字节转字符串统一实现', 'core/music/sources/kg/util.ets', r'cryptoBytesToString\(bytes\)'),
+ ('歌名过滤统一实现', 'core/music/MusicParsingUtils.ets', r'trimSpecialChars\(name\)'),
+ ('内建音源判断统一实现', 'core/music/MusicFeatureEntry.ets', r'return isBuiltinSourceId\(id\)'),
 ]
 
 fails = []

@@ -10,7 +10,7 @@
 
 // 导入音乐源SDK
 import { musicSdk, SearchResult as SDKSearchResult } from './MusicSdkAggregate';
-import { getMusicSourceFactory } from './MusicSourceRegistry';
+import { getMusicSourceFactory, isBuiltinSourceId } from './MusicSourceRegistry';
 import {
   getMusicUrl as resolveGetMusicUrl,
   getLyricInfo as resolveGetLyricInfo,
@@ -25,7 +25,8 @@ const TAG = 'MUSIC';
 const DOMAIN = 0x0003;
 
 function isBuiltinMusicSourceId(id: string): boolean {
-  return id === 'kw' || id === 'kg' || id === 'tx' || id === 'wy' || id === 'mg';
+  // 内建源清单只有一份（core/music/MusicSourceRegistry）
+  return isBuiltinSourceId(id);
 }
 
 // 搜索结果项类型

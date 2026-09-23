@@ -2,6 +2,7 @@
 
 import type { MusicInfo, LyricInfo, Quality, MusicQualityType, MusicSource, OtherSourceInfo, QualityDetail } from '../../types/MusicTypes';
 import { formatClock, parsePlayTimeText } from '../../utils/FormatTools';
+import { trimSpecialChars } from '../../utils/CommonUtils';
 
 // 尝试获取的音乐品质列表
 export const TRY_QUALITYS_LIST: string[] = ['flac24bit', 'flac', '320k', '128k'];
@@ -142,9 +143,9 @@ export function getCurrentLyricIndex(lines: LyricLine[], currentTime: number): n
 /**
  * 过滤字符串特殊字符
  */
-export function filterMusicName(str: string): string {
-  if (!str) return '';
-  return str.replace(/\s|'|\.|,|，|&|"|、|\(|\)|（|）|`|~|-|<|>|\||\/|\]|\[|!|！/g, '');
+/** 过滤歌名里的多余符号（实现统一在 utils/CommonUtils.trimSpecialChars） */
+export function filterMusicName(name: string): string {
+  return trimSpecialChars(name);
 }
 
 /**

@@ -47,9 +47,7 @@ export function deepClone(obj: object): object {
 }
 
 // 生成随机ID
-export function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substring(2);
-}
+export { generateId } from './Utils';
 
 // 数组操作
 export function arrPush<T>(arr: T[], items: T[]): void {

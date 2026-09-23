@@ -1,7 +1,7 @@
 /**
  * 酷狗音乐 SDK 工具函数
  */
-import { md5 } from '../../../../utils/CryptoUtils';
+import { md5, bytesToString as cryptoBytesToString } from '../../../../utils/CryptoUtils';
 import { httpRequest } from '../../../../core/network/http';
 import hilog from '@ohos.hilog';
 
@@ -163,11 +163,8 @@ function base64Decode(str: string): number[] {
  * 字节数组转字符串
  */
 function bytesToString(bytes: number[]): string {
-  let result = '';
-  for (let i = 0; i < bytes.length; i++) {
-    result += String.fromCharCode(bytes[i]);
-  }
-  return result;
+  // 实现统一在 utils/CryptoUtils（原来这边又写了一份相同的循环）
+  return cryptoBytesToString(bytes);
 }
 
 /**

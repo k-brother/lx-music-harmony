@@ -85,3 +85,10 @@ export function debounce(func: ThrottleFunction, wait: number): ThrottleFunction
     }, wait);
   };
 }
+
+/** 等待若干毫秒（轮询/退避等场景共用一份实现） */
+export function delayMs(ms: number): Promise<void> {
+  return new Promise<void>((resolve: () => void): void => {
+    setTimeout(resolve, ms);
+  });
+}

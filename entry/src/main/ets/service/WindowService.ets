@@ -4,6 +4,7 @@
  */
 
 import hilog from '@ohos.hilog';
+import { delayMs } from '../utils/Utils';
 import window from '@ohos.window';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { onThemeChange, getActiveTheme, getAppBackground } from './ThemeService';
@@ -16,11 +17,6 @@ function businessErrCode(err: Error | object): number {
   return typeof b.code === 'number' ? b.code : -1;
 }
 
-async function delayMs(ms: number): Promise<void> {
-  return new Promise<void>((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
 
 function normalizeWindowColor(color: string): string {
   const raw = (color ?? '').trim();

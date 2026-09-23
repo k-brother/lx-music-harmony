@@ -1,6 +1,7 @@
 // 播控插件：HarmonyOS AVPlayer 封装（由 PlayerService 委托调用）
 
 import { media } from '@kit.MediaKit';
+import { delayMs } from '../../utils/Utils';
 import { BusinessError } from '@kit.BasicServicesKit';
 // 日志经由应用日志门面，既输出 hilog 也进入「设置 → 运行日志」
 import { appLog as hilog } from '../log/AppLogger';
@@ -91,11 +92,6 @@ function waitForMediaState(targets: string[], timeoutMs: number): Promise<void> 
   });
 }
 
-function delayMs(ms: number): Promise<void> {
-  return new Promise<void>((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
 
 /** 串行化 setResource，避免连点切歌与上一异步 reset/prepare 交叉 */
 let setResourceChain: Promise<void> = Promise.resolve();
