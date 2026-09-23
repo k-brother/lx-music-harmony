@@ -47,7 +47,7 @@ import type { MusicInfo } from '../types/MusicTypes';
 import { DesignTokens } from '../theme/DesignTokens';
 import { formatPlayTime } from '../utils/CommonUtils';
 import { SkeletonListItem } from '../components/common/SkeletonView';
-import { ErrorView } from '../components/common/ErrorView';
+import { StateView } from '../components/ui/StateView';
 import { t, tf, sourceLabel } from '../service/LocalizationService';
 import { type SortField, type SortOrder } from '../utils/ListTools';
 import {
@@ -1082,24 +1082,17 @@ export struct SonglistDetailPage {
         .width('100%')
         .layoutWeight(1)
       } else if (this.hasError) {
-        // 失败态：统一错误视图 + 可点的重试按钮
-        Column() {
-          ErrorView({ message: t('load_failed_hint') })
-          Text(t('retry'))
-            .fontSize(14)
-            .fontColor(DesignTokens.accent())
-            .border({ width: 1, color: DesignTokens.accent() })
-            .borderRadius(16)
-            .padding({ left: 18, right: 18, top: 6, bottom: 6 })
-            .margin({ top: 16 })
-            .onClick(() => {
-              this.reloadDetail();
-            })
-        }
-        .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
+        // 失败态：统一状态视图（带重试按钮），与其它页面同一套
+        StateView({
+          state: 'error',
+          message: t('load_failed_hint'),
+          actionText: t('retry'),
+          onAction: (): void => {
+            this.reloadDetail();
+          },
+        })
+          .width('100%')
+          .layoutWeight(1)
       } else if (this.songList.length === 0) {
         // 空状态
         Column() {
