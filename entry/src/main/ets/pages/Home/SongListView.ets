@@ -21,6 +21,7 @@ import { RefreshContainer } from '../../components/ui/RefreshContainer';
 import { hapticService } from '../../service/HapticService';
 import { DeferredScrollToTop } from '../../utils/ScrollTools';
 import { Breakpoints } from '../../theme/Breakpoints';
+import { LazyDataSource } from '../../utils/LazyDataSource';
 
 // 排序选项接口
 interface SortOption {
@@ -91,6 +92,8 @@ export struct SongListView {
 
   // 歌单数据
   @State songLists: SongListItemData[] = [];
+  /** LazyForEach 数据源：歌单广场分页可能上百张卡片 */
+  private cardSource: LazyDataSource<SongListItemData> = new LazyDataSource<SongListItemData>();
   @State coverWindowStart: number = 0;
   @State coverWindowEnd: number = 11;
   @State hasUserScrolledForPagination: boolean = false;
@@ -142,6 +145,7 @@ export struct SongListView {
     // 换源必须先清空旧列表：否则新源还在加载时，用户点到的是上一个源的歌单，
     // 详情页会拿着 A 源的 id 去问 B 源，结果必然是「没有歌曲」（真机复现过）。
     this.songLists = [];
+    this.cardSource.reload(this.songLists);
     this.hasMore = true;
     this.currentPage = 1;
     this.isLoading = false;
@@ -174,6 +178,7 @@ export struct SongListView {
       this.hasMore = true;
       this.isRefreshing = true;
       this.songLists = [];
+      this.cardSource.reload(this.songLists);
       this.hasUserScrolledForPagination = false;
       this.resetCoverWindow();
     }
@@ -201,6 +206,7 @@ export struct SongListView {
       } else {
         this.songLists = this.songLists.concat(items);
       }
+      this.cardSource.reload(this.songLists);
       this.updateCoverWindowByOffset();
       if (this.songLists.length < this.minPinItems && this.isFilterPinned) {
         this.isFilterPinned = false;
@@ -540,7 +546,7 @@ export struct SongListView {
   @Builder
   SongListGrid() {
     Grid() {
-      ForEach(this.songLists, (item: SongListItemData, index: number) => {
+      LazyForEach(this.cardSource, (item: SongListItemData, index: number) => {
         GridItem() {
           SongListCard({
             item: item,

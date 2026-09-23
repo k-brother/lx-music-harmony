@@ -10,6 +10,7 @@ import type { Comment } from '../service/CommentService';
 import type { NavigationParams } from '../service/NavigationService';
 import { DesignTokens } from '../theme/DesignTokens';
 import { Breakpoints } from '../theme/Breakpoints';
+import { LazyDataSource } from '../utils/LazyDataSource';
 import { NavBar } from '../components/ui/NavBar';
 import { CommentRow } from './Comment/CommentRow';
 import { StateView } from '../components/ui/StateView';
@@ -47,6 +48,8 @@ export struct CommentPage {
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
   @State comments: Comment[] = [];
+  /** LazyForEach 数据源：长列表只创建可视区的行 */
+  private commentSource: LazyDataSource<Comment> = new LazyDataSource<Comment>();
   @State isLoading: boolean = false;
   @State isRefreshing: boolean = false;
   @State hasMore: boolean = true;
@@ -135,9 +138,11 @@ export struct CommentPage {
       
       if (isRefresh) {
         this.comments = newComments;
+        this.commentSource.reload(this.comments);
         this.isRefreshing = false;
       } else {
         this.comments = [...this.comments, ...newComments];
+        this.commentSource.reload(this.comments);
         this.isLoading = false;
       }
       
@@ -167,6 +172,7 @@ export struct CommentPage {
     
     this.commentType = type;
     this.comments = [];
+    this.commentSource.reload(this.comments);
     this.currentPage = 1;
     this.hasMore = true;
     this.loadComments(true);
@@ -181,7 +187,7 @@ export struct CommentPage {
       comment.likeCount += comment.isLiked ? 1 : -1;
       
       // 更新数组以触发重新渲染
-      this.comments = [...this.comments];
+      this.commentSource.reload(this.comments);
       
       hilog.info(DOMAIN, TAG, 'Comment %{public}s liked: %{public}s', commentId, comment.isLiked);
     }
@@ -303,7 +309,7 @@ export struct CommentPage {
         if (this.comments.length > 0) {
           // 用 List + onReachEnd 做分页：滑到底自动加载下一页
           List() {
-            ForEach(this.comments, (comment: Comment, index: number) => {
+            LazyForEach(this.commentSource, (comment: Comment, index: number) => {
               ListItem() {
                 CommentRow({
                   comment: comment,

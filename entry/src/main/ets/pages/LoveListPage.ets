@@ -7,6 +7,7 @@
 import hilog from '@ohos.hilog';
 import { DesignTokens } from '../theme/DesignTokens';
 import { Breakpoints } from '../theme/Breakpoints';
+import { LazyDataSource } from '../utils/LazyDataSource';
 import { getLoveList, toggleLoveList, type MusicItem } from '../service/ListService';
 import { playerService, SongInfo } from '../service/PlayerService';
 import { t, tf } from '../service/LocalizationService';
@@ -35,6 +36,8 @@ export struct LoveListPage {
   @StorageProp('windowWidthVp') windowWidthVp: number = 360;
   @StorageProp('langVersion') langVersion: number = 0;
   @State songs: SongRow[] = [];
+  /** LazyForEach 数据源：长列表只创建可视区的行 */
+  private loveSource: LazyDataSource<SongRow> = new LazyDataSource<SongRow>();
   @State isLoading: boolean = true;
   /** 正在播放的曲目 id（高亮行） */
   @State playingId: string = '';
@@ -61,9 +64,11 @@ export struct LoveListPage {
         });
       }
       this.songs = rows;
+      this.loveSource.reload(this.songs);
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to load: %{public}s', JSON.stringify(err));
       this.songs = [];
+      this.loveSource.reload(this.songs);
     } finally {
       this.isLoading = false;
     }
@@ -114,6 +119,7 @@ export struct LoveListPage {
       };
       await toggleLoveList(musicItem);
       this.songs = this.songs.filter((item: SongRow) => item.id !== song.id);
+    this.loveSource.reload(this.songs);
       appToast(t('toast_unloved'));
     } catch (err) {
       hilog.warn(DOMAIN, TAG, 'removeFromLove failed: %{public}s', JSON.stringify(err));
@@ -188,7 +194,7 @@ export struct LoveListPage {
           .width('100%')
       } else {
         List() {
-          ForEach(this.songs, (song: SongRow, index: number) => {
+          LazyForEach(this.loveSource, (song: SongRow, index: number) => {
             ListItem() {
               ListRow({
                 index: index + 1,

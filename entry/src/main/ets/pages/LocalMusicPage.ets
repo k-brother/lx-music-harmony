@@ -20,6 +20,7 @@ import { EditMetadataSheet } from './LocalMusic/EditMetadataSheet';
 import { LocalMusicActions } from './LocalMusic/LocalMusicActions';
 import { TrackRow } from './LocalMusic/TrackRow';
 import { Breakpoints } from '../theme/Breakpoints';
+import { LazyDataSource } from '../utils/LazyDataSource';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'LocalMusicPage';
@@ -33,6 +34,8 @@ export struct LocalMusicPage {
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
   @State tracks: LocalMusicInfo[] = [];
+  /** LazyForEach 数据源：长列表只创建可视区的行 */
+  private trackSource: LazyDataSource<LocalMusicInfo> = new LazyDataSource<LocalMusicInfo>();
   @State isLoading: boolean = false;
   @State playingId: string = '';
   /** 元数据编辑弹窗 */
@@ -49,6 +52,7 @@ export struct LocalMusicPage {
     try {
       const list = localMusicService.getLibrary();
       this.tracks = list.slice();
+      this.trackSource.reload(this.tracks);
       void this.loadCovers(list);
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'loadLibrary failed: %{public}s', JSON.stringify(err));
@@ -73,7 +77,7 @@ export struct LocalMusicPage {
         });
         if (cover && cover.length > 0) {
           track.picUrl = cover;
-          this.tracks = this.tracks.slice();
+          this.trackSource.reload(this.tracks);
         }
       } catch (err) {
         hilog.info(DOMAIN, TAG, 'cover skipped for %{public}s', track.name);
@@ -119,7 +123,7 @@ export struct LocalMusicPage {
     try {
       await playerService.playSelectedFromPlayList(index);
       this.playingId = this.tracks[index].id;
-      this.tracks = this.tracks.slice();
+      this.trackSource.reload(this.tracks);
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'playTrack failed: %{public}s', JSON.stringify(err));
       this.showToast(t('toast_play_failed'));
@@ -287,7 +291,7 @@ export struct LocalMusicPage {
         this.EmptyState()
       } else {
         List() {
-          ForEach(this.tracks, (track: LocalMusicInfo, index: number) => {
+          LazyForEach(this.trackSource, (track: LocalMusicInfo, index: number) => {
             ListItem() {
               TrackRow({
                 title: track.name,

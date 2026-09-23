@@ -45,6 +45,7 @@ import {
 } from './SonglistDetail/SonglistActions';
 import { DesignTokens } from '../theme/DesignTokens';
 import { Breakpoints } from '../theme/Breakpoints';
+import { LazyDataSource } from '../utils/LazyDataSource';
 import { formatPlayTime } from '../utils/CommonUtils';
 import { scrollerOffsetY } from '../utils/ScrollTools';
 import { SkeletonListItem } from '../components/common/SkeletonView';
@@ -116,6 +117,8 @@ export struct SonglistDetailPage {
   @State creator: string = t('unknown');
   @State playCount: string = '0';
   @State songList: SongItem[] = [];
+  /** 列表用 LazyForEach：上千首歌只创建可视区的行（ForEach 会全量建树） */
+  private songListSource: LazyDataSource<SongItem> = new LazyDataSource<SongItem>();
   @State isLoading: boolean = true;
   @State hasError: boolean = false;
   @State headerCompact: boolean = false;
@@ -289,7 +292,7 @@ export struct SonglistDetailPage {
   @Builder
   SongList() {
     List({ space: 8, scroller: this.songListScroller }) {
-      ForEach(this.songList, (song: SongItem, index: number) => {
+      LazyForEach(this.songListSource, (song: SongItem, index: number) => {
         ListItem() {
           ListRow({
             index: index + 1,
@@ -316,7 +319,7 @@ export struct SonglistDetailPage {
           })
         }
         .stateStyles({ pressed: this.pressDim })
-      }, (song: SongItem, index: number) => `${song.id}_${song.source}_${index}_${song.isPlaying}`)
+      }, (song: SongItem, index: number) => `${song.id}_${song.source}_${index}`)
     }
     .width('100%')
     .layoutWeight(1)
@@ -406,6 +409,7 @@ export struct SonglistDetailPage {
       this.listInfo = outcome.info;
       this.listCoverLoadFailed = false;
       this.songList = outcome.songs;
+      this.songListSource.reload(this.songList);
       this.detailLoaded = true;
       this.isLoading = false;
       void this.restoreScrollPosition();
@@ -424,13 +428,13 @@ export struct SonglistDetailPage {
       return;
     }
     markPlayingRow(this.songList, index);
-    this.songList = this.songList;
+    this.songListSource.reload(this.songList);
 
     const result = await playSongRow(this.songList, index, this.listInfo, this.listClickPlay);
     if (result === 'no-url') {
       // 回滚播放态，避免列表看起来"在播但没声音"
       clearPlayingRows(this.songList);
-      this.songList = this.songList;
+      this.songListSource.reload(this.songList);
       this.showToast(t('toast_play_url_failed'));
     }
   }
@@ -447,7 +451,7 @@ export struct SonglistDetailPage {
     }
     if (result === 'ok') {
       markPlayingRow(this.songList, 0);
-      this.songList = this.songList;
+      this.songListSource.reload(this.songList);
     }
   }
 
@@ -525,6 +529,7 @@ export struct SonglistDetailPage {
       return;
     }
     this.songList = this.songList.filter((song: SongItem) => !this.containsSong(songs, song));
+    this.songListSource.reload(this.songList);
     this.exitSelectMode();
   }
 
@@ -597,6 +602,7 @@ export struct SonglistDetailPage {
     const order = this.sortOrder as SortOrder;
     const locale = this.language.replace('_', '-');
     this.songList = sortRows(this.songList, field, order, locale);
+    this.songListSource.reload(this.songList);
     this.showSortSheet = false;
     this.showToast(tf('toast_sorted_count', [this.songList.length.toString()]));
 
@@ -627,6 +633,7 @@ export struct SonglistDetailPage {
     const outcome = dedupeRows(this.songList, this.dedupeFilterVariant);
     const removed = outcome.removed;
     this.songList = outcome.rows;
+    this.songListSource.reload(this.songList);
     // 本地歌单：同步把重复项从存储里删掉，避免下次进来又出现
     if (this.listInfo.source === 'local') {
       await persistLocalOrder(this.listInfo.id, this.songList);
@@ -751,6 +758,7 @@ export struct SonglistDetailPage {
       return;
     }
     this.songList = musicRowListToSongItems(getUserListMusic(this.listInfo.id));
+    this.songListSource.reload(this.songList);
   }
 
   /** 可移动的目标列表（排除当前列表） */

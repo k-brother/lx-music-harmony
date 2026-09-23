@@ -15,6 +15,7 @@ import { DesignTokens } from '../theme/DesignTokens';
 import { NavBar } from '../components/ui/NavBar';
 import { StateView } from '../components/ui/StateView';
 import { Breakpoints } from '../theme/Breakpoints';
+import { LazyDataSource } from '../utils/LazyDataSource';
 import { BoardDetailHeader } from './Board/BoardDetailHeader';
 import { scrollerOffsetY } from '../utils/ScrollTools';
 
@@ -49,6 +50,8 @@ export struct BoardDetailPage {
   @State boardId: string = '';
   @State boardSource: string = 'kw';
   @State songList: BoardSongItem[] = [];
+  /** LazyForEach 数据源：长列表只创建可视区的行 */
+  private songListSource: LazyDataSource<BoardSongItem> = new LazyDataSource<BoardSongItem>();
   @State isLoading: boolean = true;
   @State totalCount: number = 0;
   @State headerCompact: boolean = false;
@@ -174,12 +177,14 @@ export struct BoardDetailPage {
           });
         }
         this.songList = items;
+        this.songListSource.reload(this.songList);
         this.totalCount = result.total || items.length;
         hilog.info(0x0001, 'BoardDetail', 'Loaded %{public}d songs', items.length);
       }
     } catch (err) {
       hilog.error(0x0001, 'BoardDetail', 'Failed to load: %{public}s', JSON.stringify(err));
       this.songList = [];
+      this.songListSource.reload(this.songList);
     } finally {
       this.isLoading = false;
     }
@@ -200,7 +205,7 @@ export struct BoardDetailPage {
     for (let i = 0; i < this.songList.length; i++) {
       this.songList[i].isPlaying = (i === index);
     }
-    this.songList = this.songList;
+    this.songListSource.reload(this.songList);
 
     try {
       const musicInfo: MusicInfo = {
@@ -382,7 +387,7 @@ export struct BoardDetailPage {
   SongList() {
     List({ space: 8, scroller: this.songListScroller }) {
       // 行组件与歌单详情同款观感（序号 / 歌名 / 歌手 / 下载 / 播放高亮）
-      ForEach(this.songList, (song: BoardSongItem, index: number) => {
+      LazyForEach(this.songListSource, (song: BoardSongItem, index: number) => {
         ListItem() {
           BoardSongRow({
             index: index + 1,

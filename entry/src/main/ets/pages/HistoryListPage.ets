@@ -12,6 +12,7 @@ import type { MusicInfo as AppMusicInfo, MusicSource } from '../types/MusicTypes
 import { formatPlayTime } from '../utils/CommonUtils';
 import { DesignTokens } from '../theme/DesignTokens';
 import { Breakpoints } from '../theme/Breakpoints';
+import { LazyDataSource } from '../utils/LazyDataSource';
 import { t, tf } from '../service/LocalizationService';
 import { appConfirm, appToast } from '../service/DialogService';
 import { NavBar } from '../components/ui/NavBar';
@@ -31,6 +32,8 @@ export struct HistoryListPage {
   @StorageProp('langVersion') langVersion: number = 0;
   @State isLoading: boolean = true;
   @State playHistory: PlayHistoryItem[] = [];
+  /** LazyForEach 数据源：长列表只创建可视区的行 */
+  private historySource: LazyDataSource<PlayHistoryItem> = new LazyDataSource<PlayHistoryItem>();
 
   aboutToAppear() {
     void this.loadHistory();
@@ -40,9 +43,11 @@ export struct HistoryListPage {
     this.isLoading = true;
     try {
       this.playHistory = await getPlayHistory(HISTORY_LIMIT);
+      this.historySource.reload(this.playHistory);
     } catch (err) {
       hilog.warn(DOMAIN, TAG, 'loadHistory failed: %{public}s', JSON.stringify(err));
       this.playHistory = [];
+      this.historySource.reload(this.playHistory);
     } finally {
       this.isLoading = false;
     }
@@ -169,7 +174,7 @@ export struct HistoryListPage {
           .width('100%')
       } else {
         List() {
-          ForEach(this.playHistory, (song: PlayHistoryItem, index: number) => {
+          LazyForEach(this.historySource, (song: PlayHistoryItem, index: number) => {
             ListItem() {
               ListRow({
                 index: index + 1,

@@ -14,6 +14,7 @@
 import hilog from '@ohos.hilog';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { t, tf } from '../../service/LocalizationService';
+import { LazyDataSource } from '../../utils/LazyDataSource';
 import { BottomSheet } from '../../components/ui/BottomSheet';
 import { appActionMenu } from '../../service/DialogService';
 import { hapticService } from '../../service/HapticService';
@@ -23,7 +24,9 @@ import type { SongInfo } from '../../service/PlayerService';
 export struct QueueSheet {
   @StorageProp('theme') theme: string = 'light';
   @Link visible: boolean;
-  @Prop queue: SongInfo[] = [];
+  /** 队列可能上千首：@Watch 同步 LazyForEach 数据源，避免一次性建满所有行 */
+  @Prop @Watch('onQueueChanged') queue: SongInfo[] = [];
+  private queueSource: LazyDataSource<SongInfo> = new LazyDataSource<SongInfo>();
   @Prop currentIndex: number = -1;
   onPick?: (index: number) => void;
   /** 拖动排序（长按行拖动） */
@@ -91,6 +94,15 @@ export struct QueueSheet {
   }
 
   /** 行尾拖拽手柄 */
+  aboutToAppear(): void {
+    this.queueSource.reload(this.queue);
+  }
+
+  /** 队列变化（切歌、拖拽重排、删除）时同步渲染数据源 */
+  onQueueChanged(): void {
+    this.queueSource.reload(this.queue);
+  }
+
   @Builder
   DragHandle(index: number) {
     SymbolGlyph($r('sys.symbol.line_3_horizontal'))
@@ -215,7 +227,7 @@ export struct QueueSheet {
         .padding({ top: 20, bottom: 20 })
     } else {
       List() {
-        ForEach(this.queue, (song: SongInfo, index: number) => {
+        LazyForEach(this.queueSource, (song: SongInfo, index: number) => {
           ListItem() {
             this.Row(song, index)
           }

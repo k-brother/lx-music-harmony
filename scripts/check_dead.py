@@ -22,6 +22,8 @@ FRAMEWORK_MEMBERS = {
     'build', 'onWindowStageCreate', 'onWindowStageDestroy',
     'onForeground', 'onBackground', 'onCreate', 'onDestroy',
     'onConfigurationUpdate', 'onMemoryLevel', 'onDraw', 'onChange',
+    # IDataSource：由 LazyForEach 内部调用（LazyDataSource 的四个必备成员）
+    'totalCount', 'getData', 'registerDataChangeListener', 'unregisterDataChangeListener',
 }
 
 files = sorted(root.rglob('*.ets'))
