@@ -228,9 +228,9 @@ CHECKS = [
  ('备份类型独立成文件', 'service/backup/BackupTypes.ets', r'export enum BackupDataType'),
  ('备份数据映射独立成文件', 'service/backup/BackupDataMapping.ets', r'export async function collectBackupData'),
  ('备份服务只留文件与调度', 'service/BackupService.ets', r'from \'./backup/BackupDataMapping\''),
- # 自定义源行：启用角标属于会变的状态，不能走 @Builder 参数（实测 @Builder 参数不刷新）
- ('自定义源行按 index 读状态', 'pages/Home/CustomSourceView.ets', r'buildCustomSourceRow\(index: number\)'),
- ('自定义源行内容读组件状态', 'pages/Home/CustomSourceView.ets', r'this\.customSources\[index\]\.enabled'),
+ # 自定义源行已抽成组件（@Prop 随父组件重渲染更新，避免「启用角标不刷新」）
+ ('自定义源行抽成组件', 'pages/Home/CustomSourceView.ets', r'CustomSourceRow\(\{'),
+ ('自定义源行接收启用态', 'pages/Home/CustomSource/CustomSourceRow.ets', r'@Prop isEnabled: boolean'),
  # 颜色 token 化：面板遮罩/日志状态色不再写死
  ('面板遮罩走设计 token', 'components/ui/BottomSheet.ets', r'DesignTokens\.maskColor\(\)'),
  ('日志状态色走设计 token', 'pages/LogPage.ets', r'DesignTokens\.(warning|success|info)\(\)'),

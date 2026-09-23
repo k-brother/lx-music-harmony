@@ -1,5 +1,6 @@
 import { t, tf } from '../../service/LocalizationService';
 import { showAppToast, TOAST_DURATION_DEFAULT } from '../../utils/Toast';
+import { CustomSourceRow } from './CustomSource/CustomSourceRow';
 import { appAlert, appConfirm } from '../../service/DialogService';
 /**
  * 自定义源设置视图
@@ -73,6 +74,32 @@ export struct CustomSourceView {
   }
 
   /** 启用/停用某个自定义源 */
+  /** 从 id 找当前数据（组件只回调 id，避免闭包持有旧对象） */
+  private findSource(sourceId: string): StoredCustomSource | undefined {
+    return this.customSources.find((item: StoredCustomSource): boolean => item.id === sourceId);
+  }
+
+  private async toggleSourceEnabledById(sourceId: string, enabled: boolean): Promise<void> {
+    const source = this.findSource(sourceId);
+    if (source) {
+      await this.toggleSourceEnabled(source);
+    }
+  }
+
+  private async updateSourceById(sourceId: string): Promise<void> {
+    const source = this.findSource(sourceId);
+    if (source) {
+      await this.updateSource(source);
+    }
+  }
+
+  private async removeSourceById(sourceId: string): Promise<void> {
+    const source = this.findSource(sourceId);
+    if (source) {
+      await this.removeSource(source);
+    }
+  }
+
   private async toggleSourceEnabled(source: StoredCustomSource): Promise<void> {
     if (this.busySourceId.length > 0) {
       return;
@@ -101,11 +128,7 @@ export struct CustomSourceView {
   }
 
   /** 重新下载脚本并刷新（「更新」） */
-  private async updateSource(index: number): Promise<void> {
-    if (index < 0 || index >= this.customSources.length) {
-      return;
-    }
-    const source: StoredCustomSource = this.customSources[index];
+  private async updateSource(source: StoredCustomSource): Promise<void> {
     if (this.busySourceId.length > 0) {
       return;
     }
@@ -131,11 +154,7 @@ export struct CustomSourceView {
   }
 
   /** 删除自定义源（带确认） */
-  private async removeSource(index: number): Promise<void> {
-    if (index < 0 || index >= this.customSources.length) {
-      return;
-    }
-    const source: StoredCustomSource = this.customSources[index];
+  private async removeSource(source: StoredCustomSource): Promise<void> {
     // 统一走 DialogService 的危险确认（不再自己拼按钮与颜色）
     const confirmed = await appConfirm(
       t('custom_source_remove'),
@@ -311,94 +330,6 @@ export struct CustomSourceView {
 
   /** 一条自定义源：名称/版本/作者 + 启用开关 + 更新 + 删除 */
   @Builder
-  buildCustomSourceRow(index: number) {
-    // 规则（实测结论）：@Builder 的参数不会随状态刷新 —— 自定义源的启用角标属于会变的状态，
-    // 所以只传稳定的 index，内容从 this.customSources 读，切换启用后角标才会跟着变。
-    if (index < 0 || index >= this.customSources.length) {
-      Blank()
-    } else {
-      this.CustomSourceRowBody(index)
-    }
-  }
-
-  @Builder
-  CustomSourceRowBody(index: number) {
-    Column() {
-      Row() {
-        Column() {
-          Row() {
-            Text(this.customSources[index].name.length > 0 ? this.customSources[index].name : this.customSources[index].url)
-              .fontSize(15)
-              .fontColor(DesignTokens.labelPrimary(this.theme))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .layoutWeight(1)
-            if (this.customSources[index].enabled) {
-              Text(t('custom_source_in_use'))
-                .fontSize(10)
-                .fontColor(DesignTokens.accent())
-                .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-                .borderRadius(8)
-                .border({ width: 1, color: DesignTokens.accent() })
-                .margin({ left: 6 })
-            }
-          }
-          .width('100%')
-
-          Text(this.customSources[index].version.length > 0
-            ? `${t('label_version_colon')} ${this.customSources[index].version}${this.customSources[index].author.length > 0 ? '  ' + t('label_author_colon') + ' ' + this.customSources[index].author : ''}`
-            : this.customSources[index].url)
-            .fontSize(11)
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .margin({ top: 4 })
-            .width('100%')
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
-
-        Toggle({ type: ToggleType.Switch, isOn: this.customSources[index].enabled })
-          .enabled(this.busySourceId.length === 0)
-          .onChange((isOn: boolean) => {
-            if (isOn === this.customSources[index].enabled) {
-              return;
-            }
-            void this.toggleSourceEnabled(this.customSources[index]);
-          })
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-
-      Row({ space: 16 }) {
-        Text(t('custom_source_update'))
-          .fontSize(13)
-          .fontColor(DesignTokens.accent())
-          .padding({ top: 6, bottom: 2, right: 8 })
-          .onClick(() => {
-            void this.updateSource(index);
-          })
-        Text(t('delete'))
-          .fontSize(13)
-          .fontColor(DesignTokens.danger())
-          .padding({ top: 6, bottom: 2 })
-          .onClick(() => {
-            void this.removeSource(index);
-          })
-      }
-      .width('100%')
-      .justifyContent(FlexAlign.End)
-      .margin({ top: 4 })
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 12, bottom: 12 })
-    .backgroundColor(DesignTokens.card(this.theme))
-    .borderRadius(10)
-    .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
-    .margin({ left: 16, right: 16, bottom: 8 })
-  }
-
-  @Builder
   buildSourceItem(item: SourceItem) {
     ListItem() {
       Row() {
@@ -474,8 +405,25 @@ export struct CustomSourceView {
 
           // 已保存的自定义源列表：启用/停用、更新、删除（对齐安卓版 userApi 管理）
           if (this.customSources.length > 0) {
-            ForEach(this.customSources, (source: StoredCustomSource, index: number) => {
-              this.buildCustomSourceRow(index)
+            ForEach(this.customSources, (source: StoredCustomSource) => {
+              CustomSourceRow({
+                sourceId: source.id,
+                sourceName: source.name,
+                sourceUrl: source.url,
+                version: source.version,
+                author: source.author,
+                isEnabled: source.enabled,
+                busy: this.busySourceId.length > 0,
+                onToggle: (sourceId: string, enabled: boolean): void => {
+                  void this.toggleSourceEnabledById(sourceId, enabled);
+                },
+                onUpdate: (sourceId: string): void => {
+                  void this.updateSourceById(sourceId);
+                },
+                onRemove: (sourceId: string): void => {
+                  void this.removeSourceById(sourceId);
+                },
+              })
             }, (source: StoredCustomSource) => `${source.id}_${source.enabled}_${source.version}`)
           }
 
