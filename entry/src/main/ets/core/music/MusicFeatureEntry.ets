@@ -48,6 +48,41 @@ export interface SearchResultItem {
   copyrightId?: string;
 }
 
+/**
+ * SDK 搜索结果项 → 首页搜索面板的结果项。
+ *
+ * 单源搜索与「全部源聚合搜索」两条路径都要做这层映射（含 "mm:ss" → 秒的解析），
+ * 之前各写一份约 30 行，字段容易改一处漏一处。
+ */
+function toSearchResultItem(item: MusicInfo, fallbackSource: string): SearchResultItem {
+  // 解析时长字符串为秒数（"mm:ss" / "hh:mm:ss"）
+  let duration = 0;
+  if (item.interval) {
+    const parts = item.interval.split(':');
+    let multiplier = 1;
+    for (let i = parts.length - 1; i >= 0; i--) {
+      duration += parseInt(parts[i]) * multiplier;
+      multiplier *= 60;
+    }
+  }
+  return {
+    id: item.songmid || item.id || '',
+    songmid: item.songmid || item.id || '',
+    name: item.name || '',
+    singer: item.singer || '',
+    album: item.albumName || item.album || '',
+    source: item.source || fallbackSource,
+    duration: duration,
+    interval: item.interval || null,
+    pic: item.img || item.pic || '',
+    albumId: item.albumId,
+    hash: item.hash,
+    strMediaMid: item.strMediaMid,
+    songId: item.songId,
+    copyrightId: item.copyrightId,
+  };
+}
+
 // 获取歌词参数接口
 interface GetLyricInfoParams {
   musicInfo: MusicInfo;
@@ -133,25 +168,7 @@ export async function searchMusic(params: SearchMusicParams): Promise<SearchResu
             continue;
           }
           for (const item of sdkResult.list) {
-            let duration = 0;
-            if (item.interval) {
-              const parts = item.interval.split(':');
-              let multiplier = 1;
-              for (let j = parts.length - 1; j >= 0; j--) {
-                duration += parseInt(parts[j]) * multiplier;
-                multiplier *= 60;
-              }
-            }
-            mergedResults.push({
-              id: item.songmid || item.id || '',
-              name: item.name || '',
-              singer: item.singer || '',
-              album: item.albumName || item.album || '',
-              source: item.source || src,
-              duration: duration,
-              interval: item.interval || null,
-              pic: item.img || item.pic || '',
-            });
+            mergedResults.push(toSearchResultItem(item, src));
           }
         } catch (err) {
           hilog.warn(DOMAIN, TAG, 'searchMusic all-source branch failed on %{public}s: %{public}s',
@@ -203,37 +220,10 @@ export async function searchMusic(params: SearchMusicParams): Promise<SearchResu
     }
 
     if (result && result.list) {
-      // 转换SDK搜索结果到本地搜索结果
+      // 转换 SDK 搜索结果（映射统一在 toSearchResultItem）
       const convertedList: SearchResultItem[] = [];
       for (const item of result.list) {
-        // 解析时长字符串为秒数
-        let duration = 0;
-        if (item.interval) {
-          const parts = item.interval.split(':');
-          let multiplier = 1;
-          for (let i = parts.length - 1; i >= 0; i--) {
-            duration += parseInt(parts[i]) * multiplier;
-            multiplier *= 60;
-          }
-        }
-
-        const convertedItem: SearchResultItem = {
-          id: item.songmid || item.id || '',
-          songmid: item.songmid || item.id || '',
-          name: item.name || '',
-          singer: item.singer || '',
-          album: item.albumName || item.album || '',
-          source: item.source || source,
-          duration: duration,
-          interval: item.interval || null,
-          pic: item.img || item.pic || '',
-          albumId: item.albumId,
-          hash: item.hash,
-          strMediaMid: item.strMediaMid,
-          songId: item.songId,
-          copyrightId: item.copyrightId,
-        };
-        convertedList.push(convertedItem);
+        convertedList.push(toSearchResultItem(item, source));
       }
       return convertedList;
     }
