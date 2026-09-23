@@ -554,6 +554,9 @@ pages/Home/Home/
 | `check_symbols.py` | `sys.symbol` 必须用 SymbolGlyph + **符号名必须在 SDK 名单里** | 新增符号名校验（拼错名字真机上同样什么都不显示） |
 | `check_settings_copy.py` / `check_settings_reset.py` | 设置快照与「恢复默认设置」的字段完整性 | 后半是新增：`resetToDefaults` 漏了 6 个字段（桌面歌词坐标 / 下载目录等） |
 | `check_duplicate_impls.py` | 「函数体完全相同」的重复实现 | 24 → 7（剩下的都是设置分组的 2 行样板） |
+| `check_routes.py` | 路由一致性：用到的路由必须有页面分支、分支必须有枚举、枚举必须有人用 | 清掉 4 个死路由（网络测试/酷我测试/下载测试/下载页）与 1 个孤儿分支 |
+| `check_storage_bindings.py` | AppStorage 绑定闭环：有人读的键必须有人写 | 顺带发现 25 个「镜像了但没人读」的设置项，镜像从 61 个收敛到 36 个 |
+| `check_permissions.py` | 权限声明与实际调用一致（上架审核项） | 4 个权限全部对得上，没有过度声明 |
 | `verify_features.py` | 212 条功能/结构断言（含「面板是否真的挂载」） | 随拆分同步更新判据 |
 
 **顺带修掉的真缺陷**（都是扫描出来的，不是猜的）：
@@ -590,6 +593,10 @@ pages/Home/Home/
 | `EventBus` | 300 | **226** | 删掉 10 个无人订阅的旧事件与 8 个无人调用的发射器 |
 | `utils/Utils` | 94 | **18** | 6 个与 `CommonUtils` 重复的数组/判空/深拷贝实现 |
 
+另外清理了资源与镜像里的死物：6 个没人引用的图片（含 816KB 的 `myzcbg.jpg`，
+图标与启动图现在都走 `layered_image`）、1 个只写不读的 `@State`、
+25 个没人读的 AppStorage 镜像键。
+
 **出包**：`./scripts/release.sh` = 全量自检 + `product=release` 构建（`signingConfig=LXMusic`），
 产物 `entry/build/release/outputs/default/entry-default-signed.hap`（约 8MB，已签名）。
 
@@ -612,8 +619,13 @@ pages/Home/Home/
 ### 自检与出包（一条命令）
 
 ```
-./scripts/check.sh     # 9 个静态检查：imports / dead / unused-exports / reachable /
-                       # i18n / symbols / settings-copy / settings-reset / features(212 项)
+./scripts/check.sh     # 11 个静态检查：
+                       #   check_imports / check_dead（含类成员、@State）
+                       #   check_unused_exports / check_reachable / check_routes
+                       #   check_storage_bindings / check_permissions
+                       #   check_i18n / check_symbols
+                       #   check_settings_copy / check_settings_reset
+                       #   check_duplicate_impls / verify_features(212 项)
 ./scripts/release.sh   # 先自检，再出已签名的 Release HAP
 ./scripts/device_all.sh  # 真机批量回归（需要设备在线）
 ```
