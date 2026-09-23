@@ -362,7 +362,7 @@ export struct SongListView {
         SearchStrip({
           text: $searchText,
           placeholder: t('search_placeholder'),
-          marginH: DesignTokens.spaceGutter(),
+          marginH: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
           marginV: DesignTokens.spaceUnit(),
           tapToOpenOnly: true,
           actions: this.searchStripActions,
@@ -509,8 +509,9 @@ export struct SongListView {
         }
       }
       .padding({
-        left: DesignTokens.spaceGutter(),
-        right: DesignTokens.spaceGutter(),
+        // 大屏时与下方网格的内容列对齐（筛选条本身仍通栏）
+        left: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+        right: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
         top: DesignTokens.spaceUnit(),
         bottom: DesignTokens.spaceUnit(),
       })
