@@ -24,10 +24,17 @@ export struct MenuSheet {
   /** 确认框的说明文字（菜单为空） */
   @Prop message: string = '';
   @Prop rows: SheetRow[] = [];
-  /** 是否展示底部「取消」行（确认框自带的动作行里已有取消，就不再重复） */
-  @Prop showCancelRow: boolean = true;
   onPick?: (index: number) => void;
   onCancel?: () => void;
+
+  /** 一屏最多展示多少行（更多则面板内滚动，避免面板顶到屏幕顶） */
+  private static readonly MAX_VISIBLE_ROWS: number = 8;
+
+  /** 面板高度按行数自适应：行少就矮，不留大片空白 */
+  private contentHeight(): number {
+    const visible: number = Math.min(this.rows.length, MenuSheet.MAX_VISIBLE_ROWS);
+    return visible * DesignTokens.touchTarget();
+  }
 
   private cancel(): void {
     this.visible = dismissSheet(this.onCancel);
@@ -56,6 +63,8 @@ export struct MenuSheet {
       visible: $visible,
       // 标题自己画（左对齐），不用 BottomSheet 的居中标题栏
       title: '',
+      // 高度随内容走（此前固定 medium，两三个选项下面一大片空白）
+      sheetSize: 'fit',
       onDismiss: (): void => {
         this.cancel();
       },
@@ -68,16 +77,23 @@ export struct MenuSheet {
   @Builder
   Content() {
     Column() {
-      if (this.title.length > 0) {
+      // 标题行：左标题 + 右上角关闭。
+      // 「取消」不再单独占一行（用户要求：取消收进右上角图标）
+      Row() {
         Text(this.title)
           .fontSize(DesignTokens.fontSubhead())
           .fontWeight(FontWeight.Medium)
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .width('100%')
-          .padding({ bottom: this.message.length > 0 ? 4 : 8 })
+          .layoutWeight(1)
+          .textAlign(TextAlign.Start)
+        this.CloseButton()
       }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+      .padding({ bottom: this.message.length > 0 ? 4 : 6 })
+
       if (this.message.length > 0) {
         Text(this.message)
           .fontSize(DesignTokens.fontCaption())
@@ -94,39 +110,9 @@ export struct MenuSheet {
             this.ActionRow(row)
           }
         }, (row: SheetRow) => `menu_row_${row.index}`)
-
-        if (this.showCancelRow) {
-          ListItem() {
-            Row({ space: 14 }) {
-              SymbolGlyph($r('sys.symbol.xmark'))
-                .fontSize(DesignTokens.iconLg())
-                .fontColor([DesignTokens.labelSecondary(this.theme)])
-              Text(t('cancel'))
-                .fontSize(DesignTokens.fontTitle())
-                .fontColor(DesignTokens.labelSecondary(this.theme))
-                .layoutWeight(1)
-                .maxLines(1)
-                .textAlign(TextAlign.Start)
-            }
-            .width('100%')
-            .height(DesignTokens.touchTarget())
-            .alignItems(VerticalAlign.Center)
-            .hoverEffect(HoverEffect.Highlight)
-            .focusable(true)
-            .accessibilityText(t('cancel'))
-            .onKeyEvent((event: KeyEvent): void => {
-              if (isConfirmKey(event)) {
-                this.cancel();
-              }
-            })
-            .onClick(() => {
-              this.cancel();
-            })
-          }
-        }
       }
       .width('100%')
-      .layoutWeight(1)
+      .height(this.contentHeight())
       .scrollBar(BarState.Off)
       .divider({
         strokeWidth: 0.33,
@@ -138,6 +124,32 @@ export struct MenuSheet {
     .width('100%')
     .height('100%')
     .alignItems(HorizontalAlign.Start)
+  }
+
+  /** 右上角关闭：圆底 × 图标，语义与「取消」一致 */
+  @Builder
+  CloseButton() {
+    Stack() {
+      Circle({ width: 28, height: 28 })
+        .fill(DesignTokens.mutedFill(this.theme))
+      SymbolGlyph($r('sys.symbol.xmark'))
+        .fontSize(DesignTokens.iconLg())
+        .fontColor([DesignTokens.labelSecondary(this.theme)])
+    }
+    .width(DesignTokens.touchTarget())
+    .height(DesignTokens.touchTarget())
+    .align(Alignment.Center)
+    .accessibilityText(t('close'))
+    .hoverEffect(HoverEffect.Highlight)
+    .focusable(true)
+    .onKeyEvent((event: KeyEvent): void => {
+      if (isConfirmKey(event)) {
+        this.cancel();
+      }
+    })
+    .onClick(() => {
+      this.cancel();
+    })
   }
 
   /** 单个动作行：左图标 + 右文案（左对齐，行高统一） */

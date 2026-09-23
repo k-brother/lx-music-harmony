@@ -101,6 +101,8 @@ export const BREAKPOINT_LARGE_VP = 840;
 /** AppStorage 键：当前断点与窗口宽度（供 @StorageProp 绑定自动刷新） */
 export const KEY_BREAKPOINT = 'breakpoint';
 export const KEY_WINDOW_WIDTH_VP = 'windowWidthVp';
+/** AppStorage 键：底部手势条（导航条）安全区高度 vp；底部栏据此把背景铺到屏幕底、内容留在手势条之上 */
+export const KEY_SAFE_BOTTOM_VP = 'safeBottomVp';
 
 let currentBreakpoint: Breakpoint = 'sm';
 let currentWidthVp: number = 360;
@@ -145,8 +147,30 @@ function syncWindowWidth(): void {
     const rect = mainWindow.getWindowProperties().windowRect;
     const density = display.getDefaultDisplaySync().densityPixels;
     publishWindowWidth(density > 0 ? rect.width / density : rect.width);
+    publishBottomInset();
   } catch (err) {
     hilog.warn(DOMAIN, TAG, 'syncWindowWidth failed: %{public}s', JSON.stringify(err));
+  }
+}
+
+/**
+ * 读取底部手势条安全区高度并广播（vp）。
+ *
+ * 底部导航栏要把背景铺到屏幕最底（含手势条那条小横条的区域），内容又不能被手势条压住，
+ * 因此需要这个高度：背景靠安全区扩展，内容靠等高的底部内边距让开。
+ */
+function publishBottomInset(): void {
+  if (!mainWindow) {
+    return;
+  }
+  try {
+    const density = display.getDefaultDisplaySync().densityPixels;
+    const avoid = mainWindow.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
+    const bottomPx = avoid.bottomRect.height;
+    const bottomVp = density > 0 ? Math.round(bottomPx / density) : 0;
+    AppStorage.setOrCreate(KEY_SAFE_BOTTOM_VP, bottomVp > 0 ? bottomVp : 0);
+  } catch (err) {
+    hilog.info(DOMAIN, TAG, 'publishBottomInset skipped: %{public}s', JSON.stringify(err));
   }
 }
 

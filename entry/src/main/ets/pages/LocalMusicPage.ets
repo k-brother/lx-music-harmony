@@ -137,12 +137,42 @@ export struct LocalMusicPage {
     }
   }
 
-  private async importMusic(): Promise<void> {
+  /**
+   * 导入入口：让用户选「系统音频选择器」还是「文件管理」。
+   *
+   * 系统音频选择器由华为音乐提供，部分设备上打开是空白页（真机实测），
+   * 所以给一条一定能用的通路：从文件管理里按扩展名挑音频。
+   */
+  private async chooseImportSource(): Promise<void> {
+    const picked = await appActionMenu(t('local_import_title'), [
+      t('local_import_from_music'),
+      t('local_import_from_files'),
+    ]);
+    if (picked === 0) {
+      await this.importMusic(false);
+    } else if (picked === 1) {
+      await this.importMusic(true);
+    }
+  }
+
+  /** @param fromFiles true = 走文件管理选择器 */
+  private async importMusic(fromFiles: boolean): Promise<void> {
     this.isLoading = true;
+    const before = this.tracks.length;
     try {
-      await localMusicService.importFromPicker();
+      if (fromFiles) {
+        await localMusicService.importFromFilePicker();
+      } else {
+        await localMusicService.importFromPicker();
+      }
       await this.loadLibrary();
-      this.showToast(tf('local_imported', [this.tracks.length.toString()]));
+      const added = this.tracks.length - before;
+      if (added <= 0) {
+        // 取消选择 / 一首都没复制进来时给明确反馈，而不是一句「已导入 0 首」
+        this.showToast(t('local_import_none'));
+      } else {
+        this.showToast(tf('local_imported', [added.toString()]));
+      }
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'importMusic failed: %{public}s', JSON.stringify(err));
       this.showToast(t('local_import_failed'));
@@ -336,7 +366,7 @@ export struct LocalMusicPage {
         void this.rescan();
       },
       onImport: (): void => {
-        void this.importMusic();
+        void this.chooseImportSource();
       },
     })
   }
@@ -358,7 +388,7 @@ export struct LocalMusicPage {
         .margin({ top: 10 })
         .onClick(() => {
           hapticService.light();
-          void this.importMusic();
+          void this.chooseImportSource();
         })
     }
     .width('100%')

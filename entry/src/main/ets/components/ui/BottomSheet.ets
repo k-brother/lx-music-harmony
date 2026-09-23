@@ -75,7 +75,10 @@ export struct BottomSheet {
       .height(1)
       .opacity(0)
       .bindSheet($$this.visible, this.SheetContent(), {
-        height: this.sheetSize === 'large' ? SheetSize.LARGE : SheetSize.MEDIUM,
+        // fit = 高度跟随内容（动作菜单用，避免选项少时下面空白一片）
+        height: this.sheetSize === 'large'
+          ? SheetSize.LARGE
+          : (this.sheetSize === 'fit' ? SheetSize.FIT_CONTENT : SheetSize.MEDIUM),
         dragBar: true,
         showClose: false,
         backgroundColor: DesignTokens.card(this.theme),

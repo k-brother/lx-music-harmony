@@ -26,6 +26,10 @@ export function buildZhCN(): Map<string, string> {
   m.set('local_import', '导入本地音乐');
   m.set('local_imported', '本地曲库共 {0} 首');
   m.set('local_import_failed', '导入失败，请重试');
+  m.set('local_import_title', '添加本地音乐');
+  m.set('local_import_from_music', '系统音频选择器');
+  m.set('local_import_from_files', '从「文件管理」选择');
+  m.set('local_import_none', '没有选中任何音频文件');
   m.set('local_empty_hint', '还没有本地音乐\n点击右上角「+」或下方按钮导入音频文件');
   m.set('local_remove_title', '从本地曲库移除');
   m.set('play', '播放');

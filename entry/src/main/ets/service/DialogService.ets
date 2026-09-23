@@ -55,18 +55,12 @@ export async function appConfirm(title: string, message: string, options?: Confi
       icon: danger ? $r('sys.symbol.trash') : $r('sys.symbol.checkmark_circle'),
       danger: danger,
       disabled: false,
-      index: 1,
-    },
-    {
-      label: options?.cancelText ?? t('cancel'),
-      icon: $r('sys.symbol.xmark'),
-      danger: false,
-      disabled: false,
       index: 0,
     },
   ];
   const picked: number = await sheetService.confirm(title, message, rows);
-  return picked === 1;
+  // 点确认行 = 0；右上角关闭/点遮罩 = -1（取消）
+  return picked === 0;
 }
 
 /**

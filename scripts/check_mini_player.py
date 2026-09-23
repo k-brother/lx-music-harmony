@@ -9,7 +9,9 @@
 - Index / NavIndex：导航容器，不含内容；
 - PlayDetailPage：全屏播放页，本身是播放控制；
 - DesktopLyricPage：独立桌面歌词窗口；
-- LogPage：诊断页，不属于内容浏览路径。
+- LogPage：诊断页，不属于内容浏览路径；
+- DownloadPage：它是首页「下载管理」Tab 的内容，迷你条由外层 HomePage/MainPane 提供
+  （自己再挂一条会出现上下两条迷你条，真机截图已确认过）。
 
 用法：python3 scripts/check_mini_player.py
 """
@@ -17,7 +19,8 @@ import pathlib
 import sys
 
 PAGES = pathlib.Path(__file__).resolve().parent.parent / 'entry/src/main/ets/pages'
-SKIP = {'Index.ets', 'NavIndex.ets', 'PlayDetailPage.ets', 'DesktopLyricPage.ets', 'LogPage.ets'}
+SKIP = {'Index.ets', 'NavIndex.ets', 'PlayDetailPage.ets', 'DesktopLyricPage.ets', 'LogPage.ets',
+        'DownloadPage.ets'}
 
 
 def main() -> int:

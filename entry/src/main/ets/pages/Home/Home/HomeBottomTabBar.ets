@@ -19,6 +19,8 @@ export interface HomeTabItem {
 @Component
 export struct HomeBottomTabBar {
   @StorageProp('theme') theme: string = 'light';
+  /** 底部手势条高度（vp）：背景铺到屏幕底，内容让开这一条 */
+  @StorageProp('safeBottomVp') safeBottomVp: number = 0;
   @Prop tabs: HomeTabItem[] = [];
   @Prop activeIndex: number = 0;
   /** 宽屏：竖排在左侧 */
@@ -83,9 +85,16 @@ export struct HomeBottomTabBar {
         // 不写死高度：由 TabItem 撑开，避免再次出现「图标挤到文案」
         .padding({ top: 6, bottom: 6 })
         .border({ width: { top: 0.33 }, color: DesignTokens.hairlineSeparator(this.theme) })
+
+        // 手势条区域：只留高度，Tab 栏背景会铺满（背景在下面通过安全区扩展覆盖）
+        Blank()
+          .width('100%')
+          .height(this.safeBottomVp)
       }
       .width('100%')
       .backgroundColor(DesignTokens.tabBarBg(this.theme))
+      // 背景延伸到屏幕最底（手势条那条小横条落在 Tab 栏背景上，不再是一条突兀的色带）
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
     }
   }
 }

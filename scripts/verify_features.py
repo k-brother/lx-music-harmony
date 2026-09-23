@@ -186,7 +186,7 @@ CHECKS = [
  ('下载页下拉刷新', 'pages/DownloadPage.ets', r'RefreshContainer\('),
  ('我的页下拉刷新', 'pages/Home/MylistView.ets', r'RefreshContainer\('),
  ('触控热区工具函数', 'theme/DesignTokens.ets', r'touchRegion\('),
- ('下载页操作图标热区', 'pages/Download/DownloadTaskRow.ets', r'touchRegion\(22\)'),
+ ('下载页操作图标热区', 'pages/Download/DownloadTaskRow.ets', r'DesignTokens\.touchTarget\(\)'),
  ('下载页状态色走设计 token', 'pages/Download/DownloadView.ets', r'DesignTokens\.(success|warning|info|danger)\(\)'),
  ('下载页暂停态独立文案', 'pages/Download/DownloadView.ets', r"download_paused"),
  ('下载页进度未变不重绘', 'pages/Download/DownloadView.ets', r'downloadTasksSignature'),

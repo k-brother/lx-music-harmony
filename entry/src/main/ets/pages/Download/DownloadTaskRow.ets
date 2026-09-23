@@ -46,41 +46,53 @@ export struct DownloadTaskRow {
 
   @Builder
   TrailingActions() {
-    Column() {
+    // 两个圆底图标按钮（播放/暂停/重试 + 删除）：一横排、尺寸统一。
+    // 此前用 26vp 的字号竖排，真机上图标超出卡片右缘、被裁成半个。
+    Row({ space: 8 }) {
       if (this.row.actionKind !== 'none') {
-        SymbolGlyph(this.primaryIcon())
-          .fontSize(DesignTokens.fontDisplayLarge())
-          .fontColor([DesignTokens.accent()])
-          .responseRegion(DesignTokens.touchRegion(22))
-          .accessibilityText(t('a11y_play'))
-          .onClick(() => {
-            if (this.row.actionKind === 'play') {
-              if (this.onPlay) {
-                this.onPlay();
-              }
-            } else if (this.onPrimaryAction) {
-              this.onPrimaryAction();
+        Stack() {
+          Circle({ width: 32, height: 32 })
+            .fill(DesignTokens.accentSoft(this.theme))
+          SymbolGlyph(this.primaryIcon())
+            .fontSize(DesignTokens.iconLg())
+            .fontColor([DesignTokens.accent()])
+        }
+        .width(DesignTokens.touchTarget())
+        .height(DesignTokens.touchTarget())
+        .align(Alignment.Center)
+        .accessibilityText(t('a11y_play'))
+        .onClick(() => {
+          if (this.row.actionKind === 'play') {
+            if (this.onPlay) {
+              this.onPlay();
             }
-          })
+          } else if (this.onPrimaryAction) {
+            this.onPrimaryAction();
+          }
+        })
       }
 
       if (this.row.canDelete) {
-        SymbolGlyph($r('sys.symbol.xmark'))
-          .fontSize(DesignTokens.fontDisplayLarge())
-          .fontColor([DesignTokens.danger()])
-          .margin({ top: 14 })
-          .responseRegion(DesignTokens.touchRegion(22))
-          .accessibilityText(t('a11y_delete'))
-          .onClick(() => {
-            if (this.onDelete) {
-              this.onDelete();
-            }
-          })
+        Stack() {
+          Circle({ width: 32, height: 32 })
+            .fill(DesignTokens.mutedFill(this.theme))
+          SymbolGlyph($r('sys.symbol.xmark'))
+            .fontSize(DesignTokens.iconLg())
+            .fontColor([DesignTokens.danger()])
+        }
+        .width(DesignTokens.touchTarget())
+        .height(DesignTokens.touchTarget())
+        .align(Alignment.Center)
+        .accessibilityText(t('a11y_delete'))
+        .onClick(() => {
+          if (this.onDelete) {
+            this.onDelete();
+          }
+        })
       }
     }
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
-    .padding({ left: 8 })
+    .alignItems(VerticalAlign.Center)
+    .margin({ left: 8 })
   }
 
   build() {

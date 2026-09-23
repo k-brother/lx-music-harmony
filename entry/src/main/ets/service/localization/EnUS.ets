@@ -23,6 +23,10 @@ export function buildEnUS(): Map<string, string> {
   m.set('local_import', 'Import local music');
   m.set('local_imported', '{0} tracks in the local library');
   m.set('local_import_failed', 'Import failed, please retry');
+  m.set('local_import_title', 'Add local music');
+  m.set('local_import_from_music', 'System audio picker');
+  m.set('local_import_from_files', 'Choose from Files');
+  m.set('local_import_none', 'No audio file selected');
   m.set('local_empty_hint', 'No local music yet\nTap "+" at the top right or the button below to import audio files');
   m.set('local_remove_title', 'Remove from local library');
   m.set('play', 'Play');

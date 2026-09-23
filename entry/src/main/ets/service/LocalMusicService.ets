@@ -13,6 +13,7 @@ import { appLog as hilog } from '../core/log/AppLogger';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { picker as filePicker } from '@kit.CoreFileKit';
 import type { common } from '@kit.AbilityKit';
+import type { BusinessError } from '@kit.BasicServicesKit';
 import storageService, { StorageKeys } from './StorageService';
 import { scanLocalMusic, getLocalPicUrl, type LocalMusicInfo } from '../core/music/local/LocalPlayback';
 import type { SongInfo } from './PlayerService';
@@ -21,6 +22,35 @@ import type { MusicInfo } from '../types/MusicTypes';
 const TAG = 'LocalMusicService';
 const DOMAIN = 0x0005;
 const LOCAL_DIR_NAME = 'localMusic';
+
+/** 建目录：已存在（13900015）不算失败，其它错误才记日志 */
+function ensureLocalDir(dir: string): void {
+  try {
+    fs.mkdirSync(dir, true);
+  } catch (err) {
+    const code: number = (err as BusinessError)?.code ?? 0;
+    // 13900015 = 目录已存在
+    if (code !== 13900015) {
+      hilog.warn(DOMAIN, TAG, 'mkdir local dir failed: code=%{public}d', code);
+    }
+  }
+}
+
+/**
+ * 把选择器返回的 URI 复制进沙箱。
+ *
+ * 关键点：选择器给的是 `file://docs/...` 这类 **URI**，不是文件系统路径。
+ * 直接 `copyFileSync(uri, dest)` 会报 "No such file or directory"（真机上就是
+ * 「选了歌却一首都没进来」）。正确做法是先用 openSync 把 URI 打开成 fd，再按 fd 复制。
+ */
+function copyUriToSandbox(uri: string, destPath: string): void {
+  const src: fs.File = fs.openSync(uri, fs.OpenMode.READ_ONLY);
+  try {
+    fs.copyFileSync(src.fd, destPath);
+  } finally {
+    fs.closeSync(src);
+  }
+}
 
 class LocalMusicServiceImpl {
   private context: common.UIAbilityContext | null = null;
@@ -89,22 +119,20 @@ class LocalMusicServiceImpl {
     if (dir.length === 0) {
       return 0;
     }
-    try {
-      fs.mkdirSync(dir, true);
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'mkdir local dir failed: %{public}s', JSON.stringify(err));
-    }
+    ensureLocalDir(dir);
 
-    let added = 0;
+    let copied = 0;
     // 先全部复制进沙箱，再统一扫描一次（避免每导入一首就重扫整个目录）
     for (let i = 0; i < uris.length; i++) {
       const uri = uris[i];
       const fileName = this.buildSafeFileName(uri);
       const destPath = `${dir}/${fileName}`;
       try {
-        if (!fs.accessSync(destPath)) {
-          fs.copyFileSync(uri, destPath);
+        if (fs.accessSync(destPath)) {
+          continue;
         }
+        copyUriToSandbox(uri, destPath);
+        copied += 1;
       } catch (err) {
         hilog.warn(DOMAIN, TAG, 'import %{public}s failed: %{public}s',
           uri, err instanceof Error ? err.message : JSON.stringify(err));
@@ -112,10 +140,39 @@ class LocalMusicServiceImpl {
     }
     const before = this.library.length;
     this.library = await scanLocalMusic(dir);
-    added = Math.max(0, this.library.length - before);
+    const added = Math.max(0, this.library.length - before);
     await this.persist();
-    hilog.info(DOMAIN, TAG, 'Imported %{public}d tracks, library size=%{public}d', added, this.library.length);
+    hilog.info(DOMAIN, TAG, 'Imported %{public}d tracks (copied %{public}d/%{public}d), library size=%{public}d',
+      added, copied, uris.length, this.library.length);
     return added;
+  }
+
+  /**
+   * 从「文件管理」里选音频导入。
+   *
+   * 系统音频选择器（AudioViewPicker）由华为音乐提供，部分设备上会打开一片空白/无内容，
+   * 这里给一条不依赖它的通路：文件管理里按扩展名筛音频，多选后同样复制进沙箱。
+   */
+  async importFromFilePicker(): Promise<number> {
+    if (!this.context) {
+      hilog.warn(DOMAIN, TAG, 'importFromFilePicker: context not set');
+      return 0;
+    }
+    try {
+      const picker = new filePicker.DocumentViewPicker(this.context);
+      const options = new filePicker.DocumentSelectOptions();
+      options.maxSelectNumber = 100;
+      options.fileSuffixFilters = ['.mp3', '.flac', '.m4a', '.aac', '.wav', '.ogg', '.opus', '.wma', '.ape'];
+      const uris: string[] = await picker.select(options);
+      if (!uris || uris.length === 0) {
+        return 0;
+      }
+      return await this.importUris(uris);
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'importFromFilePicker failed: %{public}s',
+        err instanceof Error ? err.message : JSON.stringify(err));
+      return 0;
+    }
   }
 
   /** 重新扫描沙箱目录（文件被删除/新增后刷新曲库） */

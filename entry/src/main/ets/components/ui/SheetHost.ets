@@ -74,8 +74,6 @@ export struct SheetHost {
         title: this.title,
         message: this.message,
         rows: this.rows,
-        // 菜单底部固定给一行「取消」；确认框的两行动作里已经有取消，不重复
-        showCancelRow: this.kind === 'menu',
         onPick: (index: number): void => {
           this.finish(index.toString());
         },
