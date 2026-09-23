@@ -695,13 +695,15 @@ inputRow / infoRow` 五个工厂把「一行 = 标题 + 值 + 选项 + 回调」
 ### 自检与出包（一条命令）
 
 ```
-./scripts/check.sh     # 11 个静态检查：
+./scripts/check.sh     # 静态检查（30 个脚本 / 235 项功能判据）：
                        #   check_imports / check_dead（含类成员、@State）
                        #   check_unused_exports / check_reachable / check_routes
                        #   check_storage_bindings / check_permissions
                        #   check_i18n / check_symbols
                        #   check_settings_copy / check_settings_reset
-                       #   check_duplicate_impls / verify_features(212 项)
+                       #   check_settings_ui / check_mini_player / check_responsive
+                       #   check_keyboard / check_style_noise / check_duplicate_blocks
+                       #   check_duplicate_impls / verify_features(235 项)
 ./scripts/release.sh   # 先自检，再出已签名的 Release HAP
 ./scripts/device_all.sh  # 真机批量回归（需要设备在线）
 ```
@@ -1058,6 +1060,39 @@ python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 - **StorageService** - Persistent storage
 - **ListService** - Playlist management
 - **EventBus** - Inter-component communication
+
+### Phase 5：逐字歌词 + 2in1 交互（本轮）
+
+这一轮做的是「数据已经在手上、界面却没用」的那类补口，以及鸿蒙 2in1（PC / 平板接键鼠）
+那条经常被忽略的输入通道。
+
+| 能力 | 之前 | 现在 |
+| --- | --- | --- |
+| **逐字歌词（卡拉OK）** | `lxlyric` 一路带着走却从没渲染：酷我把逐字标记直接丢掉、网易云压根没请求 yrc | 新增 `core/lyric/WordLyric.ets` 统一解析 kg/kw/wy 三种格式；酷我保留 lrcxml 标记、网易云补 `yv=1`；播放页当前行按字高亮（已唱=主题色 / 未唱=暗色） |
+| **播放页平滑进度** | 进度轮询 1s 一次，进度条与歌词每秒跳一下 | 新增 100ms 平滑表：以真实位置为基准、本地时钟插值（暂停/seek 立即对齐，页面销毁清表），逐字高亮与进度条都走它 |
+| **下拉刷新** | 只有评论/下载/排行榜/我的歌单/歌单广场有 | 歌单详情、本地音乐（重扫）、播放历史、我喜欢补齐；统一 `RefreshContainer`，静默刷新保留列表（不闪骨架、失败只提示不清空） |
+| **迷你播放条** | 只有首页/本地音乐/歌单详情/榜单详情有 | 历史、我喜欢、我的歌单、下载、评论补齐，并加脚本钉住 |
+| **单条记录操作** | 长列表只能「全清」 | 历史侧滑删单条（按 id+source+playedAt 定位）、我喜欢侧滑取消收藏、歌词长按复制这一句、搜索历史长按删单条 |
+| **2in1 键盘** | 自定义可点区域不可聚焦 | 列表行/卡片/歌词行 `.focusable(true)` + 回车激活（`utils/KeyboardTools.isConfirmKey`） |
+| **2in1 鼠标** | 只有按压态 | 列表行与本地音乐行右键 = 长按（出同一套行菜单） |
+| **播放页手势** | 只能点返回 | 封面区下滑关闭播放页（超阈值返回并轻震动，未到自动回弹；手势只挂封面，不吃歌词区滚动） |
+| **一多** | 关于页 / 自定义源页在平板上整屏拉满 | 统一 1200vp 内容列居中，并由 `check_responsive.py` 守住 |
+
+结构上这一轮也继续收口：`HomePage`（SearchOverlay / playSearchResult）、`UserListsPage`
+（卡片四段）、`PlayDetailPage`（双形态 + 控制区）、`CommentPage`（加载态收口）、
+`PlayerService.setSource`、`PluginManager.loadCustomSource`、网易云搜索、酷狗/酷我歌单、
+两处热搜的长函数与重复兜底各收敛一处。
+
+新增自检脚本（全部挂进 `check.sh`）：
+
+| 脚本 | 拦什么 |
+| --- | --- |
+| `check_duplicate_blocks.py` | 同一文件里 15 行以上的重复片段（排行榜卡片列表曾复制两份，其中一份漏了宽屏留白） |
+| `check_style_noise.py` | 连续重复且缩进错位的通用属性（漏改留下的尾巴） |
+| `check_mini_player.py` | 内容页必须挂迷你播放条 |
+| `check_responsive.py` | 内容页必须至少有一处断点处理 |
+| `check_keyboard.py` | 共享行/卡片组件必须支持 2in1 键盘激活 |
+| `check_settings_ui.py` | 每个设置项都必须「有入口写入 + 有人读取」 |
 
 ## Dependencies
 
