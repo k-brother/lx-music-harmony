@@ -101,7 +101,11 @@ export struct CustomSourceView {
   }
 
   /** 重新下载脚本并刷新（「更新」） */
-  private async updateSource(source: StoredCustomSource): Promise<void> {
+  private async updateSource(index: number): Promise<void> {
+    if (index < 0 || index >= this.customSources.length) {
+      return;
+    }
+    const source: StoredCustomSource = this.customSources[index];
     if (this.busySourceId.length > 0) {
       return;
     }
@@ -127,7 +131,11 @@ export struct CustomSourceView {
   }
 
   /** 删除自定义源（带确认） */
-  private async removeSource(source: StoredCustomSource): Promise<void> {
+  private async removeSource(index: number): Promise<void> {
+    if (index < 0 || index >= this.customSources.length) {
+      return;
+    }
+    const source: StoredCustomSource = this.customSources[index];
     // 统一走 DialogService 的危险确认（不再自己拼按钮与颜色）
     const confirmed = await appConfirm(
       t('custom_source_remove'),
@@ -303,18 +311,29 @@ export struct CustomSourceView {
 
   /** 一条自定义源：名称/版本/作者 + 启用开关 + 更新 + 删除 */
   @Builder
-  buildCustomSourceRow(source: StoredCustomSource) {
+  buildCustomSourceRow(index: number) {
+    // 规则（实测结论）：@Builder 的参数不会随状态刷新 —— 自定义源的启用角标属于会变的状态，
+    // 所以只传稳定的 index，内容从 this.customSources 读，切换启用后角标才会跟着变。
+    if (index < 0 || index >= this.customSources.length) {
+      Blank()
+    } else {
+      this.CustomSourceRowBody(index)
+    }
+  }
+
+  @Builder
+  CustomSourceRowBody(index: number) {
     Column() {
       Row() {
         Column() {
           Row() {
-            Text(source.name.length > 0 ? source.name : source.url)
+            Text(this.customSources[index].name.length > 0 ? this.customSources[index].name : this.customSources[index].url)
               .fontSize(15)
               .fontColor(DesignTokens.labelPrimary(this.theme))
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
               .layoutWeight(1)
-            if (source.enabled) {
+            if (this.customSources[index].enabled) {
               Text(t('custom_source_in_use'))
                 .fontSize(10)
                 .fontColor(DesignTokens.accent())
@@ -326,9 +345,9 @@ export struct CustomSourceView {
           }
           .width('100%')
 
-          Text(source.version.length > 0
-            ? `${t('label_version_colon')} ${source.version}${source.author.length > 0 ? '  ' + t('label_author_colon') + ' ' + source.author : ''}`
-            : source.url)
+          Text(this.customSources[index].version.length > 0
+            ? `${t('label_version_colon')} ${this.customSources[index].version}${this.customSources[index].author.length > 0 ? '  ' + t('label_author_colon') + ' ' + this.customSources[index].author : ''}`
+            : this.customSources[index].url)
             .fontSize(11)
             .fontColor(DesignTokens.labelTertiary(this.theme))
             .maxLines(1)
@@ -339,13 +358,13 @@ export struct CustomSourceView {
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
 
-        Toggle({ type: ToggleType.Switch, isOn: source.enabled })
+        Toggle({ type: ToggleType.Switch, isOn: this.customSources[index].enabled })
           .enabled(this.busySourceId.length === 0)
           .onChange((isOn: boolean) => {
-            if (isOn === source.enabled) {
+            if (isOn === this.customSources[index].enabled) {
               return;
             }
-            void this.toggleSourceEnabled(source);
+            void this.toggleSourceEnabled(this.customSources[index]);
           })
       }
       .width('100%')
@@ -357,14 +376,14 @@ export struct CustomSourceView {
           .fontColor(DesignTokens.accent())
           .padding({ top: 6, bottom: 2, right: 8 })
           .onClick(() => {
-            void this.updateSource(source);
+            void this.updateSource(index);
           })
         Text(t('delete'))
           .fontSize(13)
           .fontColor(DesignTokens.danger())
           .padding({ top: 6, bottom: 2 })
           .onClick(() => {
-            void this.removeSource(source);
+            void this.removeSource(index);
           })
       }
       .width('100%')
@@ -455,9 +474,9 @@ export struct CustomSourceView {
 
           // 已保存的自定义源列表：启用/停用、更新、删除（对齐安卓版 userApi 管理）
           if (this.customSources.length > 0) {
-            ForEach(this.customSources, (source: StoredCustomSource) => {
-              this.buildCustomSourceRow(source)
-            }, (source: StoredCustomSource) => source.id)
+            ForEach(this.customSources, (source: StoredCustomSource, index: number) => {
+              this.buildCustomSourceRow(index)
+            }, (source: StoredCustomSource) => `${source.id}_${source.enabled}_${source.version}`)
           }
 
           // 自定义源入口
