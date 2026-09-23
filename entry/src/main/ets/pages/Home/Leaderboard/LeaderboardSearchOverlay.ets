@@ -8,10 +8,13 @@ import { DesignTokens } from '../../../theme/DesignTokens';
 import { t } from '../../../service/LocalizationService';
 import { SearchStrip, SearchStripActions } from '../../../components/common/SearchStrip';
 import type { BoardItem } from '../../../store/leaderboard/LeaderboardStoreState';
+import { Breakpoints } from '../../../theme/Breakpoints';
 
 @Component
 export struct LeaderboardSearchOverlay {
   @StorageProp('theme') theme: string = 'light';
+  /** 一多：窗口宽度（vp），大屏内容列居中 */
+  @StorageProp('windowWidthVp') windowWidthVp: number = 360;
   @Link searchText: string;
   @Prop boards: BoardItem[] = [];
   /** 榜单总数为 0 时文案用「暂无数据」，否则是「没有匹配结果」 */
@@ -102,5 +105,10 @@ export struct LeaderboardSearchOverlay {
     .width('100%')
     .height('100%')
     .backgroundColor(DesignTokens.pageBg(this.theme))
+    // 大屏内容列居中：榜单搜索框与结果同样不该横跨整屏
+    .padding({
+      left: Breakpoints.contentInset(this.windowWidthVp),
+      right: Breakpoints.contentInset(this.windowWidthVp),
+    })
   }
 }

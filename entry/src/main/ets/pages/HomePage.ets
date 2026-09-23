@@ -74,6 +74,8 @@ export struct HomePage {
   @StorageProp('theme') theme: string = 'light';
   /** 一多：断点（宽屏走左侧导航） */
   @StorageProp('breakpoint') breakpoint: string = 'sm';
+  /** 一多：窗口宽度（vp），大屏内容列居中（搜索浮层等） */
+  @StorageProp('windowWidthVp') windowWidthVp: number = 360;
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
   @State currentTab: number = 0;
@@ -629,6 +631,11 @@ export struct HomePage {
       .width('100%')
       .height('100%')
       .backgroundColor(DesignTokens.pageBg(this.theme))
+      // 大屏内容列居中：搜索框与结果列表都不该横跨整屏（背景仍通栏）
+      .padding({
+        left: Breakpoints.contentInset(this.windowWidthVp),
+        right: Breakpoints.contentInset(this.windowWidthVp),
+      })
     }
   }
 
