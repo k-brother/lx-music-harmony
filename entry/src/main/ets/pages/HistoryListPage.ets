@@ -22,6 +22,7 @@ import { ListRow } from '../components/ui/ListRow';
 import { StateView } from '../components/ui/StateView';
 import { RefreshContainer } from '../components/ui/RefreshContainer';
 import { hapticService } from '../service/HapticService';
+import { PlayerBar } from '../components/player/PlayerBar';
 
 const DOMAIN = 0x0001;
 const TAG = 'HistoryListPage';
@@ -217,6 +218,9 @@ export struct HistoryListPage {
         .layoutWeight(1)
         .width('100%')
       }
+
+      // 迷你播放条：历史页也能看见当前播放并一键回播放页（与首页/本地音乐一致）
+      PlayerBar()
     }
     .width('100%')
     .height('100%')

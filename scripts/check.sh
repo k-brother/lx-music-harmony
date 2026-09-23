@@ -29,6 +29,9 @@ python3 "${SCRIPT_DIR}/check_permissions.py"
 echo "== 无障碍（纯图标按钮需可朗读）=="
 python3 "${SCRIPT_DIR}/check_accessibility.py"
 
+echo "== 迷你播放条覆盖 =="
+python3 "${SCRIPT_DIR}/check_mini_player.py"
+
 echo "== i18n 词条对齐 =="
 python3 "${SCRIPT_DIR}/check_i18n.py"
 

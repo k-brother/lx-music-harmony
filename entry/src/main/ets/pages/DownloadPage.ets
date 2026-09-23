@@ -23,6 +23,7 @@ import { playerService, type SongInfo } from '../service/PlayerService';
 import { download, setDownloadContext, DownloadStatus, type DownloadTask } from '../core/music/MusicFeatureEntry';
 import { parsePlayTime } from '../utils/CommonUtils';
 import { NavBar } from '../components/ui/NavBar';
+import { PlayerBar } from '../components/player/PlayerBar';
 import { SegmentedBar } from '../components/ui/SegmentedBar';
 import { RefreshContainer } from '../components/ui/RefreshContainer';
 import { StateView } from '../components/ui/StateView';
@@ -532,6 +533,9 @@ export struct DownloadPage {
           },
         })
       }
+
+      // 迷你播放条：下载页也能看见当前播放并一键回播放页（与首页/本地音乐一致）
+      PlayerBar()
     }
     .width('100%')
     .height('100%')

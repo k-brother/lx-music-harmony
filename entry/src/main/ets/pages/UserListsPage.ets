@@ -9,6 +9,7 @@ import { DesignTokens } from '../theme/DesignTokens';
 import { Breakpoints } from '../theme/Breakpoints';
 import { scrollerOffsetY } from '../utils/ScrollTools';
 import { NavBar } from '../components/ui/NavBar';
+import { PlayerBar } from '../components/player/PlayerBar';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { StateView } from '../components/ui/StateView';
 import {
@@ -469,6 +470,9 @@ export struct UserListsPage {
             }
           })
         }
+
+        // 迷你播放条（页面底部沉浸到安全区，与歌单详情页一致）
+        PlayerBar({ immersiveBottom: true })
       }
       .width('100%')
       .height('100%')

@@ -18,6 +18,7 @@ import { RefreshContainer } from '../components/ui/RefreshContainer';
 import { hapticService } from '../service/HapticService';
 import { StateView } from '../components/ui/StateView';
 import { SegmentedBar } from '../components/ui/SegmentedBar';
+import { PlayerBar } from '../components/player/PlayerBar';
 import { t } from '../service/LocalizationService';
 
 const DOMAIN: number = 0x0001;
@@ -360,6 +361,9 @@ export struct CommentPage {
         } else {
           this.buildEmptyState()
         }
+
+        // 迷你播放条：看评论时也能看见当前播放并一键回播放页（与首页/本地音乐一致）
+        PlayerBar()
       }
       .width('100%')
       .height('100%')
