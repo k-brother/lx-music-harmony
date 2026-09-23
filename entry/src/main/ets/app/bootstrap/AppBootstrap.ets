@@ -6,6 +6,8 @@ import { initMusicSDK, restoreEnabledCustomSource } from '../../core/music/Music
 import { runVersionCheckDeferred } from '../../service/VersionCheckService';
 import { settingsService } from '../../service/SettingsService';
 import { DesktopLyricManager } from '../../components/common/DesktopLyric';
+import { on, EventTypes } from '../../service/EventBus';
+import { setLanguage } from '../../service/LocalizationService';
 
 const TAG = 'AppBootstrap';
 const DOMAIN = 0x0001;
@@ -33,6 +35,7 @@ export async function runBootstrapAfterServices(want?: object): Promise<void> {
   // 歌词文本由 PlayerService（播放器歌词中枢）在切歌/播放时下发。
   AppStorage.setOrCreate('desktopLyricText', '');
   AppStorage.setOrCreate('desktopLyricNextText', '');
+  bindLanguageSync();
   await initMusicSDK();
   hilog.info(
     DOMAIN,
@@ -44,6 +47,28 @@ export async function runBootstrapAfterServices(want?: object): Promise<void> {
   scheduleDesktopLyricRestore();
   handleLaunchWant(want);
   runVersionCheckDeferred();
+}
+
+/**
+ * 语言跟随设置变化。
+ *
+ * 用户手动切语言时由设置页直接调 setLanguage()；但「恢复默认设置」「恢复备份」
+ * 「同步下发」都会改 settings.language 而不会经过设置页 —— 那样界面语言会一直
+ * 停在旧值，直到重启。这里订阅一次设置变化，发现与当前语言不一致就补一次。
+ */
+function bindLanguageSync(): void {
+  const applyIfChanged = (): void => {
+    const next = settingsService.get().language;
+    const current = AppStorage.get<string>('language');
+    if (next.length > 0 && next !== current) {
+      setLanguage(next);
+      hilog.info(DOMAIN, TAG, 'Language synced from settings: %{public}s', next);
+    }
+  };
+  applyIfChanged();
+  on(EventTypes.SETTING_CHANGED, (): void => {
+    applyIfChanged();
+  });
 }
 
 function scheduleDesktopLyricRestore(): void {
