@@ -282,6 +282,11 @@ function buildZhCN(): Map<string, string> {
   m.set('settings_haptic_desc', '切歌、暂停、长按菜单等操作时轻微振动');
   m.set('download_use_file_picker', '每次下载询问保存位置');
   m.set('download_use_file_picker_desc', '关闭时按「保存位置」自动保存，写不进去就留在应用目录，不会打断下载');
+  m.set('download_file_name', '下载文件名');
+  m.set('download_file_name_desc', '同时作用于下载保存的文件名与分享文案的标题');
+  m.set('download_file_name_name_singer', '歌名 - 歌手');
+  m.set('download_file_name_singer_name', '歌手 - 歌名');
+  m.set('download_file_name_name', '歌名');
   m.set('list_select_all', '全选');
   m.set('list_deselect_all', '取消全选');
   m.set('list_selected_count', '已选 {0} 首');
@@ -491,7 +496,6 @@ function buildZhCN(): Map<string, string> {
   m.set('sleep_60min', '60分钟后停止播放');
   m.set('sleep_disable', '关闭定时退出');
   m.set('default_list_label', '默认列表');
-  m.set('unnamed_list', '未命名歌单');
   m.set('switch_to_lyric', '切换到歌词');
   m.set('switch_to_cover', '切换到封面');
   m.set('close_desktop_lyric', '关闭桌面歌词');
@@ -918,6 +922,11 @@ function buildEnUS(): Map<string, string> {
   m.set('settings_haptic_desc', 'Gentle vibration on track change, pause and long-press menus');
   m.set('download_use_file_picker', 'Ask where to save every download');
   m.set('download_use_file_picker_desc', 'When off, downloads use the configured folder; if it is not writable the file stays in the app folder without interrupting you');
+  m.set('download_file_name', 'File Name Format');
+  m.set('download_file_name_desc', 'Applies to downloaded file names and the title of shared text');
+  m.set('download_file_name_name_singer', 'Song - Artist');
+  m.set('download_file_name_singer_name', 'Artist - Song');
+  m.set('download_file_name_name', 'Song');
   m.set('list_select_all', 'Select all');
   m.set('list_deselect_all', 'Deselect all');
   m.set('list_selected_count', '{0} selected');
@@ -1126,7 +1135,6 @@ function buildEnUS(): Map<string, string> {
   m.set('sleep_60min', 'Stop after 60 min');
   m.set('sleep_disable', 'Disable sleep timer');
   m.set('default_list_label', 'Default List');
-  m.set('unnamed_list', 'Unnamed Playlist');
   m.set('switch_to_lyric', 'Switch to Lyrics');
   m.set('switch_to_cover', 'Switch to Cover');
   m.set('close_desktop_lyric', 'Close Desktop Lyrics');

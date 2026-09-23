@@ -661,17 +661,20 @@ const size = await sheetService.input('字体大小', '14', { numberOnly: true }
 每轮改完在 `harmony/` 下跑一遍（脚本在 `scripts/`，不依赖网络）：
 
 ```bash
-./scripts/check.sh            # 依次跑下面四项
+./scripts/check.sh            # 依次跑下面五项
 python3 scripts/check_imports.py       # 未使用的 import = 0
 python3 scripts/check_dead.py          # 未被引用的私有方法 = 0
 python3 scripts/check_i18n.py          # 中英词条一一对应、无重复、无闲置
+python3 scripts/check_settings_copy.py # 设置快照字段完整（加设置项漏拷 copyOf 会被拦下）
 python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 ```
 
 静态检查证明不了运行时行为，所以另有真机冒烟回归（需要连着设备）：
 
 ```bash
-./hvigor.sh assembleApp && ./scripts/device_smoke.sh
+./hvigor.sh assembleApp
+./scripts/device_smoke.sh          # 主链路：换源 → 详情 → 播放/歌词 → 队列 → 设置
+./scripts/device_settings_check.sh # 设置页专项：选完即时刷新 + 下载文件名落库
 ```
 
 它会装包、冷启动，然后按顺序跑「换源重载 → 歌单详情出歌 → 播放页歌词链路 →
@@ -693,6 +696,19 @@ python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 | 面板确认后用户输入被吞 | 「关闭」事件先于回调触发，被当成取消 | InputSheet/SelectSheet 改为先回调再关闭 |
 | 切语言后部分文案不变 | 筛选/排序文案缓存在 @State，只在加载数据时重建 | 两页对 langVersion 加 @Watch，语言变化即按现有数据重建 label |
 | 榜单详情个别源白屏 | 只有榜单 Tab 自己实现了超时+空包重试 | 下沉到 `core/leaderboard.getLeaderboardDetailReliable`，两处共用 |
+| 设置里选完选项，右侧「当前值」不变 | 设置分组 `ForEach` 的 key 只带 `title+index`，行被复用不重建 | key 加入 `type/value`，选完即刷新（真机复验：选「原名」立刻变） |
+| 改「下载文件名」后下载仍按旧格式命名 | `settingsService.get()` 返回的是 `copyOf()` 手工逐字段快照，新字段漏拷 → 运行时拿到默认值 | 补 `copyOf` 字段，并加 `scripts/check_settings_copy.py` 把「加设置漏拷贝」变成可自动拦截的规则 |
+
+### 与安卓版逐项核对（`app_setting` 全键比对）
+
+拿安卓版 `src/types/app_setting.d.ts` 的 68 个设置键与鸿蒙 `AppSettings` 做了一次全量比对，
+结论：68 个键里只有 6 个是 Android 布局/SAF 专有（`autoHidePlayBar`、`homePageScroll`、
+`drawerLayoutPosition`、`showBackBtn`、`alwaysKeepStatusbarHeight`、`useSystemFileSelector`，
+见上文差异说明），其余全部有对应实现；本轮补上最后一个真缺口：
+
+| 安卓设置 | 鸿蒙实现 |
+| --- | --- |
+| `download.fileName`（下载文件名：歌名 - 歌手 / 歌手 - 歌名 / 歌名） | 设置 → 下载 →「下载文件名」，同时作用于下载文件命名、歌词/封面缓存命名与分享文案标题（`core/music/MusicTitle.ets` 单一入口，替换掉原来 4 处硬编码） |
 
 ### 本轮结构拆分
 

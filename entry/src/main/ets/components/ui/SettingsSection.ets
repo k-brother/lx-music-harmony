@@ -165,7 +165,10 @@ export struct SettingsSection {
               }
             }
             .width('100%')
-          }, (item: SettingSectionItem, index: number) => `${item.title}_${index}`)
+            // key 必须带上当前值：只按 title+index 做 key 时，ForEach 会复用旧节点，
+            // 真机上表现为「选完选项右侧文案不变（其实设置已生效）」。
+          }, (item: SettingSectionItem, index: number): string =>
+            `${index}_${item.type}_${item.title}_${String(item.value)}`)
         }
         .width('100%')
         .backgroundColor(DesignTokens.card(this.theme))

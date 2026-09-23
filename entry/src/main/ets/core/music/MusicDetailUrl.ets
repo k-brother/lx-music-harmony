@@ -5,6 +5,8 @@
  * 本地音乐没有在线详情页，返回空串（与安卓版一致）。
  */
 import type { MusicInfo } from '../../types/MusicTypes';
+import { settingsService } from '../../service/SettingsService';
+import { formatMusicTitle } from './MusicTitle';
 
 export function getMusicDetailPageUrl(musicInfo: MusicInfo): string {
   const source = musicInfo.source as string;
@@ -30,13 +32,22 @@ export function getMusicDetailPageUrl(musicInfo: MusicInfo): string {
   }
 }
 
-/** 分享文案：歌曲信息 + 详情页链接（与安卓版 shareMusic 拼装规则一致） */
+/**
+ * 分享文案：歌曲信息 + 详情页链接（与安卓版 shareMusic 拼装规则一致）
+ *
+ * 标题部分走「设置 → 下载 → 下载文件名」的格式（安卓版同样用 `download.fileName`
+ * 生成分享标题），因此改设置后分享与下载命名保持一致。
+ */
 export function buildShareText(musicInfo: MusicInfo, extra: string = ''): string {
-  const name = musicInfo.name ?? '';
-  const singer = musicInfo.singer ?? '';
+  const title = formatMusicTitle(musicInfo, settingsService.get().downloadFileName);
   const album = musicInfo.albumName ?? musicInfo.album ?? '';
-  const title = album.length > 0 ? `${name} - ${singer} · ${album}` : `${name} - ${singer}`;
   const detailUrl = getMusicDetailPageUrl(musicInfo);
-  const body = extra.length > 0 ? `${title} · ${extra}` : title;
+  let body = title;
+  if (album.length > 0) {
+    body = `${body} · ${album}`;
+  }
+  if (extra.length > 0) {
+    body = `${body} · ${extra}`;
+  }
   return detailUrl.length > 0 ? `${body}\n${detailUrl}` : body;
 }

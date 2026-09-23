@@ -333,6 +333,7 @@ interface StorageKeysInterface {
   // 下载设置
   DOWNLOAD_PATH: string;
   DOWNLOAD_USE_FILE_PICKER: string;
+  DOWNLOAD_FILE_NAME: string;
   DOWNLOAD_AUTO_START: string;
   DOWNLOAD_MAX_CONCURRENT: string;
 
@@ -440,6 +441,7 @@ export const StorageKeys: StorageKeysInterface = {
   // 下载设置
   DOWNLOAD_PATH: 'setting.download.path',
   DOWNLOAD_USE_FILE_PICKER: 'setting.download.useFilePicker',
+  DOWNLOAD_FILE_NAME: 'setting.download.fileName',
   DOWNLOAD_AUTO_START: 'setting.download.autoStart',
   DOWNLOAD_MAX_CONCURRENT: 'setting.download.maxConcurrent',
 

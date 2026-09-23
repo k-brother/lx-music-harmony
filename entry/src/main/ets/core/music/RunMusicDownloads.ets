@@ -11,6 +11,7 @@ import { request } from '@kit.BasicServicesKit';
 import preferences from '@ohos.data.preferences';
 import filePicker from '@ohos.file.picker';
 import { settingsService } from '../../service/SettingsService';
+import { buildMusicFileStem } from './MusicTitle';
 
 const TAG = 'DOWNLOAD';
 const DOMAIN = 0x0003;
@@ -542,10 +543,7 @@ async function startActualDownload(task: DownloadTask, onProgress?: DownloadProg
     }
 
     const context = getContext();
-    const cleanFileName = (task.musicInfo.name + ' - ' + task.musicInfo.singer)
-      .replace(/[<>:"/\\|?*]/g, '_')
-      .replace(/\s+/g, ' ')
-      .trim() + '.mp3';
+    const cleanFileName = buildMusicFileStem(task.musicInfo, settingsService.get().downloadFileName) + '.mp3';
     const sandboxPath = `${context.filesDir}/downloads/${cleanFileName}`;
     savePath = sandboxPath;
     hilog.info(DOMAIN, TAG, '下载到沙箱: %{public}s', sandboxPath);
@@ -844,11 +842,8 @@ function generateTaskId(musicInfo: MusicInfo): string {
  * 获取默认下载保存路径
  */
 export function getDefaultDownloadPath(musicInfo: MusicInfo): string {
-  // 清理文件名中的非法字符
-  const cleanFileName = (musicInfo.name + ' - ' + musicInfo.singer)
-    .replace(/[<>:"/\\|?*]/g, '_')  // 替换Windows非法字符
-    .replace(/\s+/g, ' ')           // 合并多个空格
-    .trim();
+  // 文件名格式由「设置 → 下载 → 下载文件名」决定
+  const cleanFileName = buildMusicFileStem(musicInfo, settingsService.get().downloadFileName);
 
   // 根据音质选择文件扩展名
   const extension = '.mp3'; // 默认MP3，实际应根据quality选择
@@ -864,10 +859,7 @@ export function getLyricSavePath(musicInfo: MusicInfo): string {
   try {
     const context = getContext();
     const filesDir = context.filesDir;
-    const cleanName = (musicInfo.name + ' - ' + musicInfo.singer)
-      .replace(/[<>:"/\\|?*]/g, '_')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const cleanName = buildMusicFileStem(musicInfo, settingsService.get().downloadFileName);
     return `${filesDir}/lyrics/${cleanName}.lrc`;
   } catch (e) {
     hilog.warn(DOMAIN, TAG, 'getLyricSavePath failed: %{public}s', (e as Error)?.message);
@@ -882,10 +874,7 @@ export function getPicSavePath(musicInfo: MusicInfo): string {
   try {
     const context = getContext();
     const filesDir = context.filesDir;
-    const cleanName = (musicInfo.name + ' - ' + musicInfo.singer)
-      .replace(/[<>:"/\\|?*]/g, '_')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const cleanName = buildMusicFileStem(musicInfo, settingsService.get().downloadFileName);
     return `${filesDir}/covers/${cleanName}.jpg`;
   } catch (e) {
     hilog.warn(DOMAIN, TAG, 'getPicSavePath failed: %{public}s', (e as Error)?.message);

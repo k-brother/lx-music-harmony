@@ -5,9 +5,11 @@
  * 单独成文件后「设置有哪些字段」一目了然。
  */
 import type { S2TMode } from '../../core/lyric/ChineseConvert';
+import type { DownloadFileNameFormat } from '../../core/music/MusicTitle';
 import type { Quality } from '../../types/MusicTypes';
 
-export type { S2TMode };
+export type { S2TMode, DownloadFileNameFormat };
+export { toDownloadFileNameFormat } from '../../core/music/MusicTitle';
 
 /** 播放模式 */
 export type PlayMode = 'listLoop' | 'singleLoop' | 'random' | 'sequential';
@@ -164,6 +166,8 @@ export interface AppSettings {
   downloadPath: string;
   /** 下载时是否每次都拉起系统文件选择器（默认关闭：写不进配置目录时留在应用目录，不打扰） */
   downloadUseFilePicker: boolean;
+  /** 下载文件名格式（安卓版 download.fileName）：歌名 - 歌手 / 歌手 - 歌名 / 歌名 */
+  downloadFileName: DownloadFileNameFormat;
   autoStartDownload: boolean;
   maxConcurrentDownloads: number;
 
@@ -256,6 +260,7 @@ export interface SettingsPatch {
 
   downloadPath?: string;
   downloadUseFilePicker?: boolean;
+  downloadFileName?: DownloadFileNameFormat;
   autoStartDownload?: boolean;
   maxConcurrentDownloads?: number;
 
@@ -347,6 +352,7 @@ export function createDefaultSettings(): AppSettings {
 
     downloadPath: '',
     downloadUseFilePicker: false,
+    downloadFileName: 'name-singer',
     autoStartDownload: true,
     maxConcurrentDownloads: 1,
 

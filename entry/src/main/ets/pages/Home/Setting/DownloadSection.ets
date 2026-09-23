@@ -15,6 +15,7 @@ import { setMaxConcurrentDownloads } from '../../../core/music/MusicFeatureEntry
 import { watchSettings } from '../../../service/SettingsWatcher';
 import { SettingsSection } from '../../../components/ui/SettingsSection';
 import type { SettingSectionItem } from '../../../components/ui/SettingsTypes';
+import type { DownloadFileNameFormat } from '../../../service/SettingsService';
 
 const DOMAIN = 0x0005;
 const TAG = 'DownloadSection';
@@ -25,6 +26,7 @@ export struct DownloadSection {
   @State downloadPath: string = '';
   @State autoStartDownload: boolean = true;
   @State useFilePicker: boolean = false;
+  @State downloadFileName: DownloadFileNameFormat = 'name-singer';
   @State maxConcurrentDownloads: number = 1;
 
   private settingsUnsub: (() => void) | null = null;
@@ -51,6 +53,7 @@ export struct DownloadSection {
     this.downloadPath = stored.length > 0 ? stored : DEFAULT_DOWNLOAD_DIR;
     this.autoStartDownload = settings.autoStartDownload;
     this.useFilePicker = settings.downloadUseFilePicker;
+    this.downloadFileName = settings.downloadFileName;
     this.maxConcurrentDownloads = settings.maxConcurrentDownloads;
     setMaxConcurrentDownloads(this.maxConcurrentDownloads);
     if (stored.length === 0) {
@@ -97,6 +100,22 @@ export struct DownloadSection {
         description: this.downloadPath,
         onClick: (): void => {
           void this.pickDownloadPath();
+        },
+      },
+      {
+        type: 'select',
+        title: t('download_file_name'),
+        description: t('download_file_name_desc'),
+        value: this.downloadFileName,
+        options: [
+          { label: t('download_file_name_name_singer'), value: 'name-singer' },
+          { label: t('download_file_name_singer_name'), value: 'singer-name' },
+          { label: t('download_file_name_name'), value: 'name' },
+        ],
+        onChange: (value: string): void => {
+          const next = value as DownloadFileNameFormat;
+          this.downloadFileName = next;
+          void settingsService.update({ downloadFileName: next });
         },
       },
       {

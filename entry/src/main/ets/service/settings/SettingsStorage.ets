@@ -14,6 +14,7 @@ import {
   createDefaultSettings,
   clampNumber,
   toAddMusicLocation,
+  toDownloadFileNameFormat,
   toDesktopLyricPosition,
   toDlTextPosX,
   toDlTextPosY,
@@ -273,6 +274,8 @@ export async function loadSettingsFromStorage(): Promise<AppSettings> {
     settings.downloadPath = await storage.getString(StorageKeys.DOWNLOAD_PATH, defaults.downloadPath);
     settings.downloadUseFilePicker = await storage.getBoolean(
       StorageKeys.DOWNLOAD_USE_FILE_PICKER, defaults.downloadUseFilePicker);
+    settings.downloadFileName = toDownloadFileNameFormat(
+      await storage.getString(StorageKeys.DOWNLOAD_FILE_NAME, defaults.downloadFileName));
     settings.autoStartDownload = await storage.getBoolean(
       StorageKeys.DOWNLOAD_AUTO_START, defaults.autoStartDownload);
     settings.maxConcurrentDownloads = clampNumber(

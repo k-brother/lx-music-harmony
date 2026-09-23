@@ -38,6 +38,7 @@ export type {
   DesktopLyricTextPositionX,
   DesktopLyricTextPositionY,
   SyncMode,
+  DownloadFileNameFormat,
   SourceNameType,
   ShareType,
 } from './settings/SettingsTypes';
@@ -179,6 +180,7 @@ class SettingsServiceImpl {
     copy.listClickPlay = source.listClickPlay;
     copy.downloadPath = source.downloadPath;
     copy.downloadUseFilePicker = source.downloadUseFilePicker;
+    copy.downloadFileName = source.downloadFileName;
     copy.autoStartDownload = source.autoStartDownload;
     copy.maxConcurrentDownloads = source.maxConcurrentDownloads;
     copy.syncEnabled = source.syncEnabled;
@@ -621,6 +623,11 @@ class SettingsServiceImpl {
       this.values.downloadPath = patch.downloadPath;
       await storage.setString(StorageKeys.DOWNLOAD_PATH, patch.downloadPath);
       changed.push('downloadPath');
+    }
+    if (patch.downloadFileName !== undefined && patch.downloadFileName !== this.values.downloadFileName) {
+      this.values.downloadFileName = patch.downloadFileName;
+      await storage.setString(StorageKeys.DOWNLOAD_FILE_NAME, patch.downloadFileName);
+      changed.push('downloadFileName');
     }
     if (patch.autoStartDownload !== undefined && patch.autoStartDownload !== this.values.autoStartDownload) {
       this.values.autoStartDownload = patch.autoStartDownload;
