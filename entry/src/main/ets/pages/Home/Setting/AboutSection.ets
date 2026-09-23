@@ -185,25 +185,17 @@ export struct AboutSection {
       // 二级面板：关于与版本
       this.AboutMenuSheet()
 
-      if (this.showPact) {
-        Stack() {
-          Column()
-            .width('100%')
-            .height('100%')
-            .backgroundColor(DesignTokens.maskColor())
-
-          PactDialog({
-            readonlyMode: true,
-            initialDocument: this.legalDocument,
-            visible: true,
-            onClose: (): void => {
-              this.showPact = false;
-            },
-          })
-        }
-        .width('100%')
-        .height('100%')
-      }
+      // 法律文本用浮层面板（bindSheet 由窗口承载）：挂在设置分组的 Stack 覆盖层会被
+      // Scroll 当成普通内容往下挤出，看着不像弹层
+      PactDialog({
+        mode: 'sheet',
+        readonlyMode: true,
+        initialDocument: this.legalDocument,
+        visible: this.showPact,
+        onClose: (): void => {
+          this.showPact = false;
+        },
+      })
     }
     .width('100%')
   }

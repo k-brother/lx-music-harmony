@@ -14,6 +14,8 @@ import { t } from '../../service/LocalizationService';
 import { settingsService } from '../../service/SettingsService';
 import { getPactNotice, getPactSections, PactSection } from '../../core/legal/PactText';
 import { getPrivacyNotice, getPrivacySections } from '../../core/legal/PrivacyText';
+import { BottomSheet } from '../ui/BottomSheet';
+import { SheetHeader } from '../ui/SheetHeader';
 
 const DOMAIN = 0x0001;
 const TAG = 'PactDialog';
@@ -32,16 +34,26 @@ export struct PactDialog {
   @Prop readonlyMode: boolean = false;
   /** 打开时默认展示的文档（设置里点「隐私政策」直接进隐私页） */
   @Prop initialDocument: string = DOC_PACT;
+  /**
+   * 呈现方式：
+   * - modal（默认）：全屏覆盖拦截，首次启动必须同意才能用；
+   * - sheet：底部浮层（设置里回看用）。绑定在窗口浮层上，不会把设置页内容撑开 —— 
+   *   之前用 Stack 覆盖层挂在设置分组里，结果是在 Scroll 内容中往下挤出一块，看着不像弹层。
+   */
+  @Prop mode: string = 'modal';
   /** 关闭回调（只读模式点关闭时由调用方收起弹层） */
   @Prop @Watch('onVisibleChanged') visible: boolean = true;
   onClose?: () => void;
 
   @State countdown: number = ACCEPT_COUNTDOWN_SECONDS;
+  /** 浮层形态的显隐（由 visible 属性同步；关闭时回调 onClose 让页面收回状态） */
+  @State sheetVisible: boolean = false;
   /** 当前展示的文档 */
   @State docKind: string = DOC_PACT;
   private timerId: number = -1;
 
   aboutToAppear(): void {
+    this.sheetVisible = this.visible;
     this.docKind = this.initialDocument === DOC_PRIVACY ? DOC_PRIVACY : DOC_PACT;
     if (!this.readonlyMode && !settingsService.get().agreedPact) {
       this.startCountdown();
@@ -55,6 +67,7 @@ export struct PactDialog {
   }
 
   private onVisibleChanged(): void {
+    this.sheetVisible = this.visible;
     if (!this.visible) {
       this.stopCountdown();
     }
@@ -176,6 +189,77 @@ export struct PactDialog {
   }
 
   build() {
+    if (this.mode === 'sheet') {
+      BottomSheet({
+        visible: $sheetVisible,
+        title: '',
+        // 法律文本较长：按大面板展示，正文在面板内滚动
+        sheetSize: 'large',
+        onDismiss: (): void => {
+          this.sheetVisible = false;
+          if (this.onClose) {
+            this.onClose();
+          }
+        },
+        content: (): void => {
+          this.SheetContent();
+        },
+      })
+    } else {
+      this.ModalContent();
+    }
+  }
+
+  /** 浮层形态的内容：标题（右上角 × 关闭）+ 文档切换 + 正文滚动 */
+  @Builder
+  SheetContent() {
+    Column() {
+      SheetHeader({
+        title: this.docTitle(),
+        onClose: (): void => {
+          this.sheetVisible = false;
+          if (this.onClose) {
+            this.onClose();
+          }
+        },
+      })
+
+      Row() {
+        this.DocTab(DOC_PACT, t('pact_title'))
+        this.DocTab(DOC_PRIVACY, t('privacy_title'))
+      }
+      .width('100%')
+      .margin({ bottom: 6 })
+
+      Scroll() {
+        Column() {
+          if (this.isPrivacy()) {
+            Text(getPrivacyNotice(this.language))
+              .fontSize(DesignTokens.fontBody())
+              .fontWeight(FontWeight.Medium)
+              .fontColor(DesignTokens.accent())
+              .width('100%')
+              .margin({ bottom: 8 })
+          }
+          ForEach(this.docSections(), (section: PactSection) => {
+            this.Section(section)
+          }, (section: PactSection) => section.title)
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+      }
+      .layoutWeight(1)
+      .width('100%')
+      .scrollBar(BarState.Auto)
+    }
+    .width('100%')
+    .height('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  /** 全屏拦截形态（首次启动） */
+  @Builder
+  ModalContent() {
     Column() {
       Text(this.docTitle())
         .fontSize(DesignTokens.fontHeading())
