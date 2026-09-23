@@ -80,114 +80,144 @@ export struct SettingsSection {
   build() {
     Stack() {
       Column() {
-        if (this.title.length > 0) {
-          Text(this.title)
-            .fontSize(DesignTokens.fontCaption())
-            .fontWeight(FontWeight.Medium)
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-            .width('100%')
-            .padding({ left: 4, top: 18, bottom: 8 })
-        }
+        this.SectionTitle()
 
-        Column() {
-          ForEach(this.items, (item: SettingSectionItem, index: number) => {
-            Column() {
-              Row() {
-                Column() {
-                  Text(item.title)
-                    .fontSize(DesignTokens.fontSubhead())
-                    .fontColor(item.danger === true ? DesignTokens.danger() : DesignTokens.labelPrimary(this.theme))
-                    .maxLines(1)
-                    .textOverflow({ overflow: TextOverflow.Ellipsis })
-                    .width('100%')
-                  if (item.description && item.description.length > 0) {
-                    Text(item.description)
-                      .fontSize(DesignTokens.fontMicro())
-                      .fontColor(DesignTokens.labelTertiary(this.theme))
-                      .maxLines(2)
-                      .textOverflow({ overflow: TextOverflow.Ellipsis })
-                      .margin({ top: 2 })
-                      .width('100%')
-                  }
-                }
-                .alignItems(HorizontalAlign.Start)
-                .layoutWeight(1)
-
-                if (item.type === 'toggle') {
-                  Toggle({ type: ToggleType.Switch, isOn: item.value as boolean })
-                    .selectedColor(DesignTokens.accent())
-                    .onChange((isOn: boolean) => {
-                      hapticService.light();
-                      if (item.onChangeToggle) {
-                        item.onChangeToggle(isOn);
-                      }
-                    })
-                } else if (item.type === 'select') {
-                  Text(this.optionLabel(item))
-                    .fontSize(DesignTokens.fontBody())
-                    .fontColor(item.danger === true ? DesignTokens.danger() : DesignTokens.labelSecondary(this.theme))
-                    .maxLines(1)
-                  SymbolGlyph($r('sys.symbol.chevron_right'))
-                    .fontSize(DesignTokens.fontHeading())
-                    .fontColor([DesignTokens.labelTertiary(this.theme)])
-                    .margin({ left: 6 })
-                } else if (item.type === 'input') {
-                  Text(item.value as string)
-                    .fontSize(DesignTokens.fontBody())
-                    .fontColor(DesignTokens.labelSecondary(this.theme))
-                    .maxLines(1)
-                } else if (item.type === 'info') {
-                  // 只读信息行（同步状态、版本号等）：右侧显示当前值，不可点击
-                  Text(item.value as string)
-                    .fontSize(DesignTokens.fontCaption())
-                    .fontColor(DesignTokens.labelSecondary(this.theme))
-                    .maxLines(2)
-                    .textOverflow({ overflow: TextOverflow.Ellipsis })
-                    .textAlign(TextAlign.End)
-                    .constraintSize({ maxWidth: 180 })
-                    .margin({ left: 12 })
-                } else if (item.type === 'button') {
-                  SymbolGlyph($r('sys.symbol.chevron_right'))
-                    .fontSize(DesignTokens.fontHeading())
-                    .fontColor([DesignTokens.labelTertiary(this.theme)])
-                }
-              }
-              .width('100%')
-              .constraintSize({ minHeight: DesignTokens.touchTarget() })
-              .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-              .alignItems(VerticalAlign.Center)
-              .stateStyles({ pressed: this.pressed })
-              .onClick(() => {
-                if (item.type === 'button' && item.onClick) {
-                  item.onClick();
-                } else if (item.type === 'select') {
-                  this.openSelect(item);
-                } else if (item.type === 'input') {
-                  this.openInput(item);
-                }
-              })
-
-              if (index < this.items.length - 1) {
-                Divider()
-                  .strokeWidth(0.5)
-                  .color(DesignTokens.cardBorder(this.theme))
-                  .margin({ left: 16, right: 16 })
-              }
-            }
-            .width('100%')
-            // key 必须带上当前值：只按 title+index 做 key 时，ForEach 会复用旧节点，
-            // 真机上表现为「选完选项右侧文案不变（其实设置已生效）」。
-          }, (item: SettingSectionItem, index: number): string =>
-            `${index}_${item.type}_${item.title}_${String(item.value)}`)
-        }
-        .width('100%')
-        .backgroundColor(DesignTokens.card(this.theme))
-        .borderRadius(DesignTokens.radiusCard())
-        .shadow(DesignTokens.cardShadow(this.theme))
+        this.ItemList()
       }
       .width('100%')
-
     }
     .width('100%')
   }
+
+  /** 分组标题（次级色小号字） */
+  @Builder
+  SectionTitle() {
+    if (this.title.length > 0) {
+      Text(this.title)
+        .fontSize(DesignTokens.fontCaption())
+        .fontWeight(FontWeight.Medium)
+        .fontColor(DesignTokens.labelTertiary(this.theme))
+        .width('100%')
+        .padding({ left: 4, top: 18, bottom: 8 })
+    }
+  }
+
+  /** 分组卡片（行列表） */
+  @Builder
+  ItemList() {
+    Column() {
+      ForEach(this.items, (item: SettingSectionItem, index: number) => {
+        Column() {
+          this.ItemRow(item)
+
+          if (index < this.items.length - 1) {
+            Divider()
+              .strokeWidth(0.5)
+              .color(DesignTokens.cardBorder(this.theme))
+              .margin({ left: 16, right: 16 })
+          }
+        }
+        .width('100%')
+        // key 必须带上当前值：只按 title+index 做 key 时，ForEach 会复用旧节点，
+        // 真机上表现为「选完选项右侧文案不变（其实设置已生效）」。
+      }, (item: SettingSectionItem, index: number): string =>
+        `${index}_${item.type}_${item.title}_${String(item.value)}`)
+    }
+    .width('100%')
+    .backgroundColor(DesignTokens.card(this.theme))
+    .borderRadius(DesignTokens.radiusCard())
+    .shadow(DesignTokens.cardShadow(this.theme))
+  }
+
+  /** 一行设置：左侧标题/描述 + 右侧控件/当前值 */
+  @Builder
+  ItemRow(item: SettingSectionItem) {
+    Row() {
+      this.ItemLabels(item)
+
+      this.ItemTrailing(item)
+    }
+    .width('100%')
+    .constraintSize({ minHeight: DesignTokens.touchTarget() })
+    .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+    .alignItems(VerticalAlign.Center)
+    .stateStyles({ pressed: this.pressed })
+    .onClick(() => {
+      if (item.type === 'button' && item.onClick) {
+        item.onClick();
+      } else if (item.type === 'select') {
+        this.openSelect(item);
+      } else if (item.type === 'input') {
+        this.openInput(item);
+      }
+    })
+  }
+
+  /** 行左侧：标题 + 描述（危险行用危险色） */
+  @Builder
+  ItemLabels(item: SettingSectionItem) {
+    Column() {
+      Text(item.title)
+        .fontSize(DesignTokens.fontSubhead())
+        .fontColor(item.danger === true ? DesignTokens.danger() : DesignTokens.labelPrimary(this.theme))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width('100%')
+      if (item.description && item.description.length > 0) {
+        Text(item.description)
+          .fontSize(DesignTokens.fontMicro())
+          .fontColor(DesignTokens.labelTertiary(this.theme))
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .margin({ top: 2 })
+          .width('100%')
+      }
+    }
+    .alignItems(HorizontalAlign.Start)
+    .layoutWeight(1)
+  }
+
+  /** 行右侧：开关 / 当前值 + 箭头 / 只读信息 / 箭头 */
+  @Builder
+  ItemTrailing(item: SettingSectionItem) {
+    if (item.type === 'toggle') {
+      Toggle({ type: ToggleType.Switch, isOn: item.value as boolean })
+        .selectedColor(DesignTokens.accent())
+        .onChange((isOn: boolean) => {
+          hapticService.light();
+          if (item.onChangeToggle) {
+            item.onChangeToggle(isOn);
+          }
+        })
+    } else if (item.type === 'select') {
+      Text(this.optionLabel(item))
+        .fontSize(DesignTokens.fontBody())
+        .fontColor(item.danger === true ? DesignTokens.danger() : DesignTokens.labelSecondary(this.theme))
+        .maxLines(1)
+      SymbolGlyph($r('sys.symbol.chevron_right'))
+        .fontSize(DesignTokens.fontHeading())
+        .fontColor([DesignTokens.labelTertiary(this.theme)])
+        .margin({ left: 6 })
+    } else if (item.type === 'input') {
+      Text(item.value as string)
+        .fontSize(DesignTokens.fontBody())
+        .fontColor(DesignTokens.labelSecondary(this.theme))
+        .maxLines(1)
+    } else if (item.type === 'info') {
+      // 只读信息行（同步状态、版本号等）：右侧显示当前值，不可点击
+      Text(item.value as string)
+        .fontSize(DesignTokens.fontCaption())
+        .fontColor(DesignTokens.labelSecondary(this.theme))
+        .maxLines(2)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .textAlign(TextAlign.End)
+        .constraintSize({ maxWidth: 180 })
+        .margin({ left: 12 })
+    } else if (item.type === 'button') {
+      SymbolGlyph($r('sys.symbol.chevron_right'))
+        .fontSize(DesignTokens.fontHeading())
+        .fontColor([DesignTokens.labelTertiary(this.theme)])
+    }
+  }
+
 }
