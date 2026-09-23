@@ -231,14 +231,50 @@ export struct QueueSheet {
           ListItem() {
             this.Row(song, index)
           }
+          // 侧滑移除：与长按菜单同一个动作，商业播放器的常见手势
+          .swipeAction({
+            end: {
+              builder: (): void => {
+                this.RemoveAction(index);
+              },
+              onAction: (): void => {
+                if (this.onRemove) {
+                  this.onRemove(index);
+                }
+              },
+              actionAreaDistance: 56,
+            },
+          })
         }, (song: SongInfo, index: number) => `${song.id}_${index}`)
       }
       .width('100%')
       .layoutWeight(1)
       .scrollBar(BarState.Off)
+      // 预建可视区外的若干行，滚动更顺（LazyForEach 的配套项）
+      .cachedCount(6)
       // 拖拽排序期间锁住滚动，避免列表跟着手指滚
       .enableScrollInteraction(!this.dragging)
     }
+  }
+
+  /** 侧滑露出的「移除」按钮 */
+  @Builder
+  RemoveAction(index: number) {
+    Row() {
+      Text(t('play_queue_remove'))
+        .fontSize(15)
+        .fontColor(DesignTokens.onAccent())
+        .fontWeight(FontWeight.Medium)
+    }
+    .width(96)
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor(DesignTokens.danger())
+    .onClick(() => {
+      if (this.onRemove) {
+        this.onRemove(index);
+      }
+    })
   }
 
   build() {

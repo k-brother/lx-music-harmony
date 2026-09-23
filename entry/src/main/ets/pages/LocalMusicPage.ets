@@ -15,7 +15,7 @@ import { getLocalPicUrl, type LocalMusicInfo } from '../core/music/local/LocalPl
 import { NavBar } from '../components/ui/NavBar';
 import { StateView } from '../components/ui/StateView';
 import { hapticService } from '../service/HapticService';
-import { appActionMenu } from '../service/DialogService';
+import { appActionMenu, appConfirm } from '../service/DialogService';
 import { EditMetadataSheet } from './LocalMusic/EditMetadataSheet';
 import { LocalMusicActions } from './LocalMusic/LocalMusicActions';
 import { TrackRow } from './LocalMusic/TrackRow';
@@ -203,6 +203,36 @@ export struct LocalMusicPage {
     }
   }
 
+  /** 侧滑露出的「删除」按钮 */
+  @Builder
+  DeleteAction(index: number) {
+    Row() {
+      Text(t('delete'))
+        .fontSize(15)
+        .fontColor(DesignTokens.onAccent())
+        .fontWeight(FontWeight.Medium)
+    }
+    .width(88)
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor(DesignTokens.danger())
+    .onClick(() => {
+      this.confirmRemoveTrack(index);
+    })
+  }
+
+  /** 侧滑删除前二次确认（长按菜单是明确操作，不再重复确认） */
+  private async confirmRemoveTrack(index: number): Promise<void> {
+    if (index < 0 || index >= this.tracks.length) {
+      return;
+    }
+    const track = this.tracks[index];
+    const confirmed = await appConfirm(t('local_remove_title'), track.name, { danger: true });
+    if (confirmed) {
+      await this.removeTrack(track);
+    }
+  }
+
   private async removeTrack(track: LocalMusicInfo): Promise<void> {
     await localMusicService.remove(track.id);
     await this.loadLibrary();
@@ -307,10 +337,23 @@ export struct LocalMusicPage {
                 },
               })
             }
+            // 侧滑删除：删除的是应用沙箱内的副本，仍给一次确认（误触代价高）
+            .swipeAction({
+              end: {
+                builder: (): void => {
+                  this.DeleteAction(index);
+                },
+                onAction: (): void => {
+                  this.confirmRemoveTrack(index);
+                },
+                actionAreaDistance: 56,
+              },
+            })
           }, (track: LocalMusicInfo) => track.id)
         }
         .width('100%')
         .layoutWeight(1)
+        .cachedCount(6)
         .padding({
           left: Breakpoints.contentInset(this.windowWidthVp),
           right: Breakpoints.contentInset(this.windowWidthVp),

@@ -333,6 +333,8 @@ export struct SonglistDetailPage {
     }
     .width('100%')
     .layoutWeight(1)
+    // 预建可视区外的若干行，滚动更顺（LazyForEach 配套）
+    .cachedCount(6)
     // 大屏内容列居中（平板/PC 上歌曲行不拉满整屏）
     .padding({
       left: 12 + Breakpoints.contentInset(this.windowWidthVp),

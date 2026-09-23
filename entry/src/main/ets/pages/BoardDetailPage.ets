@@ -405,6 +405,7 @@ export struct BoardDetailPage {
     .width('100%')
     .layoutWeight(1)
     // 大屏内容列居中（平板/PC 上歌曲行不拉满整屏）
+    .cachedCount(6)
     .padding({
       left: 12 + Breakpoints.contentInset(this.windowWidthVp),
       right: 12 + Breakpoints.contentInset(this.windowWidthVp),

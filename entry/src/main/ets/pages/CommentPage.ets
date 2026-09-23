@@ -339,6 +339,8 @@ export struct CommentPage {
           }
           .layoutWeight(1)
           .width('100%')
+          // 预建可视区外的若干行，滚动更顺（LazyForEach 配套）
+          .cachedCount(6)
           .scrollBar(BarState.Off)
           // 大屏内容列居中：评论正文在 PC 上不该横跨整屏
           .padding({

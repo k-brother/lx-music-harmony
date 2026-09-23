@@ -201,7 +201,9 @@ export struct HistoryListPage {
         }
         .layoutWeight(1)
         .width('100%')
-        .scrollBar(BarState.Off)        .padding({
+        .scrollBar(BarState.Off)
+        .cachedCount(6)
+        .padding({
           left: Breakpoints.contentInset(this.windowWidthVp),
           right: Breakpoints.contentInset(this.windowWidthVp),
         })
