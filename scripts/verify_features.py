@@ -159,7 +159,13 @@ CHECKS = [
  ('歌单卡片音源以数据来源为准', 'pages/Home/SongListView.ets', r'source: sl\.source \|\| this\.sourceId'),
  ('QQ歌单详情用可用接口', 'core/music/sources/tx/songList.ets', r'fcg_v8_playlist_cp\.fcg'),
  ('QQ歌单详情兼容两种外层结构', 'core/music/sources/tx/songList.ets', r'body\.data\?\.cdlist \?\? body\.cdlist'),
- ('队列拖动排序', 'pages/PlayDetail/QueueSheet.ets', r'onDragStart|onDrop'),
+ # 拖拽排序从「系统拖放 onDragStart/onDrop」改为「手柄 + 原始触摸」：
+ # 真机上系统拖放不生效还会误触发切歌，判据同步改成新的实现要点。
+ ('队列拖拽手柄', 'pages/PlayDetail/QueueSheet.ets', r'sys\.symbol\.line_3_horizontal'),
+ ('队列拖拽用原始触摸事件', 'pages/PlayDetail/QueueSheet.ets', r'TouchType\.Move'),
+ ('拖拽期间锁定列表滚动', 'pages/PlayDetail/QueueSheet.ets', r'enableScrollInteraction\(!this\.dragging\)'),
+ ('拖拽手柄吞掉点击', 'pages/PlayDetail/QueueSheet.ets', r'\.onClick\(\(\) => \{\}\)'),
+ ('队列拖拽结果落到播放队列', 'pages/PlayDetailPage.ets', r'this\.reorderQueue\(from, to\)'),
  ('队列移除', 'service/PlayerService.ets', r'removeFromQueue'),
  ('动作菜单不再重复“取消”', 'service/DialogService.ets', r'不再自己追加'),
  ('更多操作面板标题用歌曲', 'pages/PlayDetailPage.ets', r'title: this\.singer\.length > 0'),

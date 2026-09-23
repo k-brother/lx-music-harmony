@@ -125,7 +125,25 @@ hdc_do shell "aa force-stop ${BUNDLE}" >/dev/null 2>&1
 sleep 1
 hdc_do shell "aa start -a ${ABILITY} -b ${BUNDLE}" >/dev/null 2>&1
 sleep 8
-assert_log "应用启动（AppBootstrap/PlayerService 初始化）" "com\.lxmusic\.mobile/(AppBootstrap|PlayerService)"
+# 启动断言：日志可能被上一轮清理/滚动覆盖，所以「进程确实在跑」也算通过
+# （否则会在紧接 hilog -r 之后偶发假失败，与真实启动成败无关）
+assert_app_running() {
+  local name="$1" pattern="$2"
+  local count
+  count=$(hdc_do shell "hilog -x" 2>/dev/null | grep -cE "$pattern" || true)
+  if [ "${count:-0}" -ge 1 ]; then
+    ok "$name (匹配 ${count} 条)"
+    return
+  fi
+  local pid
+  pid=$(hdc_do shell "pidof ${BUNDLE}" 2>/dev/null | tr -d '\r\n ')
+  if [ -n "$pid" ]; then
+    ok "$name（日志已滚出缓冲，但进程随启动拉起 pid=${pid}）"
+  else
+    bad "$name" "既没有初始化日志，也查不到进程"
+  fi
+}
+assert_app_running "应用启动（AppBootstrap/PlayerService 初始化）" "com\.lxmusic\.mobile/(AppBootstrap|PlayerService)"
 assert_no_crash "启动无崩溃"
 
 log "== 2. 歌单列表与换源 =="

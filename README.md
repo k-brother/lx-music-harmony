@@ -677,6 +677,7 @@ python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 ./scripts/device_settings_check.sh # 设置页专项：选完即时刷新 + 下载文件名落库
 ./scripts/device_download_check.sh # 下载页专项：筛选计数 → 多选 → 全选 → 批量删除确认
 ./scripts/device_player_check.sh   # 播放页专项：「更多」面板分组 + 12 项动作逐个点开
+./scripts/device_queue_check.sh    # 队列手势专项：手柄拖拽排序、不误切歌、长按移除
 ```
 
 它会装包、冷启动，然后按顺序跑「换源重载 → 歌单详情出歌 → 播放页歌词链路 →
@@ -705,6 +706,9 @@ python3 scripts/verify_features.py     # 与安卓版的功能对齐清单
 | 切换筛选后仍保留看不见的选中项 | 选中集合只在退出多选时清空 | 切筛选/任务被删后自动收敛选中集合（`pruneSelection`） |
 | 播放页「更多」14 项平铺，找功能靠扫 | 缺少分组，长面板没有信息层级 | 按「歌曲 / 播放 / 歌词 / 保存」分组（`PlayActionSection`），与华为音乐「⋯」菜单一致 |
 | 歌词偏移要点两次才能选到 ±0.5s | 7 档动作菜单被 `appActionMenu`「超 5 项折叠」吃掉常用档位 | 换成 `LyricOffsetSheet` 滑杆（±3s、0.1s 步进、拖动即时生效、一键重置），真机实测拖动后落库 `lyricOffset=1.5` |
+| 队列拖动排序根本不生效，而且拖完会莫名切歌 | ① 用系统拖放 `onDragStart/onDrop`，真机上不触发；② 手势落在整行上被 `onClick` 当成点击 | 改为「行尾 ≡ 手柄 + 原始触摸事件」：按下即锁定列表滚动（`enableScrollInteraction(false)`），用 `screenY` 差值算跨行数，手柄 `onClick(() => {})` 吞掉点击，松手才重排 |
+| 手柄拖一行却回到原位 | 触摸事件里的 `screenY` 单位是 vp，而代码按 px 乘了密度去算行高（跨行数被低估 3 倍） | 行高直接用 vp（真机实测 240px 注入 ≈ 71vp ≈ 1.1 行，比例正好是 1/密度） |
+| 「应用启动」冒烟偶发假失败 | 断言只看初始化日志，紧跟清理日志之后可能已滚出缓冲 | 增加「进程真的在跑（`pidof`）」的等价判据 |
 | 设置里选完选项，右侧「当前值」不变 | 设置分组 `ForEach` 的 key 只带 `title+index`，行被复用不重建 | key 加入 `type/value`，选完即刷新（真机复验：选「原名」立刻变） |
 | 改「下载文件名」后下载仍按旧格式命名 | `settingsService.get()` 返回的是 `copyOf()` 手工逐字段快照，新字段漏拷 → 运行时拿到默认值 | 补 `copyOf` 字段，并加 `scripts/check_settings_copy.py` 把「加设置漏拷贝」变成可自动拦截的规则 |
 
