@@ -109,6 +109,9 @@ export function buildZhCN(): Map<string, string> {
   m.set('a11y_more', '更多');
   m.set('a11y_scroll_to_current', '定位到当前播放');
   m.set('lyric_resume_follow', '回到当前');
+  // 播放期出错（解码/网络等）：见 service/EventBus 的 PLAYBACK_ERROR
+  m.set('playback_error_skipped', '「{0}」播放失败，已跳到下一首');
+  m.set('playback_error_stopped', '播放失败，请检查网络或换源后重试');
   m.set('a11y_previous', '上一首');
   m.set('a11y_next', '下一首');
   m.set('a11y_play', '播放');

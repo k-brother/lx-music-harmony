@@ -233,6 +233,10 @@ CHECKS = [
   r'async init\(\): Promise<void>[\s\S]{0,700}?this\.syncFromSettings\(\)'),
  ('播控元数据开关启动重放', 'service/PlayerService.ets',
   r'async updateOptions\(\)[\s\S]{0,400}?setMetadataOptions\('),
+ # 播放期出错不能静默：置错误态 + 按队列跳过（有上限）+ 在应用根提示用户
+ ('播放器错误上报给服务', 'core/playback/AvPlayerPlugin.ets', r'export function setOnPlaybackError'),
+ ('播放失败跳下一首有上限', 'service/PlayerService.ets', r'playbackErrorStreak'),
+ ('播放出错在应用根提示', 'pages/NavIndex.ets', r"EventTypes\.PLAYBACK_ERROR"),
  # 提示/确认框统一出口：页面不再自己 getPromptAction().showDialog 拼按钮与颜色
  ('确认与提示统一走 DialogService', 'service/DialogService.ets', r'export async function appAlert'),
  ('日志页清空走统一确认', 'pages/LogPage.ets', r'appConfirm\(',

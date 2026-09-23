@@ -99,6 +99,8 @@ export function buildEnUS(): Map<string, string> {
   m.set('a11y_more', 'More');
   m.set('a11y_scroll_to_current', 'Scroll to current track');
   m.set('lyric_resume_follow', 'Back to current line');
+  m.set('playback_error_skipped', 'Failed to play "{0}", skipped to the next track');
+  m.set('playback_error_stopped', 'Playback failed, check your network or try another source');
   m.set('a11y_previous', 'Previous');
   m.set('a11y_next', 'Next');
   m.set('a11y_play', 'Play');

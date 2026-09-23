@@ -184,9 +184,21 @@ async function resetForNewTrack(): Promise<void> {
 
 /** 一曲自然播放结束（如列表自动下一曲），由 PlayerService 等注册 */
 let onTrackCompleted: (() => void) | null = null;
+/** 播放错误回调：由 PlayerService 注册（见 setOnPlaybackError） */
+let onPlaybackError: ((code: number, message: string) => void) | null = null;
 
 export function setOnTrackCompleted(handler: (() => void) | null): void {
   onTrackCompleted = handler;
+}
+
+/**
+ * 播放期错误回调（非「状态不允许该操作」那类可忽略的错）。
+ *
+ * 此前错误只写进日志：用户看到的是「进度条不动、也没声音」，界面还以为在播。
+ * 现在把错误交给 PlayerService 处理（置错误态 + 按队列跳到下一首 + 通知界面提示）。
+ */
+export function setOnPlaybackError(handler: ((code: number, message: string) => void) | null): void {
+  onPlaybackError = handler;
 }
 
 // 初始化播放器
@@ -288,6 +300,14 @@ function setupAVPlayerCallbacks(): void {
     }
     lastMediaState = 'error';
     fulfillMediaStateWaits('error');
+    // 交给上层：置错误态、按队列跳过并提示用户（这里只负责汇报，不做业务决策）
+    if (onPlaybackError) {
+      try {
+        onPlaybackError(err.code, err.message ?? '');
+      } catch (notifyErr) {
+        hilog.warn(DOMAIN, TAG, 'onPlaybackError handler failed: %{public}s', JSON.stringify(notifyErr));
+      }
+    }
     void (async (): Promise<void> => {
       try {
         if (avPlayer) {
@@ -618,6 +638,3 @@ export async function updateOptions(): Promise<void> {
     hilog.error(DOMAIN, TAG, 'Failed to update options: %{public}s', errorMsg);
   }
 }
-
-
-

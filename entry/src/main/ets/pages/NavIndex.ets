@@ -20,6 +20,9 @@ import { PactDialog } from '../components/common/PactDialog';
 import { setAppUiContext } from '../service/UiContext';
 import { settingsService } from '../service/SettingsService';
 import { on, EventTypes } from '../service/EventBus';
+import type { PlaybackErrorData } from '../service/EventBus';
+import { appToast } from '../service/DialogService';
+import { t, tf } from '../service/LocalizationService';
 import { playerService } from '../service/PlayerService';
 import { SheetHost } from '../components/ui/SheetHost';
 import { AppDestination } from '../components/ui/AppDestination';
@@ -31,6 +34,7 @@ export struct NavIndex {
   private navPathStack: NavPathStack = new NavPathStack();
   private startupPageApplied: boolean = false;
   private settingsUnsub: (() => void) | null = null;
+  private playbackErrorUnsub: (() => void) | null = null;
   /** 首次启动未同意许可协议时全屏拦截 */
   @State showPact: boolean = false;
 
@@ -44,6 +48,16 @@ export struct NavIndex {
     this.settingsUnsub = on(EventTypes.SETTING_CHANGED, (): void => {
       this.syncPactState();
       this.applyStartupPageOnce();
+    });
+    // 播放出错：在应用根提示一次（已跳过 / 已停止），用户不会遇到「莫名没声音」
+    this.playbackErrorUnsub = on(EventTypes.PLAYBACK_ERROR, (data?: Object): void => {
+      const info = data as PlaybackErrorData;
+      if (!info) {
+        return;
+      }
+      appToast(info.skipped
+        ? tf('playback_error_skipped', [info.title])
+        : t('playback_error_stopped'));
     });
     this.syncPactState();
     this.applyStartupPageOnce();
@@ -63,6 +77,10 @@ export struct NavIndex {
     if (this.settingsUnsub) {
       this.settingsUnsub();
       this.settingsUnsub = null;
+    }
+    if (this.playbackErrorUnsub) {
+      this.playbackErrorUnsub();
+      this.playbackErrorUnsub = null;
     }
   }
 

@@ -19,6 +19,7 @@ import {
   updateOptions as avUpdateOptions,
   destroy as avDestroy,
   setOnTrackCompleted,
+  setOnPlaybackError,
 } from '../core/playback/AvPlayerPlugin';
 import { playerState } from '../store/PlayerStoreState';
 import type { MusicInfo, MusicSource, Quality } from '../types/MusicTypes';
@@ -29,6 +30,7 @@ import { getMusicUrl } from '../core/music/MusicFeatureEntry';
 import { settingsService, type PlayMode as SettingsPlayMode } from './SettingsService';
 import { dislikeList } from '../core/dislike/DislikeList';
 import { on, EventTypes } from './EventBus';
+import { emitPlaybackError } from './EventBus';
 import { LyricHub } from './player/LyricHub';
 import {
   playModeToAvLoopMode,
@@ -192,6 +194,8 @@ export class PlayerService {
   private randomHistory: number[] = [];
   /** 连续取源失败次数：达到队列长度说明整轮都取不到地址，必须停下来（见 handleUrlFetchFailure） */
   private urlFailureStreak: number = 0;
+  /** 连续播放失败次数（播放器报错）：与取源失败共用「整轮失败」判定 */
+  private playbackErrorStreak: number = 0;
 
   // 事件监听器数组
   // 订阅与广播统一由 service/player/PlaybackEvents 承担（原先 6 组样板各写一遍）
@@ -335,6 +339,10 @@ export class PlayerService {
         this.onAvTrackCompleted().catch((err: Error) => {
           hilog.error(DOMAIN, TAG, 'onAvTrackCompleted failed: %{public}s', err.message);
         });
+      });
+      // 播放期错误（解码/网络等）：置错误态、按队列跳过并通知界面提示
+      setOnPlaybackError((code: number, message: string): void => {
+        void this.onPlaybackFailed(code, message);
       });
 
       this.isInitialized = avIsInitialized();
@@ -513,6 +521,36 @@ export class PlayerService {
    * 「一直在切歌但没有声音」，后台还在不停地打网络请求。
    * 现在用「连续失败次数 ≥ 队列长度」判定整轮失败，停下来并把状态置为错误。
    */
+  /**
+   * 播放期出错（播放器报 error）的收尾。
+   *
+   * 商业播放器不能让这种错误静默：此前只写日志，用户看到「进度不动、也没声音」，
+   * 界面还以为在播。现在：置错误态 → 通知界面提示 → 按队列往后跳一首（同样有上限，
+   * 避免整队都坏时无限跳）。
+   */
+  private async onPlaybackFailed(code: number, message: string): Promise<void> {
+    const song = this.currentSong;
+    hilog.error(DOMAIN, TAG, 'Playback failed: code=%{public}d, msg=%{public}s, song=%{public}s',
+      code, message, song ? song.title : '');
+    this.currentStatus = 'error';
+    playerStateData.isPlay = false;
+    this.notifyStateChange();
+    this.notifyPlayStateChange(false);
+    this.stopProgressTimer();
+
+    this.playbackErrorStreak += 1;
+    const limit: number = Math.max(1, this.playList.length);
+    const canSkip: boolean = this.playbackErrorStreak < limit && this.playList.length > 1;
+    emitPlaybackError(song ? song.title : '', canSkip);
+    if (!canSkip) {
+      this.playbackErrorStreak = 0;
+      hilog.error(DOMAIN, TAG, 'Playback failed on every song in queue, stopping');
+      return;
+    }
+    // 取源失败与播放失败共用同一套「整轮失败」判定
+    await this.handleUrlFetchFailure(this.currentIndex, song ?? this.playList[this.currentIndex]);
+  }
+
   private async handleUrlFetchFailure(index: number, song: SongInfo): Promise<void> {
     hilog.error(DOMAIN, TAG, 'playSongByIndex: failed to get URL for %{public}s', song.title);
     this.urlFailureStreak += 1;

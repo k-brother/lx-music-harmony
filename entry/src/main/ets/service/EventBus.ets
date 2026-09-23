@@ -12,6 +12,7 @@ interface EventTypesInterface {
   SEARCH_REQUEST: string;
   LIST_UPDATED: string;
   SETTING_CHANGED: string;
+  PLAYBACK_ERROR: string;
 }
 
 /**
@@ -26,6 +27,8 @@ export const EventTypes: EventTypesInterface = {
   SEARCH_REQUEST: 'search:request',
   LIST_UPDATED: 'list:updated',
   SETTING_CHANGED: 'setting:changed',
+  /** 播放期错误（解码/网络等）：界面据此提示用户（如「已跳过这首歌」） */
+  PLAYBACK_ERROR: 'playback:error',
 };
 
 // 事件监听器类型
@@ -195,6 +198,21 @@ export function emitSettingChanged(key: string): void {
   emit(EventTypes.SETTING_CHANGED, data);
 }
 
+/** 播放错误数据：被跳过的歌曲名 + 是否已跳过（否则是停下来） */
+export interface PlaybackErrorData {
+  title: string;
+  skipped: boolean;
+}
+
+/**
+ * 播放出错（由 PlayerService 在播放器报错后发出）。
+ * 界面负责提示，播放器/服务不直接弹 toast，保持分层。
+ */
+export function emitPlaybackError(title: string, skipped: boolean): void {
+  const data: PlaybackErrorData = { title: title, skipped: skipped };
+  emit(EventTypes.PLAYBACK_ERROR, data);
+}
+
 
 
 // 事件总线门面（供需要「一个对象拿到全部事件能力」的地方使用）
@@ -208,6 +226,7 @@ export interface EventBusInterface {
   emitListUpdated: (listId: string) => void;
   emitSearchRequest: (keyword: string) => void;
   emitSettingChanged: (key: string) => void;
+  emitPlaybackError: (title: string, skipped: boolean) => void;
 }
 
 // 导出事件总线
@@ -221,6 +240,7 @@ const eventBus: EventBusInterface = {
   emitListUpdated,
   emitSearchRequest,
   emitSettingChanged,
+  emitPlaybackError,
 };
 
 export default eventBus;
