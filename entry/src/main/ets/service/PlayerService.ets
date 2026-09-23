@@ -312,6 +312,11 @@ export class PlayerService {
     }
 
     try {
+      // 关键顺序：EntryAbility 里的 setContext() 早于 initAllServices()，
+      // 那时设置还没加载，syncFromSettings() 同步下去的是默认值（默认音质/播放模式）。
+      // 这里在「设置已就绪」的阶段再同步一次，否则用户选的音质/播放模式要等到
+      // 改任意设置（触发 SETTING_CHANGED）才会生效。
+      this.syncFromSettings();
       playerState.volume = this.volume;
       playerState.playRate = this.playbackRate;
       // 载入不喜欢规则，供播放时跳过

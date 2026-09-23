@@ -228,6 +228,11 @@ CHECKS = [
  ('歌词回到当前句入口', 'components/common/LyricView.ets', r'ResumeFollowButton'),
  ('点歌词行恢复跟随', 'components/common/LyricView.ets',
   r'onClick\(\(\) => \{[\s\S]{0,140}?this\.userScrolled = false'),
+ # 「设置就绪后必须再同步一次」：setContext 早于设置加载，否则默认音质/播放模式会生效
+ ('播放器初始化按设置重同步', 'service/PlayerService.ets',
+  r'async init\(\): Promise<void>[\s\S]{0,700}?this\.syncFromSettings\(\)'),
+ ('播控元数据开关启动重放', 'service/PlayerService.ets',
+  r'async updateOptions\(\)[\s\S]{0,400}?setMetadataOptions\('),
  # 提示/确认框统一出口：页面不再自己 getPromptAction().showDialog 拼按钮与颜色
  ('确认与提示统一走 DialogService', 'service/DialogService.ets', r'export async function appAlert'),
  ('日志页清空走统一确认', 'pages/LogPage.ets', r'appConfirm\(',
