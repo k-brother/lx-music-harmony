@@ -32,6 +32,12 @@ python3 "${SCRIPT_DIR}/check_accessibility.py"
 echo "== i18n 词条对齐 =="
 python3 "${SCRIPT_DIR}/check_i18n.py"
 
+echo "== 词条占位符 =="
+python3 "${SCRIPT_DIR}/check_i18n_placeholders.py"
+
+echo "== @Builder 状态参数 =="
+python3 "${SCRIPT_DIR}/check_builder_state_args.py"
+
 echo "== 系统符号渲染（SymbolGlyph）=="
 python3 "${SCRIPT_DIR}/check_symbols.py"
 

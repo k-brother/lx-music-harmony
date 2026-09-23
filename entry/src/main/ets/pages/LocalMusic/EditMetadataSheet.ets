@@ -42,39 +42,6 @@ export struct EditMetadataSheet {
     this.visible = dismissSheet(this.onCancel);
   }
 
-  /** 单行输入（标题 + 输入框），三个字段同一套排版 */
-  @Builder
-  Field(label: string, value: string, onChange: (text: string) => void, focusKey: string = '') {
-    Column() {
-      Text(label)
-        .fontSize(DesignTokens.fontCaption())
-        .fontColor(DesignTokens.labelTertiary(this.theme))
-        .width('100%')
-        .textAlign(TextAlign.Start)
-      TextInput({ text: value })
-        .key(focusKey)
-        .onAppear(() => {
-          // 打开面板即聚焦第一个字段（歌名），省掉一次点击
-          if (focusKey.length > 0) {
-            requestFocusSafe(this.getUIContext(), focusKey);
-          }
-        })
-        .width('100%')
-        .height(40)
-        .fontSize(15)
-        .fontColor(DesignTokens.labelPrimary(this.theme))
-        .backgroundColor(DesignTokens.mutedFill(this.theme))
-        .borderRadius(10)
-        .padding({ left: 12, right: 12 })
-        .margin({ top: 6 })
-        .onChange((text: string) => {
-          onChange(text);
-        })
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-  }
-
   build() {
     Stack() {
       // 遮罩：点空白处取消
@@ -94,14 +61,27 @@ export struct EditMetadataSheet {
           .width('100%')
           .textAlign(TextAlign.Start)
 
-        this.Field(t('metadata_name'), this.draftName, (text: string): void => {
-          this.draftName = text;
-        }, METADATA_NAME_KEY)
-        this.Field(t('metadata_singer'), this.draftSinger, (text: string): void => {
-          this.draftSinger = text;
+        MetadataField({
+          label: t('metadata_name'),
+          value: this.draftName,
+          focusKey: METADATA_NAME_KEY,
+          onValueChange: (text: string): void => {
+            this.draftName = text;
+          },
         })
-        this.Field(t('metadata_album'), this.draftAlbum, (text: string): void => {
-          this.draftAlbum = text;
+        MetadataField({
+          label: t('metadata_singer'),
+          value: this.draftSinger,
+          onValueChange: (text: string): void => {
+            this.draftSinger = text;
+          },
+        })
+        MetadataField({
+          label: t('metadata_album'),
+          value: this.draftAlbum,
+          onValueChange: (text: string): void => {
+            this.draftAlbum = text;
+          },
         })
 
         Row({ space: 10 }) {
@@ -139,5 +119,53 @@ export struct EditMetadataSheet {
     }
     .width('100%')
     .height('100%')
+  }
+}
+
+/**
+ * 单行输入（标题 + 输入框）。
+ *
+ * 独立成组件而不是 @Builder：value 会随输入变化，@Builder 参数在本工程里出现过
+ * 「状态变了输入框不刷新」的问题，@Prop 才可靠。
+ */
+@Component
+struct MetadataField {
+  @StorageProp('theme') theme: string = 'light';
+  @Prop label: string = '';
+  @Prop value: string = '';
+  /** 非空时面板出现即聚焦该输入框 */
+  @Prop focusKey: string = '';
+  onValueChange?: (text: string) => void;
+
+  build() {
+    Column() {
+      Text(this.label)
+        .fontSize(DesignTokens.fontCaption())
+        .fontColor(DesignTokens.labelTertiary(this.theme))
+        .width('100%')
+        .textAlign(TextAlign.Start)
+      TextInput({ text: this.value })
+        .key(this.focusKey)
+        .onAppear(() => {
+          if (this.focusKey.length > 0) {
+            requestFocusSafe(this.getUIContext(), this.focusKey);
+          }
+        })
+        .width('100%')
+        .height(40)
+        .fontSize(15)
+        .fontColor(DesignTokens.labelPrimary(this.theme))
+        .backgroundColor(DesignTokens.mutedFill(this.theme))
+        .borderRadius(10)
+        .padding({ left: 12, right: 12 })
+        .margin({ top: 6 })
+        .onChange((text: string) => {
+          if (this.onValueChange) {
+            this.onValueChange(text);
+          }
+        })
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
   }
 }

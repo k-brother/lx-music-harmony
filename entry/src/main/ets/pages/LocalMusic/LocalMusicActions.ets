@@ -13,48 +13,70 @@ export struct LocalMusicActions {
   onRescan?: () => void;
   onImport?: () => void;
 
-  /** 圆底图标按钮：统一 34vp 视觉 + 44vp 热区 */
-  @Builder
-  IconAction(icon: Resource, color: string, background: string, action: () => void) {
+  build() {
+    Row({ space: 4 }) {
+      if (this.hasTracks) {
+        IconActionButton({
+          icon: $r('sys.symbol.arrow_clockwise'),
+          glyphColor: DesignTokens.labelSecondary(this.theme),
+          bgFill: DesignTokens.mutedFill(this.theme),
+          a11yLabel: t('a11y_refresh'),
+          onTap: (): void => {
+            if (this.onRescan) {
+              this.onRescan();
+            }
+          },
+        })
+      }
+      IconActionButton({
+        icon: $r('sys.symbol.plus'),
+        glyphColor: DesignTokens.accent(),
+        bgFill: DesignTokens.accentSoft(this.theme),
+        a11yLabel: t('a11y_import'),
+        onTap: (): void => {
+          if (this.onImport) {
+            this.onImport();
+          }
+        },
+      })
+    }
+    .alignItems(VerticalAlign.Center)
+  }
+}
+
+/**
+ * 圆底图标按钮：统一 34vp 视觉 + 44vp 热区。
+ *
+ * 独立成组件（而不是页面的 @Builder）：颜色随主题变化，@Builder 参数在本工程里
+ * 出现过「状态变了样式不刷新」的问题，@Prop 才可靠。
+ */
+@Component
+struct IconActionButton {
+  @Prop icon: Resource;
+  @Prop glyphColor: string = '';
+  @Prop bgFill: string = '';
+  /** 无障碍朗读文案（纯图标按钮必须有） */
+  @Prop a11yLabel: string = '';
+  onTap?: () => void;
+
+  build() {
     Row() {
-      SymbolGlyph(icon)
+      SymbolGlyph(this.icon)
         .fontSize(DesignTokens.iconLg())
-        .fontColor([color])
+        .fontColor([this.glyphColor])
     }
     .width(34)
     .height(34)
     .justifyContent(FlexAlign.Center)
-    .backgroundColor(background)
+    .backgroundColor(this.bgFill)
     .borderRadius(17)
     .responseRegion(DesignTokens.touchRegion(34))
-    .accessibilityText(t('a11y_more'))
+    .accessibilityText(this.a11yLabel)
     .onClick(() => {
       hapticService.light();
-      action();
-    })
-  }
-
-  build() {
-    Row({ space: 4 }) {
-      if (this.hasTracks) {
-        this.IconAction($r('sys.symbol.arrow_clockwise'),
-          DesignTokens.labelSecondary(this.theme),
-          DesignTokens.mutedFill(this.theme),
-          (): void => {
-            if (this.onRescan) {
-              this.onRescan();
-            }
-          })
+      if (this.onTap) {
+        this.onTap();
       }
-      this.IconAction($r('sys.symbol.plus'),
-        DesignTokens.accent(),
-        DesignTokens.accentSoft(this.theme),
-        (): void => {
-          if (this.onImport) {
-            this.onImport();
-          }
-        })
-    }
-    .alignItems(VerticalAlign.Center)
+    })
   }
 }
