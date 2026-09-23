@@ -1389,6 +1389,10 @@ export class PlayerService {
   // 更新播放选项
   async updateOptions(): Promise<void> {
     try {
+      // 启动时 setContext 早于设置加载，那时同步下去的是默认值；
+      // 这里在「设置已就绪」的阶段重放一次播控封面 / 蓝牙歌词开关，避免读到旧值。
+      const settings = settingsService.get();
+      backgroundRunningManager.setMetadataOptions(settings.showNotificationImage, settings.showBluetoothLyric);
       await avUpdateOptions();
       hilog.info(DOMAIN, TAG, 'Player options updated');
     } catch (err) {
