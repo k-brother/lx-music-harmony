@@ -8,7 +8,7 @@
 import { settingsService } from '../../../service/SettingsService';
 import { t, tf } from '../../../service/LocalizationService';
 import { navigationService, RouteName } from '../../../service/NavigationService';
-import { appActionMenu, appConfirmSystem, appToast } from '../../../service/DialogService';
+import { appConfirmSystem, appToast } from '../../../service/DialogService';
 import { logService } from '../../../service/LogService';
 import { APP_VERSION } from '../../../service/VersionCheckService';
 import { PactDialog } from '../../../components/common/PactDialog';
@@ -74,30 +74,16 @@ export struct AboutSection {
         },
       },
       {
-        // 放在最后一行：点开先选要读哪一篇，再弹层展示（不再是两篇平铺）
+        // 放在最后一行：点击直接打开内容弹层，弹层内可在两篇之间切换
         type: 'button',
         title: t('legal_title'),
         description: t('legal_title_desc'),
         onClick: (): void => {
-          void this.openLegalMenu();
+          this.legalDocument = 'pact';
+          this.showPact = true;
         },
       },
     ];
-  }
-
-  /** 法律文本入口：先选文档，再弹层展示 */
-  private async openLegalMenu(): Promise<void> {
-    const picked = await appActionMenu(t('legal_title'), [
-      t('pact_title'),
-      t('privacy_title'),
-    ]);
-    if (picked === 0) {
-      this.legalDocument = 'pact';
-      this.showPact = true;
-    } else if (picked === 1) {
-      this.legalDocument = 'privacy';
-      this.showPact = true;
-    }
   }
 
   /** 二级面板：关于页 / 版本信息 / 运行日志 / 详细日志开关 */

@@ -94,7 +94,8 @@ CHECKS = [
   r'expandSafeArea\(\[SafeAreaType\.SYSTEM\], \[SafeAreaEdge\.TOP, SafeAreaEdge\.BOTTOM\]\)'),
  ('榜单卡片封面与歌名对齐', 'pages/Home/Leaderboard/ChartCard.ets', r'HEADER_LEFT_INSET'),
  ('顶栏无右侧动作时补对称占位', 'components/ui/NavBar.ets', r'等宽的占位'),
- ('法律文本入口先选再弹层', 'pages/Home/Setting/AboutSection.ets', r'openLegalMenu'),
+ ('法律文本点击直接开内容弹层', 'pages/Home/Setting/AboutSection.ets',
+  r'this\.showPact = true', r'openLegalMenu'),
  ('榜单说明来自源数据', 'core/music/sources/wy/leaderboard.ets', r'description'),
  # 面板统一规则（真机反馈定的）：取消不收成单独一行，一律右上角 ×；高度按内容行数自适应
  ('面板标题行统一（左标题+右上角关闭）', 'components/ui/SheetHeader.ets', r'export struct SheetHeader'),
