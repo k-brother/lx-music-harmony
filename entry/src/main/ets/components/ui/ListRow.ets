@@ -60,7 +60,7 @@ export struct ListRow {
         } else {
           Column() {
             SymbolGlyph($r('sys.symbol.music_note_list'))
-              .fontSize(24)
+              .fontSize(DesignTokens.fontDisplay())
               .fontColor([DesignTokens.labelTertiary(this.theme)])
           }
           .width(DesignTokens.rowCover())

@@ -40,7 +40,7 @@ export struct LyricOffsetSheet {
           .layoutWeight(1)
           .maxLines(2)
         Text(this.formatOffset(this.offsetSeconds))
-          .fontSize(15)
+          .fontSize(DesignTokens.fontSubhead())
           .fontColor(DesignTokens.accent())
           .fontWeight(FontWeight.Medium)
       }
@@ -69,7 +69,7 @@ export struct LyricOffsetSheet {
           .type(ButtonType.Capsule)
           .layoutWeight(1)
           .height(DesignTokens.touchTarget())
-          .fontSize(15)
+          .fontSize(DesignTokens.fontSubhead())
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .backgroundColor(DesignTokens.mutedFill(this.theme))
           .onClick(() => {
@@ -81,7 +81,7 @@ export struct LyricOffsetSheet {
           .type(ButtonType.Capsule)
           .layoutWeight(1)
           .height(DesignTokens.touchTarget())
-          .fontSize(15)
+          .fontSize(DesignTokens.fontSubhead())
           .fontColor(DesignTokens.onAccent())
           .backgroundColor(DesignTokens.accent())
           .onClick(() => {

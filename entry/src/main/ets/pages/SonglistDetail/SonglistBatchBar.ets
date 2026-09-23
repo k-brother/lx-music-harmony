@@ -24,13 +24,13 @@ export struct SonglistBatchBar {
     Column() {
       Row() {
         Text(tf('list_selected_count', [this.selectedCount.toString()]))
-          .fontSize(13)
+          .fontSize(DesignTokens.fontCallout())
           .fontColor(DesignTokens.labelSecondary(this.theme))
 
         Blank()
 
         Text(this.selectedCount === this.totalCount ? t('list_deselect_all') : t('list_select_all'))
-          .fontSize(13)
+          .fontSize(DesignTokens.fontCallout())
           .fontColor(DesignTokens.accent())
           .padding({ left: 8, right: 4, top: 4, bottom: 4 })
           .onClick(() => {
@@ -46,7 +46,7 @@ export struct SonglistBatchBar {
         Button(t('player_add_to_list'))
           .layoutWeight(1)
           .height(DesignTokens.touchTarget())
-          .fontSize(13)
+          .fontSize(DesignTokens.fontCallout())
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .backgroundColor(DesignTokens.mutedFill(this.theme))
           .enabled(!this.busy)
@@ -58,7 +58,7 @@ export struct SonglistBatchBar {
         Button(t('player_download'))
           .layoutWeight(1)
           .height(DesignTokens.touchTarget())
-          .fontSize(13)
+          .fontSize(DesignTokens.fontCallout())
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .backgroundColor(DesignTokens.mutedFill(this.theme))
           .enabled(!this.busy)
@@ -71,7 +71,7 @@ export struct SonglistBatchBar {
           Button(t('list_remove_songs'))
             .layoutWeight(1)
             .height(DesignTokens.touchTarget())
-            .fontSize(13)
+            .fontSize(DesignTokens.fontCallout())
             .fontColor('#FFFFFF')
             .backgroundColor(DesignTokens.danger())
             .enabled(!this.busy)

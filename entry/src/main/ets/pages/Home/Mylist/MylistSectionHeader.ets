@@ -26,7 +26,7 @@ export struct MylistSectionHeader {
     Row() {
       Column({ space: 4 }) {
         Text(this.title)
-          .fontSize(20)
+          .fontSize(DesignTokens.fontLarge())
           .fontWeight(FontWeight.Bold)
           .fontColor(DesignTokens.labelPrimary(this.theme))
         if (this.subtitle.length > 0) {
@@ -42,7 +42,7 @@ export struct MylistSectionHeader {
       Row({ space: 8 }) {
         if (this.actionText.length > 0) {
           Text(this.actionText)
-            .fontSize(13)
+            .fontSize(DesignTokens.fontCallout())
             .fontWeight(FontWeight.Medium)
             .fontColor(DesignTokens.accent())
             .padding({ left: 10, right: 10, top: 6, bottom: 6 })
@@ -59,7 +59,7 @@ export struct MylistSectionHeader {
               .height(14)
               .fillColor(Color.White)
             Text(this.primaryText)
-              .fontSize(13)
+              .fontSize(DesignTokens.fontCallout())
               .fontWeight(FontWeight.Medium)
               .fontColor(Color.White)
           }

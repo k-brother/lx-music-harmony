@@ -39,14 +39,14 @@ export struct CustomSourceRow {
         Column() {
           Row() {
             Text(this.sourceName.length > 0 ? this.sourceName : this.sourceUrl)
-              .fontSize(15)
+              .fontSize(DesignTokens.fontSubhead())
               .fontColor(DesignTokens.labelPrimary(this.theme))
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
               .layoutWeight(1)
             if (this.isEnabled) {
               Text(t('custom_source_in_use'))
-                .fontSize(10)
+                .fontSize(DesignTokens.fontBadge())
                 .fontColor(DesignTokens.accent())
                 .padding({ left: 6, right: 6, top: 2, bottom: 2 })
                 .borderRadius(8)
@@ -57,7 +57,7 @@ export struct CustomSourceRow {
           .width('100%')
 
           Text(this.subtitle())
-            .fontSize(11)
+            .fontSize(DesignTokens.fontMicro())
             .fontColor(DesignTokens.labelTertiary(this.theme))
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -83,7 +83,7 @@ export struct CustomSourceRow {
 
       Row({ space: 16 }) {
         Text(t('custom_source_update'))
-          .fontSize(13)
+          .fontSize(DesignTokens.fontCallout())
           .fontColor(DesignTokens.accent())
           .padding({ top: 6, bottom: 2, right: 8 })
           .onClick(() => {
@@ -92,7 +92,7 @@ export struct CustomSourceRow {
             }
           })
         Text(t('delete'))
-          .fontSize(13)
+          .fontSize(DesignTokens.fontCallout())
           .fontColor(DesignTokens.danger())
           .padding({ top: 6, bottom: 2 })
           .onClick(() => {

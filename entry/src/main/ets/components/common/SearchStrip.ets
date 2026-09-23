@@ -29,7 +29,7 @@ export struct SearchStrip {
   build() {
     Row() {
       SymbolGlyph($r('sys.symbol.magnifyingglass'))
-        .fontSize(20)
+        .fontSize(DesignTokens.fontLarge())
         .fontColor([DesignTokens.labelSecondary(this.theme)])
         .margin({ left: 10, right: 6 })
         .accessibilityText(t('a11y_search'))
@@ -39,7 +39,7 @@ export struct SearchStrip {
       if (this.tapToOpenOnly) {
         Text(this.text.trim().length > 0 ? this.text : this.placeholder)
           .layoutWeight(1)
-          .fontSize(16)
+          .fontSize(DesignTokens.fontTitle())
           .fontColor(this.text.trim().length > 0 ? DesignTokens.labelPrimary(this.theme) : DesignTokens.labelTertiary(this.theme))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -49,7 +49,7 @@ export struct SearchStrip {
           .layoutWeight(1)
           .height(DesignTokens.heightSearchField())
           .backgroundColor(Color.Transparent)
-          .fontSize(16)
+          .fontSize(DesignTokens.fontTitle())
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .placeholderColor(DesignTokens.labelTertiary(this.theme))
           .padding({ right: 10 })

@@ -22,12 +22,12 @@ export struct MylistEntryRow {
   build() {
     Row({ space: 10 }) {
       SymbolGlyph(this.icon)
-        .fontSize(22)
+        .fontSize(DesignTokens.fontIconXl())
         .fontColor([DesignTokens.labelSecondary(this.theme)])
 
       Column({ space: 2 }) {
         Text(this.title)
-          .fontSize(15)
+          .fontSize(DesignTokens.fontSubhead())
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .maxLines(1)
         if (this.subtitle.length > 0) {
@@ -41,7 +41,7 @@ export struct MylistEntryRow {
       .layoutWeight(1)
 
       SymbolGlyph($r('sys.symbol.chevron_right'))
-        .fontSize(17)
+        .fontSize(DesignTokens.fontHeadline())
         .fontColor([DesignTokens.labelTertiary(this.theme)])
     }
     .width('100%')

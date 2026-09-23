@@ -106,7 +106,7 @@ export struct QueueSheet {
   @Builder
   DragHandle(index: number) {
     SymbolGlyph($r('sys.symbol.line_3_horizontal'))
-      .fontSize(20)
+      .fontSize(DesignTokens.fontLarge())
       .fontColor([DesignTokens.labelTertiary(this.theme)])
       .responseRegion(DesignTokens.touchRegion(20))
       // 吞掉点击：否则按下手柄松手时，事件会落到整行上触发「切歌」
@@ -152,7 +152,7 @@ export struct QueueSheet {
 
       Column({ space: 2 }) {
         Text(song.title)
-          .fontSize(15)
+          .fontSize(DesignTokens.fontSubhead())
           .fontColor(index === this.currentIndex ? DesignTokens.accent() : DesignTokens.labelPrimary(this.theme))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -170,7 +170,7 @@ export struct QueueSheet {
 
       if (index === this.currentIndex) {
         SymbolGlyph($r('sys.symbol.play_fill'))
-          .fontSize(17)
+          .fontSize(DesignTokens.fontHeadline())
           .fontColor([DesignTokens.accent()])
       }
 
@@ -222,7 +222,7 @@ export struct QueueSheet {
   Content() {
     if (this.queue.length === 0) {
       Text(t('list_empty'))
-        .fontSize(14)
+        .fontSize(DesignTokens.fontBody())
         .fontColor(DesignTokens.labelSecondary(this.theme))
         .padding({ top: 20, bottom: 20 })
     } else {
@@ -262,7 +262,7 @@ export struct QueueSheet {
   RemoveAction(index: number) {
     Row() {
       Text(t('play_queue_remove'))
-        .fontSize(15)
+        .fontSize(DesignTokens.fontSubhead())
         .fontColor(DesignTokens.onAccent())
         .fontWeight(FontWeight.Medium)
     }

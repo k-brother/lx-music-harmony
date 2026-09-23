@@ -43,7 +43,7 @@ export struct BottomSheet {
     Column() {
       if (this.title.length > 0) {
         Text(this.title)
-          .fontSize(17)
+          .fontSize(DesignTokens.fontHeadline())
           .fontWeight(FontWeight.Medium)
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .width('100%')

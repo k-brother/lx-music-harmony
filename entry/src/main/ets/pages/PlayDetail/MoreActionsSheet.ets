@@ -46,7 +46,7 @@ export struct MoreActionsSheet {
       }
 
       Text(action.label)
-        .fontSize(15)
+        .fontSize(DesignTokens.fontSubhead())
         .fontColor(DesignTokens.labelPrimary(this.theme))
         .layoutWeight(1)
         .maxLines(1)

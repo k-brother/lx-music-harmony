@@ -113,7 +113,7 @@ export struct SearchSonglistResultList {
               } else {
                 Column() {
                   SymbolGlyph($r('sys.symbol.music_note_list'))
-                    .fontSize(26)
+                    .fontSize(DesignTokens.fontDisplayLarge())
                     .fontColor([DesignTokens.labelTertiary(this.theme)])
                 }
                 .width(56)
@@ -125,7 +125,7 @@ export struct SearchSonglistResultList {
 
               Column({ space: 4 }) {
                 Text(item.name)
-                  .fontSize(15)
+                  .fontSize(DesignTokens.fontSubhead())
                   .fontColor(DesignTokens.labelPrimary(this.theme))
                   .maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -144,7 +144,7 @@ export struct SearchSonglistResultList {
               .margin({ left: 12 })
 
               SymbolGlyph($r('sys.symbol.chevron_right'))
-                .fontSize(17)
+                .fontSize(DesignTokens.fontHeadline())
                 .fontColor([DesignTokens.labelTertiary(this.theme)])
             }
             .width('100%')

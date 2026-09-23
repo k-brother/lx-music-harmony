@@ -46,7 +46,7 @@ export struct NavBar {
       if (this.largeTitle && !this.collapsed) {
         // 大标题形态：标题左对齐、字号更大（iOS Large Title 风格）
         Text(this.title)
-          .fontSize(24)
+          .fontSize(DesignTokens.fontDisplay())
           .fontWeight(FontWeight.Bold)
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .maxLines(1)
@@ -55,7 +55,7 @@ export struct NavBar {
           .margin({ left: this.showBack ? 8 : 0 })
       } else {
         Text(this.title)
-          .fontSize(17)
+          .fontSize(DesignTokens.fontHeadline())
           .fontWeight(FontWeight.Medium)
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .maxLines(1)

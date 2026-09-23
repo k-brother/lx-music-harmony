@@ -491,12 +491,12 @@ export struct HomePage {
           // 大标题 + 一行说明（此前两行都写成 download_title，等于同一句话重复两遍）
           Column() {
             Text(t('download_title'))
-              .fontSize(28)
+              .fontSize(DesignTokens.fontDisplayXl())
               .fontWeight(FontWeight.Bold)
               .fontColor(DesignTokens.labelPrimary(this.theme))
               .letterSpacing(-0.5)
             Text(t('download_subtitle'))
-              .fontSize(13)
+              .fontSize(DesignTokens.fontCallout())
               .fontColor(DesignTokens.labelSecondary(this.theme))
               .margin({ top: 2 })
           }
@@ -507,14 +507,14 @@ export struct HomePage {
         } else {
           Row() {
             Text(t('tab_my'))
-              .fontSize(24)
+              .fontSize(DesignTokens.fontDisplay())
               .fontWeight(FontWeight.Bold)
               .fontColor(DesignTokens.labelPrimary(this.theme))
               .layoutWeight(1)
               .padding({ left: DesignTokens.spaceGutter() })
 
             Text(t('settings_title'))
-              .fontSize(16)
+              .fontSize(DesignTokens.fontTitle())
               .fontWeight(FontWeight.Medium)
               .fontColor(DesignTokens.accent())
               .padding({ left: 8, right: 4, top: 6, bottom: 6 })
@@ -562,7 +562,7 @@ export struct HomePage {
         Row() {
           Row() {
             SymbolGlyph($r('sys.symbol.magnifyingglass'))
-              .fontSize(20)
+              .fontSize(DesignTokens.fontLarge())
               .fontColor([DesignTokens.labelSecondary(this.theme)])
               .margin({ left: 10, right: 6 })
             TextInput({ placeholder: t('search_placeholder'), text: this.searchText })
@@ -574,7 +574,7 @@ export struct HomePage {
               .layoutWeight(1)
               .height(DesignTokens.heightSearchField())
               .backgroundColor(Color.Transparent)
-              .fontSize(16)
+              .fontSize(DesignTokens.fontTitle())
               .fontColor(DesignTokens.labelPrimary(this.theme))
               .placeholderColor(DesignTokens.labelTertiary(this.theme))
               .padding({ right: 10 })
@@ -595,7 +595,7 @@ export struct HomePage {
           .alignItems(VerticalAlign.Center)
 
           Text(t('cancel'))
-            .fontSize(16)
+            .fontSize(DesignTokens.fontTitle())
             .fontWeight(FontWeight.Medium)
             .fontColor(DesignTokens.accent())
             .padding({ left: 12, right: 4, top: 8, bottom: 8 })
@@ -635,7 +635,7 @@ export struct HomePage {
   @Builder
   SearchTypeChip(type: string, label: string) {
     Text(label)
-      .fontSize(14)
+      .fontSize(DesignTokens.fontBody())
       .fontWeight(this.searchType === type ? FontWeight.Medium : FontWeight.Normal)
       .fontColor(this.searchType === type ? DesignTokens.onAccent() : DesignTokens.labelSecondary(this.theme))
       .backgroundColor(this.searchType === type ? DesignTokens.accent() : DesignTokens.mutedFill(this.theme))

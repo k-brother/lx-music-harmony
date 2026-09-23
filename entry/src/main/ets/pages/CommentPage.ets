@@ -256,7 +256,7 @@ export struct CommentPage {
 
       Column() {
         Text(t('comment_image_close'))
-          .fontSize(14)
+          .fontSize(DesignTokens.fontBody())
           .fontColor(DesignTokens.onAccent())
           .padding({ left: 14, right: 14, top: 8, bottom: 8 })
           .backgroundColor('rgba(255,255,255,0.20)')
@@ -368,7 +368,7 @@ export struct CommentPage {
             } else {
               ListItem() {
                 Text(t('comment_no_more'))
-                  .fontSize(12)
+                  .fontSize(DesignTokens.fontCaption())
                   .fontColor(DesignTokens.labelSecondary(this.theme))
                   .textAlign(TextAlign.Center)
                   .width('100%')

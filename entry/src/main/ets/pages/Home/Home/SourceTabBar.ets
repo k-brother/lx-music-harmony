@@ -29,7 +29,7 @@ export struct SourceTabBar {
         ForEach(this.options, (option: SourceTabOption) => {
           Column({ space: 4 }) {
             Text(option.name)
-              .fontSize(16)
+              .fontSize(DesignTokens.fontTitle())
               .fontColor(this.activeId === option.id ? DesignTokens.accent() : DesignTokens.labelSecondary(this.theme))
               .fontWeight(this.activeId === option.id ? FontWeight.Medium : FontWeight.Normal)
               .maxLines(1)

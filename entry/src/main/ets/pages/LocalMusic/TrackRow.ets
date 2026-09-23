@@ -44,7 +44,7 @@ export struct TrackRow {
 
       Column() {
         Text(this.title)
-          .fontSize(15)
+          .fontSize(DesignTokens.fontSubhead())
           .fontWeight(this.active ? FontWeight.Medium : FontWeight.Normal)
           .fontColor(this.active ? DesignTokens.accent() : DesignTokens.labelPrimary(this.theme))
           .maxLines(1)

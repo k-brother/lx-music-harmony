@@ -55,7 +55,7 @@ export struct EditMetadataSheet {
 
       Column({ space: 10 }) {
         Text(t('edit_metadata'))
-          .fontSize(17)
+          .fontSize(DesignTokens.fontHeadline())
           .fontWeight(FontWeight.Medium)
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .width('100%')
@@ -86,7 +86,7 @@ export struct EditMetadataSheet {
 
         Row({ space: 10 }) {
           Button(t('cancel'))
-            .fontSize(15)
+            .fontSize(DesignTokens.fontSubhead())
             .fontColor(DesignTokens.labelPrimary(this.theme))
             .backgroundColor(DesignTokens.mutedFill(this.theme))
             .borderRadius(18)
@@ -95,7 +95,7 @@ export struct EditMetadataSheet {
               this.cancel();
             })
           Button(t('confirm'))
-            .fontSize(15)
+            .fontSize(DesignTokens.fontSubhead())
             .fontColor(DesignTokens.onAccent())
             .backgroundColor(DesignTokens.accent())
             .borderRadius(18)
@@ -153,7 +153,7 @@ struct MetadataField {
         })
         .width('100%')
         .height(40)
-        .fontSize(15)
+        .fontSize(DesignTokens.fontSubhead())
         .fontColor(DesignTokens.labelPrimary(this.theme))
         .backgroundColor(DesignTokens.mutedFill(this.theme))
         .borderRadius(10)

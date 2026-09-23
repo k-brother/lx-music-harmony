@@ -319,7 +319,7 @@ export struct CustomSourceView {
   buildHeader(title: string) {
     Column() {
       Text(title)
-        .fontSize(13)
+        .fontSize(DesignTokens.fontCallout())
         .fontWeight(FontWeight.Medium)
         .fontColor(DesignTokens.labelTertiary(this.theme))
         .padding({ left: 16, top: 20, bottom: 8 })
@@ -335,16 +335,16 @@ export struct CustomSourceView {
       Row() {
         Column() {
           Text(item.name)
-            .fontSize(15)
+            .fontSize(DesignTokens.fontSubhead())
             .fontColor(DesignTokens.labelPrimary(this.theme))
           if (item.builtIn) {
             Text(t('custom_source_builtin'))
-              .fontSize(11)
+              .fontSize(DesignTokens.fontMicro())
               .fontColor(DesignTokens.labelSecondary(this.theme))
               .margin({ top: 2 })
           } else {
             Text(item.url || '')
-              .fontSize(11)
+              .fontSize(DesignTokens.fontMicro())
               .fontColor(DesignTokens.labelSecondary(this.theme))
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -356,7 +356,7 @@ export struct CustomSourceView {
 
         if (this.selectedSource === item.id) {
           SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
-            .fontSize(26)
+            .fontSize(DesignTokens.fontDisplayLarge())
             .fontColor([DesignTokens.accent()])
         }
       }
@@ -433,10 +433,10 @@ export struct CustomSourceView {
           Row() {
             Column() {
               Text(t('custom_source_online_js'))
-                .fontSize(15)
+                .fontSize(DesignTokens.fontSubhead())
                 .fontColor(DesignTokens.labelPrimary(this.theme))
               Text(t('custom_source_url_placeholder'))
-                .fontSize(11)
+                .fontSize(DesignTokens.fontMicro())
                 .fontColor(DesignTokens.labelSecondary(this.theme))
                 .margin({ top: 2 })
             }
@@ -445,7 +445,7 @@ export struct CustomSourceView {
 
             if (this.selectedSource === 'custom') {
               SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
-                .fontSize(26)
+                .fontSize(DesignTokens.fontDisplayLarge())
                 .fontColor([DesignTokens.accent()])
             }
           }
@@ -462,14 +462,14 @@ export struct CustomSourceView {
           if (this.selectedSource === 'custom') {
             Column() {
               Text(t('custom_source_js_url'))
-                .fontSize(13)
+                .fontSize(DesignTokens.fontCallout())
                 .fontColor(DesignTokens.labelSecondary(this.theme))
                 .padding({ left: 16, top: 12, bottom: 8 })
 
               TextInput({ placeholder: t('plugin_url_hint'), text: this.customSourceUrl })
                 .width('100%')
                 .height(44)
-                .fontSize(14)
+                .fontSize(DesignTokens.fontBody())
                 .backgroundColor(DesignTokens.mutedFill(this.theme))
                 .borderRadius(8)
                 .padding({ left: 12, right: 12 })
@@ -479,7 +479,7 @@ export struct CustomSourceView {
 
               // 示例地址提示
               Text(t('custom_source_hint'))
-                .fontSize(11)
+                .fontSize(DesignTokens.fontMicro())
                 .fontColor(DesignTokens.labelSecondary(this.theme))
                 .padding({ left: 16, top: 8, right: 16 })
                 .width('100%')
@@ -488,7 +488,7 @@ export struct CustomSourceView {
               Button(t('plugin_load_btn'))
                 .width('100%')
                 .height(44)
-                .fontSize(15)
+                .fontSize(DesignTokens.fontSubhead())
                 .backgroundColor(this.isLoading ? DesignTokens.disabled(this.theme) : DesignTokens.accent())
                 .fontColor(DesignTokens.onAccent())
                 .borderRadius(8)
@@ -501,7 +501,7 @@ export struct CustomSourceView {
               // 状态显示
               if (this.loadStatus) {
                 Text(this.loadStatus)
-                  .fontSize(13)
+                  .fontSize(DesignTokens.fontCallout())
                   .fontColor(DesignTokens.accent())
                   .padding({ left: 16, top: 8 })
                   .width('100%')
@@ -509,7 +509,7 @@ export struct CustomSourceView {
 
               if (this.errorMessage) {
                 Text(this.errorMessage)
-                  .fontSize(13)
+                  .fontSize(DesignTokens.fontCallout())
                   .fontColor(DesignTokens.danger())
                   .padding({ left: 16, top: 8 })
                   .width('100%')
@@ -519,17 +519,17 @@ export struct CustomSourceView {
               if (this.pluginInfo) {
                 Column() {
                   Text(t('custom_source_plugin_info'))
-                    .fontSize(13)
+                    .fontSize(DesignTokens.fontCallout())
                     .fontColor(DesignTokens.labelSecondary(this.theme))
                     .padding({ left: 16, top: 16, bottom: 8 })
 
                   Row() {
                     Text(t('label_name_colon'))
-                      .fontSize(13)
+                      .fontSize(DesignTokens.fontCallout())
                       .fontColor(DesignTokens.labelSecondary(this.theme))
                       .width(60)
                     Text(this.pluginInfo.name)
-                      .fontSize(13)
+                      .fontSize(DesignTokens.fontCallout())
                       .fontColor(DesignTokens.labelPrimary(this.theme))
                   }
                   .width('100%')
@@ -537,11 +537,11 @@ export struct CustomSourceView {
 
                   Row() {
                     Text(t('label_version_colon'))
-                      .fontSize(13)
+                      .fontSize(DesignTokens.fontCallout())
                       .fontColor(DesignTokens.labelSecondary(this.theme))
                       .width(60)
                     Text(this.pluginInfo.version)
-                      .fontSize(13)
+                      .fontSize(DesignTokens.fontCallout())
                       .fontColor(DesignTokens.labelPrimary(this.theme))
                   }
                   .width('100%')
@@ -549,11 +549,11 @@ export struct CustomSourceView {
 
                   Row() {
                     Text(t('label_author_colon'))
-                      .fontSize(13)
+                      .fontSize(DesignTokens.fontCallout())
                       .fontColor(DesignTokens.labelSecondary(this.theme))
                       .width(60)
                     Text(this.pluginInfo.author)
-                      .fontSize(13)
+                      .fontSize(DesignTokens.fontCallout())
                       .fontColor(DesignTokens.labelPrimary(this.theme))
                   }
                   .width('100%')
@@ -574,10 +574,10 @@ export struct CustomSourceView {
           Row() {
             Column() {
               Text(t('custom_source_local_js'))
-                .fontSize(15)
+                .fontSize(DesignTokens.fontSubhead())
                 .fontColor(DesignTokens.labelPrimary(this.theme))
               Text(t('custom_source_local_js_desc'))
-                .fontSize(11)
+                .fontSize(DesignTokens.fontMicro())
                 .fontColor(DesignTokens.labelSecondary(this.theme))
                 .margin({ top: 2 })
             }
@@ -585,7 +585,7 @@ export struct CustomSourceView {
             .layoutWeight(1)
 
             SymbolGlyph($r('sys.symbol.folder'))
-              .fontSize(22)
+              .fontSize(DesignTokens.fontIconXl())
               .fontColor([DesignTokens.accent()])
           }
           .width('100%')
@@ -602,12 +602,12 @@ export struct CustomSourceView {
           // 使用说明
           Column() {
             Text(t('custom_source_help_title'))
-              .fontSize(13)
+              .fontSize(DesignTokens.fontCallout())
               .fontColor(DesignTokens.labelSecondary(this.theme))
               .padding({ left: 16, top: 20, bottom: 8 })
 
             Text(t('custom_source_help_body'))
-              .fontSize(12)
+              .fontSize(DesignTokens.fontCaption())
               .fontColor(DesignTokens.labelSecondary(this.theme))
               .padding({ left: 16, right: 16, bottom: 20 })
               .lineHeight(20)

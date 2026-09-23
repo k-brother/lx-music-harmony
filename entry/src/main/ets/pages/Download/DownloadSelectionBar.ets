@@ -27,10 +27,10 @@ export struct DownloadSelectionBar {
   SelectAllAffordance() {
     Row() {
       SymbolGlyph(this.allSelected ? $r('sys.symbol.checkmark_square_fill') : $r('sys.symbol.square'))
-        .fontSize(24)
+        .fontSize(DesignTokens.fontDisplay())
         .fontColor([DesignTokens.accent()])
       Text(this.allSelected ? t('list_deselect_all') : t('list_select_all'))
-        .fontSize(15)
+        .fontSize(DesignTokens.fontSubhead())
         .fontColor(DesignTokens.accent())
         .fontWeight(FontWeight.Medium)
         .margin({ left: 8 })
@@ -60,7 +60,7 @@ export struct DownloadSelectionBar {
 
         if (this.selectedCount > 0 && this.hasDownloading) {
           SymbolGlyph($r('sys.symbol.pause'))
-            .fontSize(26)
+            .fontSize(DesignTokens.fontDisplayLarge())
             .fontColor([DesignTokens.accent()])
             .margin({ left: 12 })
             .responseRegion(DesignTokens.touchRegion(22))
@@ -74,7 +74,7 @@ export struct DownloadSelectionBar {
 
         if (this.selectedCount > 0 && this.hasResumable) {
           SymbolGlyph($r('sys.symbol.play'))
-            .fontSize(26)
+            .fontSize(DesignTokens.fontDisplayLarge())
             .fontColor([DesignTokens.accent()])
             .margin({ left: 12 })
             .responseRegion(DesignTokens.touchRegion(22))
@@ -88,7 +88,7 @@ export struct DownloadSelectionBar {
 
         if (this.selectedCount > 0) {
           SymbolGlyph($r('sys.symbol.trash'))
-            .fontSize(26)
+            .fontSize(DesignTokens.fontDisplayLarge())
             .fontColor([DesignTokens.danger()])
             .margin({ left: 12 })
             .responseRegion(DesignTokens.touchRegion(22))

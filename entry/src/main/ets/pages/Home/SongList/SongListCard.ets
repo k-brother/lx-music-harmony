@@ -70,10 +70,10 @@ export struct SongListCard {
         // 播放量角标
         Row() {
           SymbolGlyph($r('sys.symbol.play_fill'))
-            .fontSize(12)
+            .fontSize(DesignTokens.fontCaption())
             .fontColor([DesignTokens.onAccent()])
           Text(this.playCountText(this.item.play_count))
-            .fontSize(10)
+            .fontSize(DesignTokens.fontBadge())
             .fontColor(DesignTokens.onAccent())
             .margin({ left: 3 })
         }
@@ -89,7 +89,7 @@ export struct SongListCard {
 
       Column() {
         Text(this.item.name)
-          .fontSize(14)
+          .fontSize(DesignTokens.fontBody())
           .fontWeight(FontWeight.Medium)
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .maxLines(2)
@@ -98,7 +98,7 @@ export struct SongListCard {
           .width('100%')
 
         Text(this.item.author)
-          .fontSize(12)
+          .fontSize(DesignTokens.fontCaption())
           .fontColor(DesignTokens.labelTertiary(this.theme))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })

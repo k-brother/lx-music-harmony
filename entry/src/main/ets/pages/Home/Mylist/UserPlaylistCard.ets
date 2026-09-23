@@ -39,7 +39,7 @@ export struct UserPlaylistCard {
       } else {
         Column() {
           SymbolGlyph($r('sys.symbol.music_note_list'))
-            .fontSize(29)
+            .fontSize(DesignTokens.fontCoverIcon())
             .fontColor([DesignTokens.labelTertiary(this.theme)])
         }
         .width(52)
@@ -51,7 +51,7 @@ export struct UserPlaylistCard {
 
       Column({ space: 6 }) {
         Text(this.name)
-          .fontSize(16)
+          .fontSize(DesignTokens.fontTitle())
           .fontWeight(FontWeight.Medium)
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .maxLines(1)
@@ -60,11 +60,11 @@ export struct UserPlaylistCard {
 
         Row() {
           Text(tf('count_songs_unit', [this.count.toString()]))
-            .fontSize(13)
+            .fontSize(DesignTokens.fontCallout())
             .fontColor(DesignTokens.labelTertiary(this.theme))
           if (this.bindingListId.length > 0) {
             Text(tf('list_bound_online', [sourceLabel(this.bindingSource)]))
-              .fontSize(11)
+              .fontSize(DesignTokens.fontMicro())
               .fontColor(DesignTokens.accent())
               .padding({ left: 6, right: 6, top: 2, bottom: 2 })
               .borderRadius(8)
@@ -79,7 +79,7 @@ export struct UserPlaylistCard {
 
       if (this.bindingListId.length > 0) {
         SymbolGlyph($r('sys.symbol.arrow_clockwise'))
-          .fontSize(24)
+          .fontSize(DesignTokens.fontDisplay())
           .fontColor([DesignTokens.accent()])
           .padding(10)
           .responseRegion(DesignTokens.touchRegion(40))
@@ -92,7 +92,7 @@ export struct UserPlaylistCard {
       }
 
       SymbolGlyph($r('sys.symbol.play_circle'))
-        .fontSize(36)
+        .fontSize(DesignTokens.fontDisplayHuge())
         .fontColor([DesignTokens.accent()])
         .responseRegion(DesignTokens.touchRegion(30))
         .accessibilityText(t('a11y_play'))
@@ -103,7 +103,7 @@ export struct UserPlaylistCard {
         })
 
       SymbolGlyph($r('sys.symbol.chevron_right'))
-        .fontSize(17)
+        .fontSize(DesignTokens.fontHeadline())
         .fontColor([DesignTokens.labelTertiary(this.theme)])
         .margin({ left: 8 })
 

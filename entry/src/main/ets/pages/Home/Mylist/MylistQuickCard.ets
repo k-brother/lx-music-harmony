@@ -22,10 +22,10 @@ export struct MylistQuickCard {
   build() {
     Column({ space: 8 }) {
       SymbolGlyph(this.icon)
-        .fontSize(24)
+        .fontSize(DesignTokens.fontDisplay())
         .fontColor([this.iconColor])
       Text(this.title)
-        .fontSize(15)
+        .fontSize(DesignTokens.fontSubhead())
         .fontWeight(FontWeight.Medium)
         .fontColor(DesignTokens.labelPrimary(this.theme))
         .maxLines(1)

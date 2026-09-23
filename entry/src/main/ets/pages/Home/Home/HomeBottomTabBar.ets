@@ -35,7 +35,7 @@ export struct HomeBottomTabBar {
         .scale({ x: this.activeIndex === tab.idx ? 1.08 : 1, y: this.activeIndex === tab.idx ? 1.08 : 1 })
         .animation({ duration: DesignTokens.motionFast(), curve: Curve.EaseOut })
       Text(tab.label)
-        .fontSize(14)
+        .fontSize(DesignTokens.fontBody())
         .fontColor(this.activeIndex === tab.idx ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
         .fontWeight(this.activeIndex === tab.idx ? FontWeight.Medium : FontWeight.Normal)
         .maxLines(1)

@@ -37,19 +37,19 @@ export struct SearchInputContent {
             ListItem() {
               Row() {
                 SymbolGlyph($r('sys.symbol.magnifyingglass'))
-                  .fontSize(18)
+                  .fontSize(DesignTokens.fontHeading())
                   .fontColor([DesignTokens.labelTertiary(this.theme)])
                   .margin({ right: 10 })
 
                 Text(tip)
-                  .fontSize(16)
+                  .fontSize(DesignTokens.fontTitle())
                   .fontColor(DesignTokens.labelPrimary(this.theme))
                   .layoutWeight(1)
                   .maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
 
                 SymbolGlyph($r('sys.symbol.arrow_up_left'))
-                  .fontSize(17)
+                  .fontSize(DesignTokens.fontHeadline())
                   .fontColor([DesignTokens.labelTertiary(this.theme)])
               }
               .width('100%')
@@ -77,13 +77,13 @@ export struct SearchInputContent {
       if (this.tips.length === 0 && this.showHistory && this.history.length > 0) {
         Row() {
           Text(t('search_history'))
-            .fontSize(13)
+            .fontSize(DesignTokens.fontCallout())
             .fontColor(DesignTokens.labelSecondary(this.theme))
             .fontWeight(FontWeight.Medium)
             .layoutWeight(1)
 
           Text(t('search_clear_history'))
-            .fontSize(13)
+            .fontSize(DesignTokens.fontCallout())
             .fontColor(DesignTokens.accent())
             .padding({ left: 8, right: 8, top: 4, bottom: 4 })
             .onClick(() => {
@@ -96,7 +96,7 @@ export struct SearchInputContent {
         Flex({ wrap: FlexWrap.Wrap }) {
           ForEach(this.history, (word: string) => {
             Text(word)
-              .fontSize(14)
+              .fontSize(DesignTokens.fontBody())
               .fontColor(DesignTokens.labelPrimary(this.theme))
               .backgroundColor(DesignTokens.mutedFill(this.theme))
               .borderRadius(14)
@@ -118,7 +118,7 @@ export struct SearchInputContent {
       // 热搜标题（小号大写感：次级标签样式）
       Row() {
         Text(t('search_hot'))
-          .fontSize(13)
+          .fontSize(DesignTokens.fontCallout())
           .fontColor(DesignTokens.labelSecondary(this.theme))
           .fontWeight(FontWeight.Medium)
       }
@@ -131,18 +131,18 @@ export struct SearchInputContent {
           ListItem() {
             Row() {
               Text((item.index).toString())
-                .fontSize(15)
+                .fontSize(DesignTokens.fontSubhead())
                 .fontColor(item.index <= 3 ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
                 .fontWeight(item.index <= 3 ? FontWeight.Medium : FontWeight.Normal)
                 .width(28)
 
               Text(item.title)
-                .fontSize(16)
+                .fontSize(DesignTokens.fontTitle())
                 .fontColor(DesignTokens.labelPrimary(this.theme))
                 .layoutWeight(1)
 
               SymbolGlyph($r('sys.symbol.chevron_right'))
-                .fontSize(17)
+                .fontSize(DesignTokens.fontHeadline())
                 .fontColor([DesignTokens.labelTertiary(this.theme)])
             }
             .width('100%')
@@ -166,7 +166,7 @@ export struct SearchInputContent {
       } else if (this.history.length === 0) {
         Column() {
           Text(t('search_no_hot'))
-            .fontSize(15)
+            .fontSize(DesignTokens.fontSubhead())
             .fontColor(DesignTokens.labelSecondary(this.theme))
         }
         .width('100%')

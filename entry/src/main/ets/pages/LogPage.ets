@@ -137,7 +137,7 @@ export struct LogPage {
       NavBackButton()
 
       Text(t('logs_title'))
-        .fontSize(24)
+        .fontSize(DesignTokens.fontDisplay())
         .fontWeight(FontWeight.Bold)
         .fontColor(DesignTokens.labelPrimary(this.theme))
         .margin({ left: 12 })
@@ -146,14 +146,14 @@ export struct LogPage {
       if (this.totalCount > 0) {
         Row({ space: 4 }) {
           Text(t('logs_copy'))
-            .fontSize(14)
+            .fontSize(DesignTokens.fontBody())
             .fontColor(DesignTokens.accent())
             .padding({ left: 8, right: 8, top: 6, bottom: 6 })
             .onClick(() => {
               void this.copyLogs();
             })
           Text(t('logs_clear'))
-            .fontSize(14)
+            .fontSize(DesignTokens.fontBody())
             .fontColor(DesignTokens.danger())
             .padding({ left: 8, right: 4, top: 6, bottom: 6 })
             .onClick(() => {
@@ -185,11 +185,11 @@ export struct LogPage {
       Blank()
 
       Text(tf('logs_count', [this.records.length.toString()]))
-        .fontSize(12)
+        .fontSize(DesignTokens.fontCaption())
         .fontColor(DesignTokens.labelTertiary(this.theme))
 
       Text(t('logs_export'))
-        .fontSize(13)
+        .fontSize(DesignTokens.fontCallout())
         .fontColor(DesignTokens.accent())
         .margin({ left: 12 })
         .onClick(() => {
@@ -206,7 +206,7 @@ export struct LogPage {
     Column() {
       Row() {
         Text(this.levelShort(record.level))
-          .fontSize(11)
+          .fontSize(DesignTokens.fontMicro())
           .fontWeight(FontWeight.Bold)
           .fontColor(DesignTokens.onAccent())
           .width(18)
@@ -216,7 +216,7 @@ export struct LogPage {
           .backgroundColor(this.levelColor(record.level))
 
         Text(record.tag)
-          .fontSize(12)
+          .fontSize(DesignTokens.fontCaption())
           .fontColor(DesignTokens.labelSecondary(this.theme))
           .margin({ left: 8 })
           .layoutWeight(1)
@@ -224,14 +224,14 @@ export struct LogPage {
           .textOverflow({ overflow: TextOverflow.Ellipsis })
 
         Text(this.formatTime(record.time))
-          .fontSize(11)
+          .fontSize(DesignTokens.fontMicro())
           .fontColor(DesignTokens.labelTertiary(this.theme))
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
 
       Text(record.message)
-        .fontSize(12)
+        .fontSize(DesignTokens.fontCaption())
         .fontColor(DesignTokens.labelPrimary(this.theme))
         .width('100%')
         .margin({ top: 6 })
@@ -257,7 +257,7 @@ export struct LogPage {
             .height(36)
             .color(DesignTokens.accent())
           Text(t('loading'))
-            .fontSize(14)
+            .fontSize(DesignTokens.fontBody())
             .fontColor(DesignTokens.labelSecondary(this.theme))
             .margin({ top: 12 })
         }

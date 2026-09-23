@@ -495,7 +495,7 @@ export struct SongListView {
 
           ForEach(this.tagOptions, (tag: TagOption) => {
             Text(tag.name)
-              .fontSize(13)
+              .fontSize(DesignTokens.fontCallout())
               .padding({ left: 10, right: 10, top: 6, bottom: 6 })
               .fontColor(this.selectedTag === tag.tid ? DesignTokens.accent() : DesignTokens.labelSecondary(this.theme))
               .fontWeight(this.selectedTag === tag.tid ? FontWeight.Medium : FontWeight.Normal)
@@ -575,7 +575,7 @@ export struct SongListView {
               .height(20)
               .color(DesignTokens.accent())
             Text(t('loading'))
-              .fontSize(13)
+              .fontSize(DesignTokens.fontCallout())
               .fontColor(DesignTokens.labelSecondary(this.theme))
               .margin({ left: 8 })
           }
@@ -597,7 +597,7 @@ export struct SongListView {
       if (!this.hasMore && this.songLists.length > 0) {
         GridItem() {
           Text(t('list_all_loaded'))
-            .fontSize(12)
+            .fontSize(DesignTokens.fontCaption())
             .fontColor(DesignTokens.labelTertiary(this.theme))
         }
         .columnStart(0)

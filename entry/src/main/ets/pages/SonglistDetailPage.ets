@@ -370,7 +370,7 @@ export struct SonglistDetailPage {
       Stack() {
         if (this.isSelected(index)) {
           SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
-            .fontSize(26)
+            .fontSize(DesignTokens.fontDisplayLarge())
             .fontColor([DesignTokens.accent()])
         } else {
           Circle({ width: 22, height: 22 })
@@ -913,7 +913,7 @@ export struct SonglistDetailPage {
         // 空状态
         Column() {
           Text(t('songlist_empty'))
-            .fontSize(14)
+            .fontSize(DesignTokens.fontBody())
             .fontColor(DesignTokens.labelSecondary(this.theme))
         }
         .width('100%')
@@ -951,7 +951,7 @@ export struct SonglistDetailPage {
   NavTrailingAction() {
     if (this.selectMode) {
       Text(t('list_select_done'))
-        .fontSize(14)
+        .fontSize(DesignTokens.fontBody())
         .fontColor(DesignTokens.accent())
         .padding({ left: 10, right: 4, top: 6, bottom: 6 })
         .onClick(() => {

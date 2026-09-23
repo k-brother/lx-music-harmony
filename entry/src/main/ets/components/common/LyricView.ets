@@ -106,7 +106,7 @@ export struct LyricView {
     if (this.lyricLines.length === 0) {
       Column() {
         Text(t('no_lyric'))
-          .fontSize(14)
+          .fontSize(DesignTokens.fontBody())
           .fontColor(this.theme === 'dark' ? '#8A8A93' : '#9A9AA0')
       }
       .width('100%')

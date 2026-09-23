@@ -75,7 +75,7 @@ export struct ChartCard {
       } else {
         Column() {
           SymbolGlyph($r('sys.symbol.list_number'))
-            .fontSize(30)
+            .fontSize(DesignTokens.fontCoverIcon())
             .fontColor([DesignTokens.onAccent()])
         }
         .width(72)
@@ -128,11 +128,11 @@ export struct ChartCard {
   ErrorRow() {
     Row() {
       Text(t('load_failed'))
-        .fontSize(13)
+        .fontSize(DesignTokens.fontCallout())
         .fontColor(DesignTokens.labelTertiary(this.theme))
         .layoutWeight(1)
       Text(t('retry'))
-        .fontSize(13)
+        .fontSize(DesignTokens.fontCallout())
         .fontWeight(FontWeight.Medium)
         .fontColor(DesignTokens.accent())
         .padding({ left: 12, right: 12, top: 6, bottom: 6 })
@@ -154,19 +154,19 @@ export struct ChartCard {
         Column() {
           Row() {
             Text((si + 1).toString())
-              .fontSize(14)
+              .fontSize(DesignTokens.fontBody())
               .fontWeight(FontWeight.Medium)
               .fontColor(this.rankColor(si + 1))
               .width(32)
               .textAlign(TextAlign.Center)
             Column() {
               Text(song.name.length > 0 ? song.name : '—')
-                .fontSize(15)
+                .fontSize(DesignTokens.fontSubhead())
                 .fontColor(DesignTokens.labelPrimary(this.theme))
                 .maxLines(1)
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
               Text(song.singer.length > 0 ? song.singer : '')
-                .fontSize(12)
+                .fontSize(DesignTokens.fontCaption())
                 .fontColor(DesignTokens.labelSecondary(this.theme))
                 .maxLines(1)
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -205,7 +205,7 @@ export struct ChartCard {
 
         Column() {
           Text(this.title.length > 0 ? this.title : t('board_item'))
-            .fontSize(17)
+            .fontSize(DesignTokens.fontHeadline())
             .fontWeight(FontWeight.Medium)
             .fontColor(DesignTokens.labelPrimary(this.theme))
             .maxLines(2)
@@ -213,12 +213,12 @@ export struct ChartCard {
             .lineHeight(22)
           if (this.playCount >= 0) {
             Text(this.playCountText())
-              .fontSize(12)
+              .fontSize(DesignTokens.fontCaption())
               .fontColor(DesignTokens.labelTertiary(this.theme))
               .margin({ top: 8 })
           } else {
             Text(t('leaderboard_official'))
-              .fontSize(12)
+              .fontSize(DesignTokens.fontCaption())
               .fontColor(DesignTokens.labelTertiary(this.theme))
               .margin({ top: 8 })
           }
@@ -234,7 +234,7 @@ export struct ChartCard {
 
         Row() {
           SymbolGlyph(this.expanded ? $r('sys.symbol.chevron_up') : $r('sys.symbol.chevron_down'))
-            .fontSize(24)
+            .fontSize(DesignTokens.fontDisplay())
             .fontColor([DesignTokens.labelSecondary(this.theme)])
             .padding(8)
             .responseRegion(DesignTokens.touchRegion(30))
@@ -246,7 +246,7 @@ export struct ChartCard {
               }
             })
           SymbolGlyph($r('sys.symbol.chevron_right'))
-            .fontSize(20)
+            .fontSize(DesignTokens.fontLarge())
             .fontColor([DesignTokens.accent()])
             .padding({ left: 4, right: 4, top: 8, bottom: 8 })
             .responseRegion(DesignTokens.touchRegion(30))
@@ -269,7 +269,7 @@ export struct ChartCard {
         this.ErrorRow()
       } else if (this.songs.length === 0) {
         Text(t('no_data'))
-          .fontSize(13)
+          .fontSize(DesignTokens.fontCallout())
           .fontColor(DesignTokens.labelTertiary(this.theme))
           .padding({ left: 14, right: 14, bottom: 12 })
       } else {
@@ -278,7 +278,7 @@ export struct ChartCard {
 
       Row() {
         Text(this.expanded ? t('collapse_preview') : t('expand_preview'))
-          .fontSize(12)
+          .fontSize(DesignTokens.fontCaption())
           .fontColor(DesignTokens.labelSecondary(this.theme))
           .onClick(() => {
             if (this.onToggleExpand) {
@@ -287,11 +287,11 @@ export struct ChartCard {
           })
         Blank()
         Text(t('view_full_chart'))
-          .fontSize(14)
+          .fontSize(DesignTokens.fontBody())
           .fontColor(DesignTokens.accent())
           .fontWeight(FontWeight.Medium)
         SymbolGlyph($r('sys.symbol.chevron_right'))
-          .fontSize(17)
+          .fontSize(DesignTokens.fontHeadline())
           .fontColor([DesignTokens.accent()])
           .margin({ left: 4 })
       }

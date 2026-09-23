@@ -48,7 +48,7 @@ export struct DownloadTaskRow {
     Column() {
       if (this.row.actionKind !== 'none') {
         SymbolGlyph(this.primaryIcon())
-          .fontSize(26)
+          .fontSize(DesignTokens.fontDisplayLarge())
           .fontColor([DesignTokens.accent()])
           .responseRegion(DesignTokens.touchRegion(22))
           .accessibilityText(t('a11y_play'))
@@ -65,7 +65,7 @@ export struct DownloadTaskRow {
 
       if (this.row.canDelete) {
         SymbolGlyph($r('sys.symbol.xmark'))
-          .fontSize(26)
+          .fontSize(DesignTokens.fontDisplayLarge())
           .fontColor([DesignTokens.danger()])
           .margin({ top: 14 })
           .responseRegion(DesignTokens.touchRegion(22))
@@ -89,14 +89,14 @@ export struct DownloadTaskRow {
       Row() {
         if (this.row.selectMode) {
           SymbolGlyph(this.row.selected ? $r('sys.symbol.checkmark_square_fill') : $r('sys.symbol.square'))
-            .fontSize(24)
+            .fontSize(DesignTokens.fontDisplay())
             .fontColor([DesignTokens.accent()])
             .margin({ right: 12 })
         }
 
         Column() {
           Text(this.row.title)
-            .fontSize(16)
+            .fontSize(DesignTokens.fontTitle())
             .fontWeight(FontWeight.Medium)
             .fontColor(DesignTokens.labelPrimary(this.theme))
             .maxLines(1)
@@ -111,11 +111,11 @@ export struct DownloadTaskRow {
 
           Row() {
             Text(this.row.statusText)
-              .fontSize(11)
+              .fontSize(DesignTokens.fontMicro())
               .fontColor(this.row.statusColor)
               .fontWeight(FontWeight.Medium)
             Text(` · ${this.row.metaText}`)
-              .fontSize(11)
+              .fontSize(DesignTokens.fontMicro())
               .fontColor(DesignTokens.labelTertiary(this.theme))
           }
           .margin({ top: 8 })
@@ -131,7 +131,7 @@ export struct DownloadTaskRow {
 
           if (this.row.errorText.length > 0) {
             Text(this.row.errorText)
-              .fontSize(11)
+              .fontSize(DesignTokens.fontMicro())
               .fontColor(DesignTokens.danger())
               .margin({ top: 6 })
               .maxLines(2)

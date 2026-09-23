@@ -145,7 +145,7 @@ export struct HistoryListPage {
   private trailingActions() {
     if (this.playHistory.length > 0) {
       Text(t('history_clear'))
-        .fontSize(14)
+        .fontSize(DesignTokens.fontBody())
         .fontWeight(FontWeight.Medium)
         .fontColor(DesignTokens.accent())
         .padding({ left: 8, right: 8, top: 6, bottom: 6 })

@@ -43,14 +43,14 @@ export struct CommentRow {
     Column() {
       Row() {
         Text(reply.userName)
-          .fontSize(13)
+          .fontSize(DesignTokens.fontCallout())
           .fontColor(DesignTokens.labelSecondary(this.theme))
           .fontWeight(FontWeight.Medium)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
 
         Text(reply.time)
-          .fontSize(11)
+          .fontSize(DesignTokens.fontMicro())
           .fontColor(DesignTokens.labelTertiary(this.theme))
           .margin({ left: 8 })
           .layoutWeight(1)
@@ -59,7 +59,7 @@ export struct CommentRow {
       .width('100%')
 
       Text(reply.content)
-        .fontSize(13)
+        .fontSize(DesignTokens.fontCallout())
         .fontColor(DesignTokens.labelPrimary(this.theme))
         .lineHeight(19)
         .width('100%')
@@ -83,7 +83,7 @@ export struct CommentRow {
           // 默认头像
           Column() {
             Text(this.comment.userName.substring(0, 1))
-              .fontSize(16)
+              .fontSize(DesignTokens.fontTitle())
               .fontColor(DesignTokens.onAccent())
           }
           .width(36)
@@ -98,21 +98,21 @@ export struct CommentRow {
           // 用户信息和时间
           Row() {
             Text(this.comment.userName)
-              .fontSize(14)
+              .fontSize(DesignTokens.fontBody())
               .fontColor(DesignTokens.labelPrimary(this.theme))
               .fontWeight(FontWeight.Medium)
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
 
             Text(this.comment.time)
-              .fontSize(12)
+              .fontSize(DesignTokens.fontCaption())
               .fontColor(DesignTokens.labelTertiary(this.theme))
               .margin({ left: 8 })
 
             // IP 归属地（部分音源返回）
             if (this.comment.location.length > 0) {
               Text(this.comment.location)
-                .fontSize(11)
+                .fontSize(DesignTokens.fontMicro())
                 .fontColor(DesignTokens.labelTertiary(this.theme))
                 .margin({ left: 8 })
                 .maxLines(1)
@@ -127,7 +127,7 @@ export struct CommentRow {
 
           // 评论内容
           Text(this.comment.content)
-            .fontSize(14)
+            .fontSize(DesignTokens.fontBody())
             .fontColor(DesignTokens.labelPrimary(this.theme))
             .lineHeight(20)
 
@@ -189,12 +189,12 @@ export struct CommentRow {
             // 点赞按钮
             Row() {
               SymbolGlyph(this.comment.isLiked ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
-                .fontSize(18)
+                .fontSize(DesignTokens.fontHeading())
                 .fontColor([this.comment.isLiked ? DesignTokens.accent() : DesignTokens.labelSecondary(this.theme)])
                 .margin({ right: 4 })
               
               Text(this.comment.likeCount.toString())
-                .fontSize(12)
+                .fontSize(DesignTokens.fontCaption())
                 .fontColor(this.comment.isLiked ? DesignTokens.accent() : DesignTokens.labelSecondary(this.theme))
             }
             .stateStyles({ pressed: this.pressed })
@@ -206,7 +206,7 @@ export struct CommentRow {
             Row() {
               // 气泡图标才是「回复」的语义（此前误用了音符列表图标）
               SymbolGlyph($r('sys.symbol.text_bubble_left_2'))
-                .fontSize(19)
+                .fontSize(DesignTokens.fontIconLg())
                 .fontColor([DesignTokens.labelSecondary(this.theme)])
                 .margin({ left: 16, right: 4 })
               
@@ -214,7 +214,7 @@ export struct CommentRow {
               Text(this.comment.replyCount > 0
                 ? this.comment.replyCount.toString()
                 : t('comment_reply'))
-                .fontSize(12)
+                .fontSize(DesignTokens.fontCaption())
                 .fontColor(DesignTokens.labelSecondary(this.theme))
             }
             .margin({ left: 16 })
@@ -222,7 +222,7 @@ export struct CommentRow {
             // 热门标签
             if (this.comment.isHot) {
               Text(t('comment_hot_tag'))
-                .fontSize(10)
+                .fontSize(DesignTokens.fontBadge())
                 .fontColor(DesignTokens.accent())
                 .padding({ left: 6, right: 6, top: 2, bottom: 2 })
                 .borderRadius(2)

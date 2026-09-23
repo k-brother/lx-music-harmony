@@ -59,7 +59,7 @@ export struct FilterPillBar {
       Row({ space: this.spacing }) {
         ForEach(this.options, (option: FilterPillOption) => {
           Text(option.label)
-            .fontSize(13)
+            .fontSize(DesignTokens.fontCallout())
             .fontColor(this.activeId === option.id ? this.activeFg() : DesignTokens.labelSecondary(this.theme))
             .fontWeight(this.activeId === option.id ? FontWeight.Medium : FontWeight.Normal)
             .padding({ left: this.padH(), right: this.padH(), top: this.padV(), bottom: this.padV() })

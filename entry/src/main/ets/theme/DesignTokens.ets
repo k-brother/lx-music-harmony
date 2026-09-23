@@ -164,6 +164,75 @@ export class DesignTokens {
     return 11;
   }
 
+  // ==================== 完整字阶（对齐 App 里实际使用的 11~26 档） ====================
+  // 之前只定义了 11/12/14/16，其余档位在各页面里写裸数字（13/15/17/18/20/24/26），
+  // 改字号要全项目搜；这里补齐命名，调用点统一走 token（数值不变）。
+
+  /** 说明文字 / 次级标题（13） */
+  static fontCallout(): number {
+    return 13;
+  }
+
+  /** 列表主文案的次级档（15） */
+  static fontSubhead(): number {
+    return 15;
+  }
+
+  /** 强调标题（17） */
+  static fontHeadline(): number {
+    return 17;
+  }
+
+  /** 面板标题（18） */
+  static fontHeading(): number {
+    return 18;
+  }
+
+  /** 播放控制图标文字 / 大号正文（20） */
+  static fontLarge(): number {
+    return 20;
+  }
+
+  /** 页面大标题（24） */
+  static fontDisplay(): number {
+    return 24;
+  }
+
+  /** 首屏超大标题（26） */
+  static fontDisplayLarge(): number {
+    return 26;
+  }
+
+  /** 角标 / 微标签（10） */
+  static fontBadge(): number {
+    return 10;
+  }
+
+  /** 大号图标字号（19，用于行内操作图标） */
+  static fontIconLg(): number {
+    return 19;
+  }
+
+  /** 特大图标字号（22，用于入口行图标） */
+  static fontIconXl(): number {
+    return 22;
+  }
+
+  /** 首屏大标题（28，下载管理页等） */
+  static fontDisplayXl(): number {
+    return 28;
+  }
+
+  /** 封面占位图标（30）——此前 29/30 两个值混用，统一到一档 */
+  static fontCoverIcon(): number {
+    return 30;
+  }
+
+  /** 封面上的播放图标（36） */
+  static fontDisplayHuge(): number {
+    return 36;
+  }
+
   // Icon & control scale
   static iconSm(): number {
     return 14;

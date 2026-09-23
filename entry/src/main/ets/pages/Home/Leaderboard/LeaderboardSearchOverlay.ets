@@ -32,7 +32,7 @@ export struct LeaderboardSearchOverlay {
         })
           .layoutWeight(1)
         Text(t('cancel'))
-          .fontSize(16)
+          .fontSize(DesignTokens.fontTitle())
           .fontWeight(FontWeight.Medium)
           .fontColor(DesignTokens.accent())
           .padding({ left: 12, right: 0, top: 8, bottom: 8 })
@@ -54,7 +54,7 @@ export struct LeaderboardSearchOverlay {
       if (this.boards.length === 0) {
         Column() {
           Text(this.allEmpty ? t('no_data') : t('no_data'))
-            .fontSize(15)
+            .fontSize(DesignTokens.fontSubhead())
             .fontColor(DesignTokens.labelSecondary(this.theme))
         }
         .width('100%')
@@ -67,15 +67,15 @@ export struct LeaderboardSearchOverlay {
               Row() {
                 Text(board.name.length > 0 ? board.name : t('board_item'))
                   .layoutWeight(1)
-                  .fontSize(16)
+                  .fontSize(DesignTokens.fontTitle())
                   .fontColor(DesignTokens.labelPrimary(this.theme))
                   .maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
                 Text(t('leaderboard_title'))
-                  .fontSize(12)
+                  .fontSize(DesignTokens.fontCaption())
                   .fontColor(DesignTokens.labelTertiary(this.theme))
                 SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(17)
+                  .fontSize(DesignTokens.fontHeadline())
                   .fontColor([DesignTokens.labelTertiary(this.theme)])
                   .margin({ left: 6 })
               }

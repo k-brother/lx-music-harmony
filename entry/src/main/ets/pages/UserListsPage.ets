@@ -212,7 +212,7 @@ export struct UserListsPage {
         } else {
           Column() {
             SymbolGlyph($r('sys.symbol.music_note_list'))
-              .fontSize(29)
+              .fontSize(DesignTokens.fontCoverIcon())
               .fontColor([DesignTokens.labelTertiary(this.theme)])
           }
           .width(52)
@@ -225,18 +225,18 @@ export struct UserListsPage {
 
       Column() {
         Text(this.userLists[index].name)
-          .fontSize(16)
+          .fontSize(DesignTokens.fontTitle())
           .fontWeight(FontWeight.Medium)
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
         Row() {
           Text(tf('count_songs_unit', [this.userLists[index].count.toString()]))
-            .fontSize(13)
+            .fontSize(DesignTokens.fontCallout())
             .fontColor(DesignTokens.labelTertiary(this.theme))
           if (this.userLists[index].bindingListId.length > 0) {
             Text(tf('list_bound_online', [sourceLabel(this.userLists[index].bindingSource)]))
-              .fontSize(11)
+              .fontSize(DesignTokens.fontMicro())
               .fontColor(DesignTokens.accent())
               .padding({ left: 6, right: 6, top: 2, bottom: 2 })
               .borderRadius(8)
@@ -252,7 +252,7 @@ export struct UserListsPage {
 
       if (this.userLists[index].bindingListId.length > 0) {
         Text(t('list_sync_content'))
-          .fontSize(13)
+          .fontSize(DesignTokens.fontCallout())
           .fontColor(DesignTokens.accent())
           .padding({ left: 10, right: 10, top: 6, bottom: 6 })
           .onClick(() => {
@@ -300,7 +300,7 @@ export struct UserListsPage {
           .height(14)
           .fillColor(Color.White)
         Text(t('list_create_short'))
-          .fontSize(13)
+          .fontSize(DesignTokens.fontCallout())
           .fontWeight(FontWeight.Medium)
           .fontColor(Color.White)
       }
@@ -325,7 +325,7 @@ export struct UserListsPage {
         .backgroundColor(DesignTokens.mutedFill(this.theme))
         .borderRadius(12)
         .padding({ left: 14, right: 14 })
-        .fontSize(16)
+        .fontSize(DesignTokens.fontTitle())
         .fontColor(DesignTokens.labelPrimary(this.theme))
         .placeholderColor(DesignTokens.labelTertiary(this.theme))
         .onChange((value: string) => {
@@ -367,7 +367,7 @@ export struct UserListsPage {
         .backgroundColor(DesignTokens.mutedFill(this.theme))
         .borderRadius(12)
         .padding({ left: 14, right: 14 })
-        .fontSize(16)
+        .fontSize(DesignTokens.fontTitle())
         .fontColor(DesignTokens.labelPrimary(this.theme))
         .placeholderColor(DesignTokens.labelTertiary(this.theme))
         .onChange((value: string) => {

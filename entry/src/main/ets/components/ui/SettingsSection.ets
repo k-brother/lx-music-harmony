@@ -95,7 +95,7 @@ export struct SettingsSection {
               Row() {
                 Column() {
                   Text(item.title)
-                    .fontSize(15)
+                    .fontSize(DesignTokens.fontSubhead())
                     .fontColor(item.danger === true ? DesignTokens.danger() : DesignTokens.labelPrimary(this.theme))
                     .maxLines(1)
                     .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -124,16 +124,16 @@ export struct SettingsSection {
                     })
                 } else if (item.type === 'select') {
                   Text(this.optionLabel(item))
-                    .fontSize(14)
+                    .fontSize(DesignTokens.fontBody())
                     .fontColor(item.danger === true ? DesignTokens.danger() : DesignTokens.labelSecondary(this.theme))
                     .maxLines(1)
                   SymbolGlyph($r('sys.symbol.chevron_right'))
-                    .fontSize(18)
+                    .fontSize(DesignTokens.fontHeading())
                     .fontColor([DesignTokens.labelTertiary(this.theme)])
                     .margin({ left: 6 })
                 } else if (item.type === 'input') {
                   Text(item.value as string)
-                    .fontSize(14)
+                    .fontSize(DesignTokens.fontBody())
                     .fontColor(DesignTokens.labelSecondary(this.theme))
                     .maxLines(1)
                 } else if (item.type === 'info') {
@@ -148,7 +148,7 @@ export struct SettingsSection {
                     .margin({ left: 12 })
                 } else if (item.type === 'button') {
                   SymbolGlyph($r('sys.symbol.chevron_right'))
-                    .fontSize(18)
+                    .fontSize(DesignTokens.fontHeading())
                     .fontColor([DesignTokens.labelTertiary(this.theme)])
                 }
               }

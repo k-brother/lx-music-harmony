@@ -114,7 +114,7 @@ export struct PactDialog {
     Column() {
       if (section.title.length > 0) {
         Text(section.title)
-          .fontSize(15)
+          .fontSize(DesignTokens.fontSubhead())
           .fontWeight(FontWeight.Medium)
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .width('100%')
@@ -122,7 +122,7 @@ export struct PactDialog {
       }
       ForEach(section.paragraphs, (paragraph: string) => {
         Text(paragraph)
-          .fontSize(13)
+          .fontSize(DesignTokens.fontCallout())
           .lineHeight(21)
           .fontColor(DesignTokens.labelSecondary(this.theme))
           .width('100%')
@@ -137,7 +137,7 @@ export struct PactDialog {
   build() {
     Column() {
       Text(t('pact_title'))
-        .fontSize(18)
+        .fontSize(DesignTokens.fontHeading())
         .fontWeight(FontWeight.Medium)
         .fontColor(DesignTokens.labelPrimary(this.theme))
         .width('100%')
@@ -147,7 +147,7 @@ export struct PactDialog {
         Column() {
           if (!this.readonlyMode && !settingsService.get().agreedPact) {
             Text(getPactNotice(this.language))
-              .fontSize(14)
+              .fontSize(DesignTokens.fontBody())
               .fontWeight(FontWeight.Medium)
               .fontColor(DesignTokens.accent())
               .width('100%')
@@ -169,7 +169,7 @@ export struct PactDialog {
           Button(t('pact_reject'))
             .layoutWeight(1)
             .height(42)
-            .fontSize(14)
+            .fontSize(DesignTokens.fontBody())
             .fontColor(DesignTokens.labelPrimary(this.theme))
             .backgroundColor(DesignTokens.mutedFill(this.theme))
             .onClick(() => {
@@ -179,7 +179,7 @@ export struct PactDialog {
         Button(this.acceptText())
           .layoutWeight(1)
           .height(42)
-          .fontSize(14)
+          .fontSize(DesignTokens.fontBody())
           .fontColor(this.countdown > 0 ? DesignTokens.labelTertiary(this.theme) : '#FFFFFF')
           .backgroundColor(this.countdown > 0 ? DesignTokens.mutedFill(this.theme) : DesignTokens.accent())
           .enabled(this.countdown === 0)

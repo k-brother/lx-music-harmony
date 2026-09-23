@@ -37,7 +37,7 @@ export struct BoardDetailHeader {
   @Builder
   SourceBadge() {
     Text(this.sourceTag.toUpperCase())
-      .fontSize(10)
+      .fontSize(DesignTokens.fontBadge())
       .fontColor(DesignTokens.onAccent())
       .padding({ left: 8, right: 8, top: 3, bottom: 3 })
       .backgroundColor(DesignTokens.accent())

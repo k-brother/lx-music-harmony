@@ -21,14 +21,14 @@ export struct SourceSwitchSheet {
   Row(candidate: MusicInfo) {
     Row() {
       Text(sourceLabel(candidate.source ?? ''))
-        .fontSize(15)
+        .fontSize(DesignTokens.fontSubhead())
         .fontWeight(FontWeight.Medium)
         .fontColor(DesignTokens.accent())
         .width(76)
 
       Column({ space: 2 }) {
         Text(candidate.name ?? '')
-          .fontSize(14)
+          .fontSize(DesignTokens.fontBody())
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -44,7 +44,7 @@ export struct SourceSwitchSheet {
       .layoutWeight(1)
 
       SymbolGlyph($r('sys.symbol.chevron_right'))
-        .fontSize(17)
+        .fontSize(DesignTokens.fontHeadline())
         .fontColor([DesignTokens.labelTertiary(this.theme)])
     }
     .width('100%')
@@ -75,7 +75,7 @@ export struct SourceSwitchSheet {
       .padding({ top: 24, bottom: 24 })
     } else if (this.candidates.length === 0) {
       Text(t('switch_source_empty'))
-        .fontSize(14)
+        .fontSize(DesignTokens.fontBody())
         .fontColor(DesignTokens.labelSecondary(this.theme))
         .padding({ top: 20, bottom: 20 })
     } else {

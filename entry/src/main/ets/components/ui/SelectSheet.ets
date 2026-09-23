@@ -44,7 +44,7 @@ export struct SelectSheet {
         ListItem() {
           Row() {
             Text(option.label)
-              .fontSize(16)
+              .fontSize(DesignTokens.fontTitle())
               .fontColor(option.value === this.value ? DesignTokens.accent() : DesignTokens.labelPrimary(this.theme))
               .fontWeight(option.value === this.value ? FontWeight.Medium : FontWeight.Normal)
               .layoutWeight(1)
@@ -53,7 +53,7 @@ export struct SelectSheet {
 
             if (option.value === this.value) {
               SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
-                .fontSize(22)
+                .fontSize(DesignTokens.fontIconXl())
                 .fontColor([DesignTokens.accent()])
             }
           }
@@ -80,7 +80,7 @@ export struct SelectSheet {
       .type(ButtonType.Capsule)
       .width('100%')
       .height(DesignTokens.touchTarget())
-      .fontSize(16)
+      .fontSize(DesignTokens.fontTitle())
       .fontColor(DesignTokens.labelPrimary(this.theme))
       .backgroundColor(DesignTokens.mutedFill(this.theme))
       .margin({ top: 12 })

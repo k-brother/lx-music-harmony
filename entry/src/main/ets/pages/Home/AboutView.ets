@@ -132,23 +132,23 @@ export struct AboutView {
           ListItem() {
             Column() {
               Text('LX Music')
-                .fontSize(20)
+                .fontSize(DesignTokens.fontLarge())
                 .fontWeight(FontWeight.Bold)
                 .fontColor(DesignTokens.accent())
                 .margin({ bottom: 8 })
 
               Text(t('about_slogan'))
-                .fontSize(14)
+                .fontSize(DesignTokens.fontBody())
                 .fontColor(DesignTokens.labelSecondary(this.theme))
                 .margin({ bottom: 4 })
 
               Text(t('about_version_value'))
-                .fontSize(12)
+                .fontSize(DesignTokens.fontCaption())
                 .fontColor(DesignTokens.labelSecondary(this.theme))
                 .margin({ bottom: 16 })
 
               Text(t('about_app_desc'))
-                .fontSize(14)
+                .fontSize(DesignTokens.fontBody())
                 .fontColor(DesignTokens.labelSecondary(this.theme))
                 .lineHeight(22)
                 .textAlign(TextAlign.JUSTIFY)
@@ -164,10 +164,10 @@ export struct AboutView {
           ListItem() {
             Row() {
               Text(t('version_current'))
-                .fontSize(15)
+                .fontSize(DesignTokens.fontSubhead())
               Blank()
               Text(`v${APP_VERSION}`)
-                .fontSize(14)
+                .fontSize(DesignTokens.fontBody())
                 .fontColor(DesignTokens.labelSecondary(this.theme))
             }
             .width('100%')
@@ -178,7 +178,7 @@ export struct AboutView {
             Column() {
               Row() {
                 Text(t('version_check'))
-                  .fontSize(15)
+                  .fontSize(DesignTokens.fontSubhead())
                 Blank()
                 if (this.versionStatus === 'checking') {
                   LoadingProgress()
@@ -187,21 +187,21 @@ export struct AboutView {
                     .color(DesignTokens.accent())
                 } else {
                   SymbolGlyph($r('sys.symbol.arrow_clockwise'))
-                    .fontSize(19)
+                    .fontSize(DesignTokens.fontIconLg())
                     .fontColor([DesignTokens.accent()])
                 }
               }
               .width('100%')
 
               Text(this.versionTip())
-                .fontSize(12)
+                .fontSize(DesignTokens.fontCaption())
                 .fontColor(this.versionStatus === 'newer' ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
                 .margin({ top: 4 })
                 .width('100%')
 
               if (this.versionStatus === 'newer' && this.remoteDesc.length > 0) {
                 Text(this.remoteDesc)
-                  .fontSize(12)
+                  .fontSize(DesignTokens.fontCaption())
                   .fontColor(DesignTokens.labelSecondary(this.theme))
                   .margin({ top: 4 })
                   .width('100%')
@@ -218,11 +218,11 @@ export struct AboutView {
             ListItem() {
               Row() {
                 Text(t('version_open_release'))
-                  .fontSize(15)
+                  .fontSize(DesignTokens.fontSubhead())
                   .fontColor(DesignTokens.accent())
                 Blank()
                 SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(19)
+                  .fontSize(DesignTokens.fontIconLg())
                   .fontColor([DesignTokens.labelSecondary(this.theme)])
               }
               .width('100%')
@@ -239,10 +239,10 @@ export struct AboutView {
           ListItem() {
             Row() {
               Text(t('ui_github_repo'))
-                .fontSize(15)
+                .fontSize(DesignTokens.fontSubhead())
               Blank()
               SymbolGlyph($r('sys.symbol.chevron_right'))
-                .fontSize(19)
+                .fontSize(DesignTokens.fontIconLg())
                 .fontColor([DesignTokens.labelSecondary(this.theme)])
             }
             .width('100%')
@@ -255,13 +255,13 @@ export struct AboutView {
           ListItem() {
             Row() {
               Text(t('about_license'))
-                .fontSize(15)
+                .fontSize(DesignTokens.fontSubhead())
               Blank()
               Text('MIT')
-                .fontSize(14)
+                .fontSize(DesignTokens.fontBody())
                 .fontColor(DesignTokens.labelSecondary(this.theme))
               SymbolGlyph($r('sys.symbol.chevron_right'))
-                .fontSize(19)
+                .fontSize(DesignTokens.fontIconLg())
                 .fontColor([DesignTokens.labelSecondary(this.theme)])
                 .margin({ left: 8 })
             }
@@ -275,7 +275,7 @@ export struct AboutView {
           ListItem() {
             Column() {
               Text(t('about_thanks_detail'))
-                .fontSize(14)
+                .fontSize(DesignTokens.fontBody())
                 .fontColor(DesignTokens.labelSecondary(this.theme))
                 .lineHeight(22)
                 .textAlign(TextAlign.JUSTIFY)
@@ -324,7 +324,7 @@ export struct AboutView {
   buildGroupHeader(text: string) {
     Column() {
       Text(text)
-        .fontSize(13)
+        .fontSize(DesignTokens.fontCallout())
         .fontColor(DesignTokens.labelSecondary(this.theme))
         .padding({ left: 16, top: 12, bottom: 8 })
     }

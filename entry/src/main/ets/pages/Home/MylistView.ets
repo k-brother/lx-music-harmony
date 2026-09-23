@@ -389,7 +389,7 @@ export struct MylistView {
         .backgroundColor(DesignTokens.mutedFill(this.theme))
         .borderRadius(12)
         .padding({ left: 14, right: 14 })
-        .fontSize(16)
+        .fontSize(DesignTokens.fontTitle())
         .fontColor(DesignTokens.labelPrimary(this.theme))
         .placeholderColor(DesignTokens.labelTertiary(this.theme))
         .onChange((value: string) => {
@@ -401,7 +401,7 @@ export struct MylistView {
           .type(ButtonType.Capsule)
           .layoutWeight(1)
           .height(DesignTokens.touchTarget())
-          .fontSize(16)
+          .fontSize(DesignTokens.fontTitle())
           .fontColor(DesignTokens.labelSecondary(this.theme))
           .backgroundColor(DesignTokens.mutedFill(this.theme))
           .onClick(() => {
@@ -412,7 +412,7 @@ export struct MylistView {
           .type(ButtonType.Capsule)
           .layoutWeight(1)
           .height(DesignTokens.touchTarget())
-          .fontSize(16)
+          .fontSize(DesignTokens.fontTitle())
           .fontColor(Color.White)
           .backgroundColor(DesignTokens.accent())
           .onClick(() => {

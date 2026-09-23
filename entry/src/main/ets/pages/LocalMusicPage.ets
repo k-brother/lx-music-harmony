@@ -210,7 +210,7 @@ export struct LocalMusicPage {
   DeleteAction(index: number) {
     Row() {
       Text(t('delete'))
-        .fontSize(15)
+        .fontSize(DesignTokens.fontSubhead())
         .fontColor(DesignTokens.onAccent())
         .fontWeight(FontWeight.Medium)
     }
@@ -290,7 +290,7 @@ export struct LocalMusicPage {
         message: t('local_empty_hint'),
       })
       Button(t('local_import'))
-        .fontSize(15)
+        .fontSize(DesignTokens.fontSubhead())
         .height(DesignTokens.touchTarget())
         .backgroundColor(DesignTokens.accent())
         .borderRadius(20)

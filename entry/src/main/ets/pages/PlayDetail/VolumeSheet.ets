@@ -20,18 +20,18 @@ export struct VolumeSheet {
     Column({ space: 14 }) {
       Row() {
         Text(t('settings_volume'))
-          .fontSize(15)
+          .fontSize(DesignTokens.fontSubhead())
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .layoutWeight(1)
         Text(`${this.volume}%`)
-          .fontSize(14)
+          .fontSize(DesignTokens.fontBody())
           .fontColor(DesignTokens.labelSecondary(this.theme))
       }
       .width('100%')
 
       Row({ space: 12 }) {
         SymbolGlyph(this.volume === 0 ? $r('sys.symbol.xmark') : $r('sys.symbol.arrow_down_circle'))
-          .fontSize(20)
+          .fontSize(DesignTokens.fontLarge())
           .fontColor([DesignTokens.labelSecondary(this.theme)])
           .accessibilityText(this.volume === 0 ? t('a11y_unmute') : t('a11y_mute'))
           .onClick(() => {
@@ -65,7 +65,7 @@ export struct VolumeSheet {
           .type(ButtonType.Capsule)
           .layoutWeight(1)
           .height(DesignTokens.touchTarget())
-          .fontSize(15)
+          .fontSize(DesignTokens.fontSubhead())
           .fontColor(DesignTokens.labelPrimary(this.theme))
           .backgroundColor(DesignTokens.mutedFill(this.theme))
           .onClick(() => {
@@ -77,7 +77,7 @@ export struct VolumeSheet {
           .type(ButtonType.Capsule)
           .layoutWeight(1)
           .height(DesignTokens.touchTarget())
-          .fontSize(15)
+          .fontSize(DesignTokens.fontSubhead())
           .fontColor(DesignTokens.onAccent())
           .backgroundColor(DesignTokens.accent())
           .onClick(() => {

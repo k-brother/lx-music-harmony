@@ -388,10 +388,10 @@ export struct DownloadPage {
   ClearCompletedRow() {
     Row() {
       SymbolGlyph($r('sys.symbol.trash'))
-        .fontSize(18)
+        .fontSize(DesignTokens.fontHeading())
         .fontColor([DesignTokens.accent()])
       Text(t('download_clear_completed'))
-        .fontSize(14)
+        .fontSize(DesignTokens.fontBody())
         .fontColor(DesignTokens.accent())
         .margin({ left: 6 })
     }
