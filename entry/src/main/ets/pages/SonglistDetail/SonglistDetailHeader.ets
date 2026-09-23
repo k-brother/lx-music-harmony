@@ -200,8 +200,8 @@ export struct SonglistDetailHeader {
       }
       .width('100%')
       .margin({ top: 4 })
-    .justifyContent(FlexAlign.SpaceBetween)
-    .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.SpaceBetween)
+      .alignItems(VerticalAlign.Center)
   }
 
 }
