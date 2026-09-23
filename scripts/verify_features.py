@@ -284,6 +284,11 @@ CHECKS = [
  ('我喜欢下拉刷新', 'pages/LoveListPage.ets', r'RefreshContainer[\s\S]*?loadSongs\(true\)'),
  # 下拉刷新必须保留列表：静默刷新不能把 isLoading 置回 true 导致闪骨架
  ('下拉刷新保留列表不闪骨架', 'pages/SonglistDetailPage.ets', r'if \(!silent\) \{\s*\n\s*this\.isLoading = true;'),
+ # 播放页手势：封面区下滑关闭（位移过阈值直接返回上一页）
+ ('播放页下滑关闭手势', 'pages/PlayDetailPage.ets',
+  r'DISMISS_DRAG_THRESHOLD_VP[\s\S]*?navigationService\.back\(\)'),
+ # 播放页两种形态各自独立成 Builder（原先塞在同一个 80 行函数里）
+ ('播放页宽屏双栏/窄屏翻页拆分', 'pages/PlayDetailPage.ets', r'WideStage\(\)[\s\S]*?NarrowStage\(\)'),
 ]
 
 fails = []

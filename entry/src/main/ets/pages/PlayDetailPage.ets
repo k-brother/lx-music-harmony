@@ -53,6 +53,8 @@ import { appActionMenu, appToast } from '../service/DialogService';
 
 /** 宽屏下控制区（进度条 + 传送键 + 菜单入口）的最大宽度（vp） */
 const PLAY_CONTROLS_MAX_WIDTH_VP: number = 640;
+/** 播放页下滑关闭的触发位移（vp）：超过就返回，没到就回弹 */
+const DISMISS_DRAG_THRESHOLD_VP: number = 96;
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'PlayDetailPage';
@@ -86,6 +88,8 @@ export struct PlayDetailPage {
   @StorageProp('langVersion') langVersion: number = 0;
   @State renderKey: number = Date.now();
   @State currentTab: number = 0; // 0: 封面, 1: 歌词
+  /** 下滑关闭手势的实时位移（vp，仅封面区跟随手指） */
+  @State dismissDragY: number = 0;
   @State isPlaying: boolean = false;
   @State musicName: string = '';
   @State singer: string = '';
@@ -707,65 +711,83 @@ export struct PlayDetailPage {
       })
 
       if (Breakpoints.isWide(this.breakpoint)) {
-        // 一多：平板横屏 / PC 用双栏（左封面右歌词，与主流播放器的大屏形态一致）
-        Row() {
-          Column() {
-            this.AlbumArt()
-          }
-          .layoutWeight(1)
-          .height('100%')
-
-          Column() {
-            this.LyricSection()
-          }
-          .layoutWeight(1)
-          .height('100%')
-          .padding({ left: 8, right: 8 })
-        }
-        .width('100%')
-        .layoutWeight(1)
+        this.WideStage()
       } else {
-        Swiper(this.swiperController) {
-          this.AlbumArt()
-          // 滑动切换的视觉反馈：非当前页轻微缩小淡出（@Builder 不能链式修饰，包一层容器）
-          Column() {
-            this.LyricSection()
-          }
-          .justifyContent(FlexAlign.SpaceBetween)
-          .width('100%')
-          .height('100%')
-          .scale({ x: this.currentTab === 1 ? 1 : 0.94, y: this.currentTab === 1 ? 1 : 0.94 })
-          .opacity(this.currentTab === 1 ? 1 : 0.7)
-          .animation({ duration: DesignTokens.motionNormal(), curve: Curve.EaseOut })
-        }
-        .index(this.currentTab)
-        .width('100%')
-        .layoutWeight(1)
-        .duration(DesignTokens.motionSlow())
-        .curve(Curve.EaseOut)
-        .indicator(false)
-        .loop(false)
-        .onChange((newIndex: number) => {
-          this.currentTab = newIndex;
-          this.onTabChanged(newIndex);
-        })
+        this.NarrowStage()
       }
 
-      // 控制区在大屏上限宽居中：否则进度条与三个按钮会被拉到整屏宽，显得松散
-      Row() {
-        Column() {
-          this.PlayerControls()
-        }
-        .width('100%')
-        .constraintSize({
-          maxWidth: Breakpoints.isWide(this.breakpoint) ? PLAY_CONTROLS_MAX_WIDTH_VP : '100%',
-        })
-      }
-      .width('100%')
-      .justifyContent(FlexAlign.Center)
+      this.ControlsBar()
     }
     .width('100%')
     .height('100%')
+    // 下滑关闭：只让内容跟随手指，动态背景保持不动（与系统 Sheet 的下拉观感一致）
+    .translate({ y: this.dismissDragY })
+  }
+
+  /** 大屏（平板横屏 / PC）：左封面右歌词双栏，与主流播放器的大屏形态一致 */
+  @Builder
+  WideStage() {
+    Row() {
+      Column() {
+        this.AlbumArtArea()
+      }
+      .layoutWeight(1)
+      .height('100%')
+
+      Column() {
+        this.LyricSection()
+      }
+      .layoutWeight(1)
+      .height('100%')
+      .padding({ left: 8, right: 8 })
+    }
+    .width('100%')
+    .layoutWeight(1)
+  }
+
+  /** 手机竖屏：封面与歌词用 Swiper 左右翻页（点封面也能翻） */
+  @Builder
+  NarrowStage() {
+    Swiper(this.swiperController) {
+      this.AlbumArtArea()
+      // 滑动切换的视觉反馈：非当前页轻微缩小淡出（@Builder 不能链式修饰，包一层容器）
+      Column() {
+        this.LyricSection()
+      }
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .height('100%')
+      .scale({ x: this.currentTab === 1 ? 1 : 0.94, y: this.currentTab === 1 ? 1 : 0.94 })
+      .opacity(this.currentTab === 1 ? 1 : 0.7)
+      .animation({ duration: DesignTokens.motionNormal(), curve: Curve.EaseOut })
+    }
+    .index(this.currentTab)
+    .width('100%')
+    .layoutWeight(1)
+    .duration(DesignTokens.motionSlow())
+    .curve(Curve.EaseOut)
+    .indicator(false)
+    .loop(false)
+    .onChange((newIndex: number) => {
+      this.currentTab = newIndex;
+      this.onTabChanged(newIndex);
+    })
+  }
+
+  /** 控制区：大屏上限宽居中，否则进度条与三个按钮会被拉到整屏宽，显得松散 */
+  @Builder
+  ControlsBar() {
+    Row() {
+      Column() {
+        this.PlayerControls()
+      }
+      .width('100%')
+      .constraintSize({
+        maxWidth: Breakpoints.isWide(this.breakpoint) ? PLAY_CONTROLS_MAX_WIDTH_VP : '100%',
+      })
+    }
+    .width('100%')
+    .justifyContent(FlexAlign.Center)
   }
 
   /** 歌词区（含进度条）：宽屏常驻显示，窄屏放在 Swiper 第二页 */
@@ -961,6 +983,42 @@ export struct PlayDetailPage {
         }
       },
     })
+  }
+
+  /**
+   * 封面区外层容器：承担「下滑关闭播放页」手势。
+   * 手势只挂在封面这一片区域（歌词区是纵向滚动容器，挂全局会把滚动吃掉），
+   * 拖动时整页跟随手指下移，超过阈值返回上一页，否则回弹。
+   */
+  @Builder
+  AlbumArtArea() {
+    Column() {
+      this.AlbumArt()
+    }
+    .width('100%')
+    .height('100%')
+    .gesture(
+      PanGesture({ direction: PanDirection.Down, distance: 10 })
+        .onActionUpdate((event: GestureEvent) => {
+          this.dismissDragY = Math.max(0, event.offsetY);
+        })
+        .onActionEnd(() => {
+          this.finishDismissDrag();
+        })
+        .onActionCancel(() => {
+          this.dismissDragY = 0;
+        })
+    )
+  }
+
+  /** 下滑关闭：过阈值则返回上一页，否则复位（两种情况都清掉位移，避免页面卡在半路） */
+  private finishDismissDrag(): void {
+    const shouldDismiss: boolean = this.dismissDragY > DISMISS_DRAG_THRESHOLD_VP;
+    this.dismissDragY = 0;
+    if (shouldDismiss) {
+      hapticService.light();
+      navigationService.back();
+    }
   }
 
   /** 封面加载失败：先尝试降级 URL，再重试一次，最后退回占位图 */
