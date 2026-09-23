@@ -535,10 +535,12 @@ export struct PlayDetailPage {
       // 同步播放模式到 PlayerService
       playerService.setPlayMode(this.playMode as 'listLoop' | 'singleLoop' | 'random' | 'sequential');
 
+      // 只写「本页自己拥有的开关」：
+      // - playMode 由 PlayerService.setPlayMode 负责落盘（这里不再重复写一遍）；
+      // - sleepTimerEnabled 归 SleepTimerService（定时器的唯一所有者），
+      //   页面里的 timeoutExitEnabled 只是它的一个视图，写回去会用过期状态覆盖真实状态。
       await settingsService.update({
-        playMode: this.playMode as PlayMode,
         showDesktopLyric: this.showDesktopLyric,
-        sleepTimerEnabled: this.timeoutExitEnabled,
       });
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'savePlaySettings failed: %{public}s', JSON.stringify(err));

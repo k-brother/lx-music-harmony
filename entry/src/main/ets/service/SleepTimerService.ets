@@ -8,9 +8,18 @@ import hilog from '@ohos.hilog';
 import { settingsService } from './SettingsService';
 import { playerService } from './PlayerService';
 import { EventChannel } from './EventChannel';
+import { getStorageService } from '../core/interfaces/IStorageService';
 
 const TAG = 'SleepTimerService';
 const DOMAIN = 0x0005;
+/**
+ * 倒计时截止时间戳（毫秒）的落盘键。
+ *
+ * 这是「本次会话还剩多久」而不是用户偏好，所以不进设置：只用来在应用重启后
+ * 接着原来的截止时间走（此前重启会把定时重新按整段时长开始，等于偷偷续了半小时）。
+ */
+const DEADLINE_KEY = 'sleepTimer.endsAt';
+const MINUTE_MS = 60 * 1000;
 
 export interface SleepTimerState {
   enabled: boolean;
@@ -33,8 +42,37 @@ class SleepTimerServiceImpl {
   restoreFromSettings(): void {
     const settings = settingsService.get();
     if (settings.sleepTimerEnabled && settings.sleepTimerMinutes > 0) {
-      this.start(settings.sleepTimerMinutes, false);
+      void this.resumeByDeadline();
+      return;
     }
+    // 没开启就顺手清掉可能残留的截止时间，避免下次误恢复
+    void this.clearDeadline();
+  }
+
+  /**
+   * 按落盘的截止时间恢复倒计时。
+   * - 还没到点：接着剩余时长走（不是重新按整段计时）；
+   * - 已经过点：视为在应用没运行期间已经结束，清掉开关；
+   * - 没有落盘记录（旧版本升级上来）：退回按设置里的时长重新开始，与旧行为一致。
+   */
+  private async resumeByDeadline(): Promise<void> {
+    const endsAt: number = await this.loadDeadline();
+    if (endsAt <= 0) {
+      this.start(settingsService.get().sleepTimerMinutes, false);
+      return;
+    }
+    if (endsAt - Date.now() <= 0) {
+      hilog.info(DOMAIN, TAG, 'Sleep timer expired while app was not running, clearing');
+      await this.clearDeadline();
+      settingsService.update({ sleepTimerEnabled: false }).catch((err: Error) => {
+        hilog.warn(DOMAIN, TAG, 'Failed to clear expired sleep timer: %{public}s', err.message);
+      });
+      this.notify();
+      return;
+    }
+    this.scheduleUntil(endsAt);
+    hilog.info(DOMAIN, TAG, 'Sleep timer resumed, %{public}d ms left', endsAt - Date.now());
+    this.notify();
   }
 
   /**
@@ -43,21 +81,12 @@ class SleepTimerServiceImpl {
    * @param persist 是否写入设置（默认写入）
    */
   start(minutes: number, persist: boolean = true): void {
-    this.stopTimerOnly();
     const safeMinutes = minutes > 0 ? minutes : 30;
-    this.timerId = setTimeout(() => {
-      this.timerId = -1;
-      hilog.info(DOMAIN, TAG, 'Sleep timer fired after %{public}d min, pausing playback', safeMinutes);
-      this.handleTimerFired();
-      if (persist) {
-        settingsService.update({ sleepTimerEnabled: false }).catch((err: Error) => {
-          hilog.warn(DOMAIN, TAG, 'Failed to persist sleep timer stop: %{public}s', err.message);
-        });
-      }
-      this.notify();
-    }, safeMinutes * 60 * 1000);
+    const endsAt: number = Date.now() + safeMinutes * MINUTE_MS;
+    this.scheduleUntil(endsAt);
 
     if (persist) {
+      void this.saveDeadline(endsAt);
       settingsService.update({ sleepTimerEnabled: true, sleepTimerMinutes: safeMinutes })
         .catch((err: Error) => {
           hilog.warn(DOMAIN, TAG, 'Failed to persist sleep timer: %{public}s', err.message);
@@ -65,6 +94,53 @@ class SleepTimerServiceImpl {
     }
     hilog.info(DOMAIN, TAG, 'Sleep timer started: %{public}d min', safeMinutes);
     this.notify();
+  }
+
+  /**
+   * 按「截止时间戳」排定时器。
+   * 新建与恢复都走这里，剩余时长的计算只有这一处；到点时统一清开关与落盘记录，
+   * 避免出现「定时已经响过、界面还显示倒计时中」的残留状态。
+   */
+  private scheduleUntil(endsAt: number): void {
+    this.stopTimerOnly();
+    const remainingMs: number = Math.max(0, endsAt - Date.now());
+    this.timerId = setTimeout(() => {
+      this.timerId = -1;
+      hilog.info(DOMAIN, TAG, 'Sleep timer fired, pausing playback');
+      void this.clearDeadline();
+      this.handleTimerFired();
+      settingsService.update({ sleepTimerEnabled: false }).catch((err: Error) => {
+        hilog.warn(DOMAIN, TAG, 'Failed to persist sleep timer stop: %{public}s', err.message);
+      });
+      this.notify();
+    }, remainingMs);
+  }
+
+  /** 保存截止时间（失败只告警：定时器本身已经排好，不影响本次会话） */
+  private async saveDeadline(endsAt: number): Promise<void> {
+    try {
+      await getStorageService().setNumber(DEADLINE_KEY, Math.floor(endsAt));
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'save deadline failed: %{public}s', JSON.stringify(err));
+    }
+  }
+
+  /** 读取截止时间（无记录返回 0） */
+  private async loadDeadline(): Promise<number> {
+    try {
+      return await getStorageService().getNumber(DEADLINE_KEY, 0);
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'load deadline failed: %{public}s', JSON.stringify(err));
+      return 0;
+    }
+  }
+
+  private async clearDeadline(): Promise<void> {
+    try {
+      await getStorageService().remove(DEADLINE_KEY);
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'clear deadline failed: %{public}s', JSON.stringify(err));
+    }
   }
 
   /**
@@ -128,6 +204,8 @@ class SleepTimerServiceImpl {
   /** 取消倒计时 */
   stop(persist: boolean = true): void {
     this.stopTimerOnly();
+    // 落盘的截止时间也要清掉，否则下次启动会「凭空恢复」一个已经取消的定时
+    void this.clearDeadline();
     if (persist) {
       settingsService.update({ sleepTimerEnabled: false }).catch((err: Error) => {
         hilog.warn(DOMAIN, TAG, 'Failed to persist sleep timer stop: %{public}s', err.message);

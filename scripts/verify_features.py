@@ -345,6 +345,12 @@ CHECKS = [
  ('队列面板打开定位当前播放', 'pages/PlayDetail/QueueSheet.ets', r'onVisibleChanged\(\): void[\s\S]{0,260}?scrollToCurrent\(\)'),
  ('队列面板一键定位按钮', 'pages/PlayDetail/QueueSheet.ets', r"a11y_scroll_to_current"),
  ('底部面板支持标题栏动作', 'components/ui/BottomSheet.ets', r'@BuilderParam trailing'),
+ # 定时退出：跨重启按剩余时长恢复，到点后清掉开关与落盘截止时间
+ ('定时退出按剩余时长恢复', 'service/SleepTimerService.ets', r'resumeByDeadline'),
+ ('定时退出到点清理状态', 'service/SleepTimerService.ets', r'void this\.clearDeadline\(\)'),
+ # 播放页不得用页面里的旧状态覆盖定时开关（定时器的唯一所有者是 SleepTimerService）
+ ('播放页不越权写定时开关', 'pages/PlayDetailPage.ets', r'private async savePlaySettings',
+  r'sleepTimerEnabled: this\.timeoutExitEnabled'),
 ]
 
 fails = []
