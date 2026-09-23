@@ -18,13 +18,6 @@ const DOMAIN = 0x0006;
 const RULE_SPLIT = '@';
 const STORAGE_KEY = 'dislike.rules';
 
-/** 一条不喜欢规则 */
-export interface DislikeRule {
-  /** 歌名（为空表示只屏蔽歌手） */
-  name: string;
-  /** 歌手（为空表示只屏蔽歌名） */
-  singer: string;
-}
 
 class DislikeListImpl {
   private musicNames: Set<string> = new Set();

@@ -56,7 +56,3 @@ export function toRoma(text: string): string {
   }
 }
 
-/** 罗马音当前是否可用（设置页据此决定是否显示开关） */
-export function isRomaSupported(): boolean {
-  return ensureTranslator() !== null;
-}

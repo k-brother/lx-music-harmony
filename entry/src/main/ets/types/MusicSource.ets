@@ -17,18 +17,4 @@ export interface SourceInfo {
   name: string;
 }
 
-// 音乐源名称映射
-export const SOURCE_NAMES: Record<MusicSource, string> = {
-  'kw': '酷我音乐',
-  'kg': '酷狗音乐',
-  'tx': 'QQ音乐',
-  'wy': '网易云音乐',
-  'mg': '咪咕音乐',
-  'all': '全部',
-};
 
-// 判断是否为有效音乐源
-export function isValidSource(source: string): boolean {
-  return source === 'kw' || source === 'kg' || source === 'tx' ||
-         source === 'wy' || source === 'mg' || source === 'all';
-}

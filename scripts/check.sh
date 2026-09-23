@@ -11,6 +11,9 @@ python3 "${SCRIPT_DIR}/check_imports.py"
 echo "== 未被引用的私有方法 =="
 python3 "${SCRIPT_DIR}/check_dead.py"
 
+echo "== 零引用的导出（有实现没入口）=="
+python3 "${SCRIPT_DIR}/check_unused_exports.py"
+
 echo "== i18n 词条对齐 =="
 python3 "${SCRIPT_DIR}/check_i18n.py"
 

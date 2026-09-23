@@ -18,54 +18,12 @@ export interface MusicQualityTypeKg extends MusicQualityType {
   hash: string;
 }
 
-// 音质详情信息（用于替代 inline object literals）
-export interface QualityDetailInfo {
-  size: string | null;
-}
 
-// 音乐信息元数据基础
-export interface MusicInfoMetaBase {
-  songId: string | number;  // 歌曲ID
-  albumName: string;        // 专辑名称
-  picUrl: string | null;   // 歌曲图片链接
-}
 
-// 在线音乐元数据
-export interface MusicInfoMetaOnline extends MusicInfoMetaBase {
-  qualitys: MusicQualityType[];
-  albumId?: string | number; // 专辑ID
-}
 
-// 酷狗音乐元数据
-export interface MusicInfoMetaKg extends MusicInfoMetaOnline {
-  qualitys: MusicQualityTypeKg[];
-  hash: string;             // 歌曲hash
-}
 
-// QQ音乐元数据
-export interface MusicInfoMetaTx extends MusicInfoMetaOnline {
-  strMediaMid: string;      // 歌曲strMediaMid
-  id?: number;              // 歌曲songId
-  albumMid?: string;        // 歌曲albumMid
-}
 
-// 咪咕音乐元数据
-export interface MusicInfoMetaMg extends MusicInfoMetaOnline {
-  copyrightId: string;      // 歌曲copyrightId
-  lrcUrl?: string;          // 歌词URL
-  mrcUrl?: string;          // 逐字歌词URL
-  trcUrl?: string;          // 翻译歌词URL
-}
 
-// 音乐信息基础
-export interface MusicInfoBase {
-  id: string;
-  name: string;             // 歌曲名
-  singer: string;          // 艺术家名
-  source: MusicSource;      // 音乐源
-  interval: string | null; // 格式化后的歌曲时长，例：03:55
-  meta: MusicInfoMetaBase;
-}
 
 // 音质详情类型（用于替代 Record<Quality, { size: string | null }>）
 export interface QualityDetail {

@@ -142,8 +142,3 @@ export interface HotSearchResult {
   source: string;
 }
 
-export interface LeaderboardInfo {
-  id: string;
-  name: string;
-  bangId: string;
-}

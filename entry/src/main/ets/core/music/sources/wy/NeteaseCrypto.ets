@@ -158,13 +158,6 @@ export interface WeapiForm {
   encSecKey: string;
 }
 
-/**
- * linuxapi：返回表单字段 eparams（十六进制大写）
- */
-export async function neteaseLinuxapi(object: WeapiJsonObject): Promise<LinuxapiForm> {
-  const text = JSON.stringify(object);
-  return neteaseLinuxapiFromJsonString(text);
-}
 
 /** linuxapi：直接传入完整 JSON 字符串（用于含嵌套 params 的请求体） */
 export async function neteaseLinuxapiFromJsonString(json: string): Promise<LinuxapiForm> {

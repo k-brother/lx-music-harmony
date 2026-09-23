@@ -328,16 +328,6 @@ export function base64Decode(str: string): number[] {
   return result;
 }
 
-/**
- * Base64 字符串编码
- */
-export function base64EncodeStr(str: string): string {
-  const bytes: number[] = [];
-  for (let i = 0; i < str.length; i++) {
-    bytes.push(str.charCodeAt(i));
-  }
-  return base64Encode(bytes);
-}
 
 /**
  * 字节数组转字符串
@@ -350,13 +340,3 @@ export function bytesToString(bytes: number[]): string {
   return result;
 }
 
-/**
- * 字符串转字节数组
- */
-export function stringToBytes(str: string): number[] {
-  const bytes: number[] = [];
-  for (let i = 0; i < str.length; i++) {
-    bytes.push(str.charCodeAt(i));
-  }
-  return bytes;
-}

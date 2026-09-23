@@ -5,7 +5,7 @@
  * 现在收敛到一处：任何页面要"把列表行变成可播放/可下载的对象"都用这里。
  */
 import type { MusicInfo, MusicSource } from '../../types/MusicTypes';
-import { formatClock, parsePlayTimeText } from '../../utils/FormatTools';
+import { formatClock } from '../../utils/FormatTools';
 import type { MusicItem } from '../../service/ListService';
 import type { SongInfo } from '../../service/PlayerService';
 
@@ -30,10 +30,6 @@ export function secondsToInterval(seconds: number): string {
   return formatClock(seconds);
 }
 
-/** "mm:ss" → 秒（实现统一在 FormatTools，这里保留原函数名） */
-export function intervalToSeconds(interval: string | null | undefined): number {
-  return parsePlayTimeText(interval);
-}
 
 /** 列表行 -> 平台音乐对象（取链、评论、分享、详情页链接都用它） */
 export function songRowToMusicInfo(song: SongRowLike): MusicInfo {

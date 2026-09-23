@@ -12,7 +12,6 @@ const TAG = 'Toast';
 /** 默认展示时长（毫秒） */
 export const TOAST_DURATION_SHORT = 1800;
 export const TOAST_DURATION_DEFAULT = 2000;
-export const TOAST_DURATION_LONG = 2200;
 
 /**
  * 显示轻提示；UI 未就绪（预览器、页面已销毁）时退化为 hilog，不抛异常。

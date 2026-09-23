@@ -57,10 +57,6 @@ export function t(key: string): string {
   return key;
 }
 
-// 获取当前语言
-export function getCurrentLanguage(): string {
-  return getCurrentLang();
-}
 
 /**
  * 带占位符的翻译：文案里用 {0} {1} 表示参数。

@@ -167,9 +167,3 @@ function bytesToString(bytes: number[]): string {
   return cryptoBytesToString(bytes);
 }
 
-/**
- * URL编码
- */
-export function encodeKeyword(str: string): string {
-  return encodeURIComponent(str);
-}

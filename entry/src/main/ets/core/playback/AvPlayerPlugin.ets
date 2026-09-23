@@ -442,20 +442,6 @@ async function setResourceUnlocked(
   }
 }
 
-// 初始化音轨信息
-export async function initTrackInfo(musicInfo: MusicInfo, storeMusicInfo: MusicInfo): Promise<void> {
-  // 更新播放器状态
-  // playerAction.setMusicInfo(musicInfo);
-  stateEvent.playerMusicInfoChanged(musicInfo);
-
-  // 设置播放进度
-  const progress = playerState.progress;
-  stateEvent.playProgressChanged(progress);
-
-  // 更新状态
-  // playerAction.setIsPlay(true);
-  appEvent.play();
-}
 
 // 播放
 export async function setPlay(): Promise<void> {
@@ -563,22 +549,6 @@ export async function getDuration(): Promise<number> {
   }
 }
 
-// 获取音量
-export async function getVolume(): Promise<number> {
-  try {
-    if (!avPlayer) {
-      return playerState.volume;
-    }
-    
-    // AVPlayer的getVolume方法可能不可用，我们维护自己的状态
-    return playerState.volume;
-    
-  } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
-    hilog.error(DOMAIN, TAG, 'Failed to get volume: %{public}s', errorMsg);
-    return playerState.volume;
-  }
-}
 
 // 设置音量
 export async function setVolume(volume: number): Promise<void> {
@@ -598,22 +568,6 @@ export async function setVolume(volume: number): Promise<void> {
   }
 }
 
-// 获取播放速率
-export async function getPlaybackSpeed(): Promise<number> {
-  try {
-    if (!avPlayer) {
-      return playerState.playRate;
-    }
-    
-    // AVPlayer的getSpeed方法可能不可用，我们维护自己的状态
-    return playerState.playRate;
-    
-  } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
-    hilog.error(DOMAIN, TAG, 'Failed to get playback speed: %{public}s', errorMsg);
-    return playerState.playRate;
-  }
-}
 
 // 设置播放速率
 export async function setPlaybackSpeed(rate: number): Promise<void> {
@@ -665,44 +619,5 @@ export async function updateOptions(): Promise<void> {
   }
 }
 
-// 检查音频焦点
-export async function checkAudioFocus(): Promise<boolean> {
-  try {
-    // 在HarmonyOS中，音频焦点管理通常是自动的
-    // 这里我们假设始终有焦点，除非被系统中断
-    return true;
-    
-  } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
-    hilog.error(DOMAIN, TAG, 'Failed to check audio focus: %{public}s', errorMsg);
-    return false;
-  }
-}
 
-// 请求音频焦点
-export async function requestAudioFocus(): Promise<boolean> {
-  try {
-    // 在HarmonyOS中，播放音频时会自动请求焦点
-    // 这里我们只是记录日志
-    hilog.info(DOMAIN, TAG, 'Audio focus requested');
-    return true;
-    
-  } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
-    hilog.error(DOMAIN, TAG, 'Failed to request audio focus: %{public}s', errorMsg);
-    return false;
-  }
-}
 
-// 放弃音频焦点
-export async function abandonAudioFocus(): Promise<void> {
-  try {
-    // 停止播放时会自动放弃焦点
-    await setStop();
-    hilog.info(DOMAIN, TAG, 'Audio focus abandoned');
-    
-  } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
-    hilog.error(DOMAIN, TAG, 'Failed to abandon audio focus: %{public}s', errorMsg);
-  }
-}

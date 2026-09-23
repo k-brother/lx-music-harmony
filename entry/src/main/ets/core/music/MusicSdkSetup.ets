@@ -60,22 +60,7 @@ export interface SearchResult {
   source: MusicSource;
 }
 
-// 歌词信息
-export interface LyricResult {
-  lyric: string;
-  tlyric: string | null;
-  lxlyric: string | null;
-  rlyric: string | null;
-}
 
-// 歌曲详情
-export interface SongDetail {
-  name: string;
-  singer: string;
-  album: string;
-  pic: string;
-  interval: string | null;
-}
 
 // 歌单项
 export interface SonglistItem {
@@ -132,20 +117,8 @@ export interface MusicUrlResult {
   type: string;
 }
 
-// 获取歌曲播放链接接口
-export interface GetMusicUrlInterface {
-  call: (songInfo: SongInfo, quality: string) => Promise<MusicUrlResult>;
-}
 
-// 获取歌词接口
-export interface GetLyricInterface {
-  call: (songInfo: SongInfo) => Promise<LyricResult>;
-}
 
-// 获取封面接口
-export interface GetPicInterface {
-  call: (songInfo: SongInfo) => Promise<string>;
-}
 
 // 歌单接口
 export interface SongListInterface {
@@ -164,32 +137,6 @@ export interface HotSearchInterface {
   list: () => Promise<HotSearchItem[]>;
 }
 
-// 音乐源SDK接口
-export interface MusicSourceSDK {
-  // 初始化（可选，各音乐源不一定实现）
-  init?: () => Promise<void>;
-
-  // 音乐搜索
-  musicSearch: MusicSearchInterface;
-
-  // 获取歌曲播放链接
-  getMusicUrl: GetMusicUrlInterface;
-
-  // 获取歌词
-  getLyric: GetLyricInterface;
-
-  // 获取封面
-  getPic: GetPicInterface;
-
-  // 歌单搜索
-  songList: SongListInterface | null;
-
-  // 排行榜
-  leaderboard: LeaderboardInterface | null;
-
-  // 热搜
-  hotSearch: HotSearchInterface | null;
-}
 
 // 跨源搜索使用的最小接口（不包含init等可选属性）
 interface CrossSourceSDK {
@@ -222,17 +169,6 @@ export interface SonglistDetail {
   list: SearchResultItem[];
 }
 
-// 全局音乐SDK对象
-export interface MusicSDK {
-  sources: SourceInfo[];
-  kw: MusicSourceSDK;
-  kg: MusicSourceSDK;
-  tx: MusicSourceSDK;
-  wy: MusicSourceSDK;
-  mg: MusicSourceSDK;
-  xm: MusicSourceSDK;
-  supportQuality: string[];
-}
 
 // 导出支持的品质
 export const supportQuality = ['flac24bit', 'flac', '320k', '192k', '128k', '96k', '64k', '32k'];
@@ -455,17 +391,7 @@ export async function findMusic(params: FindMusicParams): Promise<SearchResultIt
 // 插件系统相关接口
 // ============================================
 
-// 插件API源信息
-export interface PluginApiSourceInfo {
-  source: MusicSource;
-  actions: string[];
-  qualitys: string[];
-}
 
-// 插件初始化信息
-export interface PluginInitInfo {
-  sources: Record<string, PluginApiSourceInfo>;
-}
 
 /**
  * 获取插件系统实例

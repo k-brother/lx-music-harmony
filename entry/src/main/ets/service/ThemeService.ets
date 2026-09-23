@@ -192,9 +192,6 @@ export async function applyThemeById(themeId: string, persist: boolean = true): 
 /** 系统当前是否深色（由 EntryAbility 在启动与系统配置变化时推送） */
 let systemDarkMode: boolean = false;
 
-export function isSystemDarkMode(): boolean {
-  return systemDarkMode;
-}
 
 /**
  * 系统深浅色变化时调用（EntryAbility.onConfigurationUpdate / 启动时一次）

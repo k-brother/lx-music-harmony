@@ -334,42 +334,9 @@ export function destroyQuickJS(): void {
   }
 }
 
-/**
- * Check if QuickJS is initialized and ready
- */
-export function isQuickJSReady(): boolean {
-  return isInitialized && quickjsModule !== null;
-}
 
-/**
- * Set the preload script content directly
- * (Used when preload is bundled or loaded from rawfile)
- */
-export function setPreloadScript(script: string): void {
-  loadedPreloadScript = script;
-}
 
-/**
- * Set the native module implementation directly
- * (Used when native module is properly loaded via dlopen)
- */
-export function setNativeModule(module: QuickJSNAPI): void {
-  quickjsModule = module;
-  isInitialized = true;
-  hilog.info(DOMAIN, MODULE_TAG, 'Native module set');
-}
 
-/**
- * Set the loader module implementation
- * (Used to provide the native loader when globalThis access is not available)
- */
-export function setLoaderModule(module: QuickJSNAPI): void {
-  loaderModule = module;
-  loadScriptFn = loaderModule.loadScript;
-  callJSFn = loaderModule.callJS;
-  destroyFn = loaderModule.destroy;
-  hilog.info(DOMAIN, MODULE_TAG, 'Loader module set');
-}
 
 // Re-export types for external use
 export type { QuickJSNAPI };

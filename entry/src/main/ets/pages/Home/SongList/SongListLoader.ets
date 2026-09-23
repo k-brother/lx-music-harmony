@@ -63,11 +63,6 @@ function sdkForSource(sourceId: string): SongListSdkLike | undefined {
   return undefined;
 }
 
-/** 是否支持歌单广场（该源有没有 songList 能力） */
-export function isSongListSupported(sourceId: string): boolean {
-  const sdk = sdkForSource(sourceId);
-  return sdk !== undefined && sdk.songList !== undefined;
-}
 
 /** 标签列表：首项固定为「全部」；失败返回只有「全部」的列表 */
 export async function fetchSongListTags(sourceId: string): Promise<TagOption[]> {

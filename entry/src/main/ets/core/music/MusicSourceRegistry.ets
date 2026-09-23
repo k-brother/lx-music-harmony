@@ -122,9 +122,6 @@ export function isBuiltinSourceId(id: string): boolean {
   return id === 'kw' || id === 'kg' || id === 'tx' || id === 'wy' || id === 'mg';
 }
 
-export function getBuiltinSourceIds(): BuiltinSourceId[] {
-  return registryBuiltinOrder.slice();
-}
 
 /** 与历史 `musicSdk` 对象形状一致，供直接点号访问 */
 export function createMusicSdkAggregate(): MusicSdkInterface {

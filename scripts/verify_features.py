@@ -260,7 +260,8 @@ CHECKS = [
  ('时钟格式化统一实现', 'utils/FormatTools.ets', r'export function formatClock\('),
  ('CommonUtils 时长格式化委托统一实现', 'utils/CommonUtils.ets', r'formatClockWithHours\(time\)',
   r"padStart\(2, '0'\)"),
- ('歌单映射的时长函数委托统一实现', 'core/list/SongMappers.ets', r'parsePlayTimeText\(interval\)'),
+ # 秒↔文本 只允许 FormatTools 一份实现：映射层必须委托，且不得自己拼字符串
+ ('歌单映射的时长格式化委托统一实现', 'core/list/SongMappers.ets', r'formatClock\(', r'padStart|Math\.floor\(.*60'),
  ('音源解析的时长函数委托统一实现', 'core/music/MusicParsingUtils.ets', r'parsePlayTimeText\(interval\)'),
  # 通用小工具只留一份实现（delayMs / generateId / bytesToString / 歌名过滤 / 内建源判断）
  ('等待工具统一实现', 'utils/Utils.ets', r'export function delayMs'),

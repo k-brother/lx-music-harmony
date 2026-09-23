@@ -4,8 +4,6 @@ import type { MusicInfo, LyricInfo, Quality, MusicQualityType, MusicSource, Othe
 import { formatClock, parsePlayTimeText } from '../../utils/FormatTools';
 import { trimSpecialChars } from '../../utils/CommonUtils';
 
-// 尝试获取的音乐品质列表
-export const TRY_QUALITYS_LIST: string[] = ['flac24bit', 'flac', '320k', '128k'];
 
 /**
  * 解析时长字符串为秒数
@@ -178,12 +176,6 @@ export function sortSingerName(singer: string): string {
   return singer;
 }
 
-/**
- * 检查歌词是否存在时间标签
- */
-export function existTimeExp(lrc: string): boolean {
-  return /\[\d{1,2}:.*\d{1,4}\]/.test(lrc);
-}
 
 /**
  * 质量字符串比较
@@ -260,56 +252,7 @@ interface OldMusicInfo {
   copyrightId?: string;
 }
 
-/**
- * 转换旧版音乐信息为新版
- */
-export function toNewMusicInfo(oldInfo: OldMusicInfo): MusicInfo {
-  const otherSource: OtherSourceInfo[] | null | undefined = oldInfo.otherSource || null;
-  const types: MusicQualityType[] = oldInfo.types || [];
-  const _types: Map<Quality, QualityDetail> = oldInfo._types || new Map<Quality, QualityDetail>();
-  const typeUrl: Map<string, string> = oldInfo.typeUrl || new Map<string, string>();
-  return {
-    name: oldInfo.name || '',
-    singer: oldInfo.singer || '',
-    source: oldInfo.source || 'kw',
-    songmid: oldInfo.songmid || oldInfo.id || '',
-    albumId: oldInfo.albumId || '',
-    albumName: oldInfo.albumName || '',
-    interval: oldInfo.interval || null,
-    img: oldInfo.img || oldInfo.pic || null,
-    lrc: oldInfo.lrc || null,
-    otherSource: otherSource,
-    types: types,
-    _types: _types,
-    typeUrl: typeUrl,
-    copyrightId: oldInfo.copyrightId || '',
-  };
-}
 
-/**
- * 转换新版音乐信息为旧版
- */
-export function toOldMusicInfo(newInfo: MusicInfo): OldMusicInfo {
-  const otherSource: OtherSourceInfo[] | null | undefined = newInfo.otherSource || undefined;
-  return {
-    name: newInfo.name,
-    singer: newInfo.singer,
-    source: newInfo.source,
-    songmid: newInfo.songmid,
-    id: newInfo.songmid,
-    albumId: newInfo.albumId || '',
-    albumName: newInfo.albumName || '',
-    interval: newInfo.interval || undefined,
-    img: newInfo.img || undefined,
-    pic: newInfo.img || undefined,
-    lrc: newInfo.lrc || undefined,
-    otherSource: otherSource,
-    types: newInfo.types,
-    _types: newInfo._types,
-    typeUrl: newInfo.typeUrl,
-    copyrightId: newInfo.copyrightId || '',
-  };
-}
 
 /**
  * 判断是否为有效URL

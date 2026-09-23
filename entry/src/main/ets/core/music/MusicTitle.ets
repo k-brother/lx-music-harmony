@@ -14,9 +14,6 @@ import type { MusicInfo } from '../../types/MusicTypes';
 /** 文件名/分享标题格式（对齐安卓版 `download.fileName` 的三个取值） */
 export type DownloadFileNameFormat = 'name-singer' | 'singer-name' | 'name';
 
-/** 全部格式（顺序即设置面板顺序） */
-export const DOWNLOAD_FILE_NAME_FORMATS: DownloadFileNameFormat[] =
-  ['name-singer', 'singer-name', 'name'];
 
 /** 持久化值容错：非法值回落到「歌名 - 歌手」 */
 export function toDownloadFileNameFormat(value: string): DownloadFileNameFormat {

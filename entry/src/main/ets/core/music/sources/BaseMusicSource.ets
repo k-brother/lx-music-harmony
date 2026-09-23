@@ -9,11 +9,6 @@ import type { SearchResult } from '../../../types/MusicTypes';
 
 const DOMAIN: number = 0x0001;
 
-/** 子类 HTTP 调用可选参数 */
-export interface SourceHttpOptions {
-  headers?: Record<string, string>;
-  timeout?: number;
-}
 
 export abstract class BaseMusicSource {
   protected abstract readonly logTag: string;
