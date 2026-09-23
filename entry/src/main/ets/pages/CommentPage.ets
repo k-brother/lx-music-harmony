@@ -189,8 +189,9 @@ export struct CommentPage {
       comment.isLiked = !comment.isLiked;
       comment.likeCount += comment.isLiked ? 1 : -1;
       
-      // 更新数组以触发重新渲染
-      this.commentSource.reload(this.comments);
+      // 单行变化用 notifyChanged：LazyForEach 只重建这一项
+      // （reload 会走整表 diff，用在这里没必要）
+      this.commentSource.notifyChanged(commentIndex);
       
       hilog.info(DOMAIN, TAG, 'Comment %{public}s liked: %{public}s', commentId, comment.isLiked);
     }
