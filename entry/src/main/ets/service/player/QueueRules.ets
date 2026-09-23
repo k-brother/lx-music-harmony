@@ -100,3 +100,61 @@ export function trimRandomHistory(history: number[], limit: number, keep: number
   }
   return history.slice(-keep);
 }
+
+/**
+ * 拖动排序后当前下标变成什么（保持「正在播放的那首」不变）
+ * @returns 新的当前下标
+ */
+export function indexAfterMove(currentIndex: number, from: number, to: number): number {
+  if (currentIndex === from) {
+    return to;
+  }
+  if (from < currentIndex && to >= currentIndex) {
+    return currentIndex - 1;
+  }
+  if (from > currentIndex && to <= currentIndex) {
+    return currentIndex + 1;
+  }
+  return currentIndex;
+}
+
+/**
+ * 「下一首播放」的插入点与插入后当前下标。
+ * 队列里已有这首歌时先摘掉再插到当前之后，摘的位置在当前之前会让插入点左移。
+ * @param existsAt 歌曲当前所在下标，-1 表示不在队列里
+ */
+export function insertNextPlan(currentIndex: number, existsAt: number): number[] {
+  const insertAt = currentIndex + 1;
+  const adjusted = existsAt >= 0 && existsAt < insertAt ? insertAt - 1 : insertAt;
+  // [插入点, 插入后当前下标]
+  const keepIndex = currentIndex;
+  return [adjusted, keepIndex];
+}
+
+/** 只带 id 的最小结构：用于在「更完整的列表」里定位当前曲目 */
+export interface Identifiable {
+  id: string;
+}
+
+/** 用更完整的列表替换队列后，当前曲目的新下标（找不到返回 -1） */
+export function indexInRefinedList(fullList: Identifiable[], currentId: string): number {
+  return fullList.findIndex((item: Identifiable): boolean => item.id === currentId);
+}
+
+/**
+ * 从队列移除某一首后，当前下标变成什么。
+ * 与 indexAfterRemoval 的差别：这里已知「移除的下标」，且保留「移除当前曲目时不打断播放」的语义
+ * （下标指向原位置的下一首，越界则退回队尾）。
+ */
+export function indexAfterRemoveAt(currentIndex: number, removedAt: number, sizeAfter: number): number {
+  if (sizeAfter <= 0) {
+    return -1;
+  }
+  if (removedAt < currentIndex) {
+    return currentIndex - 1;
+  }
+  if (removedAt === currentIndex) {
+    return Math.min(removedAt, sizeAfter - 1);
+  }
+  return currentIndex;
+}

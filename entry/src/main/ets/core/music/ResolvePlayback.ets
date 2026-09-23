@@ -1,16 +1,17 @@
 // 在线 + 本地播放解析（原 ResolveOnlinePlayback + ResolveLocalPlayback）
 
-import { musicSdk, searchMusic as sdkSearchMusic } from './MusicSdkAggregate';
+import { musicSdk } from './MusicSdkAggregate';
 import type { MusicInfo, LyricInfo, Quality } from '../../types/MusicTypes';
-import { getStorageService } from '../interfaces/IStorageService';
 import { buildLyricInfo, createEmptyLyricInfo, getPlayQuality } from './MusicParsingUtils';
+import { musicInfoTrace } from './playback/CandidateMatch';
 import {
-  normalizeSingerText,
-  normalizeCompareText,
-  scoreCandidate,
-  musicInfoTrace,
-} from './playback/CandidateMatch';
-import { pluginManager, PluginSongInfo as PluginSongInfoType } from '../plugin/PluginManager';
+  isPluginPreferredForMusicUrl,
+  toPluginSongInfo,
+  ensureCustomSourcePluginReady,
+} from './PluginResolve';
+import { pluginManager } from '../plugin/PluginManager';
+import { getOtherSource } from './OtherSourceMatch';
+import { searchMusic, type SearchMusicParams } from './MusicSearch';
 // 日志经由应用日志门面，既输出 hilog 也进入「设置 → 运行日志」
 import { appLog as hilog } from '../log/AppLogger';
 import { httpRequest } from '../network/http/HttpClient';
@@ -35,61 +36,12 @@ function ensureSongMid(musicInfo: MusicInfo): void {
   }
 }
 
-function isPluginPreferredForMusicUrl(musicInfo: MusicInfo): boolean {
-  const source = musicInfo.source as string;
-  const activePlugin = pluginManager.getActivePlugin();
-  return source !== 'local' && !!(activePlugin && activePlugin.onGetMusicUrl);
-}
-
-function toPluginSongInfo(musicInfo: MusicInfo): PluginSongInfoType {
-  const singerValue = normalizeSingerText(musicInfo.singer);
-  return {
-    songmid: musicInfo.songmid || musicInfo.id || '',
-    name: musicInfo.name || '',
-    singer: singerValue,
-    source: musicInfo.source as string,
-    albumName: musicInfo.album || musicInfo.albumName || '',
-    albumId: musicInfo.albumId || '',
-    duration: musicInfo.interval || '',
-    hash: musicInfo.hash || musicInfo.songmid || musicInfo.id || '',
-  };
-}
 
 
 
 
 
-let lazyCustomSourceRestorePromise: Promise<boolean> | null = null;
 
-async function ensureCustomSourcePluginReady(): Promise<boolean> {
-  const active = pluginManager.getActivePlugin();
-  if (active && active.onGetMusicUrl) {
-    return true;
-  }
-  if (lazyCustomSourceRestorePromise) {
-    return await lazyCustomSourceRestorePromise;
-  }
-  lazyCustomSourceRestorePromise = (async (): Promise<boolean> => {
-    try {
-      const storage = getStorageService();
-      const currentSource = await storage.getString('plugin.currentSource', 'kw');
-      const customSourceUrl = await storage.getString('plugin.customSourceUrl', '');
-      if (currentSource !== 'custom' || customSourceUrl.length === 0) {
-        return false;
-      }
-      hilog.warn(DOMAIN, TAG, 'Lazy restoring custom source for playback: %{public}s', customSourceUrl);
-      return await pluginManager.loadCustomSource(customSourceUrl);
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'Lazy custom source restore failed: %{public}s', JSON.stringify(err));
-      return false;
-    }
-  })();
-  try {
-    return await lazyCustomSourceRestorePromise;
-  } finally {
-    lazyCustomSourceRestorePromise = null;
-  }
-}
 
 /**
  * 获取音乐URL参数接口
@@ -447,16 +399,8 @@ async function getMusicUrlFromSource(musicInfo: MusicInfo, quality: Quality): Pr
     if (activePlugin && activePlugin.onGetMusicUrl) {
       try {
         hilog.warn(DOMAIN, TAG, 'Route=plugin-first, source=%{public}s, quality=%{public}s', source, quality);
-        const pluginSongInfo: PluginSongInfoType = {
-          songmid: musicInfo.songmid || musicInfo.id || '',
-          name: musicInfo.name || '',
-          singer: musicInfo.singer || '',
-          source: source,
-          albumName: musicInfo.album || musicInfo.albumName || '',
-          duration: musicInfo.interval || '',
-          hash: musicInfo.hash || musicInfo.songmid || musicInfo.id || '',
-        };
-        const url = await activePlugin.onGetMusicUrl(pluginSongInfo, quality);
+        // 参数转换统一走 PluginResolve.toPluginSongInfo（含歌手名归一化），不再手写一份
+        const url = await activePlugin.onGetMusicUrl(toPluginSongInfo(musicInfo), quality);
         if (url && url.length > 0) {
           hilog.warn(DOMAIN, TAG, 'Route=plugin-success, source=%{public}s', source);
           return { url, type: quality, mode: 'plugin' };
@@ -695,6 +639,9 @@ async function getLyricFromSource(musicInfo: MusicInfo): Promise<LyricInfo> {
 /**
  * 获取封面图片URL
  */
+export { getOtherSource } from './OtherSourceMatch';
+export { searchMusic } from './MusicSearch';
+
 export async function getPicUrl(params: GetPicUrlParams): Promise<string> {
   const musicInfo = params.musicInfo;
   const isRefresh = params.isRefresh ?? false;
@@ -823,158 +770,11 @@ async function getPicFromSource(musicInfo: MusicInfo): Promise<string> {
   }
 }
 
-/**
- * 获取其他源的音乐信息
- */
-export async function getOtherSource(musicInfo: MusicInfo): Promise<MusicInfo[]> {
-  try {
-    const safeSinger = normalizeSingerText(musicInfo.singer);
-    const keyword = `${musicInfo.name} ${safeSinger}`.trim();
-    const baseName = normalizeCompareText(musicInfo.name || '');
-    const baseSinger = normalizeCompareText(safeSinger);
-    const results = await sdkSearchMusic(keyword, 1, 10);
-    if (!results || results.length === 0) {
-      hilog.warn(DOMAIN, TAG, 'getOtherSource empty search result: %{public}s', musicInfoTrace(musicInfo));
-      return [];
-    }
-    const merged: MusicInfo[] = [];
-    const seenKeys: Set<string> = new Set<string>();
-    for (let i = 0; i < results.length; i++) {
-      const group = results[i];
-      if (!group || !group.list || group.list.length === 0) {
-        continue;
-      }
-      for (let j = 0; j < group.list.length; j++) {
-        const item = group.list[j];
-        if (!item || item.source === musicInfo.source) {
-          continue;
-        }
-        const itemSinger = normalizeSingerText(item.singer);
-        const dedupeKey = `${item.source || ''}|${item.songmid || item.id || ''}|${item.name || ''}|${itemSinger}`;
-        if (seenKeys.has(dedupeKey)) {
-          continue;
-        }
-        seenKeys.add(dedupeKey);
-        const normalizedItem: MusicInfo = item;
-        normalizedItem.singer = itemSinger;
-        merged.push(normalizedItem);
-      }
-    }
-    merged.sort((a: MusicInfo, b: MusicInfo) => {
-      const sa = scoreCandidate(baseName, baseSinger, a);
-      const sb = scoreCandidate(baseName, baseSinger, b);
-      return sb - sa;
-    });
-    const ranked = merged.slice(0, 12);
-    hilog.info(DOMAIN, TAG, 'getOtherSource merged=%{public}d ranked=%{public}d for %{public}s',
-      merged.length, ranked.length, musicInfoTrace(musicInfo));
-    return ranked;
-  } catch (err) {
-    hilog.warn(DOMAIN, TAG, 'getOtherSource failed: %{public}s', (err as Error).message);
-    return [];
-  }
-}
 
-/**
- * 搜索音乐（多源搜索）
- */
-interface SearchMusicParams {
-  name: string;
-  singer?: string;
-  limit?: number;
-}
 
-export async function searchMusic(params: SearchMusicParams): Promise<MusicInfo[]> {
-  const name = params.name;
-  const singer = params.singer;
-  const limit = params.limit ?? 25;
-  const keyword = `${name} ${singer || ''}`.trim();
 
-  if (!keyword) {
-    return [];
-  }
 
-  const sources = ['kw', 'kg', 'tx', 'wy', 'mg'];
-  const results: MusicInfo[][] = [];
 
-  // 并行搜索所有源
-  const searchPromises: Promise<MusicInfo[]>[] = sources.map(async (source) => {
-    try {
-      const result = await searchFromSource(source, keyword, 1, limit);
-      return result;
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'searchFromSource failed for %{public}s: %{public}s', source, (err as Error).message);
-      return [];
-    }
-  });
-
-  const searchResults = await Promise.all(searchPromises);
-
-  // 合并结果
-  for (const result of searchResults) {
-    if (result && result.length > 0) {
-      results.push(result);
-    }
-  }
-
-  // 返回第一个搜索结果（通常是最好的匹配）
-  return results[0] || [];
-}
-
-/**
- * 从指定源搜索音乐
- */
-async function searchFromSource(source: string, keyword: string, page: number, limit: number): Promise<MusicInfo[]> {
-  const sdk = getSdkBySource(source);
-  if (!sdk || !sdk.musicSearch) {
-    return [];
-  }
-
-  const result = await sdk.musicSearch.search(keyword, page, limit);
-  if (result && result.list) {
-    return result.list;
-  }
-
-  return [];
-}
-
-/**
- * 音乐搜索接口
- */
-interface MusicSearchModule {
-  search: (keyword: string, page: number, limit: number) => Promise<SearchResultLocal | null>;
-}
-
-interface SearchResultLocal {
-  list: MusicInfo[];
-}
-
-/**
- * SDK接口（避免使用any）
- */
-interface SdkSearchInterface {
-  musicSearch: MusicSearchModule;
-}
-
-/**
- * 根据源获取SDK
- */
-function getSdkBySource(source: string): SdkSearchInterface | null {
-  switch (source) {
-    case 'kw':
-      return musicSdk.kw as SdkSearchInterface;
-    case 'kg':
-      return musicSdk.kg as SdkSearchInterface;
-    case 'tx':
-      return musicSdk.tx as SdkSearchInterface;
-    case 'wy':
-      return musicSdk.wy as SdkSearchInterface;
-    case 'mg':
-      return musicSdk.mg as SdkSearchInterface;
-    default:
-      return null;
-  }
-}
 
 /**
  * 在线音乐模块

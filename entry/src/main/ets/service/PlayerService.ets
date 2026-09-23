@@ -4,8 +4,6 @@
 import { appLog as hilog } from '../core/log/AppLogger';
 import type { BusinessError } from '@kit.BasicServicesKit';
 import { common } from '@kit.AbilityKit';
-import { toggleLoveList, type MusicItem } from './ListService';
-import { avSession } from '@kit.AVSessionKit';
 import {
   initial as avInitial,
   isInitialized as avIsInitialized,
@@ -32,7 +30,22 @@ import { settingsService, type PlayMode as SettingsPlayMode } from './SettingsSe
 import { dislikeList } from '../core/dislike/DislikeList';
 import { on, EventTypes } from './EventBus';
 import { LyricHub } from './player/LyricHub';
-import { nextIndexFor, prevIndexFor, pickRandomIndex, indexAfterRemoval, trimRandomHistory } from './player/QueueRules';
+import {
+  playModeToAvLoopMode,
+  buildAvMetadata,
+  createAvSessionCallbacks,
+} from './player/PlaybackSession';
+import {
+  nextIndexFor,
+  prevIndexFor,
+  pickRandomIndex,
+  indexAfterRemoval,
+  indexAfterMove,
+  indexAfterRemoveAt,
+  insertNextPlan,
+  indexInRefinedList,
+  trimRandomHistory,
+} from './player/QueueRules';
 import type { LyricLineState, LyricLineListener } from './player/LyricHub';
 import { playbackEvents } from './player/PlaybackEvents';
 import {
@@ -145,36 +158,6 @@ interface ProgressReturnType {
 // 播放模式循环顺序（用于播控中心切换时的状态流转）
 const LOOP_MODE_ORDER: PlayMode[] = ['listLoop', 'singleLoop', 'random', 'sequential'];
 
-// PlayMode → avSession.LoopMode 映射
-function playModeToAvLoopMode(mode: PlayMode): avSession.LoopMode {
-  switch (mode) {
-    case 'singleLoop':
-      return avSession.LoopMode.LOOP_MODE_SINGLE;
-    case 'random':
-      return avSession.LoopMode.LOOP_MODE_SHUFFLE;
-    case 'sequential':
-      return avSession.LoopMode.LOOP_MODE_SEQUENCE;
-    case 'listLoop':
-    default:
-      return avSession.LoopMode.LOOP_MODE_LIST;
-  }
-}
-
-// avSession.LoopMode → PlayMode 映射
-function avLoopModeToPlayMode(mode: avSession.LoopMode): PlayMode {
-  switch (mode) {
-    case avSession.LoopMode.LOOP_MODE_SINGLE:
-      return 'singleLoop';
-    case avSession.LoopMode.LOOP_MODE_SHUFFLE:
-      return 'random';
-    case avSession.LoopMode.LOOP_MODE_SEQUENCE:
-      return 'sequential';
-    case avSession.LoopMode.LOOP_MODE_LIST:
-    default:
-      return 'listLoop';
-  }
-}
-
 // 播放器服务类
 export class PlayerService {
   private isInitialized: boolean = false;
@@ -255,66 +238,20 @@ export class PlayerService {
       this.playMode, this.preferredQuality, this.autoCleanPlayedList.toString());
   }
 
-  /** 创建 AVSession 播控回调 */
+  /** 创建 AVSession 播控回调：实现在 player/PlaybackSession，这里只把播放器动作注入进去 */
   private createAvSessionCallbacks(): AvSessionCallbacks {
-    const handleErr = (action: string, err: Error): void => {
-      hilog.error(DOMAIN, TAG, 'AVSession %{public}s failed: %{public}s', action, err.message || 'unknown');
-    };
-    return {
-      onPlay: (): void => {
-        this.play().catch((err: Error) => handleErr('play', err));
-      },
-      onPause: (): void => {
-        this.pause().catch((err: Error) => handleErr('pause', err));
-      },
-      onStop: (): void => {
-        this.stop().catch((err: Error) => handleErr('stop', err));
-      },
-      onPlayNext: (): void => {
-        this.playNext().catch((err: Error) => handleErr('playNext', err));
-      },
-      onPlayPrevious: (): void => {
-        this.playPrev().catch((err: Error) => handleErr('playPrev', err));
-      },
-      onSeek: (positionMs: number): void => {
-        this.seekTo(positionMs / 1000).catch((err: Error) => handleErr('seek', err));
-      },
-      onSetLoopMode: (loopMode: avSession.LoopMode): void => {
-        // 播控中心传来的 mode 是"当前"状态，应用需要据此切换到"下一个"循环模式
-        const currentAvMode = playModeToAvLoopMode(this.playMode);
-        if (currentAvMode === loopMode) {
-          // 需要切换到下一个模式
-          this.cyclePlayMode();
-        } else {
-          // 直接同步到播控中心传来的模式
-          this.setPlayMode(avLoopModeToPlayMode(loopMode));
-        }
-      },
-      onToggleFavorite: (_assetId: string): void => {
-        const currentSong = this.getCurrentSong();
-        if (!currentSong) {
-          hilog.warn(DOMAIN, TAG, 'Toggle favorite: no current song');
-          return;
-        }
-        const musicItem: MusicItem = {
-          id: currentSong.id,
-          name: currentSong.title,
-          singer: currentSong.artist,
-          album: currentSong.album,
-          albumId: currentSong.albumId || null,
-          duration: currentSong.duration,
-          source: currentSong.source || 'kw',
-          pic: currentSong.artwork || '',
-          lrc: null,
-        };
-        toggleLoveList(musicItem).then((isLoved: boolean) => {
-          hilog.info(DOMAIN, TAG, 'Toggle favorite: %{public}s is now %{public}s',
-            currentSong.title, isLoved ? 'loved' : 'unloved');
-        }).catch((err: Error) => {
-          hilog.error(DOMAIN, TAG, 'Toggle favorite failed: %{public}s', err.message);
-        });
-      },
-    };
+    return createAvSessionCallbacks({
+      play: (): Promise<void> => this.play(),
+      pause: (): Promise<void> => this.pause(),
+      stop: (): Promise<void> => this.stop(),
+      playNext: (): Promise<void> => this.playNext(),
+      playPrev: (): Promise<void> => this.playPrev(),
+      seekTo: (seconds: number): Promise<void> => this.seekTo(seconds),
+      getPlayMode: (): PlayMode => this.getPlayMode(),
+      setPlayMode: (mode: PlayMode): void => this.setPlayMode(mode),
+      cyclePlayMode: (): PlayMode => this.cyclePlayMode(),
+      getCurrentSong: (): SongInfo | null => this.getCurrentSong(),
+    });
   }
 
   /** 保存播放模式 */
@@ -611,25 +548,15 @@ export class PlayerService {
     }
   }
 
-  /** 更新 AVSession 元数据 */
+  /** 更新 AVSession 元数据：拼装在 player/PlaybackSession.buildAvMetadata */
   private updateAvMetadata(): void {
     const info = playerStateData.musicInfo;
-    const progress = playerStateData.progress;
-    const imgUrl = info.pic || info.img;
-    // assetId 不能为空字符串，否则 setAVMetadata 会失败（HarmonyOS 官方文档要求）
-    const assetId = info.id || info.songmid || `track_${Date.now()}`;
-    const metadata: AvMediaMetadata = {
-      assetId: assetId,
-      title: info.name || '未知歌曲',
-      artist: info.singer || '未知歌手',
-      album: info.albumName || info.album || undefined,
-      duration: Math.max(progress.maxPlayTime, 1) * 1000, // duration必须为正数，兼容0的情况兜底为1秒
-    };
-    if (imgUrl) {
-      metadata.mediaImage = imgUrl;
-    }
+    const metadata: AvMediaMetadata = buildAvMetadata({
+      musicInfo: info,
+      durationSeconds: playerStateData.progress.maxPlayTime,
+    });
     hilog.info(DOMAIN, TAG, 'updateAvMetadata: title=%{public}s, durationMs=%{public}d, hasImg=%{public}s',
-      metadata.title, metadata.duration, String(imgUrl !== null && imgUrl !== undefined));
+      metadata.title, metadata.duration, String(metadata.mediaImage !== undefined));
     backgroundRunningManager.updateMetadata(metadata).catch((err: Error) => {
       hilog.warn(DOMAIN, TAG, 'updateMetadata failed: %{public}s', err.message);
     });
@@ -1075,12 +1002,10 @@ export class PlayerService {
     }
     if (existsAt >= 0) {
       this.playList.splice(existsAt, 1);
-      // 删除的位置在当前之前时，插入点需要左移
-      const adjusted = existsAt < insertAt ? insertAt - 1 : insertAt;
-      this.playList.splice(adjusted, 0, song);
-      if (existsAt <= this.currentIndex) {
-        this.currentIndex -= 1;
-      }
+      // 插入点与下标换算在 QueueRules（摘掉的位置在当前之前时插入点左移）
+      const plan: number[] = insertNextPlan(this.currentIndex, existsAt);
+      this.playList.splice(plan[0], 0, song);
+      this.currentIndex = plan[1];
     } else {
       this.playList.splice(insertAt, 0, song);
     }
@@ -1104,7 +1029,7 @@ export class PlayerService {
     if (this.playList.length > fullList.length) {
       return;
     }
-    const nextIndex = fullList.findIndex((item: SongInfo) => item.id === current.id);
+    const nextIndex = indexInRefinedList(fullList, current.id);
     if (nextIndex < 0) {
       return;
     }
@@ -1147,15 +1072,8 @@ export class PlayerService {
     }
     const moved = this.playList.splice(from, 1)[0];
     this.playList.splice(to, 0, moved);
-
-    // 维持「正在播放的那首」不变
-    if (this.currentIndex === from) {
-      this.currentIndex = to;
-    } else if (from < this.currentIndex && to >= this.currentIndex) {
-      this.currentIndex -= 1;
-    } else if (from > this.currentIndex && to <= this.currentIndex) {
-      this.currentIndex += 1;
-    }
+    // 下标换算在 QueueRules（保持「正在播放的那首」不变）
+    this.currentIndex = indexAfterMove(this.currentIndex, from, to);
     hilog.info(DOMAIN, TAG, 'Queue reordered: %{public}d -> %{public}d (index=%{public}d)',
       from, to, this.currentIndex);
     return true;
@@ -1172,12 +1090,8 @@ export class PlayerService {
       return false;
     }
     const removed = this.playList.splice(index, 1)[0];
-    if (index < this.currentIndex) {
-      this.currentIndex -= 1;
-    } else if (index === this.currentIndex) {
-      // 移除的是当前曲目：当前播放继续，下标指向原位置的下一首（越界则退回队尾）
-      this.currentIndex = Math.min(index, this.playList.length - 1);
-    }
+    // 移除的是当前曲目时不停播：下标指向原位置的下一首（越界退回队尾），规则在 QueueRules
+    this.currentIndex = indexAfterRemoveAt(this.currentIndex, index, this.playList.length);
     hilog.info(DOMAIN, TAG, 'Removed from queue: %{public}s (queue=%{public}d, index=%{public}d)',
       removed?.title ?? '', this.playList.length, this.currentIndex);
     return true;
