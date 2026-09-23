@@ -1098,7 +1098,14 @@ export struct HomePage {
         .backgroundColor(DesignTokens.pageBg(this.theme))
       } else {
         Column() {
-          this.MainPane()
+          // 内容区必须用 layoutWeight 占剩余高度，不能直接用 MainPane
+          // （MainPane 自身是 height('100%')，会和底栏一起把底栏挤出屏幕）
+          Column() {
+            this.MainPane()
+          }
+          .layoutWeight(1)
+          .width('100%')
+
           // 底部 Tab 栏
           this.BottomTabBar(false)
         }

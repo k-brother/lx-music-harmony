@@ -72,6 +72,10 @@ CHECKS = [
  ('我的tab绑定角标+同步', 'pages/Home/MylistView.ets', r'bindingListId'),
  ('歌单详情收藏/更新菜单', 'pages/SonglistDetailPage.ets', r'openCollectedMenu|syncBoundList'),
  ('桌面歌词文字不透明度', 'pages/DesktopLyricPage.ets', r'textOpacity'),
+ # 源给的播放量带单位（'95.0 万'），只 parseFloat 会把单位丢掉 → 头部显示「播放: 95」
+ ('歌单详情播放量按单位解析', 'pages/SonglistDetail/SonglistMapper.ets',
+  r"indexOf\('万'\)", r"parseFloat\(countStr\)"),
+ ('创建者为账号 id 时不展示', 'pages/SonglistDetail/SonglistDetailHeader.ets', r'showCreator'),
  # 桌面歌词"没有黑底也自然"：靠可调描边 + 预设样式，而不是一条黑横幅
  ('桌面歌词描边(可调宽度/颜色)', 'pages/DesktopLyricPage.ets',
   r'desktopLyricOutlineWidth', r'outlineWidth:'),

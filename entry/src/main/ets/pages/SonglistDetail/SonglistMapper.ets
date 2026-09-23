@@ -11,12 +11,35 @@ import type { MusicItem } from '../../service/ListService';
 import type { SongItem } from './SonglistTypes';
 
 /** "1234" 或 "1.2万" 这类播放量文本 → 数值（解析失败为 0） */
+/**
+ * 播放量文本 -> 数字。
+ *
+ * 各源给的格式并不统一：`950000`、`95.0 万`、`1.2亿`、`12.3K` 都有。
+ * 以前只做 `parseFloat`，把「95.0 万」读成了 95（单位被丢掉），
+ * 歌单详情头部的播放量因此比实际小一万倍（真机上就是「播放: 95」）。
+ */
 export function parsePlayCountText(countStr: string): number {
   if (!countStr) {
     return 0;
   }
-  const num = parseFloat(countStr);
-  return isNaN(num) ? 0 : num;
+  const text: string = countStr.replace(/\s+/g, '');
+  const num: number = parseFloat(text);
+  if (isNaN(num)) {
+    return 0;
+  }
+  if (text.indexOf('亿') >= 0) {
+    return Math.round(num * 100000000);
+  }
+  if (text.indexOf('万') >= 0 || /w$/i.test(text)) {
+    return Math.round(num * 10000);
+  }
+  if (/k$/i.test(text)) {
+    return Math.round(num * 1000);
+  }
+  if (/m$/i.test(text)) {
+    return Math.round(num * 1000000);
+  }
+  return Math.round(num);
 }
 
 /** "03:55" → 秒（非法/空返回 0） */

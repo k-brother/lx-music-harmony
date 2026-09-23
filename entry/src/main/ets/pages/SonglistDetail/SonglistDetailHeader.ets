@@ -39,6 +39,26 @@ export struct SonglistDetailHeader {
     return url.length > 0 && (url.startsWith('http') || url.startsWith('file') || url.startsWith('datashare'));
   }
 
+  /**
+   * 是否展示「创建者」。
+   *
+   * 源给的作者字段有时是账号 id 而不是昵称（酷我老接口返回 `kw2144087549`），
+   * 这种值展示出来就是一行乱码，直接不显示该行；空值同样不显示。
+   */
+  private showCreator(): boolean {
+    const name: string = this.creator;
+    if (name.length === 0) {
+      return false;
+    }
+    if (/^\d+$/.test(name)) {
+      return false;
+    }
+    if (/^[a-z]{1,4}\d{5,}$/i.test(name)) {
+      return false;
+    }
+    return true;
+  }
+
   @Builder
   private PlayAllButton() {
     Row({ space: 5 }) {
@@ -52,7 +72,7 @@ export struct SonglistDetailHeader {
         .fontWeight(FontWeight.Medium)
     }
     .height(34)
-    .width(112)
+    .width('100%')
     .backgroundColor(DesignTokens.accent())
     .borderRadius(17)
     .justifyContent(FlexAlign.Center)
@@ -75,7 +95,7 @@ export struct SonglistDetailHeader {
         .fontColor(DesignTokens.labelPrimary(this.theme))
     }
     .height(34)
-    .width(112)
+    .width('100%')
     .backgroundColor(DesignTokens.mutedFill(this.theme))
     .borderRadius(17)
     .justifyContent(FlexAlign.Center)
@@ -150,7 +170,9 @@ export struct SonglistDetailHeader {
       .height(106)
       .align(Alignment.BottomEnd)
 
-      Column({ space: 8 }) {
+      // 标题/作者/播放量独占右侧整列：按钮不再挤占这里的宽度
+      // （此前两个 112vp 按钮压在右侧，作者行只剩 86vp，被截成「创建者: …」）
+      Column({ space: 6 }) {
         Text(this.listName)
           .fontSize(DesignTokens.fontTitle())
           .fontColor(DesignTokens.labelPrimary(this.theme))
@@ -159,8 +181,8 @@ export struct SonglistDetailHeader {
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .width('100%')
 
-        // 创建者：源没给作者时整行不渲染（此前会留下一个「创建者:」空标签）
-        if (this.creator.length > 0) {
+        // 创建者：源没给作者（或给的是账号 id）时整行不渲染
+        if (this.showCreator()) {
           Text(`${t('songlist_creator')}: ${this.creator}`)
             .fontSize(DesignTokens.fontCaption())
             .fontColor(DesignTokens.labelSecondary(this.theme))
@@ -182,15 +204,24 @@ export struct SonglistDetailHeader {
       }
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
-      .margin({ left: 14, right: 10 })
-
-      Column({ space: 8 }) {
-        this.PlayAllButton()
-        this.CollectButton()
-      }
-      .alignItems(HorizontalAlign.End)
+      .margin({ left: 14 })
     }
     .width('100%')
+
+    // 操作按钮整行平分：图标 + 文案居中，触控目标够大且不会挤正文
+    Row({ space: 10 }) {
+      Column() {
+        this.PlayAllButton()
+      }
+      .layoutWeight(1)
+
+      Column() {
+        this.CollectButton()
+      }
+      .layoutWeight(1)
+    }
+    .width('100%')
+    .margin({ top: 12 })
   }
 
   /** 收缩态：操作按钮 + 曲目数（滚动后替代大封面那一行） */
@@ -198,8 +229,15 @@ export struct SonglistDetailHeader {
   CompactRow() {
       Row() {
         Row({ space: 8 }) {
-          this.PlayAllButton()
-          this.CollectButton()
+          // 按钮本身是 width('100%')（展开态整行平分用），这里给固定宽度容器
+          Column() {
+            this.PlayAllButton()
+          }
+          .width(104)
+          Column() {
+            this.CollectButton()
+          }
+          .width(104)
           this.SourceBadge()
         }
         Text(tf('count_songs', [this.songCount.toString()]))
