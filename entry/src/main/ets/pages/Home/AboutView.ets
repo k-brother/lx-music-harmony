@@ -3,7 +3,6 @@ import { t } from '../../service/LocalizationService';
 // 对应安卓源码中的 About 页面
 
 import hilog from '@ohos.hilog';
-import { navigationService } from '../../service/NavigationService';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { NavBackButton } from '../../components/common/NavBackButton';
 import { showAppToast, TOAST_DURATION_DEFAULT } from '../../utils/Toast';
@@ -314,11 +313,6 @@ export struct AboutView {
     .padding({ left: 14, right: 14, top: 8, bottom: 6 })
     .backgroundColor(DesignTokens.chromeBar(this.theme))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
-  }
-
-  onBackPressed(): boolean {
-    navigationService.back();
-    return true;
   }
 
   // NavDestination onReady callback

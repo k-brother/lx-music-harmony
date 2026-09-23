@@ -9,7 +9,6 @@ import { appAlert, appConfirm } from '../../service/DialogService';
 
 import { pluginManager, PluginMeta } from '../../core/plugin/PluginManager';
 import type { StoredCustomSource } from '../../core/plugin/PluginStore';
-import { navigationService } from '../../service/NavigationService';
 import { storageService } from '../../service/StorageService';
 import hilog from '@ohos.hilog';
 import filePicker from '@ohos.file.picker';
@@ -309,11 +308,6 @@ export struct CustomSourceView {
     } else {
       this.isShowUrlInput = true;
     }
-  }
-
-  onBackPressed(): boolean {
-    navigationService.back();
-    return true;
   }
 
   // NavDestination onReady callback

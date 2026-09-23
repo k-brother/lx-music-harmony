@@ -196,12 +196,6 @@ export struct PlayDetailPage {
     if (this.unsubscribeSleepTimer) this.unsubscribeSleepTimer();
   }
 
-  onBackPressed(): boolean {
-    hilog.info(DOMAIN, TAG, 'onBackPressed session=%{public}s', this.pageSessionId);
-    navigationService.back();
-    return true;
-  }
-
   onReady(params: Record<string, object | string | number | boolean | undefined>): void {
     hilog.info(DOMAIN, TAG, 'onReady session=%{public}s params=%{public}s', this.pageSessionId, JSON.stringify(params));
   }

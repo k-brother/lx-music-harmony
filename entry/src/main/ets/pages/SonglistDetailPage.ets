@@ -162,6 +162,18 @@ export struct SonglistDetailPage {
   private lastListId: string = '';
   private songListScroller: Scroller = new Scroller();
 
+  /**
+   * 系统返回键拦截（注册到 NavigationService，由 AppDestination 转发）。
+   * 多选态：先退出多选并吃掉本次返回；其余情况返回 false，交给系统默认弹出页面。
+   */
+  private backGuard = (): boolean => {
+    if (this.selectMode) {
+      this.exitSelectMode();
+      return true;
+    }
+    return false;
+  };
+
   /** 失败重试：用上次的参数重新拉取 */
   private reloadDetail(): void {
     if (this.lastSourceId.length === 0 || this.lastListId.length === 0) {
@@ -241,6 +253,8 @@ export struct SonglistDetailPage {
     hilog.info(0x0001, 'SonglistDetail', 'SonglistDetailPage appearing');
     // 初始化下载上下文
     setDownloadContext(this.hostContext());
+    // 多选态下按返回先退出多选，而不是直接离开歌单（与主流列表页一致）
+    navigationService.pushBackGuard(this.backGuard);
     // 防止重复加载
     if (this.detailLoaded) {
       hilog.info(0x0001, 'SonglistDetail', 'Detail already loaded, skipping');
@@ -261,11 +275,7 @@ export struct SonglistDetailPage {
 
   aboutToDisappear(): void {
     this.saveScrollPosition();
-  }
-
-  onBackPressed(): boolean {
-    navigationService.back();
-    return true;
+    navigationService.popBackGuard(this.backGuard);
   }
 
   /** 头部：交给 SonglistDetailHeader（展开/收缩两态） */

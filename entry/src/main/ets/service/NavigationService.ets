@@ -51,6 +51,37 @@ export class NavigationService {
   private lastNavigateRoute: string = '';
   private navigateSeq: number = 0;
 
+  /**
+   * 返回键拦截栈（系统返回键 / 侧滑返回）。
+   *
+   * 页面内容是 NavDestination 的子节点，拿不到 NavDestination 的属性，所以由
+   * AppDestination 统一把 `.onBackPressed` 转发到这里；页面在 aboutToAppear 压入
+   * 自己的拦截器、aboutToDisappear 弹出。
+   *
+   * 约定：拦截器返回 true = 已消费（页面自己处理，例如退出多选态）；
+   * 返回 false = 交给系统默认行为（弹出当前页）。
+   */
+  private backGuards: Array<() => boolean> = [];
+
+  /** 注册返回拦截（页面出现时调用） */
+  pushBackGuard(guard: () => boolean): void {
+    this.backGuards.push(guard);
+  }
+
+  /** 注销返回拦截（页面销毁时调用；按引用移除，不会误删其它页面） */
+  popBackGuard(guard: () => boolean): void {
+    const index = this.backGuards.lastIndexOf(guard);
+    if (index >= 0) {
+      this.backGuards.splice(index, 1);
+    }
+  }
+
+  /** 栈顶页面的返回拦截；没有拦截器时返回 false（走系统默认返回） */
+  handleBackPressed(): boolean {
+    const guard = this.backGuards.length > 0 ? this.backGuards[this.backGuards.length - 1] : null;
+    return guard ? guard() : false;
+  }
+
   private constructor() {}
 
   // 单例获取

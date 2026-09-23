@@ -5,6 +5,7 @@
  * 统一到这里：新增页面只写一行，转场/埋点这类横切逻辑也只需改一处。
  */
 import { appLog as hilog } from '../../core/log/AppLogger';
+import { navigationService } from '../../service/NavigationService';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'NavIndex';
@@ -21,6 +22,11 @@ export struct AppDestination {
       this.content()
     }
     .hideTitleBar(true)
+    // 返回键统一走 NavigationService 的拦截栈：页面若注册了拦截器（例如多选态
+    // 先退出多选），返回 true 表示已消费；否则返回 false 走系统默认（弹出本页）
+    .onBackPressed((): boolean => {
+      return navigationService.handleBackPressed();
+    })
     .onReady((context: NavDestinationContext) => {
       const params = context.pathInfo.param as Record<string, object | string | number | boolean | undefined>;
       hilog.info(DOMAIN, TAG, '%{public}s onReady with params: %{public}s',

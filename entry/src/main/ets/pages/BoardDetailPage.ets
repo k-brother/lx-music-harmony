@@ -90,11 +90,6 @@ export struct BoardDetailPage {
     }
   }
 
-  onBackPressed(): boolean {
-    navigationService.back();
-    return true;
-  }
-
   // NavDestination onReady callback - 正确获取参数
   onReady(params: Record<string, object | string | number | boolean | undefined>): void {
     hilog.info(0x0001, 'BoardDetail', 'BoardDetailPage onReady with params: %{public}s', JSON.stringify(params));
