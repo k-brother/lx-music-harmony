@@ -3,15 +3,10 @@
  *
  * 这些是纯数据变换 + 一次存储写入，与页面渲染无关；
  * 从页面抽出来以后，页面只负责「确认弹窗 + 提示 + 刷新状态」。
+ * 顺序落库见 SonglistLocalLibrary.persistLocalOrder（那里会复用库里的原始 MusicItem）。
  */
 import { sortSongs, dedupeSongs, countDuplicateGroups, type SortField, type SortOrder } from '../../utils/ListTools';
-import { replaceUserListMusic } from '../../service/ListService';
-import { songRowToListItem } from '../../core/list/SongMappers';
-import { appLog as hilog } from '../../core/log/AppLogger';
 import type { SongItem } from './SonglistTypes';
-
-const DOMAIN = 0x0001;
-const TAG = 'SonglistListOps';
 
 /** 排序后的行（保持原对象引用，播放态等字段不丢） */
 export function sortRows(
@@ -36,15 +31,4 @@ export function dedupeRows(rows: SongItem[], ignoreVariant: boolean): DedupeOutc
   const deduped = dedupeSongs(rows, ignoreVariant);
   const outcome: DedupeOutcome = { rows: deduped, removed: before - deduped.length };
   return outcome;
-}
-
-/** 把当前顺序写回本地歌单（排序/去重后调用，失败不影响界面） */
-export async function persistLocalOrder(listId: string, rows: SongItem[]): Promise<void> {
-  const items = rows.map((row: SongItem) => songRowToListItem(row));
-  try {
-    await replaceUserListMusic(listId, items);
-  } catch (err) {
-    hilog.error(DOMAIN, TAG, 'persist order failed: %{public}s',
-      err instanceof Error ? err.message : JSON.stringify(err));
-  }
 }

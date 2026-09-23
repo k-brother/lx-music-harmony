@@ -81,10 +81,10 @@ CHECKS = [
  ('歌单内调整位置', 'service/ListService.ets', r'moveMusicInList'),
  ('歌单行菜单:调整位置/移动到列表', 'pages/SonglistDetail/SonglistMenus.ets', r'list_change_position|list_move_to'),
  ('歌单排序面板已挂载', 'pages/SonglistDetailPage.ets', r'this\.SortSheet\(\)'),
- ('本地列表排序落库', 'pages/SonglistDetail/SonglistListOps.ets', r'replaceUserListMusic'),
+ ('本地列表排序落库', 'pages/SonglistDetail/SonglistLocalLibrary.ets', r'replaceUserListMusic'),
  ('歌单详情排序走列表操作模块', 'pages/SonglistDetailPage.ets', r'sortRows\('),
  ('歌单详情去重走列表操作模块', 'pages/SonglistDetailPage.ets', r'dedupeRows\('),
- ('歌单详情队列走播放模块', 'pages/SonglistDetailPage.ets', r'buildQueue\('),
+ ('歌单详情队列走播放模块', 'pages/SonglistDetail/SonglistPlayActions.ets', r'buildQueue\('),
  ('歌单详情滚动记忆模块', 'pages/SonglistDetail/SonglistScrollMemory.ets', r'saveScrollOffset'),
  # 守卫逻辑搬到 PlayMediaAssets 后，判据指向加载器（页面只负责应用结果）
  ('封面请求防风暴守卫', 'pages/PlayDetail/PlayMediaAssets.ets', r'coverAttemptKey'),

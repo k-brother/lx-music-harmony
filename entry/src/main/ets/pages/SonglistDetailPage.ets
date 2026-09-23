@@ -7,17 +7,13 @@ import { formatPlayCount } from '../utils/FormatTools';
 import { PlayerBar } from '../components/player/PlayerBar';
 import { setDownloadContext } from '../core/music/MusicFeatureEntry';
 import { NavigationParams } from '../service/NavigationService';
-import { playerService, SongInfo } from '../service/PlayerService';
+import { playerService } from '../service/PlayerService';
 import { navigationService } from '../service/NavigationService';
 import { common } from '@kit.AbilityKit';
-import { addMusicToList, getUserList, getUserListMusic, LIST_IDS, MusicItem, ListInfo } from '../service/ListService';
-import { createUserList, replaceUserListMusic } from '../service/ListService';
+import { getUserListMusic } from '../service/ListService';
 import { emitSearchRequest } from '../service/EventBus';
-import { buildShareText, getMusicDetailPageUrl } from '../core/music/MusicDetailUrl';
-import { shareText } from '../service/ShareService';
-import { dislikeList } from '../core/dislike/DislikeList';
 import { showSongItemMenu, showSonglistMoreMenu } from './SonglistDetail/SonglistMenus';
-import { songRowToListItem, songRowToMusicInfo, songRowToQueueItem } from '../core/list/SongMappers';
+import { songRowToQueueItem } from '../core/list/SongMappers';
 import { loadLocalSonglist, loadOnlineSonglist, type SonglistLoadOutcome } from './SonglistDetail/SonglistLoader';
 import {
   applyMovePosition,
@@ -46,10 +42,8 @@ import {
   batchDownloadSongs,
   batchRemoveFromLocalList,
   downloadWholeList,
-  downloadOne,
   type SonglistTarget,
 } from './SonglistDetail/SonglistActions';
-import type { MusicInfo } from '../types/MusicTypes';
 import { DesignTokens } from '../theme/DesignTokens';
 import { formatPlayTime } from '../utils/CommonUtils';
 import { SkeletonListItem } from '../components/common/SkeletonView';
@@ -60,10 +54,31 @@ import {
   sortRows,
   dedupeRows,
   countDuplicateGroupsOf,
-  persistLocalOrder,
 } from './SonglistDetail/SonglistListOps';
+import { persistLocalOrder, syncOnlineListToLocal } from './SonglistDetail/SonglistLocalLibrary';
+import {
+  addRowToDefaultList,
+  addRowToDislike,
+  downloadRow,
+  openInBrowser,
+  shareSongRow,
+  sourceDetailUrl,
+} from './SonglistDetail/SonglistRowActions';
+import {
+  clearPlayingRows,
+  markPlayingRow,
+  playAllRows,
+  playSongRow,
+} from './SonglistDetail/SonglistPlayActions';
+import {
+  allIndexes,
+  containsRowRef,
+  indexOfRowRef,
+  isAllSelected,
+  rowsAt,
+  toggleIndex,
+} from './SonglistDetail/SonglistSelection';
 import { loadScrollOffset, saveScrollOffset } from './SonglistDetail/SonglistScrollMemory';
-import { buildQueue, buildFullQueue, resolvePlayUrl, toMusicInfo } from './SonglistDetail/SonglistPlayback';
 
 interface PromptActionResult {
   index: number;
@@ -219,12 +234,15 @@ export struct SonglistDetailPage {
     return src.toUpperCase();
   }
 
+  /** 宿主 Ability 上下文（下载上下文 / 分享 / 打开外链共用一处） */
+  private hostContext(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext;
+  }
 
   aboutToAppear() {
     hilog.info(0x0001, 'SonglistDetail', 'SonglistDetailPage appearing');
     // 初始化下载上下文
-    const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-    setDownloadContext(context);
+    setDownloadContext(this.hostContext());
     // 防止重复加载
     if (this.detailLoaded) {
       hilog.info(0x0001, 'SonglistDetail', 'Detail already loaded, skipping');
@@ -303,7 +321,7 @@ export struct SonglistDetailPage {
           })
         }
         .stateStyles({ pressed: this.pressDim })
-      }, (song: SongItem, index: number) => `${song.id}_${song.source}_${index}`)
+      }, (song: SongItem, index: number) => `${song.id}_${song.source}_${index}_${song.isPlaying}`)
     }
     .width('100%')
     .layoutWeight(1)
@@ -404,109 +422,37 @@ export struct SonglistDetailPage {
     return formatPlayCount(count, t('ten_thousand_unit'), t('billion_unit'));
   }
 
-  // 播放单首歌曲
+  /** 播放单首（点行）：流程在 SonglistDetail/SonglistPlayActions */
   async playSong(index: number): Promise<void> {
-    if (this.songList.length === 0) return;
-    const song = this.songList[index];
-    if (!song) {
-      hilog.error(0x0001, 'SonglistDetail', 'Song not found at index: %{public}d', index);
+    if (this.songList.length === 0) {
       return;
     }
-    hilog.info(0x0001, 'SonglistDetail', 'Playing song: %{public}s from source: %{public}s, index: %{public}d', song.name, song.source, index);
-
-    // 更新 UI 播放状态
-    for (let i = 0; i < this.songList.length; i++) {
-      this.songList[i].isPlaying = (i === index);
-    }
+    markPlayingRow(this.songList, index);
     this.songList = this.songList;
 
-    try {
-      // 队列与平台对象都交给 SonglistPlayback 统一构建
-      const songInfos: SongInfo[] = buildQueue(this.songList, this.listInfo.pic);
-
-      hilog.info(0x0001, 'SonglistDetail', 'Getting music URL for song: %{public}s', song.name);
-      const url: string | null = await resolvePlayUrl(toMusicInfo(song));
-
-      if (!url || url.length === 0) {
-        hilog.error(0x0001, 'SonglistDetail', 'Failed to get music URL for song: %{public}s', song.name);
-        // 失败时回滚播放态提示，避免列表看起来"在播但没声音"
-        for (let i = 0; i < this.songList.length; i++) {
-          this.songList[i].isPlaying = false;
-        }
-        this.songList = this.songList;
-        this.showToast(t('toast_play_url_failed'));
-        return;
-      }
-
-      // 更新songInfo的URL
-      songInfos[index].url = url;
-      
-      // 队列语义对齐安卓版：点击行都用「整张歌单」入队并立即播放
-      // - listClickPlay=true：直接用当前已加载的列表（安卓 onPlayList）
-      // - listClickPlay=false（默认）：先播已加载页，随后后台补全全部页替换队列（安卓渐进式 temp list）
-      playerService.setPlayList(songInfos, index);
-      hilog.info(0x0001, 'SonglistDetail', 'PlayList set with %{public}d songs, starting from index %{public}d',
-        songInfos.length, index);
-      if (!this.listClickPlay) {
-        void this.fillQueueWithAllPages(song);
-      }
-
-      hilog.info(0x0001, 'SonglistDetail', 'Got music URL, setting source and playing...');
-      await playerService.playFromSelection(songInfos[index], url, song.duration);
-      hilog.info(0x0001, 'SonglistDetail', 'Song playback started successfully');
-    } catch (error) {
-      hilog.error(0x0001, 'SonglistDetail', 'Play song failed: %{public}s', JSON.stringify(error));
+    const result = await playSongRow(this.songList, index, this.listInfo, this.listClickPlay);
+    if (result === 'no-url') {
+      // 回滚播放态，避免列表看起来"在播但没声音"
+      clearPlayingRows(this.songList);
+      this.songList = this.songList;
+      this.showToast(t('toast_play_url_failed'));
     }
   }
 
-  /**
-   * 后台拉取歌单全部页并补全队列（安卓 handlePlay 里 getListDetailAll 的等价实现）
-   * 只补齐当前仍在播放的那首歌所属的队列，避免切歌后覆盖
-   */
-  private async fillQueueWithAllPages(anchorSong: SongItem): Promise<void> {
-    if (!this.listInfo.source || this.listInfo.source === 'local' || this.listInfo.id.length === 0) {
-      return;
-    }
-    const queue = await buildFullQueue(this.listInfo.source, this.listInfo.id, this.listInfo.pic, this.songList.length);
-    if (!queue) {
-      return;
-    }
-    playerService.refineQueueWithFullList(queue);
-    hilog.info(0x0001, 'SonglistDetail', 'Queue filled with all pages: %{public}d songs (anchor=%{public}s)',
-      queue.length, anchorSong.name);
-  }
-
-  // 播放全部歌曲
+  /** 播放全部：等价于点第一行（第一行会显示为播放中） */
   async playAll(): Promise<void> {
-    if (this.songList.length === 0) return;
-    hilog.info(0x0001, 'SonglistDetail', 'Play all songs from index 0');
-    // 设置整个播放列表，从第一首开始
-    const songInfos: SongInfo[] = buildQueue(this.songList, this.listInfo.pic);
-    const firstSong = this.songList[0];
-    const url: string | null = await resolvePlayUrl(toMusicInfo(firstSong));
-
-    if (!url || url.length === 0) {
-      hilog.error(0x0001, 'SonglistDetail', 'Failed to get music URL for first song: %{public}s', firstSong.name);
+    if (this.songList.length === 0) {
+      return;
+    }
+    const result = await playAllRows(this.songList, this.listInfo);
+    if (result === 'no-url') {
       this.showToast(t('toast_play_url_failed'));
       return;
     }
-
-    // 更新第一首歌曲的URL
-    songInfos[0].url = url;
-    
-    // 设置播放列表（现在第一首歌曲的URL已经可用）
-    playerService.setPlayList(songInfos, 0);
-
-    hilog.info(0x0001, 'SonglistDetail', 'Got music URL, setting source and playing...');
-    await playerService.playFromSelection(songInfos[0], url, firstSong.duration);
-  }
-
-  // 格式化秒数为时间字符串
-  formatPlayTime(seconds: number): string {
-    if (isNaN(seconds) || seconds < 0) return '00:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    if (result === 'ok') {
+      markPlayingRow(this.songList, 0);
+      this.songList = this.songList;
+    }
   }
 
   /** 收藏：语义在 SonglistDetail/SonglistCollectActions */
@@ -622,13 +568,9 @@ export struct SonglistDetailPage {
     this.selectedIndexes = [];
   }
 
+  /** 多选的纯计算在 SonglistDetail/SonglistSelection，页面只做赋值 */
   private indexOfSong(song: SongItem): number {
-    for (let i = 0; i < this.songList.length; i++) {
-      if (this.songList[i] === song) {
-        return i;
-      }
-    }
-    return -1;
+    return indexOfRowRef(this.songList, song);
   }
 
   private isSelected(index: number): boolean {
@@ -636,49 +578,23 @@ export struct SonglistDetailPage {
   }
 
   private toggleSelect(index: number): void {
-    const next = this.selectedIndexes.slice();
-    const at = next.indexOf(index);
-    if (at >= 0) {
-      next.splice(at, 1);
-    } else {
-      next.push(index);
-    }
-    this.selectedIndexes = next;
+    this.selectedIndexes = toggleIndex(this.selectedIndexes, index);
   }
 
   private selectAllSongs(): void {
-    if (this.selectedIndexes.length === this.songList.length) {
+    if (isAllSelected(this.selectedIndexes, this.songList.length)) {
       this.selectedIndexes = [];
       return;
     }
-    const all: number[] = [];
-    for (let i = 0; i < this.songList.length; i++) {
-      all.push(i);
-    }
-    this.selectedIndexes = all;
+    this.selectedIndexes = allIndexes(this.songList.length);
   }
 
   private selectedSongs(): SongItem[] {
-    const result: SongItem[] = [];
-    for (let i = 0; i < this.selectedIndexes.length; i++) {
-      const song = this.songList[this.selectedIndexes[i]];
-      if (song) {
-        result.push(song);
-      }
-    }
-    return result;
+    return rowsAt(this.songList, this.selectedIndexes);
   }
 
-
-
-
   private containsSong(songs: SongItem[], target: SongItem): boolean {
-    for (let i = 0; i < songs.length; i++) {
-      if (songs[i] === target) {
-        return true;
-      }
-    }
-    return false;
+    return containsRowRef(songs, target);
   }
 
   // ===== 排序 =====
@@ -722,72 +638,15 @@ export struct SonglistDetailPage {
     this.songList = outcome.rows;
     // 本地歌单：同步把重复项从存储里删掉，避免下次进来又出现
     if (this.listInfo.source === 'local') {
-      await this.persistLocalOrder();
+      await persistLocalOrder(this.listInfo.id, this.songList);
     }
     this.exitSelectMode();
     this.showToast(tf('toast_dedupe_done', [removed.toString()]));
   }
 
-  /** 把当前顺序写回本地歌单（排序/去重后调用） */
-  private async persistLocalOrder(): Promise<void> {
-    if (this.listInfo.source !== 'local') {
-      return;
-    }
-    try {
-      const existing = getUserListMusic(this.listInfo.id);
-      const byId = new Map<string, MusicItem>();
-      for (let i = 0; i < existing.length; i++) {
-        byId.set(existing[i].id, existing[i]);
-      }
-      for (let i = 0; i < this.songList.length; i++) {
-        const song = this.songList[i];
-        if (!byId.has(song.id)) {
-          byId.set(song.id, songRowToListItem(song));
-        }
-      }
-      const keep: MusicItem[] = [];
-      for (let i = 0; i < this.songList.length; i++) {
-        const item = byId.get(this.songList[i].id);
-        if (item && keep.indexOf(item) < 0) {
-          keep.push(item);
-        }
-      }
-      await replaceUserListMusic(this.listInfo.id, keep);
-    } catch (err) {
-      hilog.warn(0x0001, 'SonglistDetail', 'persistLocalOrder failed: %{public}s', JSON.stringify(err));
-    }
-  }
-
-  /** 把在线歌单同步成本地自建歌单（同名则覆盖更新） */
+  /** 同步成本地自建歌单：流程在 SonglistDetail/SonglistLocalLibrary */
   private async syncToLocalList(): Promise<void> {
-    if (this.songList.length === 0) {
-      this.showToast(t('toast_songlist_empty'));
-      return;
-    }
-    const name = this.listInfo.name || t('songlist_title');
-    const confirmed = await this.showConfirmDialog(
-      t('list_sync_local'),
-      tf('confirm_sync_local', [name, this.songList.length.toString()]));
-    if (!confirmed) {
-      return;
-    }
-    try {
-      const existing = getUserList().find((item: ListInfo) => item.name === name);
-      let listId = existing ? existing.id : '';
-      if (!listId) {
-        const created = await createUserList(name);
-        listId = created.id;
-      }
-      const items: MusicItem[] = [];
-      for (let i = 0; i < this.songList.length; i++) {
-        items.push(songRowToListItem(this.songList[i]));
-      }
-      await replaceUserListMusic(listId, items);
-      this.showToast(tf('toast_sync_local_done', [name, items.length.toString()]));
-    } catch (err) {
-      hilog.error(0x0001, 'SonglistDetail', 'syncToLocalList failed: %{public}s', JSON.stringify(err));
-      this.showToast(t('toast_sync_local_failed'));
-    }
+    await syncOnlineListToLocal(this.listInfo, this.songList, this.confirm(), this.toast());
   }
 
   /** 打开单曲菜单（长按行 / 行尾 ⋮）：动作集合见 SonglistMenus */
@@ -836,25 +695,8 @@ export struct SonglistDetailPage {
 
   /** 打开该歌曲在对应平台的详情页（外部浏览器） */
   private openSourceDetail(song: SongItem): void {
-    const url = getMusicDetailPageUrl(songRowToMusicInfo(song));
-    if (url.length === 0) {
-      this.showToast(t('toast_operation_failed'));
-      return;
-    }
-    this.openUrl(url);
-  }
-
-  /** 用系统浏览器打开链接 */
-  private openUrl(url: string): void {
-    try {
-      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-      context.startAbility({ action: 'ohos.want.action.viewData', uri: url })
-        .catch((err: Error) => {
-          hilog.warn(0x0001, 'SonglistDetail', 'openUrl failed: %{public}s', err.message);
-          this.showToast(t('toast_operation_failed'));
-        });
-    } catch (err) {
-      hilog.warn(0x0001, 'SonglistDetail', 'openUrl failed: %{public}s', JSON.stringify(err));
+    const url = sourceDetailUrl(song);
+    if (!openInBrowser(this.hostContext(), url)) {
       this.showToast(t('toast_operation_failed'));
     }
   }
@@ -870,15 +712,8 @@ export struct SonglistDetailPage {
       return;
     }
     try {
-      await dislikeList.load();
-      if (picked === 0) {
-        await dislikeList.add(song.name, song.singer);
-      } else if (picked === 1) {
-        await dislikeList.add('', song.singer);
-      } else {
-        await dislikeList.add(song.name, '');
-      }
-      this.showToast(tf('dislike_added', [dislikeList.count().toString()]));
+      const count = await addRowToDislike(song, picked);
+      this.showToast(tf('dislike_added', [count.toString()]));
     } catch (err) {
       hilog.warn(0x0001, 'SonglistDetail', 'addDislike failed: %{public}s', JSON.stringify(err));
       this.showToast(t('toast_operation_failed'));
@@ -968,47 +803,27 @@ export struct SonglistDetailPage {
   }
   // 添加到歌单
   private async addToPlaylist(song: SongItem): Promise<void> {
-    try {
-      const musicItem: MusicItem = songRowToListItem(song);
-      
-      await addMusicToList(LIST_IDS.DEFAULT, musicItem);
-      
-      this.showToast(tf('toast_added_to_default', [song.name]));
-      hilog.info(0x0001, 'SonglistDetail', 'Added to playlist: %{public}s', song.name);
-      
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
-      hilog.error(0x0001, 'SonglistDetail', 'Failed to add to playlist: %{public}s', errorMsg);
-      this.showToast(t('toast_add_to_list_failed') + ': ' + errorMsg);
-    }
+    const error = await addRowToDefaultList(song);
+    this.showToast(error.length === 0
+      ? tf('toast_added_to_default', [song.name])
+      : t('toast_add_to_list_failed') + ': ' + error);
   }
 
   // 下载单曲（从菜单调用）
   private async downloadSongFromMenu(song: SongItem): Promise<void> {
-    try {
-      await downloadOne(song);
-      this.showToast(tf('toast_download_start_song', [song.name]));
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
-      this.showToast(t('toast_download_failed') + ': ' + errorMsg);
-    }
+    const error = await downloadRow(song);
+    this.showToast(error.length === 0
+      ? tf('toast_download_start_song', [song.name])
+      : t('toast_download_failed') + ': ' + error);
   }
 
   // 分享歌曲
   private async shareSong(song: SongItem): Promise<void> {
     // 与播放页分享一致：按「设置 → 分享方式」走系统分享，失败回退剪贴板
-    const musicInfo: MusicInfo = songRowToMusicInfo(song);
-    const text = `[${sourceLabel(song.source)}] ${buildShareText(musicInfo)}`;
-    try {
-      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-      const result = await shareText(context, text, song.name, getMusicDetailPageUrl(musicInfo));
-      if (result === 'clipboard') {
-        this.showToast(t('toast_share_copy'));
-      } else if (result === 'failed') {
-        this.showToast(t('toast_operation_failed'));
-      }
-    } catch (err) {
-      hilog.warn(0x0001, 'SonglistDetail', 'shareSong failed: %{public}s', JSON.stringify(err));
+    const result = await shareSongRow(this.hostContext(), song, sourceLabel(song.source));
+    if (result === 'clipboard') {
+      this.showToast(t('toast_share_copy'));
+    } else if (result === 'failed') {
       this.showToast(t('toast_operation_failed'));
     }
   }
