@@ -66,6 +66,8 @@ export struct CommentPage {
   @State hasError: boolean = false;
   /** 本地点赞集合（源的评论接口没有登录态，点赞只能本地记） */
   private likedCommentIds: Set<string> = new Set<string>();
+  /** 请求版本：切「热门/最新」会连开多个请求，只有最后一次的结果算数 */
+  private requestEpoch: number = 0;
   @State hasMore: boolean = true;
   @State currentPage: number = 1;
   @State totalComments: number = 0;
@@ -131,10 +133,19 @@ export struct CommentPage {
       return;
     }
 
+    // 连点「热门/最新」时会有多个请求在飞：只有最后一次的结果算数
+    const epoch: number = ++this.requestEpoch;
     try {
       const response: CommentResponse = await this.fetchCommentsByType(this.currentPage);
+      if (epoch !== this.requestEpoch) {
+        hilog.info(DOMAIN, TAG, 'Stale comment response ignored (epoch=%{public}d)', epoch);
+        return;
+      }
       this.applyLoadedComments(response, isRefresh);
     } catch (err) {
+      if (epoch !== this.requestEpoch) {
+        return;
+      }
       const errorMsg: string = JSON.stringify(err);
       hilog.error(DOMAIN, TAG, 'Failed to load comments: %{public}s', errorMsg);
       // 列表本来就是空的时候才算「整体失败」；已有评论的刷新失败保留旧数据（只提示）
