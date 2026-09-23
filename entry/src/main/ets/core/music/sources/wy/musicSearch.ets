@@ -88,6 +88,30 @@ function buildMusicInfo(rawData: WYMusicItem): MusicInfo {
   return musicInfo;
 }
 
+/**
+ * 把网易云搜索响应的歌曲列表统一转换成搜索结果
+ * （新老两个接口的响应结构一致，收尾逻辑收敛到这一处）
+ */
+function buildSearchResultFromBody(body: WYSearchResponse, keyword: string, limit: number): SearchResult {
+  if (body.code !== 200) {
+    hilog.warn(DOMAIN, TAG, 'wy search 返回异常 code: %{public}d, keyword: %{public}s', body.code, keyword);
+    return BaseMusicSource.buildEmptySearchResult('wy');
+  }
+  const rawData: WYMusicItem[] = body.result?.songs || [];
+  const list: MusicInfo[] = [];
+  for (const item of rawData) {
+    list.push(buildMusicInfo(item));
+  }
+  const total: number = body.result?.songCount || 0;
+  return {
+    list,
+    allPage: Math.ceil(total / limit),
+    total,
+    limit,
+    source: 'wy',
+  };
+}
+
 export const musicSearch: MusicSearchInterface = {
   /**
    * 搜索歌曲
@@ -117,24 +141,10 @@ export const musicSearch: MusicSearchInterface = {
       }).promise;
       const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
       const body = parseHttpBodyJson<WYSearchResponse>(resultData);
-      if (!body || body.code !== 200) {
+      if (!body) {
         return BaseMusicSource.buildEmptySearchResult('wy');
       }
-
-      const rawData: WYMusicItem[] = body.result?.songs || [];
-      const list: MusicInfo[] = [];
-      for (const item of rawData) {
-        list.push(buildMusicInfo(item));
-      }
-      const total: number = body.result?.songCount || 0;
-      const allPage: number = Math.ceil(total / limit);
-      return {
-        list,
-        allPage,
-        total,
-        limit,
-        source: 'wy',
-      };
+      return buildSearchResultFromBody(body, keyword, limit);
     } catch (e) {
       hilog.warn(DOMAIN, TAG, 'wy search failed, falling back to legacy: %{public}s', (e as Error)?.message);
       return this.searchByLegacyApi(keyword, page, limit);
@@ -150,23 +160,10 @@ export const musicSearch: MusicSearchInterface = {
       const response = await httpRequest(url, { header: headers, responseType: 'text' }).promise;
       const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
       const body = parseHttpBodyJson<WYSearchResponse>(resultData);
-      if (!body || body.code !== 200) {
+      if (!body) {
         return BaseMusicSource.buildEmptySearchResult('wy');
       }
-      const rawData: WYMusicItem[] = body.result?.songs || [];
-      const list: MusicInfo[] = [];
-      for (const item of rawData) {
-        list.push(buildMusicInfo(item));
-      }
-      const total: number = body.result?.songCount || 0;
-      const allPage: number = Math.ceil(total / limit);
-      return {
-        list,
-        allPage,
-        total,
-        limit,
-        source: 'wy',
-      };
+      return buildSearchResultFromBody(body, keyword, limit);
     } catch (e) {
       hilog.warn(DOMAIN, TAG, 'wy searchByLegacyApi failed: %{public}s', (e as Error)?.message);
       return BaseMusicSource.buildEmptySearchResult('wy');
