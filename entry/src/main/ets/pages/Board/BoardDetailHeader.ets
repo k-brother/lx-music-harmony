@@ -92,7 +92,11 @@ export struct BoardDetailHeader {
             }
 
             // 展开态：来源角标压在封面右下角（收缩态那份在下方行里）
-            this.SourceBadge()
+            // @Builder 不能链式修饰，包一层容器来留白
+            Row() {
+              this.SourceBadge()
+            }
+            .margin({ right: 6, bottom: 6 })
           }
           .width(106)
           .height(106)
