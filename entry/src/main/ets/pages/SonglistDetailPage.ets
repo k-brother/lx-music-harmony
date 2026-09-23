@@ -329,7 +329,8 @@ export struct SonglistDetailPage {
           })
         }
         .stateStyles({ pressed: this.pressDim })
-      }, (song: SongItem, index: number) => `${song.id}_${song.source}_${index}`)
+      // key 带上播放态：某一行开始/停止播放时强制重建该行，高亮一定刷新
+      }, (song: SongItem, index: number) => `${song.id}_${song.source}_${index}_${song.isPlaying}`)
     }
     .width('100%')
     .layoutWeight(1)
