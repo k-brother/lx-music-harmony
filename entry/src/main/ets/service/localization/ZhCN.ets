@@ -107,6 +107,7 @@ export function buildZhCN(): Map<string, string> {
   // ===== 无障碍（屏幕朗读）：图标按钮必须能被读出来 =====
   m.set('a11y_back', '返回');
   m.set('a11y_more', '更多');
+  m.set('a11y_scroll_to_current', '定位到当前播放');
   m.set('a11y_previous', '上一首');
   m.set('a11y_next', '下一首');
   m.set('a11y_play', '播放');

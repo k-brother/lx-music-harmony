@@ -97,6 +97,7 @@ export function buildEnUS(): Map<string, string> {
   // ===== Accessibility (screen reader): icon-only buttons must be readable =====
   m.set('a11y_back', 'Back');
   m.set('a11y_more', 'More');
+  m.set('a11y_scroll_to_current', 'Scroll to current track');
   m.set('a11y_previous', 'Previous');
   m.set('a11y_next', 'Next');
   m.set('a11y_play', 'Play');

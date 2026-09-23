@@ -33,6 +33,8 @@ export struct BottomSheet {
   @BuilderParam content: () => void;
   /** 标题（可空） */
   @Prop title: string = '';
+  /** 标题栏右侧动作（可空）：面板里常用的「定位到当前/清空」等入口 */
+  @BuilderParam trailing?: () => void;
   /** 展开高度档位：medium（半屏，默认）/ large（接近全屏） */
   @Prop sheetSize: string = 'medium';
   /** 被关闭（点遮罩/下拉）时的回调，用于区分「取消」与「完成」 */
@@ -41,14 +43,21 @@ export struct BottomSheet {
   @Builder
   SheetContent() {
     Column() {
-      if (this.title.length > 0) {
-        Text(this.title)
-          .fontSize(DesignTokens.fontHeadline())
-          .fontWeight(FontWeight.Medium)
-          .fontColor(DesignTokens.labelPrimary(this.theme))
-          .width('100%')
-          .textAlign(TextAlign.Center)
-          .padding({ bottom: 10 })
+      if (this.title.length > 0 || this.trailing) {
+        // 标题保持居中：右侧动作叠在标题栏上，而不是把标题挤到一边
+        Stack({ alignContent: Alignment.End }) {
+          Text(this.title)
+            .fontSize(DesignTokens.fontHeadline())
+            .fontWeight(FontWeight.Medium)
+            .fontColor(DesignTokens.labelPrimary(this.theme))
+            .width('100%')
+            .textAlign(TextAlign.Center)
+            .padding({ bottom: 10 })
+          if (this.trailing) {
+            this.trailing()
+          }
+        }
+        .width('100%')
       }
 
       this.content()

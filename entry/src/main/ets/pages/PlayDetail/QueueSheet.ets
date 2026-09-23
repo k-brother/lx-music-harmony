@@ -23,10 +23,13 @@ import type { SongInfo } from '../../service/PlayerService';
 @Component
 export struct QueueSheet {
   @StorageProp('theme') theme: string = 'light';
-  @Link visible: boolean;
+  @Link @Watch('onVisibleChanged') visible: boolean;
   /** 队列可能上千首：@Watch 同步 LazyForEach 数据源，避免一次性建满所有行 */
   @Prop @Watch('onQueueChanged') queue: SongInfo[] = [];
   private queueSource: LazyDataSource<SongInfo> = new LazyDataSource<SongInfo>();
+  /** 列表滚动控制：打开面板时定位到当前播放（队列上百首时很重要） */
+  private listScroller: Scroller = new Scroller();
+  private scrollTimer: number = -1;
   @Prop currentIndex: number = -1;
   onPick?: (index: number) => void;
   /** 拖动排序（长按行拖动） */
@@ -98,9 +101,49 @@ export struct QueueSheet {
     this.queueSource.reload(this.queue);
   }
 
+  aboutToDisappear(): void {
+    this.clearScrollTimer();
+  }
+
   /** 队列变化（切歌、拖拽重排、删除）时同步渲染数据源 */
   onQueueChanged(): void {
     this.queueSource.reload(this.queue);
+  }
+
+  /**
+   * 打开面板时定位到「正在播放」那一首。
+   * 主流播放器都会这么做：队列上百首时，从顶部开始找当前曲目很折磨。
+   * 延迟一小会儿是因为面板刚弹出时列表还没完成布局，直接 scrollToIndex 会被忽略。
+   */
+  onVisibleChanged(): void {
+    this.clearScrollTimer();
+    if (!this.visible) {
+      return;
+    }
+    this.scrollTimer = setTimeout((): void => {
+      this.scrollTimer = -1;
+      this.scrollToCurrent();
+    }, 150);
+  }
+
+  /** 滚动到当前曲目（留一行上下文，视觉上不贴顶） */
+  private scrollToCurrent(): void {
+    if (this.currentIndex < 0 || this.queue.length === 0) {
+      return;
+    }
+    const target: number = Math.max(0, this.currentIndex - 1);
+    try {
+      this.listScroller.scrollToIndex(target, true);
+    } catch (err) {
+      hilog.warn(0x0001, 'QueueSheet', 'scrollToCurrent failed: %{public}s', JSON.stringify(err));
+    }
+  }
+
+  private clearScrollTimer(): void {
+    if (this.scrollTimer !== -1) {
+      clearTimeout(this.scrollTimer);
+      this.scrollTimer = -1;
+    }
   }
 
   @Builder
@@ -226,7 +269,7 @@ export struct QueueSheet {
         .fontColor(DesignTokens.labelSecondary(this.theme))
         .padding({ top: 20, bottom: 20 })
     } else {
-      List() {
+      List({ scroller: this.listScroller }) {
         LazyForEach(this.queueSource, (song: SongInfo, index: number) => {
           ListItem() {
             this.Row(song, index)
@@ -282,9 +325,32 @@ export struct QueueSheet {
       visible: $visible,
       title: tf('play_queue_count', [this.queue.length.toString()]),
       sheetSize: 'large',
+      // 队列上百首时的必备入口：一键回到正在播放那一首
+      trailing: (): void => {
+        this.ScrollToCurrentAction();
+      },
       content: (): void => {
         this.Content();
       },
+    })
+  }
+
+  /** 标题栏右侧：定位到当前播放 */
+  @Builder
+  ScrollToCurrentAction() {
+    Stack() {
+      Circle({ width: 30, height: 30 })
+        .fill(DesignTokens.mutedFill(this.theme))
+      SymbolGlyph($r('sys.symbol.dart_target'))
+        .fontSize(DesignTokens.fontSubhead())
+        .fontColor([DesignTokens.labelSecondary(this.theme)])
+    }
+    .width(DesignTokens.touchTarget())
+    .height(DesignTokens.touchTarget())
+    .accessibilityText(t('a11y_scroll_to_current'))
+    .onClick(() => {
+      hapticService.selection();
+      this.scrollToCurrent();
     })
   }
 }

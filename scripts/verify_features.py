@@ -341,6 +341,10 @@ CHECKS = [
  # 启动不再用默认值覆盖用户偏好（曾经 setPlaybackRate(1.0) 会把倍速写回成 1.0）
  ('启动应用上次倍速', 'app/entryability/EntryAbility.ets', r'applySavedPlaybackRate\(\)'),
  ('倍速启动同步不写回设置', 'service/PlayerService.ets', r'async applySavedPlaybackRate\(\)'),
+ # 队列面板：打开即定位到正在播放 + 一键回到当前（队列上百首时的必备入口）
+ ('队列面板打开定位当前播放', 'pages/PlayDetail/QueueSheet.ets', r'onVisibleChanged\(\): void[\s\S]{0,260}?scrollToCurrent\(\)'),
+ ('队列面板一键定位按钮', 'pages/PlayDetail/QueueSheet.ets', r"a11y_scroll_to_current"),
+ ('底部面板支持标题栏动作', 'components/ui/BottomSheet.ets', r'@BuilderParam trailing'),
 ]
 
 fails = []
