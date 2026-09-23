@@ -1,4 +1,4 @@
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { showAppToast, TOAST_DURATION_DEFAULT } from '../utils/Toast';
 import { common } from '@kit.AbilityKit';
 import { playerService, MusicInfo, ProgressInfo, SongInfo } from '../service/PlayerService';

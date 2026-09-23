@@ -11,7 +11,7 @@
  * 因此这里只带移动端 UA，绝不带 Referer。
  */
 
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { util } from '@kit.ArkTS';
 import { httpRequest, httpRequestBinary, parseHttpBodyJson, type HttpRequestConfig, type HttpResponse } from '../../../../core/network/http';
 import { zlibInflate } from '../../../../core/napi/napi_inflate';

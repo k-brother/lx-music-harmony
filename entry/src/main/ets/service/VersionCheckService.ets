@@ -1,7 +1,7 @@
 /**
  * 启动后异步检查远端版本信息，与 RN 端 src/core/version.ts 行为对齐（仅拉取并广播，不弹窗）。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { stateEvent, type VersionInfo } from '../event/StateEvent';
 import { fetchUtf8Text } from './HttpRepository';
 

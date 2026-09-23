@@ -5,7 +5,7 @@
  * 本组件只负责展示占用、确认与提示。
  */
 import { common } from '@kit.AbilityKit';
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { t, tf } from '../../../service/LocalizationService';
 import { appConfirm, appToast } from '../../../service/DialogService';
 import { cacheService, formatCacheSize } from '../../../service/CacheService';

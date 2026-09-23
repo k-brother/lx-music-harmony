@@ -11,7 +11,7 @@
  *    按住手柄上下拖，被拖的行跟手并浮起，松手按跨过的行数落位（跨几行就走几行），
  *    拖拽只发生在手柄上，不会和「长按整行删除」「点击整行切歌」冲突。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { t, tf } from '../../service/LocalizationService';
 import { LazyDataSource } from '../../utils/LazyDataSource';

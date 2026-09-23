@@ -1,7 +1,7 @@
 /**
  * 网易云音乐 - 歌曲搜索
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { httpRequest, parseHttpBodyJson } from '../../../../core/network/http';
 import { decodeName, formatPlayTime, normalizeCoverUrl } from '../../../../utils/CommonUtils';
 import { BaseMusicSource } from '../BaseMusicSource';

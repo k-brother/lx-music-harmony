@@ -5,7 +5,7 @@
 import type { MusicInfo } from '../../../../types/MusicTypes';
 import { httpGet, checkNetworkConnection } from '../../../../core/network/http';
 import type { HttpRequestConfig } from '../../../../core/network/http';
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { normalizeCoverUrl } from '../../../../utils/CommonUtils';
 import { t } from '../../../../service/LocalizationService';
 

@@ -4,7 +4,7 @@
  * 重构后：NavBar + ListRow + StateView + DialogService 统一交互；
  * 行尾用 ⋮ 菜单（播放 / 取消收藏），避免原先"隐形图标"的可发现性问题。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { DesignTokens } from '../theme/DesignTokens';
 import { Breakpoints } from '../theme/Breakpoints';
 import { LazyDataSource } from '../utils/LazyDataSource';

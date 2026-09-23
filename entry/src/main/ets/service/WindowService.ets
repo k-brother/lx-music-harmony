@@ -3,9 +3,9 @@
  * 负责更新状态栏、导航栏和窗口背景色
  */
 
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { delayMs } from '../utils/Utils';
-import window from '@ohos.window';
+import { window } from '@kit.ArkUI';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { onThemeChange, getActiveTheme, getAppBackground } from './ThemeService';
 import { display } from '@kit.ArkUI';

@@ -1,11 +1,11 @@
 // 备份与恢复服务
 // 对应安卓版的备份恢复功能
 
-import hilog from '@ohos.hilog';
-import fs from '@ohos.file.fs';
-import filePicker from '@ohos.file.picker';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+import { fileIo as fs } from '@kit.CoreFileKit';
+import { picker as filePicker } from '@kit.CoreFileKit';
 import { common } from '@kit.AbilityKit';
-import preferences from '@ohos.data.preferences';
+import { preferences } from '@kit.ArkData';
 import { encryptWithPassword, decryptWithPassword } from './crypto/AesPayload';
 import { utf8Decode } from '../utils/TextCodec';
 import {

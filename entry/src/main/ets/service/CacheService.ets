@@ -8,8 +8,8 @@
  * 元数据缓存通过"键登记表"维护：写入缓存时登记键名与大小，
  * 这样统计大小是 O(1)，清理时也能精确删掉这些键而不影响用户数据。
  */
-import hilog from '@ohos.hilog';
-import fs from '@ohos.file.fs';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+import { fileIo as fs } from '@kit.CoreFileKit';
 import { common } from '@kit.AbilityKit';
 import { getStorageService } from '../core/interfaces/IStorageService';
 import { imageCacheService } from '../utils/ImageCache';

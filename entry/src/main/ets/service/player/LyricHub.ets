@@ -10,7 +10,7 @@
  * - 时间轴与转换逻辑可独立推演（纯计算 + 一个位置来源），也便于后续加逐字歌词；
  * - 系统播控、桌面歌词、播放页仍然只订阅同一份状态，行为不变。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { parseLrc, getCurrentLyricIndex, type LyricLine } from '../../core/music/MusicParsingUtils';
 import { convertChinese } from '../../core/lyric/ChineseConvert';
 import { getLyricInfo } from '../../core/music/MusicFeatureEntry';

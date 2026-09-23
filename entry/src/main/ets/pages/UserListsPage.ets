@@ -3,7 +3,7 @@ import { syncUserListFromOnline } from '../service/UserListSyncService';
 import { appConfirm, appToast } from '../service/DialogService';
 import { showPlaylistActionMenu, type PlaylistMenuTarget } from './Home/Mylist/ListMenuActions';
 // 自建歌单管理页面
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { navigationService, RouteName } from '../service/NavigationService';
 import { DesignTokens } from '../theme/DesignTokens';
 import { Breakpoints } from '../theme/Breakpoints';

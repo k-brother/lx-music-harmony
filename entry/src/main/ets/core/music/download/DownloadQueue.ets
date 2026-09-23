@@ -9,7 +9,7 @@
  * - 「自动开始下载」关闭时，新任务一律进等待队列，等用户手动开始（`startPendingDownloads`）；
  * - 一个任务结束后自动拉下一个（`processQueue`）。
  */
-import fs from '@ohos.file.fs';
+import { fileIo as fs } from '@kit.CoreFileKit';
 import { appLog as hilog } from '../../log/AppLogger';
 import { settingsService } from '../../../service/SettingsService';
 import { requireDownloadContext } from './DownloadContext';

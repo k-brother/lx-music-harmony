@@ -20,7 +20,7 @@ import type {
   SongListTag,
   SongListSdkInterface,
 } from '../MusicSdkContracts';
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 interface TxSongListModule extends SongListSdkInterface {
   getDetailPageUrl(listId: string): string;

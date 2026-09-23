@@ -9,8 +9,8 @@
  *   保证任何机型上按钮都可用。
  * - `clipboard`：只复制文本（安卓版同名选项）。
  */
-import hilog from '@ohos.hilog';
-import pasteboard from '@ohos.pasteboard';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+import { pasteboard } from '@kit.BasicServicesKit';
 import { common, wantConstant } from '@kit.AbilityKit';
 import { settingsService } from './SettingsService';
 import type { ShareType } from './SettingsService';

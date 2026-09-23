@@ -1,7 +1,7 @@
 /**
  * 应用层启动编排：在 initAllServices 之后执行，对齐 RN src/core/init 中的后置步骤。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { initMusicSDK, restoreEnabledCustomSource } from '../../core/music/MusicFeatureEntry';
 import { runVersionCheckDeferred } from '../../service/VersionCheckService';
 import { settingsService } from '../../service/SettingsService';

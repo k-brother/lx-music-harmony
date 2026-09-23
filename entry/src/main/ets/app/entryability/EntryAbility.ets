@@ -1,12 +1,12 @@
 // 应用入口能力 - 对应 src/app.ts
 // 负责应用初始化和窗口管理
 
-import UIAbility from '@ohos.app.ability.UIAbility';
-import type { Configuration } from '@ohos.app.ability.Configuration';
+import { UIAbility } from '@kit.AbilityKit';
+import type { Configuration } from '@kit.AbilityKit';
 import { ConfigurationConstant } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
-import hilog from '@ohos.hilog';
-import window from '@ohos.window';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+import { window } from '@kit.ArkUI';
 import { stateEvent } from '../../event/StateEvent';
 import { appEvent } from '../../event/AppEvent';
 import { playerService } from '../../service/PlayerService';

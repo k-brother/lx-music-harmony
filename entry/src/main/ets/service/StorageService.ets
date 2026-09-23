@@ -5,8 +5,8 @@
  * 全应用唯一 Preferences 实例：设置项、歌单、插件配置、搜索历史等都写在这里。
  * 对外暴露两种等价用法：默认导出的对象（StorageService.getString 等）与命名导出函数。
  */
-import dataPreferences from '@ohos.data.preferences';
-import hilog from '@ohos.hilog';
+import { preferences as dataPreferences } from '@kit.ArkData';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import type { common } from '@kit.AbilityKit';
 import {
   setStorageService,

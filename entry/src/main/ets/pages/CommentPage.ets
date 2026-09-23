@@ -1,7 +1,7 @@
 // 评论页面
 // 对应安卓版的评论功能
 
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { navigationService } from '../service/NavigationService';
 import { MusicInfo, MusicSource } from '../types/MusicTypes';
 import { commentService } from '../service/CommentService';

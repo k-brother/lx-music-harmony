@@ -7,8 +7,8 @@
  *
  * 系统下载任务的句柄（暂停/恢复/删除用）也放在这里：它属于「传输」而不是「队列」。
  */
-import fs from '@ohos.file.fs';
-import filePicker from '@ohos.file.picker';
+import { fileIo as fs } from '@kit.CoreFileKit';
+import { picker as filePicker } from '@kit.CoreFileKit';
 import { request } from '@kit.BasicServicesKit';
 import { appLog as hilog } from '../../log/AppLogger';
 import { settingsService } from '../../../service/SettingsService';

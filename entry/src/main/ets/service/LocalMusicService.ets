@@ -10,8 +10,8 @@
  */
 // 日志经由应用日志门面，既输出 hilog 也进入「设置 → 运行日志」
 import { appLog as hilog } from '../core/log/AppLogger';
-import fs from '@ohos.file.fs';
-import filePicker from '@ohos.file.picker';
+import { fileIo as fs } from '@kit.CoreFileKit';
+import { picker as filePicker } from '@kit.CoreFileKit';
 import type { common } from '@kit.AbilityKit';
 import storageService, { StorageKeys } from './StorageService';
 import { scanLocalMusic, getLocalPicUrl, type LocalMusicInfo } from '../core/music/local/LocalPlayback';

@@ -8,6 +8,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "== 未使用的 import =="
 python3 "${SCRIPT_DIR}/check_imports.py"
 
+echo "== 导入风格（@kit 能力集入口）=="
+python3 "${SCRIPT_DIR}/check_kit_imports.py"
+
 echo "== 未被引用的私有方法 =="
 python3 "${SCRIPT_DIR}/check_dead.py"
 

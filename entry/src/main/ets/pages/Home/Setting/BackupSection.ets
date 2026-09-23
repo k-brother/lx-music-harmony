@@ -5,8 +5,8 @@
  * 本组件只负责：文件选择器、确认、提示、恢复后重载列表数据。
  */
 import { common } from '@kit.AbilityKit';
-import filePicker from '@ohos.file.picker';
-import hilog from '@ohos.hilog';
+import { picker as filePicker } from '@kit.CoreFileKit';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { t, tf } from '../../../service/LocalizationService';
 import { appActionMenu, appConfirm, appToast } from '../../../service/DialogService';
 import { backupService, BackupDataType } from '../../../service/BackupService';

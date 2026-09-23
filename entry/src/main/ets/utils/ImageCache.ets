@@ -1,5 +1,5 @@
-import hilog from '@ohos.hilog';
-import fs from '@ohos.file.fs';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+import { fileIo as fs } from '@kit.CoreFileKit';
 import { common } from '@kit.AbilityKit';
 import { util } from '@kit.ArkTS';
 import type { BusinessError } from '@kit.BasicServicesKit';

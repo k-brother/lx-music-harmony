@@ -9,7 +9,7 @@
  *
  * 存储走统一的 StorageService（键 dislike.rules），与其它数据一致。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { getStorageService } from '../interfaces/IStorageService';
 
 const TAG = 'DislikeList';

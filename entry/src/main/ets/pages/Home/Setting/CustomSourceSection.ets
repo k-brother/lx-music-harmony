@@ -7,8 +7,8 @@
  * 面板与状态由本组件自持，不再占用页面状态。
  */
 import { common } from '@kit.AbilityKit';
-import filePicker from '@ohos.file.picker';
-import hilog from '@ohos.hilog';
+import { picker as filePicker } from '@kit.CoreFileKit';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { t } from '../../../service/LocalizationService';
 import { navigationService, RouteName } from '../../../service/NavigationService';
 import { appToast } from '../../../service/DialogService';

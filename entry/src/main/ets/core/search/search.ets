@@ -17,7 +17,7 @@ import {
 import { getStorageService } from '../interfaces/IStorageService';
 import { pluginManager } from '../plugin/PluginManager';
 import { settingsService } from '../../service/SettingsService';
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { SUPPORTED_SOURCES } from '../../types/MusicSource';
 
 const TAG = 'SEARCH';

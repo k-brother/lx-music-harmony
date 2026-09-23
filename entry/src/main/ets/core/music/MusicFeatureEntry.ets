@@ -20,7 +20,7 @@ import {
 import type { MusicInfo, LyricInfo } from '../../types/MusicTypes';
 import { SUPPORTED_SOURCES } from '../../types/MusicSource';
 import { pluginManager, PluginSongInfo } from '../plugin/PluginManager';
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const TAG = 'MUSIC';
 const DOMAIN = 0x0003;

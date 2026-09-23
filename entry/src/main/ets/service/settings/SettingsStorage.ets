@@ -5,7 +5,7 @@
  * （music_settings / download_settings）里的旧值迁移过来。
  * 从 SettingsService 拆出后，服务类只关心「写设置 + 广播」，加载细节独立成文件。
  */
-import preferences from '@ohos.data.preferences';
+import { preferences } from '@kit.ArkData';
 import type { common } from '@kit.AbilityKit';
 import { getStorageService } from '../../core/interfaces/IStorageService';
 import { StorageKeys } from '../StorageService';

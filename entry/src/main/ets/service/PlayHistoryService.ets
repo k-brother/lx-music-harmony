@@ -1,4 +1,4 @@
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { getStorageService } from '../core/interfaces/IStorageService';
 
 const DOMAIN = 0x0006;

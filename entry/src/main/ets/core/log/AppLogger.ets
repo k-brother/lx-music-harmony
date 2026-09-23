@@ -7,7 +7,7 @@
  *
  * 这样业务代码无需关心日志去向：既输出到系统 hilog，也进入应用内日志页。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import {
   logStore,
   LOG_LEVEL_DEBUG,

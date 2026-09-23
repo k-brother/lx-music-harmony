@@ -9,7 +9,7 @@
  * - 未锁定时可拖动（拖动结束把坐标回写为自定义位置），锁定后点击穿透。
  */
 
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { t } from '../service/LocalizationService';
 import { DesktopLyricManager } from '../components/common/DesktopLyric';
 

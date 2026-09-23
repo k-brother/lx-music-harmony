@@ -7,7 +7,7 @@ import type { MusicInfo } from '../../../../types/MusicTypes';
 import { httpRequest } from '../../../../core/network/http';
 import { signatureParams } from './util';
 import type { MusicUrlResult } from '../MusicSdkContracts';
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const TAG = 'KgPlayUrl';
 const DOMAIN = 0x0001;

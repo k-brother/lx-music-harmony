@@ -1,7 +1,7 @@
 // NavIndex - 主导航页面
 // 使用 Navigation 组件 + NavPathStack 进行页面管理
 
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { HomePage } from './HomePage';
 import { AboutView } from './Home/AboutView';
 import { CustomSourceView } from './Home/CustomSourceView';

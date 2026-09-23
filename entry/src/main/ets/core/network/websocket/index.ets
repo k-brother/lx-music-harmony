@@ -2,7 +2,7 @@
  * 全局 WebSocket 工厂与负载解析（通过 @kit.NetworkKit 统一升级与埋点）
  */
 import { webSocket } from '@kit.NetworkKit';
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { utf8Decode } from '../../../utils/TextCodec';
 
 const TAG = 'WebSocket';

@@ -7,7 +7,7 @@
  * `FocusController.requestFocus` 在节点尚未上树/不可聚焦时会抛 BusinessError，
  * 这里统一兜住：聚焦失败只记日志，不影响界面渲染。
  */
-import type { UIContext } from '@ohos.arkui.UIContext';
+import type { UIContext } from '@kit.ArkUI';
 import { appLog as hilog } from '../core/log/AppLogger';
 
 const DOMAIN: number = 0x0001;

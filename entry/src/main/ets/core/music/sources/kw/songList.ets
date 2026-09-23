@@ -1,4 +1,4 @@
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { httpRequest } from '../../../../core/network/http';
 import type { MusicInfo, Quality, QualityDetail } from '../../../../types/MusicTypes';
 import { formatPlayTime, decodeHtmlEntities, formatSinger, formatPlayCount } from '../../../../utils/CommonUtils';

@@ -2,7 +2,7 @@
  * QQ音乐 - 热搜
  */
 import { httpRequest, parseHttpBodyJson, type HttpRequestConfig } from '../../../../core/network/http';
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const TAG = 'TxHotSearch';
 const DOMAIN = 0x0003;

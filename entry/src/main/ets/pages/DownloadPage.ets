@@ -12,7 +12,7 @@
  * 2. 暂停中的任务文案显示成「下载中」，无法区分；
  * 3. 底部「清空已完成」按钮只有「已完成」两个字，看不出是操作。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { common } from '@kit.AbilityKit';
 import { DesignTokens } from '../theme/DesignTokens';
 import { Breakpoints } from '../theme/Breakpoints';

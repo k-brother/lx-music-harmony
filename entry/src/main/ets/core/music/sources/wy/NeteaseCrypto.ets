@@ -1,7 +1,7 @@
 /**
  * 网易云 weapi / linuxapi 加密（对齐 Binaryify NeteaseCloudMusicApi util/crypto.js）
  */
-import cryptoFramework from '@ohos.security.cryptoFramework';
+import { cryptoFramework } from '@kit.CryptoArchitectureKit';
 import { utf8Encode } from '../../../../utils/TextCodec';
 
 const PRESET_KEY = '0CoJUm6Qyw8W8jud';

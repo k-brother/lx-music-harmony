@@ -1,5 +1,5 @@
 // Index 页面 - 应用入口页面，使用 Navigation 组件
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { appConfirm } from '../service/DialogService';
 import type { BusinessError } from '@kit.BasicServicesKit';
 import type { common } from '@kit.AbilityKit';

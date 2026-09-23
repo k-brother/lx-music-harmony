@@ -4,8 +4,8 @@
  * 之前 11 个页面各自实现了一遍 `getUIContext().getPromptAction().showToast(...)`
  * 加 try/catch 的样板代码；这里收口成一处，页面只保留一行薄封装即可。
  */
-import hilog from '@ohos.hilog';
-import type { UIContext } from '@ohos.arkui.UIContext';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+import type { UIContext } from '@kit.ArkUI';
 
 const DOMAIN = 0x0001;
 const TAG = 'Toast';

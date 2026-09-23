@@ -1,7 +1,7 @@
 // 首页 - 对应 src/screens/Home/Vertical/index.tsx
 // 顶部音乐源 Tab；全局搜歌仅在「歌单」Tab 内容区上方（与排行榜页内搜索条样式一致）
 
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { SourceTabBar } from './Home/Home/SourceTabBar';
 import { HomeBottomTabBar, type HomeTabItem } from './Home/Home/HomeBottomTabBar';
 import { SearchMusicResultList, SearchSonglistResultList } from './Home/Home/SearchResultLists';

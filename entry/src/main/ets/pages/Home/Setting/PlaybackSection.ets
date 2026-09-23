@@ -4,7 +4,7 @@
  * 播放行为（自动播放 / 音质 / 播放模式 / 音量）、音频（焦点 / Offload / 缓存上限）、
  * 播控（封面 / 蓝牙歌词）、歌词简繁、睡眠定时（含"播完再退"与取消等待）。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { settingsService, type PlayMode } from '../../../service/SettingsService';
 import { t } from '../../../service/LocalizationService';
 import { appToast } from '../../../service/DialogService';

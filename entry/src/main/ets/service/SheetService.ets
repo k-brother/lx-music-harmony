@@ -10,7 +10,7 @@
  *
  * 取消时返回空字符串，调用方按「未修改」处理。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const TAG = 'SheetService';
 const DOMAIN = 0x0005;

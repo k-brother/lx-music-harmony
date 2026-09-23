@@ -3,7 +3,7 @@
  */
 import { md5, bytesToString as cryptoBytesToString } from '../../../../utils/CryptoUtils';
 import { httpRequest } from '../../../../core/network/http';
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const TAG = 'KgUtil';
 const DOMAIN = 0x0003;

@@ -6,8 +6,8 @@
  * - 导入：校验结构后写回列表，返回成功导入的歌单数
  * - 文件读写：只接受调用方给出的 URI（文件选择器仍留在 UI 层）
  */
-import fs from '@ohos.file.fs';
-import hilog from '@ohos.hilog';
+import { fileIo as fs } from '@kit.CoreFileKit';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { util } from '@kit.ArkTS';
 import {
   LIST_IDS,

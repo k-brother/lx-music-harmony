@@ -8,9 +8,9 @@
  * - 支持拖动改位置、锁定穿透、字号/颜色/背景不透明度/单双行等外观设置。
  */
 
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { DesignTokens } from '../../theme/DesignTokens';
-import window from '@ohos.window';
+import { window } from '@kit.ArkUI';
 import { display } from '@kit.ArkUI';
 import { avSession } from '@kit.AVSessionKit';
 import { BusinessError } from '@kit.BasicServicesKit';

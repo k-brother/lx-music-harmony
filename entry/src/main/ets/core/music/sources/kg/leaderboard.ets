@@ -1,7 +1,7 @@
 /**
  * 酷狗音乐 - 排行榜（对齐 src/utils/musicSdk/kg/leaderboard.js）
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { httpRequest, type HttpRequestConfig } from '../../../../core/network/http';
 import { decodeName, formatPlayTime, sizeFormate } from '../../../../utils/CommonUtils';
 import { formatSingerName } from './util';

@@ -2,9 +2,9 @@
  * 本地音乐页
  * 导入（系统文件选择器）→ 扫描元数据 → 列表展示 → 播放（file:// 直接播，无需网络）
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { showAppToast, TOAST_DURATION_SHORT } from '../utils/Toast';
-import filePicker from '@ohos.file.picker';
+import { picker as filePicker } from '@kit.CoreFileKit';
 import { common } from '@kit.AbilityKit';
 import { PlayerBar } from '../components/player/PlayerBar';
 import { DesignTokens } from '../theme/DesignTokens';

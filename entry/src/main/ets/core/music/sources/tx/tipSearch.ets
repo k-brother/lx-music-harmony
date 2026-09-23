@@ -2,7 +2,7 @@
  * QQ 音乐 - 搜索联想
  * 对应安卓源码: src/utils/musicSdk/tx/tipSearch.js（smartbox，返回 歌名 - 歌手）
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { httpRequest, parseHttpBodyJson, type HttpRequestConfig, type HttpResponse } from '../../../../core/network/http';
 
 const TAG = 'TxTipSearch';

@@ -3,7 +3,7 @@
  * vkey 请求需带 comm；歌单页须传 strMediaMid（与 song mid 不同）。失败时依次尝试 express 接口。
  */
 
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import type { MusicInfo } from '../../../../types/MusicTypes';
 import { httpRequest, httpPost } from '../../../../core/network/http';
 import type { MusicUrlResult } from '../MusicSdkContracts';

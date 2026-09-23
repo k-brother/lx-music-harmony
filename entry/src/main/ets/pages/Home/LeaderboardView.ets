@@ -9,7 +9,7 @@ import { navigationService, RouteName } from '../../service/NavigationService';
 import { playerService, SongInfo } from '../../service/PlayerService';
 import { getMusicUrl } from '../../core/music/MusicFeatureEntry';
 import type { MusicInfo } from '../../types/MusicTypes';
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { CoverPalette } from '../../theme/CoverPalette';
 import { DeferredScrollToTop } from '../../utils/ScrollTools';

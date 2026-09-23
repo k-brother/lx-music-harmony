@@ -3,10 +3,10 @@
  * 支持加载用户提供的在线JS源文件作为自定义音乐源
  */
 import { httpRequest } from '../network/http';
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { getStorageService } from '../interfaces/IStorageService';
 import { CustomSourcePlugin } from './CustomSourcePlugin';
-import fs from '@ohos.file.fs';
+import { fileIo as fs } from '@kit.CoreFileKit';
 import { utf8Decode } from '../../utils/TextCodec';
 import { t } from '../../service/LocalizationService';
 import {

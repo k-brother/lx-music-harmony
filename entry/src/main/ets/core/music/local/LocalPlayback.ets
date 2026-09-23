@@ -7,8 +7,8 @@
  * 与在线解析完全独立：在线那套走音源 SDK + 缓存，本地这套走文件系统，
  * 分开后各自演进不会互相影响（也便于按平台裁剪）。
  */
-import hilog from '@ohos.hilog';
-import fs from '@ohos.file.fs';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+import { fileIo as fs } from '@kit.CoreFileKit';
 import { media } from '@kit.MediaKit';
 import { image } from '@kit.ImageKit';
 import type { MusicInfo, LyricInfo, MusicQualityType } from '../../../types/MusicTypes';

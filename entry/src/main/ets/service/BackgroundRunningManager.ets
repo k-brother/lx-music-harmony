@@ -11,7 +11,7 @@
 import { backgroundTaskManager } from '@kit.BackgroundTasksKit';
 import { bundleManager, common, wantAgent, WantAgent } from '@kit.AbilityKit';
 import { avSession } from '@kit.AVSessionKit';
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { registerMediaControlCommands } from './player/MediaControlCommands';
 import type { AvMediaMetadata, AvSessionCallbacks } from './player/AvSessionTypes';
 

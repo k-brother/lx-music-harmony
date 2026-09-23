@@ -7,7 +7,7 @@
  * - 再次收藏或点「同步」时，重新从在线拉取并覆盖本地内容（安卓 syncSourceList）；
  * - 旧版本只写了 `collection.songlists` 标记、既不可见也无法同步，这里做一次性迁移。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { getSongListDetail } from '../core/music/MusicFeatureEntry';
 import type { MusicInfo } from '../types/MusicTypes';
 import {

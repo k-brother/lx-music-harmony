@@ -6,7 +6,7 @@
  * 阴影色 / 锁定穿透。
  * 外观类改动统一调用 DesktopLyricManager.applyAppearance() 让子窗口立即重算。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { selectRow, toggleRow, infoRow } from '../../../components/ui/SettingsRows';
 import {
   settingsService,

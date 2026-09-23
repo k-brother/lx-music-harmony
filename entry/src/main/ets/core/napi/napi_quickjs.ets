@@ -5,7 +5,7 @@
  * It enables execution of JavaScript plugin code within the HarmonyOS app.
  */
 
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import quickjsLoaderSo from 'libquickjs_loader.so';
 import quickjsNapiSo from 'libquickjs_napi.so';
 import { utf8Decode } from '../../utils/TextCodec';

@@ -5,7 +5,7 @@
 import type { MusicInfo, Quality, QualityDetail, MusicQualityType } from '../../../../types/MusicTypes';
 import { httpRequest, parseHttpBodyJson, type HttpRequestConfig } from '../../../../core/network/http';
 import { formatPlayTime, sizeFormate } from '../../../../utils/CommonUtils';
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 // 排行榜项
 export interface LeaderboardItem {

@@ -2,7 +2,7 @@
  * 主题服务 - 基于安卓源码主题系统迁移
  * 支持多主题切换、背景图、完整主题颜色（含运行时 alpha 计算）
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import StorageService from './StorageService';
 import { getDefaultThemes, getThemeById, DEFAULT_THEME_ID } from '../core/theme/themes';
 import { ActiveTheme } from '../types/ThemeTypes';

@@ -1,4 +1,4 @@
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { httpRequest, type HttpRequestConfig, type HttpResponse } from '../../../../core/network/http';
 import { decodeHtmlEntities } from '../../../../utils/CommonUtils';
 

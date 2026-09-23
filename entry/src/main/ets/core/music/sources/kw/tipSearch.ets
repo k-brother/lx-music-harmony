@@ -5,7 +5,7 @@
  * 注意：这里用的是酷我专门的联想服务 tips.kuwo.cn（返回 RELWORD 关键词），
  * 不是拿搜索接口的结果凑数——后者返回的是歌名，做搜索建议会显得莫名其妙。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { httpRequest, parseHttpBodyJson, type HttpRequestConfig, type HttpResponse } from '../../../../core/network/http';
 
 const TAG = 'KwTipSearch';

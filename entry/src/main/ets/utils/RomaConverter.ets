@@ -5,8 +5,8 @@
  * 不引入自带拼音表，避免几万字的映射数据与体积开销。
  * 设备不支持该转写时返回空串，由调用方降级为不显示罗马音。
  */
-import i18n from '@ohos.i18n';
-import hilog from '@ohos.hilog';
+import { i18n } from '@kit.LocalizationKit';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const TAG = 'RomaConverter';
 const DOMAIN = 0x0006;

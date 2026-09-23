@@ -4,7 +4,7 @@
  * 主题体系（16 套）+ 自动跟随系统（浅色/深色主题分别指定）+ 动态背景/字体阴影/深色隐藏背景
  * + 字号 / 动画。主题应用统一走 ThemeService。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { settingsService } from '../../../service/SettingsService';
 import { t } from '../../../service/LocalizationService';
 import { appToast } from '../../../service/DialogService';

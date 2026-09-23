@@ -20,7 +20,7 @@ import { showPlaylistActionMenu, type PlaylistMenuTarget } from './Mylist/ListMe
 import { appConfirm } from '../../service/DialogService';
 import { sheetService } from '../../service/SheetService';
 import { MusicInfo as AppMusicInfo, MusicSource } from '../../types/MusicTypes';
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { EventTypes, on } from '../../service/EventBus';
 import { getPlayHistory, PlayHistoryItem } from '../../service/PlayHistoryService';

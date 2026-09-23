@@ -4,7 +4,7 @@
  * 设置页与播放详情页共用同一个定时器，避免两处各自 setTimeout 导致状态不一致。
  * 时长与开关持久化在 SettingsService，应用重启后自动恢复。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { settingsService } from './SettingsService';
 import { playerService } from './PlayerService';
 import { EventChannel } from './EventChannel';

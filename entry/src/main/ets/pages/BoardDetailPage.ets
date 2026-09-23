@@ -4,7 +4,7 @@ import { BoardSongRow } from './BoardDetail/BoardSongRow';
 // 排行榜详情页 - 显示榜单信息和歌曲列表
 // 支持分组展示前几条歌曲作为预览
 
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { PlayerBar } from '../components/player/PlayerBar';
 import { getLeaderboardDetailReliable } from '../core/leaderboard';
 import { playerService, SongInfo } from '../service/PlayerService';

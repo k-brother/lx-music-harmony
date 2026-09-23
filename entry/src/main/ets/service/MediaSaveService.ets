@@ -3,7 +3,7 @@
 
 // 日志经由应用日志门面，既输出 hilog 也进入「设置 → 运行日志」
 import { appLog as hilog } from '../core/log/AppLogger';
-import fs from '@ohos.file.fs';
+import { fileIo as fs } from '@kit.CoreFileKit';
 import { http } from '@kit.NetworkKit';
 import { common } from '@kit.AbilityKit';
 import { utf8Encode } from '../utils/TextCodec';

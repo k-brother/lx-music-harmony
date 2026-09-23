@@ -2,7 +2,7 @@
  * 事件系统
  * 应用内部事件总线
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const TAG = 'EventBus';
 const DOMAIN = 0x0006;

@@ -8,8 +8,8 @@
  * 由根页面 NavIndex（aboutToAppear）注入一次；预览器或未注入时返回 null，
  * 调用方按"无 UI 能力"降级处理（不抛异常）。
  */
-import type { UIContext } from '@ohos.arkui.UIContext';
-import hilog from '@ohos.hilog';
+import type { UIContext } from '@kit.ArkUI';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const DOMAIN = 0x0005;
 const TAG = 'UiContext';

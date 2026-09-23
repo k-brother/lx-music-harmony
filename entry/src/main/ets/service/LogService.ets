@@ -8,8 +8,8 @@
  */
 
 import { common } from '@kit.AbilityKit';
-import fs from '@ohos.file.fs';
-import pasteboard from '@ohos.pasteboard';
+import { fileIo as fs } from '@kit.CoreFileKit';
+import { pasteboard } from '@kit.BasicServicesKit';
 import {
   logStore,
   LogRecord,

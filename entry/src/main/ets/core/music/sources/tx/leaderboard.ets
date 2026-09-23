@@ -6,7 +6,7 @@ import { httpGet, parseHttpBodyJson, type HttpRequestConfig } from '../../../../
 import { decodeName, formatPlayTime, sizeFormate } from '../../../../utils/CommonUtils';
 import { formatSingerName } from './utils/crypto';
 import type { MusicInfo, MusicQualityType, Quality, QualityDetail } from '../../../../types/MusicTypes';
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const TAG = 'TxLeaderboard';
 const DOMAIN = 0x0003;

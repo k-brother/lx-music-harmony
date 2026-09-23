@@ -4,7 +4,7 @@
  * 只做「任务数组 ↔ 存储」的转换，不认识队列，所以返回/接收的都是数组：
  * 队列层负责把结果并入内存里的任务表，测试与备份服务也能单独复用这一层。
  */
-import preferences from '@ohos.data.preferences';
+import { preferences } from '@kit.ArkData';
 import { appLog as hilog } from '../../log/AppLogger';
 import { requireDownloadContext } from './DownloadContext';
 import { DownloadStatus, type DownloadTask } from './DownloadTypes';

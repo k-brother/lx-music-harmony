@@ -20,7 +20,7 @@ import {
   buildLinuxapiFormBody,
   type WeapiJsonObject,
 } from './NeteaseCrypto';
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const TAG = 'WySongList';
 const DOMAIN = 0x0001;

@@ -5,7 +5,7 @@
  * 且仅支持 zip 的 zlib.decompressFile，所以走原生模块做内存解压。
  * 原生模块不可用时返回 null，调用方按「该路径不可用」继续走后续兜底。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import inflateNapiSo from 'libinflate_napi.so';
 
 const TAG = 'NapiInflate';

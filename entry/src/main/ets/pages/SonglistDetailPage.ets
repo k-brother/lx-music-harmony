@@ -1,7 +1,7 @@
 // 歌单详情页 - 对应 src/screens/SonglistDetail/index.tsx
 // 显示歌单信息和歌曲列表
 
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { showAppToast, TOAST_DURATION_SHORT } from '../utils/Toast';
 import { PlayerBar } from '../components/player/PlayerBar';
 import { setDownloadContext } from '../core/music/MusicFeatureEntry';

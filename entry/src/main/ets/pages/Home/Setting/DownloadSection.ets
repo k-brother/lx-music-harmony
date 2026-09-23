@@ -5,9 +5,9 @@
  * 并发数用输入面板。
  */
 import { common } from '@kit.AbilityKit';
-import fs from '@ohos.file.fs';
-import filePicker from '@ohos.file.picker';
-import hilog from '@ohos.hilog';
+import { fileIo as fs } from '@kit.CoreFileKit';
+import { picker as filePicker } from '@kit.CoreFileKit';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { settingsService } from '../../../service/SettingsService';
 import { t, tf } from '../../../service/LocalizationService';
 import { appToast } from '../../../service/DialogService';

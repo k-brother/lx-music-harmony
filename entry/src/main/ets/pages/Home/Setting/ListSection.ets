@@ -3,7 +3,7 @@
  *
  * 含「不喜欢列表」管理：查看规则条数、一键清空（走 DialogService，不再手写 ActionMenu 元组）。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { settingsService, type AddMusicLocation } from '../../../service/SettingsService';
 import { t, tf } from '../../../service/LocalizationService';
 import { appActionMenu, appToast } from '../../../service/DialogService';

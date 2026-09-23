@@ -2,7 +2,7 @@
  * 列表管理服务
  * 管理播放列表、我喜欢列表、用户列表
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { emitListUpdated } from './EventBus';
 import { settingsService } from './SettingsService';
 import type { IMusicItem } from '../core/interfaces/IMusicItem';

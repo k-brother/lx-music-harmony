@@ -2,7 +2,7 @@
  * 网易云音乐 - 热门搜索
  */
 import { httpRequest, parseHttpBodyJson, type HttpRequestConfig } from '../../../../core/network/http';
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const TAG = 'WyHotSearch';
 const DOMAIN = 0x0003;

@@ -1,7 +1,7 @@
 /**
  * 酷狗音乐 - 歌词获取
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { httpRequest, parseHttpBodyJson } from '../../../../core/network/http';
 import { decodeName } from '../../../../utils/CommonUtils';
 import { decodeKrc } from './util';

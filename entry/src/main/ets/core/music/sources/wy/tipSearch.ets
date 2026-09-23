@@ -5,7 +5,7 @@
  * 用的是建议接口的明文形态（/api/search/suggest/web），不必走 weapi 加密：
  * 加密版与明文版返回结构一致，少一层 RSA/AES 也就少一处出错可能。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { httpRequest, parseHttpBodyJson, type HttpRequestConfig, type HttpResponse } from '../../../../core/network/http';
 
 const TAG = 'WyTipSearch';

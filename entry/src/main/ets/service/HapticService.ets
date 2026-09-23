@@ -11,7 +11,7 @@
  * - 可关：跟随「设置 → 触感反馈」，关掉后所有调用静默返回；
  * - 能力降级：设备不支持/权限被拒时静默失败并记住结果，不再反复尝试。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { vibrator } from '@kit.SensorServiceKit';
 import type { BusinessError } from '@kit.BasicServicesKit';
 import { settingsService } from './SettingsService';

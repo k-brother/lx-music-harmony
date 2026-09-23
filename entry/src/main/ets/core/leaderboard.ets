@@ -10,7 +10,7 @@ import {
 } from './music/MusicFeatureEntry';
 import type { MusicInfo } from '../types/MusicTypes';
 import { pluginManager } from './plugin/PluginManager';
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const DOMAIN = 0xFF00;
 const TAG = 'Leaderboard';

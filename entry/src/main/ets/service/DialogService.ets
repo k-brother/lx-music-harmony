@@ -13,7 +13,7 @@
  * ActionMenu 超过 5 项时自动折叠为「前 4 项 + 更多…」，选择后再展开剩余项，
  * 返回值始终是**原始数组下标**，调用方不需要感知折叠。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { t } from './LocalizationService';
 import { getAppUiContext } from './UiContext';
 import { DesignTokens } from '../theme/DesignTokens';

@@ -1,7 +1,7 @@
 // 迷你播放器栏组件 - 对应 src/components/player/PlayerBar/index.tsx
 // 显示在首页底部的迷你播放控制栏
 
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { t } from '../../service/LocalizationService';
 import { navigationService, RouteName } from '../../service';
 import { normalizeCoverUrl } from '../../utils/CommonUtils';

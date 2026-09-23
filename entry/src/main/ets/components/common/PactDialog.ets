@@ -7,7 +7,7 @@
  * - 未同意时「接受」按钮带 20 秒倒计时（与安卓版一致，避免用户没看就点同意）；
  * - 拒绝则退出应用。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { common } from '@kit.AbilityKit';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { t } from '../../service/LocalizationService';

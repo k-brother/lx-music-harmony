@@ -1,6 +1,6 @@
 /** HTTP 层共用工具，供 HttpClient / HttpCompat 复用，避免两套实现漂移 */
 
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const TAG = 'HttpShared';
 const DOMAIN = 0x0001;

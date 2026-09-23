@@ -7,7 +7,7 @@
  * 编码策略：先按 UTF-8 解；出现替换字符（U+FFFD）说明是 GB18030 的老歌词，
  * 再解一次。时间轴是 ASCII，只看「有没有 '['」分辨不出编码。
  */
-import fs from '@ohos.file.fs';
+import { fileIo as fs } from '@kit.CoreFileKit';
 import { appLog as hilog } from '../../log/AppLogger';
 import { utf8Decode } from '../../../utils/TextCodec';
 

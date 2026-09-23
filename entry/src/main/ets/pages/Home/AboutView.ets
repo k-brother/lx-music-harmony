@@ -2,7 +2,7 @@ import { t } from '../../service/LocalizationService';
 // AboutView - 关于页面
 // 对应安卓源码中的 About 页面
 
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { Breakpoints } from '../../theme/Breakpoints';
 import { NavBackButton } from '../../components/common/NavBackButton';

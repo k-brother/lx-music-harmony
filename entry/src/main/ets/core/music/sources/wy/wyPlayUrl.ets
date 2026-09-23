@@ -2,7 +2,7 @@
  * 网易云 — 播放地址，由 {@link NeteaseMusicSource} 调用。
  */
 
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import type { MusicInfo } from '../../../../types/MusicTypes';
 import { httpRequest, parseHttpBodyJson, httpResponseBody } from '../../../../core/network/http';
 import type { MusicUrlResult } from '../MusicSdkContracts';

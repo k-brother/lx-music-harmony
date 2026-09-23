@@ -1,7 +1,7 @@
 // 运行日志页 - 对应安卓版 设置 → 其他 → 日志
 // 展示应用运行日志（WARN/ERROR 默认记录，可选详细日志），支持筛选、复制、导出、清空
 
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { appConfirm } from '../service/DialogService';
 import { showAppToast, TOAST_DURATION_DEFAULT } from '../utils/Toast';
 import { DesignTokens } from '../theme/DesignTokens';

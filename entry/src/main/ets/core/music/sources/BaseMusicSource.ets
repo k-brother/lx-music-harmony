@@ -3,7 +3,7 @@
  * 业务契约见 {@link IMusicSource} / {@link AbstractMusicSource}；各平台实现见 `kw/KuwoMusicSource` 等同目录入口。
  */
 
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { httpClient, type HttpRequestConfig } from '../../../core/network/http';
 import type { SearchResult } from '../../../types/MusicTypes';
 

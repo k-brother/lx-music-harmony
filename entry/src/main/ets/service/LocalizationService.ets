@@ -1,7 +1,7 @@
 // 本地化服务 - 多语言支持
 // 通过 AppStorage 驱动全局语言切换
 
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { settingsService } from './SettingsService';
 import type { PlayCountUnits } from '../utils/FormatTools';
 

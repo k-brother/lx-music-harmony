@@ -4,7 +4,7 @@
  * 重构后：统一使用 UI Kit（NavBar / ListRow / StateView）+ DialogService，
  * 页面只保留数据加载与播放逻辑，视觉与其它列表页完全一致。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { playerService, SongInfo } from '../service/PlayerService';
 import { getMusicUrl } from '../core/music/MusicFeatureEntry';
 import {

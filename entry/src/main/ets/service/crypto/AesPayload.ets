@@ -10,8 +10,8 @@
  * - `encryptWithPassword/decryptWithPassword`：随机 IV + SHA-256 派生密钥，供备份使用；
  *   载荷带版本前缀 `LXB1:`，并保留对旧 XOR 备份的解密兼容（老备份仍能恢复）
  */
-import cryptoFramework from '@ohos.security.cryptoFramework';
-import util from '@ohos.util';
+import { cryptoFramework } from '@kit.CryptoArchitectureKit';
+import { util } from '@kit.ArkTS';
 import { appLog as hilog } from '../../core/log/AppLogger';
 import { utf8Encode, utf8Decode } from '../../utils/TextCodec';
 

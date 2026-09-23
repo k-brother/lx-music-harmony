@@ -7,7 +7,7 @@
  *
  * 缓存条目同时登记到 CacheService（键 + 估算大小），供设置页做分项统计与清理。
  */
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { getStorageService } from '../../interfaces/IStorageService';
 import { cacheService } from '../../../service/CacheService';
 import type { MusicInfo, LyricInfo, Quality } from '../../../types/MusicTypes';

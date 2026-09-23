@@ -1,7 +1,7 @@
 // NavigationService - 页面导航服务
 // 使用 Navigation 组件 + NavPathStack 进行页面导航
 
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 // 页面路由名称
 export enum RouteName {

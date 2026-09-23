@@ -11,7 +11,7 @@ import {
 // SongList 视图 - 歌单列表视图
 // 优化：字体放大、标签筛选、下拉刷新
 
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { RouteName, navigateTo, NavigationParams } from '../../service/NavigationService';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { SearchStrip, SearchStripActions } from '../../components/common/SearchStrip';

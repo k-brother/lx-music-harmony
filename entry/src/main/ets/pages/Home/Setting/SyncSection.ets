@@ -4,7 +4,7 @@
  * 服务器历史（连接过的地址）用 SelectSheet 呈现，选中即切换、支持清空。
  */
 import { common } from '@kit.AbilityKit';
-import hilog from '@ohos.hilog';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { settingsService } from '../../../service/SettingsService';
 import { t, tf } from '../../../service/LocalizationService';
 import { appActionMenu, appToast } from '../../../service/DialogService';
