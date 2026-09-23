@@ -38,6 +38,27 @@ export interface HotSearchInterface {
   getHotSearchFromNewApi: () => Promise<HotSearchResult>;
 }
 
+/** 内置兜底热搜（三个失败分支共用，避免各写一份 4 行字面量） */
+function buildDefaultHotSearchResult(): HotSearchResult {
+  const result: HotSearchResult = {
+    list: getDefaultHotSearch(),
+    source: 'kw',
+  };
+  return result;
+}
+
+/**
+ * 主接口拿不到热搜时的统一退路：先试备用接口，再退内置默认。
+ * 原实现把这段（含 promise 链）复制了三遍。
+ */
+function resolveWithFallbackApi(resolve: (result: HotSearchResult) => void): void {
+  hotSearch.getHotSearchFromNewApi().then((hotResult: HotSearchResult) => {
+    resolve(hotResult);
+  }).catch(() => {
+    resolve(buildDefaultHotSearchResult());
+  });
+}
+
 // 酷我热门搜索模块
 export const hotSearch: HotSearchInterface = {
   /**
@@ -79,40 +100,16 @@ export const hotSearch: HotSearchInterface = {
             resolve(result);
           } else {
             // 尝试备用热搜API
-            hotSearch.getHotSearchFromNewApi().then((hotResult: HotSearchResult) => {
-              resolve(hotResult);
-            }).catch(() => {
-              const result: HotSearchResult = {
-                list: getDefaultHotSearch(),
-                source: 'kw',
-              };
-              resolve(result);
-            });
+            resolveWithFallbackApi(resolve);
           }
         } catch (e) {
           hilog.warn(DOMAIN, TAG, 'search parse failed: %{public}s', (e as Error)?.message);
           // 尝试备用热搜API
-          hotSearch.getHotSearchFromNewApi().then((hotResult: HotSearchResult) => {
-            resolve(hotResult);
-          }).catch(() => {
-            const result: HotSearchResult = {
-              list: getDefaultHotSearch(),
-              source: 'kw',
-            };
-            resolve(result);
-          });
+          resolveWithFallbackApi(resolve);
         }
       }).catch(() => {
         // 尝试备用热搜API
-        hotSearch.getHotSearchFromNewApi().then((hotResult: HotSearchResult) => {
-          resolve(hotResult);
-        }).catch(() => {
-          const result: HotSearchResult = {
-            list: getDefaultHotSearch(),
-            source: 'kw',
-          };
-          resolve(result);
-        });
+        resolveWithFallbackApi(resolve);
       });
     });
   },

@@ -87,6 +87,60 @@ function buildEmptyHotSearchResult(): HotSearchResult {
   return result;
 }
 
+/** 热搜接口的公共请求头（Referer 必带，否则 QQ 音乐侧会拒绝） */
+function buildHotkeyHeaders(): Map<string, string> {
+  const headers: Map<string, string> = new Map();
+  headers.set('Referer', 'https://y.qq.com/portal/player.html');
+  headers.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36');
+  return headers;
+}
+
+/** 热搜榜请求体（模块名/方法名写死，参数为空即可拿全量热词） */
+function buildHotkeyRequestData(): TXRequestData {
+  const requestData: TXRequestData = {
+    comm: {
+      ct: '19',
+      cv: '1803',
+      guid: '0',
+      patch: '118',
+      psrf_access_token_expiresAt: 0,
+      psrf_qqaccess_token: '',
+      psrf_qqopenid: '',
+      psrf_qqunionid: '',
+      tmeAppID: 'qqmusic',
+      tmeLoginType: 0,
+      uin: '0',
+      wid: '0',
+    },
+    hotkey: {
+      method: 'GetHotkeyForQQMusicPC',
+      module: 'tencent_musicsoso_hotkey.HotkeyService',
+      param: {
+        search_id: '',
+        uin: 0,
+      },
+    },
+  };
+  return requestData;
+}
+
+/** 热词列表 → 统一热搜项（index 从 1 开始，热度取接口 score） */
+function toHotSearchItems(vecHotkey: HotkeyItem[]): HotSearchItem[] {
+  const list: HotSearchItem[] = [];
+  for (let i = 0; i < vecHotkey.length; i++) {
+    const item = vecHotkey[i];
+    const hotItem: HotSearchItem = {
+      index: i + 1,
+      title: item.query,
+      source: 'tx',
+      url: null,
+      hot: item.score || 0,
+    };
+    list.push(hotItem);
+  }
+  return list;
+}
+
 // QQ音乐热搜榜实现
 export const hotSearch: HotSearchInterface = {
   /**
@@ -97,68 +151,22 @@ export const hotSearch: HotSearchInterface = {
       // QQ音乐热搜榜API
       const url = 'https://u.y.qq.com/cgi-bin/musicu.fcg';
 
-      const headers: Map<string, string> = new Map();
-      headers.set('Referer', 'https://y.qq.com/portal/player.html');
-      headers.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36');
-
-      // 构建请求数据
-      const requestData: TXRequestData = {
-        comm: {
-          ct: '19',
-          cv: '1803',
-          guid: '0',
-          patch: '118',
-          psrf_access_token_expiresAt: 0,
-          psrf_qqaccess_token: '',
-          psrf_qqopenid: '',
-          psrf_qqunionid: '',
-          tmeAppID: 'qqmusic',
-          tmeLoginType: 0,
-          uin: '0',
-          wid: '0',
-        },
-        hotkey: {
-          method: 'GetHotkeyForQQMusicPC',
-          module: 'tencent_musicsoso_hotkey.HotkeyService',
-          param: {
-            search_id: '',
-            uin: 0,
-          },
-        },
-      };
-
       const options: HttpRequestConfig = {
         method: 'POST',
-        header: headers,
-        extraData: JSON.stringify(requestData),
+        header: buildHotkeyHeaders(),
+        extraData: JSON.stringify(buildHotkeyRequestData()),
       };
 
       const response = await httpRequest(url, options).promise;
 
       const resultData: string | Object | ArrayBuffer = response.result as string | Object | ArrayBuffer;
       const body = parseHttpBodyJson<TXHotSearchAPIResponse>(resultData);
-      if (body) {
-        if (body.code === 0 && body.hotkey && body.hotkey.data && body.hotkey.data.vec_hotkey) {
-          const hotSearchList: HotSearchItem[] = [];
-
-          for (let i = 0; i < body.hotkey.data.vec_hotkey.length; i++) {
-            const item = body.hotkey.data.vec_hotkey[i];
-            const hotItem: HotSearchItem = {
-              index: i + 1,
-              title: item.query,
-              source: 'tx',
-              url: null,
-              hot: item.score || 0,
-            };
-            hotSearchList.push(hotItem);
-          }
-
-          const result: HotSearchResult = {
-            list: hotSearchList,
-            source: 'tx',
-          };
-          return result;
-        }
+      if (body && body.code === 0 && body.hotkey && body.hotkey.data && body.hotkey.data.vec_hotkey) {
+        const result: HotSearchResult = {
+          list: toHotSearchItems(body.hotkey.data.vec_hotkey),
+          source: 'tx',
+        };
+        return result;
       }
 
       // 如果API调用失败，返回空结果

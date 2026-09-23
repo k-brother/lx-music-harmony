@@ -248,6 +248,84 @@ function buildMusicInfo(item: KwSongDetailItem): MusicInfo {
   };
 }
 
+/**
+ * 标签接口不可用时的兜底标签。
+ *
+ * 分类接口（getTagList）会时不时抽风：返回非 200、字段缺失、请求直接失败三种情况下
+ * 页面都必须还有内容可点，所以三处兜底共用同一份数据（原先复制了三份 16 行的字面量，
+ * 改一处漏两处是迟早的事）。
+ */
+const KW_FALLBACK_TAGS: SongListTag[] = [
+  { id: '37-10000', name: '华语' },
+  { id: '35-10000', name: '欧美' },
+  { id: '1093-10000', name: '韩语' },
+  { id: '1091-10000', name: '日语' },
+  { id: '393-10000', name: '流行' },
+  { id: '392-10000', name: '民谣' },
+  { id: '391-10000', name: '电子' },
+  { id: '389-10000', name: '摇滚' },
+];
+
+const KW_FALLBACK_HOT_TAGS: SongListTag[] = [
+  { id: '393-10000', name: '流行' },
+  { id: '37-10000', name: '华语' },
+  { id: '35-10000', name: '欧美' },
+  { id: '1093-10000', name: '韩语' },
+  { id: '1091-10000', name: '日语' },
+];
+
+/** 兜底标签结果（每次返回副本，避免调用方改动共享常量） */
+function buildFallbackTagsResult(): SongListTagsResult {
+  const result: SongListTagsResult = {
+    tags: KW_FALLBACK_TAGS.slice(),
+    hotTag: KW_FALLBACK_HOT_TAGS.slice(),
+    source: 'kw',
+  };
+  return result;
+}
+
+/**
+ * 把分类接口的分类列表拍平成可选标签。
+ * 只保留 digest = 10000 的类型：其余类型走 getTagPlayList 拿不到数据，
+ * 留在页面上会变成「点了没反应」的空壳入口。
+ */
+function flattenTagCategories(categories: KwTagRawCategory[]): SongListTag[] {
+  const tags: SongListTag[] = [];
+  for (let i = 0; i < categories.length; i++) {
+    const cat = categories[i];
+    const catName = cat.name || '';
+    const catId = String(cat.id || '');
+    const rows = cat.data || [];
+    for (let j = 0; j < rows.length; j++) {
+      const row = rows[j];
+      const digest = String(row.digest || '');
+      if (digest !== '10000') {
+        continue;
+      }
+      tags.push({
+        id: `${String(row.id || '')}-${digest}`,
+        name: row.name || '',
+        parent_id: catId,
+        parent_name: catName,
+      });
+    }
+  }
+  return tags;
+}
+
+/** 热门标签：按语言/曲风关键字挑，最多 8 个 */
+function pickHotTags(tags: SongListTag[]): SongListTag[] {
+  const hotTag: SongListTag[] = [];
+  for (let k = 0; k < tags.length && hotTag.length < 8; k++) {
+    const t = tags[k];
+    if (t.name && (t.name.includes('流行') || t.name.includes('华语') || t.name.includes('欧美')
+      || t.name.includes('韩语') || t.name.includes('日语'))) {
+      hotTag.push({ id: t.id, name: t.name });
+    }
+  }
+  return hotTag;
+}
+
 export const songList: SongListInterface = {
   limit: 36,
   limitSong: 1000,
@@ -282,106 +360,22 @@ export const songList: SongListInterface = {
         try {
           const data: KwTagListApiData = JSON.parse(response.data as string) as KwTagListApiData;
           if (data.code !== 200 || !data.data) {
-            resolve({
-              tags: [
-                { id: '37-10000', name: '华语' },
-                { id: '35-10000', name: '欧美' },
-                { id: '1093-10000', name: '韩语' },
-                { id: '1091-10000', name: '日语' },
-                { id: '393-10000', name: '流行' },
-                { id: '392-10000', name: '民谣' },
-                { id: '391-10000', name: '电子' },
-                { id: '389-10000', name: '摇滚' },
-              ],
-              hotTag: [
-                { id: '393-10000', name: '流行' },
-                { id: '37-10000', name: '华语' },
-                { id: '35-10000', name: '欧美' },
-                { id: '1093-10000', name: '韩语' },
-                { id: '1091-10000', name: '日语' },
-              ],
-              source: 'kw',
-            });
+            resolve(buildFallbackTagsResult());
             return;
           }
 
-          const tags: SongListTag[] = [];
-          for (let i = 0; i < data.data.length; i++) {
-            const cat = data.data[i];
-            const catName = cat.name || '';
-            const catId = String(cat.id || '');
-            const rows = cat.data || [];
-            for (let j = 0; j < rows.length; j++) {
-              const row = rows[j];
-              const digest = String(row.digest || '');
-              // 仅保留可直接走 getTagPlayList 的类型，避免 43 等类型无数据导致“只有全部有数据”
-              if (digest !== '10000') {
-                continue;
-              }
-              tags.push({
-                id: `${String(row.id || '')}-${digest}`,
-                name: row.name || '',
-                parent_id: catId,
-                parent_name: catName,
-              });
-            }
-          }
-          const hotTag: SongListTag[] = [];
-          for (let k = 0; k < tags.length && hotTag.length < 8; k++) {
-            const t = tags[k];
-            if (t.name && (t.name.includes('流行') || t.name.includes('华语') || t.name.includes('欧美') || t.name.includes('韩语') || t.name.includes('日语'))) {
-              hotTag.push({ id: t.id, name: t.name });
-            }
-          }
+          const tags: SongListTag[] = flattenTagCategories(data.data);
           resolve({
             tags,
-            hotTag,
+            hotTag: pickHotTags(tags),
             source: 'kw',
           });
         } catch (e) {
           hilog.warn(DOMAIN, TAG, 'getTags parse failed: %{public}s', (e as Error)?.message);
-          resolve({
-            tags: [
-              { id: '37-10000', name: '华语' },
-              { id: '35-10000', name: '欧美' },
-              { id: '1093-10000', name: '韩语' },
-              { id: '1091-10000', name: '日语' },
-              { id: '393-10000', name: '流行' },
-              { id: '392-10000', name: '民谣' },
-              { id: '391-10000', name: '电子' },
-              { id: '389-10000', name: '摇滚' },
-            ],
-            hotTag: [
-              { id: '393-10000', name: '流行' },
-              { id: '37-10000', name: '华语' },
-              { id: '35-10000', name: '欧美' },
-              { id: '1093-10000', name: '韩语' },
-              { id: '1091-10000', name: '日语' },
-            ],
-            source: 'kw',
-          });
+          resolve(buildFallbackTagsResult());
         }
       }).catch(() => {
-        resolve({
-          tags: [
-            { id: '37-10000', name: '华语' },
-            { id: '35-10000', name: '欧美' },
-            { id: '1093-10000', name: '韩语' },
-            { id: '1091-10000', name: '日语' },
-            { id: '393-10000', name: '流行' },
-            { id: '392-10000', name: '民谣' },
-            { id: '391-10000', name: '电子' },
-            { id: '389-10000', name: '摇滚' },
-          ],
-          hotTag: [
-            { id: '393-10000', name: '流行' },
-            { id: '37-10000', name: '华语' },
-            { id: '35-10000', name: '欧美' },
-            { id: '1093-10000', name: '韩语' },
-            { id: '1091-10000', name: '日语' },
-          ],
-          source: 'kw',
-        });
+        resolve(buildFallbackTagsResult());
       });
     });
   },

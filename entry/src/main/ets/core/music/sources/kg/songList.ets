@@ -689,6 +689,82 @@ interface SongListInterface {
   getDetailPageUrl: (id: string) => string;
 }
 
+/** 歌单详情抓不到（重试上限用尽）时的空结果 */
+function buildEmptyDetailResult(): SongListDetailResult {
+  const info: SongListDetailInfo = {
+    name: '',
+    img: '',
+    desc: '',
+    author: '',
+    play_count: '',
+  };
+  return {
+    list: [],
+    total: 0,
+    source: 'kg',
+    info,
+  };
+}
+
+/** 从详情页 HTML 里的 global 配置取歌单名/封面/简介 */
+function buildDetailInfo(listInfo: RegExpMatchArray | null, body: string): SongListDetailInfo {
+  const info: SongListDetailInfo = {
+    name: listInfo && listInfo[1] ? decodeName(listInfo[1].trim()) : '',
+    img: listInfo && listInfo[2] ? listInfo[2] : '',
+    desc: parseHtmlDesc(body),
+    author: '',
+    play_count: '',
+  };
+  return info;
+}
+
+/** HTML 里只有歌名/歌手/hash 的简化数据（批量接口拿不到时的兜底，至少能播能看） */
+function toSimpleMusicInfo(item: KGSongRawItem): MusicInfo {
+  return {
+    name: decodeName(item.songname) || '',
+    singer: decodeName(item.singername) || '',
+    source: 'kg',
+    songmid: item.hash || '',
+    albumId: item.album_id || '',
+    interval: item.duration ? formatPlayTime(item.duration) : '00:00',
+    albumName: decodeName(item.album_name) || '',
+    img: item.img || null,
+    lrc: null,
+    types: [],
+    _types: new Map<Quality, QualityDetail>(),
+    typeUrl: new Map<string, string>(),
+    otherSource: null,
+    hash: item.hash,
+  };
+}
+
+/**
+ * 歌单详情的歌曲列表：优先按 hash 批量补全完整信息，批量失败就退回 HTML 简化数据。
+ * 两条路都拿不到就是空列表（上层按空歌单展示）。
+ */
+async function buildDetailMusicList(uniqueList: KGSongRawItem[]): Promise<MusicInfo[]> {
+  const hashes: string[] = [];
+  for (const item of uniqueList) {
+    if (item.hash) {
+      hashes.push(item.hash);
+    }
+  }
+  if (hashes.length > 0) {
+    const batchData = await getMusicInfosFromAPI(hashes);
+    if (batchData.length > 0) {
+      const fullList: MusicInfo[] = filterBatchMusicData(batchData);
+      if (fullList.length > 0) {
+        return fullList;
+      }
+    }
+  }
+  const fallbackList: MusicInfo[] = [];
+  for (const item of uniqueList) {
+    fallbackList.push(toSimpleMusicInfo(item));
+  }
+  return fallbackList;
+}
+
 export const songList: SongListInterface = {
   sortList: sortList,
   listDetailLimit: 10000,
@@ -805,18 +881,7 @@ export const songList: SongListInterface = {
    */
   async getListDetailBySpecialId(id: string, page: number, tryNum: number = 0): Promise<SongListDetailResult> {
     if (tryNum > 2) {
-      return {
-        list: [],
-        total: 0,
-        source: 'kg',
-        info: {
-          name: '',
-          img: '',
-          desc: '',
-          author: '',
-          play_count: '',
-        },
-      };
+      return buildEmptyDetailResult();
     }
     // 酷狗歌单详情 URL - HTML页面
     const url = getSongListDetailUrl(id);
@@ -831,62 +896,14 @@ export const songList: SongListInterface = {
         return songList.getListDetailBySpecialId(id, page, tryNum + 1);
       }
 
-      // 去重
-      const uniqueList = deDuplication(rawList);
-
-      // 获取所有 hash
-      const hashes: string[] = [];
-      for (const item of uniqueList) {
-        if (item.hash) {
-          hashes.push(item.hash);
-        }
-      }
-
-      // 批量获取歌曲详细信息
-      let musicList: MusicInfo[] = [];
-      if (hashes.length > 0) {
-        const batchData = await getMusicInfosFromAPI(hashes);
-        if (batchData.length > 0) {
-          musicList = filterBatchMusicData(batchData);
-        }
-      }
-
-      // 如果批量获取失败，使用简化数据
-      if (musicList.length === 0 && uniqueList.length > 0) {
-        for (const item of uniqueList) {
-          const simpleMusicInfo: MusicInfo = {
-            name: decodeName(item.songname) || '',
-            singer: decodeName(item.singername) || '',
-            source: 'kg',
-            songmid: item.hash || '',
-            albumId: item.album_id || '',
-            interval: item.duration ? formatPlayTime(item.duration) : '00:00',
-            albumName: decodeName(item.album_name) || '',
-            img: item.img || null,
-            lrc: null,
-            types: [],
-            _types: new Map<Quality, QualityDetail>(),
-            typeUrl: new Map<string, string>(),
-            otherSource: null,
-            hash: item.hash,
-          };
-          musicList.push(simpleMusicInfo);
-        }
-      }
-
+      const musicList = await buildDetailMusicList(deDuplication(rawList));
       const result: SongListDetailResult = {
         list: musicList,
         page: 1,
         limit: songList.listDetailLimit,
         total: musicList.length,
         source: 'kg',
-        info: {
-          name: listInfo && listInfo[1] ? decodeName(listInfo[1].trim()) : '',
-          img: listInfo && listInfo[2] ? listInfo[2] : '',
-          desc: parseHtmlDesc(body),
-          author: '',
-          play_count: '',
-        },
+        info: buildDetailInfo(listInfo, body),
       };
       return result;
     } catch (e) {

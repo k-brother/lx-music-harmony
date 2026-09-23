@@ -216,7 +216,7 @@ class PluginManagerImpl {
 
       hilog.info(DOMAIN, TAG, 'Custom source loaded: %{public}s', this.pluginMeta.name);
       this.pluginLoading = false;
-    this.pluginLoaded = true;
+      this.pluginLoaded = true;
       return true;
 
     } catch (error) {
