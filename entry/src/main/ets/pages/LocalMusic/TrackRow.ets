@@ -55,50 +55,9 @@ export struct TrackRow {
 
   build() {
     Row() {
-      if (this.coverUrl.length > 0) {
-        Image(`file://${this.coverUrl}`)
-          .width(52)
-          .height(52)
-          .borderRadius(8)
-          .objectFit(ImageFit.Cover)
-          .backgroundColor(DesignTokens.mutedFill(this.theme))
-      } else {
-        Image($r('app.media.ic_player_cover_placeholder'))
-          .width(52)
-          .height(52)
-          .borderRadius(8)
-          .objectFit(ImageFit.Cover)
-      }
-
-      Column() {
-        Text(this.title)
-          .fontSize(DesignTokens.fontSubhead())
-          .fontWeight(this.active ? FontWeight.Medium : FontWeight.Normal)
-          .fontColor(this.active ? DesignTokens.accent() : DesignTokens.labelPrimary(this.theme))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .width('100%')
-          .textAlign(TextAlign.Start)
-        if (this.subtitleText().length > 0) {
-          Text(this.subtitleText())
-            .fontSize(DesignTokens.fontCaption())
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .width('100%')
-            .textAlign(TextAlign.Start)
-            .margin({ top: 4 })
-        }
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-      .margin({ left: 12 })
-
-      if (this.trailingTimeText().length > 0) {
-        Text(this.trailingTimeText())
-          .fontSize(DesignTokens.fontCaption())
-          .fontColor(DesignTokens.labelTertiary(this.theme))
-      }
+      this.Cover()
+      this.TitleBlock()
+      this.TrailingTime()
     }
     .width('100%')
     .padding({
@@ -136,5 +95,62 @@ export struct TrackRow {
         this.onTap();
       }
     })
+  }
+
+  /** 封面：本地文件优先，缺失时用占位图（两者尺寸一致，避免行高跳动） */
+  @Builder
+  Cover() {
+    if (this.coverUrl.length > 0) {
+      Image(`file://${this.coverUrl}`)
+        .width(52)
+        .height(52)
+        .borderRadius(8)
+        .objectFit(ImageFit.Cover)
+        .backgroundColor(DesignTokens.mutedFill(this.theme))
+    } else {
+      Image($r('app.media.ic_player_cover_placeholder'))
+        .width(52)
+        .height(52)
+        .borderRadius(8)
+        .objectFit(ImageFit.Cover)
+    }
+  }
+
+  /** 歌名 + 副标题（副标题内容由 RowTexts 按「设置 → 列表」裁剪） */
+  @Builder
+  TitleBlock() {
+    Column() {
+      Text(this.title)
+        .fontSize(DesignTokens.fontSubhead())
+        .fontWeight(this.active ? FontWeight.Medium : FontWeight.Normal)
+        .fontColor(this.active ? DesignTokens.accent() : DesignTokens.labelPrimary(this.theme))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width('100%')
+        .textAlign(TextAlign.Start)
+      if (this.subtitleText().length > 0) {
+        Text(this.subtitleText())
+          .fontSize(DesignTokens.fontCaption())
+          .fontColor(DesignTokens.labelTertiary(this.theme))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .width('100%')
+          .textAlign(TextAlign.Start)
+          .margin({ top: 4 })
+      }
+    }
+    .layoutWeight(1)
+    .alignItems(HorizontalAlign.Start)
+    .margin({ left: 12 })
+  }
+
+  /** 右侧时长（关闭「显示时长」时整块不渲染） */
+  @Builder
+  TrailingTime() {
+    if (this.trailingTimeText().length > 0) {
+      Text(this.trailingTimeText())
+        .fontSize(DesignTokens.fontCaption())
+        .fontColor(DesignTokens.labelTertiary(this.theme))
+    }
   }
 }

@@ -75,64 +75,78 @@ export struct ListRow {
     return this.trailingText;
   }
 
+  /** 行首：序号 / 封面 / 占位图标（三者互斥） */
+  @Builder
+  RowLeading() {
+    if (this.showIndex) {
+      Text(this.index > 0 ? this.index.toString() : '')
+        .fontSize(DesignTokens.fontCaption())
+        .fontColor(this.active ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
+        .width(28)
+        .textAlign(TextAlign.Center)
+    } else if (this.cover.length > 0) {
+      Image(this.cover)
+        .width(DesignTokens.rowCover())
+        .height(DesignTokens.rowCover())
+        .borderRadius(DesignTokens.radiusCover())
+        .objectFit(ImageFit.Cover)
+    } else {
+      Column() {
+        SymbolGlyph($r('sys.symbol.music_note_list'))
+          .fontSize(DesignTokens.fontDisplay())
+          .fontColor([DesignTokens.labelTertiary(this.theme)])
+      }
+      .width(DesignTokens.rowCover())
+      .height(DesignTokens.rowCover())
+      .borderRadius(DesignTokens.radiusCover())
+      .backgroundColor(DesignTokens.mutedFill(this.theme))
+      .justifyContent(FlexAlign.Center)
+    }
+  }
+
+  /** 主标题 + 副标题（副标题是否显示专辑/音源由 RowTexts 统一裁剪） */
+  @Builder
+  RowTitles() {
+    Column({ space: 2 }) {
+      Text(this.title)
+        .fontSize(DesignTokens.fontTitle())
+        .fontColor(this.active ? DesignTokens.accent() : DesignTokens.labelPrimary(this.theme))
+        .maxLines(this.twoLine ? 2 : 1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width('100%')
+      if (this.rowSubtitle().length > 0) {
+        Text(this.rowSubtitle())
+          .fontSize(DesignTokens.fontCaption())
+          .fontColor(DesignTokens.labelTertiary(this.theme))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .width('100%')
+      }
+    }
+    .alignItems(HorizontalAlign.Start)
+    .layoutWeight(1)
+    .margin({ left: 10, right: 8 })
+  }
+
+  /** 行尾：时长文本 + 页面自定义动作插槽 */
+  @Builder
+  RowTrailing() {
+    if (this.rowTrailingText().length > 0) {
+      Text(this.rowTrailingText())
+        .fontSize(DesignTokens.fontCaption())
+        .fontColor(DesignTokens.labelTertiary(this.theme))
+    }
+    if (this.trailing) {
+      this.trailing()
+    }
+  }
+
   build() {
     Column() {
       Row() {
-        if (this.showIndex) {
-          Text(this.index > 0 ? this.index.toString() : '')
-            .fontSize(DesignTokens.fontCaption())
-            .fontColor(this.active ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
-            .width(28)
-            .textAlign(TextAlign.Center)
-        } else if (this.cover.length > 0) {
-          Image(this.cover)
-            .width(DesignTokens.rowCover())
-            .height(DesignTokens.rowCover())
-            .borderRadius(DesignTokens.radiusCover())
-            .objectFit(ImageFit.Cover)
-        } else {
-          Column() {
-            SymbolGlyph($r('sys.symbol.music_note_list'))
-              .fontSize(DesignTokens.fontDisplay())
-              .fontColor([DesignTokens.labelTertiary(this.theme)])
-          }
-          .width(DesignTokens.rowCover())
-          .height(DesignTokens.rowCover())
-          .borderRadius(DesignTokens.radiusCover())
-          .backgroundColor(DesignTokens.mutedFill(this.theme))
-          .justifyContent(FlexAlign.Center)
-        }
-
-        Column({ space: 2 }) {
-          Text(this.title)
-            .fontSize(DesignTokens.fontTitle())
-            .fontColor(this.active ? DesignTokens.accent() : DesignTokens.labelPrimary(this.theme))
-            .maxLines(this.twoLine ? 2 : 1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .width('100%')
-          if (this.rowSubtitle().length > 0) {
-            Text(this.rowSubtitle())
-              .fontSize(DesignTokens.fontCaption())
-              .fontColor(DesignTokens.labelTertiary(this.theme))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .width('100%')
-          }
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-        .margin({ left: 10, right: 8 })
-
-        if (this.rowTrailingText().length > 0) {
-          Text(this.rowTrailingText())
-            .fontSize(DesignTokens.fontCaption())
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-        }
-
-        // 右侧动作插槽
-        if (this.trailing) {
-          this.trailing()
-        }
+        this.RowLeading()
+        this.RowTitles()
+        this.RowTrailing()
       }
       .width('100%')
       .height(this.twoLine || this.rowSubtitle().length > 0

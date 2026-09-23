@@ -95,51 +95,7 @@ export struct DownloadTaskRow {
             .margin({ right: 12 })
         }
 
-        Column() {
-          Text(this.row.title)
-            .fontSize(DesignTokens.fontTitle())
-            .fontWeight(FontWeight.Medium)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-          Text(this.row.subtitle)
-            .fontSize(DesignTokens.fontCaption())
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-            .margin({ top: 4 })
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-          Row() {
-            Text(this.row.statusText)
-              .fontSize(DesignTokens.fontMicro())
-              .fontColor(this.row.statusColor)
-              .fontWeight(FontWeight.Medium)
-            Text(` · ${this.row.metaText}`)
-              .fontSize(DesignTokens.fontMicro())
-              .fontColor(DesignTokens.labelTertiary(this.theme))
-          }
-          .margin({ top: 8 })
-
-          if (this.row.showProgress) {
-            Progress({ value: this.row.progress, total: 100 })
-              .width('100%')
-              .height(4)
-              .color(this.row.statusColor)
-              .backgroundColor(DesignTokens.mutedFill(this.theme))
-              .margin({ top: 10 })
-          }
-
-          if (this.row.errorText.length > 0) {
-            Text(this.row.errorText)
-              .fontSize(DesignTokens.fontMicro())
-              .fontColor(DesignTokens.danger())
-              .margin({ top: 6 })
-              .maxLines(2)
-          }
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
+        this.TaskInfo()
 
         if (!this.row.selectMode) {
           this.TrailingActions()
@@ -155,6 +111,8 @@ export struct DownloadTaskRow {
     .backgroundColor(DesignTokens.card(this.theme))
     .border({ width: 0.5, color: DesignTokens.cardBorder(this.theme) })
     .alignItems(VerticalAlign.Center)
+    // 无障碍：多选态下整行本身就是点击目标，读屏要能念出「歌名 + 状态」
+    .accessibilityText(`${this.row.title} ${this.row.statusText}`)
     // 2in1（PC/平板接鼠标）下的悬停反馈：系统标准高亮，触屏设备无副作用
     .hoverEffect(HoverEffect.Highlight)
     .stateStyles({ pressed: this.pressed })
@@ -170,5 +128,55 @@ export struct DownloadTaskRow {
         this.onToggleSelect();
       }
     })
+  }
+
+  /** 任务信息区：标题 / 副标题 / 状态行 / 进度条 / 失败原因 */
+  @Builder
+  TaskInfo() {
+    Column() {
+      Text(this.row.title)
+        .fontSize(DesignTokens.fontTitle())
+        .fontWeight(FontWeight.Medium)
+        .fontColor(DesignTokens.labelPrimary(this.theme))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+      Text(this.row.subtitle)
+        .fontSize(DesignTokens.fontCaption())
+        .fontColor(DesignTokens.labelTertiary(this.theme))
+        .margin({ top: 4 })
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+      Row() {
+        Text(this.row.statusText)
+          .fontSize(DesignTokens.fontMicro())
+          .fontColor(this.row.statusColor)
+          .fontWeight(FontWeight.Medium)
+        Text(` · ${this.row.metaText}`)
+          .fontSize(DesignTokens.fontMicro())
+          .fontColor(DesignTokens.labelTertiary(this.theme))
+      }
+      .margin({ top: 8 })
+
+      if (this.row.showProgress) {
+        Progress({ value: this.row.progress, total: 100 })
+          .width('100%')
+          .height(4)
+          .color(this.row.statusColor)
+          .backgroundColor(DesignTokens.mutedFill(this.theme))
+          .margin({ top: 10 })
+      }
+
+      if (this.row.errorText.length > 0) {
+        Text(this.row.errorText)
+          .fontSize(DesignTokens.fontMicro())
+          .fontColor(DesignTokens.danger())
+          .margin({ top: 6 })
+          .maxLines(2)
+      }
+    }
+    .alignItems(HorizontalAlign.Start)
+    .layoutWeight(1)
   }
 }

@@ -285,6 +285,60 @@ function buildFallbackTagsResult(): SongListTagsResult {
 }
 
 /**
+ * 歌单列表请求 URL。
+ *
+ * 三种情况写在一处：无标签取推荐、标签类型为 10000 走分类接口、其余类型退化为推荐。
+ * 之所以要退化：43 等类型的接口返回形态不稳定，直接用会出现「分类点进去必空」。
+ */
+function buildListUrl(sortId: string, tagId: string, page: number, limit: number): string {
+  const order: string = sortId === 'new' ? 'new' : 'hot';
+  const recommendUrl: string =
+    `http://wapi.kuwo.cn/api/pc/classify/playlist/getRcmPlayList?loginUid=0&loginSid=0&appUid=76039576&pn=${page}&rn=${limit}&order=${order}`;
+  if (!tagId) {
+    return recommendUrl;
+  }
+  const parsed = parseTagId(tagId);
+  if (parsed.type !== '10000') {
+    return recommendUrl;
+  }
+  return `http://wapi.kuwo.cn/api/pc/classify/playlist/getTagPlayList?loginUid=0&loginSid=0&appUid=76039576&pn=${page}&id=${parsed.id}&rn=${limit}`;
+}
+
+/** 标签 id 有两种历史格式：`id-type`（新）与 `kw_lang_1`（旧缓存） */
+function parseTagId(tagId: string): KwTagIdParts {
+  if (tagId.indexOf('-') > 0) {
+    const parts: string[] = tagId.split('-');
+    return { id: parts[0], type: parts[1] || '10000' };
+  }
+  if (tagId.indexOf('_') > 0) {
+    const parts: string[] = tagId.split('_');
+    return { id: parts[parts.length - 1], type: '10000' };
+  }
+  return { id: tagId, type: '10000' };
+}
+
+/** 接口条目 → 歌单列表项 */
+function toSongListItem(item: KwSongListItem): SongListInfo {
+  const row: SongListInfo = {
+    id: `kw_${item.id}`,
+    name: decodeHtmlEntities(item.name || ''),
+    author: decodeHtmlEntities(item.uname || ''),
+    img: item.img || '',
+    play_count: formatPlayCount(parseInt(item.listencnt || '0')),
+    desc: decodeHtmlEntities(item.desc || ''),
+    total: parseInt(item.total || '0'),
+    source: 'kw',
+  };
+  return row;
+}
+
+/** 标签 id 解析结果 */
+interface KwTagIdParts {
+  id: string;
+  type: string;
+}
+
+/**
  * 把分类接口的分类列表拍平成可选标签。
  * 只保留 digest = 10000 的类型：其余类型走 getTagPlayList 拿不到数据，
  * 留在页面上会变成「点了没反应」的空壳入口。
@@ -385,35 +439,7 @@ export const songList: SongListInterface = {
    */
   getList(sortId: string, tagId: string, page: number = 1): Promise<SongListResult> {
     const limit: number = songList.limit;
-    // 构造请求 URL
-    let url: string;
-    if (!tagId) {
-      // 推荐歌单
-      url = `http://wapi.kuwo.cn/api/pc/classify/playlist/getRcmPlayList?loginUid=0&loginSid=0&appUid=76039576&pn=${page}&rn=${limit}&order=${sortId === 'new' ? 'new' : 'hot'}`;
-    } else {
-      // 分类歌单
-      let id = '';
-      let type = '';
-      if (tagId.indexOf('-') > 0) {
-        const parts = tagId.split('-');
-        id = parts[0];
-        type = parts[1] || '10000';
-      } else if (tagId.indexOf('_') > 0) {
-        // 兼容旧缓存 tagId（kw_lang_1）
-        const parts = tagId.split('_');
-        id = parts[parts.length - 1];
-        type = '10000';
-      } else {
-        id = tagId;
-        type = '10000';
-      }
-      if (type === '10000') {
-        url = `http://wapi.kuwo.cn/api/pc/classify/playlist/getTagPlayList?loginUid=0&loginSid=0&appUid=76039576&pn=${page}&id=${id}&rn=${limit}`;
-      } else {
-        // 43 等类型接口返回形态不稳定，这里退化为推荐歌单，避免分类必空
-        url = `http://wapi.kuwo.cn/api/pc/classify/playlist/getRcmPlayList?loginUid=0&loginSid=0&appUid=76039576&pn=${page}&rn=${limit}&order=${sortId === 'new' ? 'new' : 'hot'}`;
-      }
-    }
+    const url: string = buildListUrl(sortId, tagId, page, limit);
 
     return new Promise((resolve) => {
       const task = httpRequest(url, {
@@ -430,19 +456,7 @@ export const songList: SongListInterface = {
           }
 
           const apiList: KwSongListItem[] = data.data?.data || [];
-          const list: SongListInfo[] = [];
-          for (const item of apiList) {
-            list.push({
-              id: `kw_${item.id}`,
-              name: decodeHtmlEntities(item.name || ''),
-              author: decodeHtmlEntities(item.uname || ''),
-              img: item.img || '',
-              play_count: formatPlayCount(parseInt(item.listencnt || '0')),
-              desc: decodeHtmlEntities(item.desc || ''),
-              total: parseInt(item.total || '0'),
-              source: 'kw',
-            });
-          }
+          const list: SongListInfo[] = apiList.map((item: KwSongListItem): SongListInfo => toSongListItem(item));
 
           resolve({
             list,

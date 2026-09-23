@@ -160,90 +160,12 @@ export struct LyricView {
 
   build() {
     if (this.lyricLines.length === 0) {
-      Column() {
-        Text(t('no_lyric'))
-          .fontSize(DesignTokens.fontBody())
-          .fontColor(this.theme === 'dark' ? DesignTokens.lyricPlaceholderDark() : DesignTokens.lyricPlaceholderLight())
-      }
-      .width('100%')
-      .height('100%')
-      .justifyContent(FlexAlign.Center)
+      this.EmptyPlaceholder()
     } else {
       Scroll(this.lyricScroller) {
         Column() {
           ForEach(this.lyricLines, (line: string, index: number) => {
-            Column({ space: 2 }) {
-              if (this.canRenderKaraoke(index)) {
-                // 有逐字数据的当前行：逐字高亮（已唱/未唱两色）
-                this.KaraokeLine(index)
-              } else {
-                Text(line)
-                  // 当前行放大加粗、非当前行降对比，是最主流的歌词视觉层次；
-                  // 基准字号与对齐方式来自「歌词显示」设置
-                  .fontSize(index === this.currentLyricIndex ? this.lyricFontSize + 4 : this.lyricFontSize)
-                  .fontColor(index === this.currentLyricIndex
-                    ? this.accentColor()
-                    : (this.theme === 'dark' ? DesignTokens.lyricDimDark() : DesignTokens.lyricDimLight()))
-                  .fontWeight(index === this.currentLyricIndex ? FontWeight.Bold : FontWeight.Normal)
-                  .opacity(this.lineOpacity(index))
-                  .textAlign(this.alignMode())
-                  .width('100%')
-                  .maxLines(1)
-                  .textShadow(this.fontShadow ? DesignTokens.textShadowOnArtwork() : undefined)
-              }
-              if (this.showLyricRoma && index < this.romaLines.length && this.romaLines[index] && this.romaLines[index].length > 0) {
-                Text(this.romaLines[index])
-                  .fontSize(index === this.currentLyricIndex ? 12 : 10)
-                  .fontColor(index === this.currentLyricIndex
-                    ? (this.theme === 'dark' ? DesignTokens.lyricRomaActiveDark() : DesignTokens.lyricRomaActiveLight())
-                    : (this.theme === 'dark' ? DesignTokens.lyricRomaDimDark() : DesignTokens.lyricRomaDimLight()))
-                  .opacity(this.lineOpacity(index))
-                  .textAlign(this.alignMode())
-                  .width('100%')
-                  .maxLines(1)
-              }
-              if (this.showLyricTranslation && index < this.secondaryLyricLines.length && this.secondaryLyricLines[index] && this.secondaryLyricLines[index].length > 0) {
-                Text(this.secondaryLyricLines[index])
-                  .fontSize(index === this.currentLyricIndex ? 13 : 11)
-                  .fontColor(index === this.currentLyricIndex
-                    ? (this.theme === 'dark' ? DesignTokens.lyricTransActiveDark() : DesignTokens.lyricTransActiveLight())
-                    : (this.theme === 'dark' ? DesignTokens.lyricTransDimDark() : DesignTokens.lyricTransDimLight()))
-                  .opacity(this.lineOpacity(index))
-                  .textAlign(TextAlign.Center)
-                  .width('100%')
-                  .maxLines(1)
-              }
-            }
-            .width('100%')
-            .height(this.lineHeight)
-            .padding({ left: 8, right: 8 })
-            .justifyContent(FlexAlign.Center)
-            // 点哪句跳到哪句（主流音乐播放器的通用交互）；PC 上补悬停反馈
-            .hoverEffect(HoverEffect.Highlight)
-            .onClick(() => {
-              if (this.onLineTap) {
-                this.onLineTap(index);
-              }
-            })
-            .gesture(
-              LongPressGesture()
-                .onAction(() => {
-                  if (this.onLineLongPress) {
-                    this.onLineLongPress(index);
-                  }
-                })
-            )
-            // 2in1（PC 接键盘）：回车/空格 = 点这一句跳转
-            .focusable(true)
-            .onKeyEvent((event: KeyEvent): void => {
-              if (isConfirmKey(event) && this.onLineTap) {
-                this.onLineTap(index);
-              }
-            })
-            .animation({
-              // 「设置 -> 外观 -> 动画效果」关闭时不做滚动动画
-              duration: this.showAnimation ? 300 : 0,
-            })
+            this.LineRow(line, index)
           })
         }
         .width('100%')
@@ -254,5 +176,98 @@ export struct LyricView {
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.None)
     }
+  }
+
+  /** 无歌词占位 */
+  @Builder
+  EmptyPlaceholder() {
+    Column() {
+      Text(t('no_lyric'))
+        .fontSize(DesignTokens.fontBody())
+        .fontColor(this.theme === 'dark'
+          ? DesignTokens.lyricPlaceholderDark() : DesignTokens.lyricPlaceholderLight())
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+  }
+
+  /** 一行歌词：主句（可逐字）/ 罗马音 / 译文 + 点击、长按、键盘三种交互 */
+  @Builder
+  LineRow(line: string, index: number) {
+    Column({ space: 2 }) {
+      if (this.canRenderKaraoke(index)) {
+        // 有逐字数据的当前行：逐字高亮（已唱/未唱两色）
+        this.KaraokeLine(index)
+      } else {
+        Text(line)
+          // 当前行放大加粗、非当前行降对比，是最主流的歌词视觉层次；
+          // 基准字号与对齐方式来自「歌词显示」设置
+          .fontSize(index === this.currentLyricIndex ? this.lyricFontSize + 4 : this.lyricFontSize)
+          .fontColor(index === this.currentLyricIndex
+            ? this.accentColor()
+            : (this.theme === 'dark' ? DesignTokens.lyricDimDark() : DesignTokens.lyricDimLight()))
+          .fontWeight(index === this.currentLyricIndex ? FontWeight.Bold : FontWeight.Normal)
+          .opacity(this.lineOpacity(index))
+          .textAlign(this.alignMode())
+          .width('100%')
+          .maxLines(1)
+          .textShadow(this.fontShadow ? DesignTokens.textShadowOnArtwork() : undefined)
+      }
+      if (this.showLyricRoma && index < this.romaLines.length
+        && this.romaLines[index] && this.romaLines[index].length > 0) {
+        Text(this.romaLines[index])
+          .fontSize(index === this.currentLyricIndex ? 12 : 10)
+          .fontColor(index === this.currentLyricIndex
+            ? (this.theme === 'dark' ? DesignTokens.lyricRomaActiveDark() : DesignTokens.lyricRomaActiveLight())
+            : (this.theme === 'dark' ? DesignTokens.lyricRomaDimDark() : DesignTokens.lyricRomaDimLight()))
+          .opacity(this.lineOpacity(index))
+          .textAlign(this.alignMode())
+          .width('100%')
+          .maxLines(1)
+      }
+      if (this.showLyricTranslation && index < this.secondaryLyricLines.length
+        && this.secondaryLyricLines[index] && this.secondaryLyricLines[index].length > 0) {
+        Text(this.secondaryLyricLines[index])
+          .fontSize(index === this.currentLyricIndex ? 13 : 11)
+          .fontColor(index === this.currentLyricIndex
+            ? (this.theme === 'dark' ? DesignTokens.lyricTransActiveDark() : DesignTokens.lyricTransActiveLight())
+            : (this.theme === 'dark' ? DesignTokens.lyricTransDimDark() : DesignTokens.lyricTransDimLight()))
+          .opacity(this.lineOpacity(index))
+          .textAlign(TextAlign.Center)
+          .width('100%')
+          .maxLines(1)
+      }
+    }
+    .width('100%')
+    .height(this.lineHeight)
+    .padding({ left: 8, right: 8 })
+    .justifyContent(FlexAlign.Center)
+    // 点哪句跳到哪句（主流音乐播放器的通用交互）；PC 上补悬停反馈
+    .hoverEffect(HoverEffect.Highlight)
+    .onClick(() => {
+      if (this.onLineTap) {
+        this.onLineTap(index);
+      }
+    })
+    .gesture(
+      LongPressGesture()
+        .onAction(() => {
+          if (this.onLineLongPress) {
+            this.onLineLongPress(index);
+          }
+        })
+    )
+    // 2in1（PC 接键盘）：回车/空格 = 点这一句跳转
+    .focusable(true)
+    .onKeyEvent((event: KeyEvent): void => {
+      if (isConfirmKey(event) && this.onLineTap) {
+        this.onLineTap(index);
+      }
+    })
+    .animation({
+      // 「设置 -> 外观 -> 动画效果」关闭时不做滚动动画
+      duration: this.showAnimation ? 300 : 0,
+    })
   }
 }

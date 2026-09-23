@@ -754,66 +754,46 @@ export struct LeaderboardView {
   @Builder
   BoardArea() {
     if (this.filteredBoardList.length < this.minPinCards) {
-      Column() {
-        SearchStrip({
-          text: $searchText,
-          placeholder: t('search_board_hint'),
-          marginH: DesignTokens.spaceGutter(),
-          marginV: DesignTokens.spaceUnit(),
-          tapToOpenOnly: true,
-          actions: this.leaderboardSearchActions,
-        })
-        this.LeaderboardFilterBar()
-        if (this.cardStates.length === 0) {
-          if (this.hasError) {
-            // 拉榜单失败：明确说是失败并给重试，而不是含糊的「暂无数据」
-            StateView({
-              state: 'error',
-              message: t('load_failed_hint'),
-              actionText: t('retry'),
-              onAction: (): void => {
-                void this.loadBoardList();
-              },
-            })
-              .width('100%')
-              .layoutWeight(1)
-          } else {
-            StateView({
-              state: 'empty',
-              iconRes: $r('sys.symbol.list_number'),
-              message: this.boardList.length === 0 ? t('no_data') : t('search_no_result'),
-            })
-              .width('100%')
-              .layoutWeight(1)
-          }
-        } else {
-          this.CardsColumn()
-        }
-      }
-      .width('100%')
-      .layoutWeight(1)
+      this.CompactBoardArea()
     } else {
-      Column() {
-        if (this.isFilterPinned) {
-          this.LeaderboardFilterBar()
-        }
-        RefreshContainer({
-          refreshing: $isRefreshing,
-          onRefresh: (): void => {
-            this.reloadBoards();
-          },
-        }) {
-          Scroll(this.leaderboardScroller) {
-            Column() {
+      this.FullBoardArea()
+    }
+  }
+
+  /** 卡片不足一屏：不吸顶、也不做下拉刷新（内容撑不起滚动，吸顶反而抖） */
+  @Builder
+  CompactBoardArea() {
+    Column() {
+      this.SearchStripRow()
+      this.LeaderboardFilterBar()
+      if (this.cardStates.length === 0) {
+        this.EmptyOrErrorState()
+      } else {
+        this.CardsColumn()
+      }
+    }
+    .width('100%')
+    .layoutWeight(1)
+  }
+
+  /** 卡片够一屏：吸顶筛选条 + 下拉刷新 + 滚动监听 */
+  @Builder
+  FullBoardArea() {
+    Column() {
+      if (this.isFilterPinned) {
+        this.LeaderboardFilterBar()
+      }
+      RefreshContainer({
+        refreshing: $isRefreshing,
+        onRefresh: (): void => {
+          this.reloadBoards();
+        },
+      }) {
+        Scroll(this.leaderboardScroller) {
+          Column() {
+            // 吸顶时用等高占位（保持滚动位置不跳），未吸顶时是真实搜索条与筛选条
             if (!this.isFilterPinned) {
-              SearchStrip({
-                text: $searchText,
-                placeholder: t('search_board_hint'),
-                marginH: DesignTokens.spaceGutter(),
-                marginV: DesignTokens.spaceUnit(),
-                tapToOpenOnly: true,
-                actions: this.leaderboardSearchActions,
-              })
+              this.SearchStripRow()
             } else {
               Blank()
                 .width('100%')
@@ -827,21 +807,58 @@ export struct LeaderboardView {
                 .height(this.filterBarPinnedHeight)
             }
             this.CardsColumn()
-            }
-            .width('100%')
           }
-          .layoutWeight(1)
           .width('100%')
-          .scrollable(ScrollDirection.Vertical)
-          .scrollBar(BarState.Off)
-          .edgeEffect(EdgeEffect.None)
-          .onDidScroll(() => {
-            this.syncFilterPinnedByOffset();
-          })
         }
+        .layoutWeight(1)
+        .width('100%')
+        .scrollable(ScrollDirection.Vertical)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.None)
+        .onDidScroll(() => {
+          this.syncFilterPinnedByOffset();
+        })
       }
-      .width('100%')
-      .layoutWeight(1)
+    }
+    .width('100%')
+    .layoutWeight(1)
+  }
+
+  /** 榜单页搜索条（点开浮层搜索，与歌单广场同一形态） */
+  @Builder
+  SearchStripRow() {
+    SearchStrip({
+      text: $searchText,
+      placeholder: t('search_board_hint'),
+      marginH: DesignTokens.spaceGutter(),
+      marginV: DesignTokens.spaceUnit(),
+      tapToOpenOnly: true,
+      actions: this.leaderboardSearchActions,
+    })
+  }
+
+  /** 空态与失败态：失败给重试，空态区分「没数据」与「搜不到」 */
+  @Builder
+  EmptyOrErrorState() {
+    if (this.hasError) {
+      StateView({
+        state: 'error',
+        message: t('load_failed_hint'),
+        actionText: t('retry'),
+        onAction: (): void => {
+          void this.loadBoardList();
+        },
+      })
+        .width('100%')
+        .layoutWeight(1)
+    } else {
+      StateView({
+        state: 'empty',
+        iconRes: $r('sys.symbol.list_number'),
+        message: this.boardList.length === 0 ? t('no_data') : t('search_no_result'),
+      })
+        .width('100%')
+        .layoutWeight(1)
     }
   }
 

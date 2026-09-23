@@ -299,73 +299,77 @@ class KgLeaderboardImpl implements LeaderboardInterface {
   }
 
   filterData(rawList: KGMusicItem[]): MusicInfo[] {
-    return rawList.map((item): MusicInfo => {
-      const line = JSON.stringify(item);
-      const ex320 = kgRankExtract320FromJson(line);
-      let n320 = ex320.n;
-      let h320 = ex320.h;
-      if (n320 === 0 && item.filesize_320 !== undefined && item.filesize_320 !== 0) {
-        n320 = item.filesize_320;
-      }
-      if (h320.length === 0 && item.hash_320 !== undefined && item.hash_320.length > 0) {
-        h320 = item.hash_320;
-      }
-
-      const types: MusicQualityType[] = [];
-      const _types: Map<Quality, QualityDetail> = new Map();
-
-      if (item.filesize !== 0) {
-        const size = sizeFormate(item.filesize);
-        const t128: MusicQualityTypeKg = { type: '128k', size, hash: item.hash };
-        types.push(t128 as MusicQualityType);
-        const d128: QualityDetail = { size };
-        _types.set('128k', d128);
-      }
-      if (n320 !== 0) {
-        const size = sizeFormate(n320);
-        const t320: MusicQualityTypeKg = { type: '320k', size, hash: h320 };
-        types.push(t320 as MusicQualityType);
-        const d320: QualityDetail = { size };
-        _types.set('320k', d320);
-      }
-      if (item.sqfilesize !== 0) {
-        const size = sizeFormate(item.sqfilesize);
-        const tf: MusicQualityTypeKg = { type: 'flac', size, hash: item.sqhash };
-        types.push(tf as MusicQualityType);
-        const df: QualityDetail = { size };
-        _types.set('flac', df);
-      }
-      if (item.filesize_high !== 0) {
-        const size = sizeFormate(item.filesize_high);
-        const th: MusicQualityTypeKg = { type: 'flac24bit', size, hash: item.hash_high };
-        types.push(th as MusicQualityType);
-        const dh: QualityDetail = { size };
-        _types.set('flac24bit', dh);
-      }
-
-      const authorsArr = item.authors ?? [];
-      const authorNames: string[] = authorsArr.map((a: KMAuthor) => a.author_name);
-      const typeUrl: Map<string, string> = new Map();
-      const cover = kgCoverFromRankItem(item);
-      const musicInfo: MusicInfo = {
-        name: decodeName(item.songname),
-        singer: formatSingerName(authorNames),
-        source: 'kg',
-        songmid: item.audio_id,
-        hash: item.hash,
-        albumId: item.album_id,
-        albumName: decodeName(item.remark),
-        interval: formatPlayTime(item.duration),
-        img: cover,
-        lrc: null,
-        otherSource: null,
-        types,
-        _types,
-        typeUrl,
-      };
-      return musicInfo;
-    });
+    return rawList.map((item): MusicInfo => buildMusicInfo(item));
   }
+}
+
+/**
+ * 排行榜条目 → 统一歌曲信息。
+ *
+ * 拆出来的原因：原实现把「320k 兜底取值」「四档音质装填」「歌手/封面/时长映射」
+ * 全塞在一个 68 行的 map 回调里，读起来要一路滚到底才知道返回的是什么。
+ */
+function buildMusicInfo(item: KGMusicItem): MusicInfo {
+  const types: MusicQualityType[] = [];
+  const _types: Map<Quality, QualityDetail> = new Map();
+  appendQuality(types, _types, '128k', item.filesize, item.hash);
+  const high320 = resolve320Quality(item);
+  appendQuality(types, _types, '320k', high320.size, high320.hash);
+  appendQuality(types, _types, 'flac', item.sqfilesize, item.sqhash);
+  appendQuality(types, _types, 'flac24bit', item.filesize_high, item.hash_high);
+
+  const authors: KMAuthor[] = item.authors ?? [];
+  const musicInfo: MusicInfo = {
+    name: decodeName(item.songname),
+    singer: formatSingerName(authors.map((a: KMAuthor) => a.author_name)),
+    source: 'kg',
+    songmid: item.audio_id,
+    hash: item.hash,
+    albumId: item.album_id,
+    albumName: decodeName(item.remark),
+    interval: formatPlayTime(item.duration),
+    img: kgCoverFromRankItem(item),
+    lrc: null,
+    otherSource: null,
+    types,
+    _types,
+    typeUrl: new Map<string, string>(),
+  };
+  return musicInfo;
+}
+
+/** 320k 的取值有两处来源：JSON 里的 hash 字段解析 + 条目自带字段兜底 */
+function resolve320Quality(item: KGMusicItem): KgRank320Quality {
+  const extracted = kgRankExtract320FromJson(JSON.stringify(item));
+  let size: number = extracted.n;
+  let hash: string = extracted.h;
+  if (size === 0 && item.filesize_320 !== undefined && item.filesize_320 !== 0) {
+    size = item.filesize_320;
+  }
+  if (hash.length === 0 && item.hash_320 !== undefined && item.hash_320.length > 0) {
+    hash = item.hash_320;
+  }
+  return { size, hash };
+}
+
+/** 装填单档音质：大小为 0 表示该档不可用，整档跳过 */
+function appendQuality(
+  types: MusicQualityType[], details: Map<Quality, QualityDetail>,
+  quality: Quality, sizeBytes: number | undefined, hash: string | undefined
+): void {
+  if (!sizeBytes || sizeBytes === 0) {
+    return;
+  }
+  const size: string = sizeFormate(sizeBytes);
+  const item: MusicQualityTypeKg = { type: quality, size, hash: hash ?? '' };
+  types.push(item as MusicQualityType);
+  details.set(quality, { size });
+}
+
+/** 320k 取值结果 */
+interface KgRank320Quality {
+  size: number;
+  hash: string;
 }
 
 export const leaderboard: LeaderboardInterface = new KgLeaderboardImpl();

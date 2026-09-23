@@ -42,54 +42,10 @@ export struct BoardSongRow {
   build() {
     Column() {
       Row() {
-        Text(this.index.toString())
-          .fontSize(DesignTokens.fontCaption())
-          .fontColor(this.active ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
-          .width(28)
-          .textAlign(TextAlign.Center)
-
-        Column({ space: 2 }) {
-          Text(this.title)
-            .fontSize(DesignTokens.fontBody())
-            .fontColor(this.active ? DesignTokens.accent() : DesignTokens.labelPrimary(this.theme))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .width('100%')
-          if (this.subtitleText().length > 0) {
-            Text(this.subtitleText())
-              .fontSize(DesignTokens.fontCaption())
-              .fontColor(DesignTokens.labelSecondary(this.theme))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .width('100%')
-          }
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-        .margin({ left: 10, right: 10 })
-
-        if (this.durationText().length > 0) {
-          Text(this.durationText())
-            .fontSize(DesignTokens.fontCaption())
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-            .margin({ right: 6 })
-        }
-
-        Stack() {
-          Circle({ width: 28, height: 28 })
-            .fill(DesignTokens.mutedFill(this.theme))
-          Image($r('app.media.ic_common_download'))
-            .width(14)
-            .height(14)
-            .fillColor(DesignTokens.labelSecondary(this.theme))
-        }
-        .responseRegion(DesignTokens.touchRegion(28))
-        .accessibilityText(t('a11y_download'))
-        .onClick(() => {
-          if (this.onDownload) {
-            this.onDownload();
-          }
-        })
+        this.IndexLabel()
+        this.TitleBlock()
+        this.DurationLabel()
+        this.DownloadButton()
       }
       .width('100%')
       .padding({ left: 10, right: 10, top: 12, bottom: 12 })
@@ -118,6 +74,71 @@ export struct BoardSongRow {
     .onKeyEvent((event: KeyEvent): void => {
       if (isConfirmKey(event) && this.onTap) {
         this.onTap();
+      }
+    })
+  }
+
+  /** 序号（当前播放行用强调色） */
+  @Builder
+  IndexLabel() {
+    Text(this.index.toString())
+      .fontSize(DesignTokens.fontCaption())
+      .fontColor(this.active ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme))
+      .width(28)
+      .textAlign(TextAlign.Center)
+  }
+
+  /** 歌名 + 副标题（副标题内容由 RowTexts 按「设置 → 列表」裁剪） */
+  @Builder
+  TitleBlock() {
+    Column({ space: 2 }) {
+      Text(this.title)
+        .fontSize(DesignTokens.fontBody())
+        .fontColor(this.active ? DesignTokens.accent() : DesignTokens.labelPrimary(this.theme))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width('100%')
+      if (this.subtitleText().length > 0) {
+        Text(this.subtitleText())
+          .fontSize(DesignTokens.fontCaption())
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .width('100%')
+      }
+    }
+    .alignItems(HorizontalAlign.Start)
+    .layoutWeight(1)
+    .margin({ left: 10, right: 10 })
+  }
+
+  /** 时长（关闭「显示时长」时整块不渲染） */
+  @Builder
+  DurationLabel() {
+    if (this.durationText().length > 0) {
+      Text(this.durationText())
+        .fontSize(DesignTokens.fontCaption())
+        .fontColor(DesignTokens.labelTertiary(this.theme))
+        .margin({ right: 6 })
+    }
+  }
+
+  /** 行内下载入口（榜单歌曲可以单曲下载） */
+  @Builder
+  DownloadButton() {
+    Stack() {
+      Circle({ width: 28, height: 28 })
+        .fill(DesignTokens.mutedFill(this.theme))
+      Image($r('app.media.ic_common_download'))
+        .width(14)
+        .height(14)
+        .fillColor(DesignTokens.labelSecondary(this.theme))
+    }
+    .responseRegion(DesignTokens.touchRegion(28))
+    .accessibilityText(t('a11y_download'))
+    .onClick(() => {
+      if (this.onDownload) {
+        this.onDownload();
       }
     })
   }
