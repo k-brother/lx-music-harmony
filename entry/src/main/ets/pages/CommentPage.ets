@@ -224,19 +224,32 @@ export struct CommentPage {
   }
 
   @Builder
-  buildCommentItem(comment: Comment, index: number) {
+  buildCommentItem(index: number) {
+    // 规则（真机对照实验结论）：@Builder 的参数不会随状态刷新，
+    // 所以评论对象不进参数 —— 只传稳定的 index，内容在内部从 this.comments 读，
+    // 这样点赞后图标与数量才会跟着更新。
+    Column() {
+      this.CommentBody(index)
+    }
+    .width('100%')
+    .backgroundColor(DesignTokens.card(this.theme))
+  }
+
+  /** 单条评论主体：从 this.comments[index] 读（点赞态属于会变的状态） */
+  @Builder
+  CommentBody(index: number) {
     Column() {
       Row() {
         // 用户头像
-        if (comment.userAvatar) {
-          Image(comment.userAvatar)
+        if (this.comments[index].userAvatar) {
+          Image(this.comments[index].userAvatar)
             .width(36)
             .height(36)
             .borderRadius(18)
         } else {
           // 默认头像
           Column() {
-            Text(comment.userName.substring(0, 1))
+            Text(this.comments[index].userName.substring(0, 1))
               .fontSize(16)
               .fontColor(DesignTokens.onAccent())
           }
@@ -251,21 +264,21 @@ export struct CommentPage {
         Column() {
           // 用户信息和时间
           Row() {
-            Text(comment.userName)
+            Text(this.comments[index].userName)
               .fontSize(14)
               .fontColor(DesignTokens.labelPrimary(this.theme))
               .fontWeight(FontWeight.Medium)
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-            Text(comment.time)
+            Text(this.comments[index].time)
               .fontSize(12)
               .fontColor(DesignTokens.labelTertiary(this.theme))
               .margin({ left: 8 })
 
             // IP 归属地（部分音源返回）
-            if (comment.location.length > 0) {
-              Text(comment.location)
+            if (this.comments[index].location.length > 0) {
+              Text(this.comments[index].location)
                 .fontSize(11)
                 .fontColor(DesignTokens.labelTertiary(this.theme))
                 .margin({ left: 8 })
@@ -280,15 +293,15 @@ export struct CommentPage {
           .margin({ bottom: 4 })
 
           // 评论内容
-          Text(comment.content)
+          Text(this.comments[index].content)
             .fontSize(14)
             .fontColor(DesignTokens.labelPrimary(this.theme))
             .lineHeight(20)
 
           // 评论图片：缩略图点击查看大图
-          if (comment.images.length > 0) {
+          if (this.comments[index].images.length > 0) {
             Flex({ wrap: FlexWrap.Wrap }) {
-              ForEach(comment.images, (url: string) => {
+              ForEach(this.comments[index].images, (url: string) => {
                 Image(url)
                   .width(96)
                   .height(96)
@@ -304,9 +317,9 @@ export struct CommentPage {
           }
 
           // 楼层回复：整块浅底，与主评论视觉分层
-          if (comment.replies.length > 0) {
+          if (this.comments[index].replies.length > 0) {
             Column() {
-              ForEach(comment.replies, (reply: Comment) => {
+              ForEach(this.comments[index].replies, (reply: Comment) => {
                 this.buildReplyFloor(reply)
               }, (reply: Comment) => reply.id)
             }
@@ -321,18 +334,18 @@ export struct CommentPage {
           Row() {
             // 点赞按钮
             Row() {
-              SymbolGlyph(comment.isLiked ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
+              SymbolGlyph(this.comments[index].isLiked ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
                 .fontSize(18)
-                .fontColor([comment.isLiked ? DesignTokens.accent() : DesignTokens.labelSecondary(this.theme)])
+                .fontColor([this.comments[index].isLiked ? DesignTokens.accent() : DesignTokens.labelSecondary(this.theme)])
                 .margin({ right: 4 })
               
-              Text(comment.likeCount.toString())
+              Text(this.comments[index].likeCount.toString())
                 .fontSize(12)
-                .fontColor(comment.isLiked ? DesignTokens.accent() : DesignTokens.labelSecondary(this.theme))
+                .fontColor(this.comments[index].isLiked ? DesignTokens.accent() : DesignTokens.labelSecondary(this.theme))
             }
             .stateStyles({ pressed: this.pressDim })
             .onClick(() => {
-              this.toggleLikeComment(comment.id);
+              this.toggleLikeComment(this.comments[index].id);
             })
             
             // 回复按钮
@@ -342,14 +355,14 @@ export struct CommentPage {
                 .fontColor([DesignTokens.labelSecondary(this.theme)])
                 .margin({ left: 16, right: 4 })
               
-              Text(comment.replyCount > 0 ? comment.replyCount.toString() : t('comment_new'))
+              Text(this.comments[index].replyCount > 0 ? this.comments[index].replyCount.toString() : t('comment_new'))
                 .fontSize(12)
                 .fontColor(DesignTokens.labelSecondary(this.theme))
             }
             .margin({ left: 16 })
             
             // 热门标签
-            if (comment.isHot) {
+            if (this.comments[index].isHot) {
               Text(t('comment_hot_tag'))
                 .fontSize(10)
                 .fontColor(DesignTokens.accent())
@@ -488,7 +501,7 @@ export struct CommentPage {
           List() {
             ForEach(this.comments, (comment: Comment, index: number) => {
               ListItem() {
-                this.buildCommentItem(comment, index)
+                this.buildCommentItem(index)
               }
             }, (comment: Comment) => comment.id)
 

@@ -7,6 +7,7 @@
  * 因为那部分要跟播放器交互。
  */
 import { DesignTokens } from '../../theme/DesignTokens';
+import { appLog as hilog } from '../../core/log/AppLogger';
 
 @Component
 export struct PlayerControls {
@@ -35,8 +36,31 @@ export struct PlayerControls {
   onToggleMode?: () => void;
   onComment?: () => void;
 
+  /** 入口文案：在 Builder 内部按 kind 取，避免把动态文案当参数传 */
+  private labelFor(kind: string): string {
+    if (kind === 'add') {
+      return this.addToListText;
+    }
+    if (kind === 'mode') {
+      return this.playModeText;
+    }
+    return this.commentText;
+  }
+
+  /** 传送键图标：播放/暂停随播放状态变化 */
+  private iconFor(kind: string): Resource {
+    if (kind === 'prev') {
+      return $r('app.media.ic_pd_prev');
+    }
+    if (kind === 'next') {
+      return $r('app.media.ic_pd_next');
+    }
+    return this.isPlaying ? $r('app.media.ic_pd_pause') : $r('app.media.ic_pd_play');
+  }
+
   /** 动作分发：集中一处，避免回调穿过多层 @Builder */
   private dispatch(kind: string): void {
+    hilog.info(0x0001, 'PlayerControls', 'tap %{public}s', kind);
     if (kind === 'prev' && this.onPrev) {
       this.onPrev();
     } else if (kind === 'play' && this.onTogglePlay) {
@@ -50,6 +74,56 @@ export struct PlayerControls {
     } else if (kind === 'comment' && this.onComment) {
       this.onComment();
     }
+  }
+
+  /**
+   * 入口按钮（添加到歌单 / 播放模式 / 评论）。
+   *
+   * 规则（真机对照实验结论）：**@Builder 的参数不会随状态刷新**——
+   * 把播放模式文案这种动态值当参数传进来，点了之后状态已变、界面还是旧文案。
+   * 所以这里只传静态参数（图标 + 动作标识），会变的内容一律在 Builder 内部读 this.*。
+   */
+  @Builder
+  MenuEntry(icon: Resource, kind: string) {
+    Column({ space: 5 }) {
+      Stack() {
+        Circle({ width: 30, height: 30 })
+          .fill(DesignTokens.mutedFill(this.theme))
+        Image(icon)
+          .width(DesignTokens.iconSm())
+          .height(DesignTokens.iconSm())
+          .fillColor(DesignTokens.labelSecondary(this.theme))
+      }
+      Text(this.labelFor(kind))
+        .fontSize(DesignTokens.fontMicro())
+        .fontColor(DesignTokens.labelSecondary(this.theme))
+        .maxLines(1)
+        .textAlign(TextAlign.Center)
+    }
+    .width(68)
+    .height(60)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .onClick(() => {
+      this.dispatch(kind);
+    })
+  }
+
+  /** 传送键（上一首 / 播放暂停 / 下一首）：图标随播放状态变化，同样在 Builder 内读状态 */
+  @Builder
+  TransportKey(kind: string, filled: boolean) {
+    Stack() {
+      Circle({ width: filled ? DesignTokens.ctrlLg() : DesignTokens.ctrlMd(), height: filled ? DesignTokens.ctrlLg() : DesignTokens.ctrlMd() })
+        .fill(filled ? DesignTokens.accent() : DesignTokens.mutedFill(this.theme))
+      Image(this.iconFor(kind))
+        .width(filled ? 20 : DesignTokens.iconLg())
+        .height(filled ? 20 : DesignTokens.iconLg())
+        .fillColor(filled ? DesignTokens.onAccent() : DesignTokens.labelPrimary(this.theme))
+        .margin(kind === 'play' && !this.isPlaying ? { left: 1 } : {})
+    }
+    .onClick(() => {
+      this.dispatch(kind);
+    })
   }
 
   build() {
@@ -88,50 +162,9 @@ export struct PlayerControls {
       .padding({ left: 14, right: 14 })
 
       Row({ space: 26 }) {
-        // 上一首
-        Stack() {
-          Circle({ width: DesignTokens.ctrlMd(), height: DesignTokens.ctrlMd() })
-            .fill(DesignTokens.mutedFill(this.theme))
-          Image($r('app.media.ic_pd_prev'))
-            .width(DesignTokens.iconLg())
-            .height(DesignTokens.iconLg())
-            .fillColor(DesignTokens.labelPrimary(this.theme))
-        }
-        .onClick(() => {
-          this.dispatch('prev');
-        })
-        // 播放 / 暂停（图标随播放状态变化，必须内联：@Builder 参数不会随状态刷新）
-        Stack() {
-          Circle({ width: DesignTokens.ctrlLg(), height: DesignTokens.ctrlLg() })
-            .fill(DesignTokens.accent())
-          if (this.isPlaying) {
-            Image($r('app.media.ic_pd_pause'))
-              .width(20)
-              .height(20)
-              .fillColor(DesignTokens.onAccent())
-          } else {
-            Image($r('app.media.ic_pd_play'))
-              .width(20)
-              .height(20)
-              .fillColor(DesignTokens.onAccent())
-              .margin({ left: 1 })
-          }
-        }
-        .onClick(() => {
-          this.dispatch('play');
-        })
-        // 下一首
-        Stack() {
-          Circle({ width: DesignTokens.ctrlMd(), height: DesignTokens.ctrlMd() })
-            .fill(DesignTokens.mutedFill(this.theme))
-          Image($r('app.media.ic_pd_next'))
-            .width(DesignTokens.iconLg())
-            .height(DesignTokens.iconLg())
-            .fillColor(DesignTokens.labelPrimary(this.theme))
-        }
-        .onClick(() => {
-          this.dispatch('next');
-        })
+        this.TransportKey('prev', false)
+        this.TransportKey('play', true)
+        this.TransportKey('next', false)
       }
       .width('100%')
       .height(92)
@@ -139,75 +172,9 @@ export struct PlayerControls {
       .alignItems(VerticalAlign.Center)
 
       Row() {
-        // 三个入口全部内联：文案是动态的（播放模式会变），不能经过 @Builder 参数
-        Column({ space: 5 }) {
-          Stack() {
-            Circle({ width: 30, height: 30 })
-              .fill(DesignTokens.mutedFill(this.theme))
-            Image($r('app.media.ic_pd_playlist'))
-              .width(DesignTokens.iconSm())
-              .height(DesignTokens.iconSm())
-              .fillColor(DesignTokens.labelSecondary(this.theme))
-          }
-          Text(this.addToListText)
-            .fontSize(DesignTokens.fontMicro())
-            .fontColor(DesignTokens.labelSecondary(this.theme))
-            .maxLines(1)
-            .textAlign(TextAlign.Center)
-        }
-        .width(68)
-        .height(60)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
-        .onClick(() => {
-          this.dispatch('add');
-        })
-
-        Column({ space: 5 }) {
-          Stack() {
-            Circle({ width: 30, height: 30 })
-              .fill(DesignTokens.mutedFill(this.theme))
-            Image($r('app.media.ic_pd_loop'))
-              .width(DesignTokens.iconSm())
-              .height(DesignTokens.iconSm())
-              .fillColor(DesignTokens.labelSecondary(this.theme))
-          }
-          Text(this.playModeText)
-            .fontSize(DesignTokens.fontMicro())
-            .fontColor(DesignTokens.labelSecondary(this.theme))
-            .maxLines(1)
-            .textAlign(TextAlign.Center)
-        }
-        .width(68)
-        .height(60)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
-        .onClick(() => {
-          this.dispatch('mode');
-        })
-
-        Column({ space: 5 }) {
-          Stack() {
-            Circle({ width: 30, height: 30 })
-              .fill(DesignTokens.mutedFill(this.theme))
-            Image($r('app.media.ic_pd_comment'))
-              .width(DesignTokens.iconSm())
-              .height(DesignTokens.iconSm())
-              .fillColor(DesignTokens.labelSecondary(this.theme))
-          }
-          Text(this.commentText)
-            .fontSize(DesignTokens.fontMicro())
-            .fontColor(DesignTokens.labelSecondary(this.theme))
-            .maxLines(1)
-            .textAlign(TextAlign.Center)
-        }
-        .width(68)
-        .height(60)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
-        .onClick(() => {
-          this.dispatch('comment');
-        })
+        this.MenuEntry($r('app.media.ic_pd_playlist'), 'add')
+        this.MenuEntry($r('app.media.ic_pd_loop'), 'mode')
+        this.MenuEntry($r('app.media.ic_pd_comment'), 'comment')
       }
       .width('100%')
       .height(78)
@@ -222,5 +189,6 @@ export struct PlayerControls {
     .width('100%')
     .padding({ bottom: 8 })
     .backgroundColor(DesignTokens.pageBg(this.theme))
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
   }
 }

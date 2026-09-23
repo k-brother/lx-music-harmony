@@ -182,12 +182,16 @@ CHECKS = [
  ('队列移除', 'service/PlayerService.ets', r'removeFromQueue'),
  ('动作菜单不再重复“取消”', 'service/DialogService.ets', r'不再自己追加'),
  ('更多操作面板标题用歌曲', 'pages/PlayDetailPage.ets', r'title: this\.singer\.length > 0'),
- # 真机踩坑 1：底栏挂了 expandSafeArea 后整条控制栏点不动（触控区不生效）
- ('播放页底栏可点(不吞触控)', 'pages/PlayDetail/PlayerControls.ets', r'dispatch\(',
-  r'expandSafeArea'),
- # 真机踩坑 2：把动态文案/图标当 @Builder 参数传，状态变了界面不变（看起来像点了没反应）
- ('底栏动态文案不走 @Builder 参数', 'pages/PlayDetail/PlayerControls.ets', r'Text\(this\.playModeText\)',
-  r'@Builder\s+(MenuButton|TransportButton)'),
+ # 真机踩坑（对照实验结论）：@Builder 的参数不会随状态刷新，但 Builder 内部读 this.* 会刷新。
+ # 实验：参数版点「播放模式」后状态已切到 sequential，界面仍停在上一档；
+ #      改成 Builder 内读状态后，界面与日志一致。
+ # 底线：动态内容（播放模式文案、播放/暂停图标、点赞态…）一律不进 @Builder 参数。
+ ('底栏动态文案在 Builder 内读状态', 'pages/PlayDetail/PlayerControls.ets', r'Text\(this\.labelFor\(kind\)\)'),
+ ('底栏 Builder 不接收动态文案参数', 'pages/PlayDetail/PlayerControls.ets', r'private labelFor\(',
+  r'label: string'),
+ ('评论行 Builder 只接收 index', 'pages/CommentPage.ets', r'buildCommentItem\(index: number\)',
+  r'buildCommentItem\(comment:'),
+ ('评论点赞态读组件状态', 'pages/CommentPage.ets', r'this\.comments\[index\]\.isLiked'),
 ]
 
 fails = []
