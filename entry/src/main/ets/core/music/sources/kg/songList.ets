@@ -6,6 +6,16 @@ import { formatPlayCount, formatPlayTime, sizeFormate } from '../../../../utils/
 import { signatureParams } from './util';
 import type { MusicInfo, MusicQualityTypeKg, Quality, QualityDetail } from '../../../../types/MusicTypes';
 import { parseKgHttpJson } from './kgHttpJson';
+// 歌单标签/信息/结果形状各音源一致，统一在 MusicSdkContracts 声明
+import type {
+  SongListTag,
+  SongListTagsResult,
+  SongListInfo,
+  SongListResult,
+  SongListDetailInfo,
+  SongListDetailResult,
+} from '../MusicSdkContracts';
+
 
 // 排序项
 interface SortItem {
@@ -193,64 +203,6 @@ interface TagListItem {
   id: string;
   name: string;
   source: string;
-}
-
-// 歌单标签项（与 index.ets 统一）
-interface SongListTag {
-  id: string;
-  name: string;
-  parent_id?: string;
-  parent_name?: string;
-  source?: string;
-}
-
-// 歌单标签结果（与 index.ets 统一）
-interface SongListTagsResult {
-  tags: SongListTag[];
-  hotTag: SongListTag[];
-  source: string;
-}
-
-// 歌单列表项
-interface SongListItem {
-  play_count: string;
-  id: string;
-  author: string;
-  name: string;
-  time: string;
-  img: string;
-  total: number;
-  grade: number;
-  desc: string;
-  source: string;
-}
-
-// 歌单列表结果
-interface SongListResult {
-  list: SongListItem[];
-  limit: number;
-  total: number;
-  page: number;
-  source: string;
-}
-
-// 歌单详情结果
-interface SongListDetailResult {
-  list: MusicInfo[];
-  page?: number;
-  limit?: number;
-  total: number;
-  source: string;
-  info: SongListDetailInfo;
-}
-
-// 歌单详情信息
-interface SongListDetailInfo {
-  name: string;
-  img: string;
-  desc: string;
-  author: string;
-  play_count: string;
 }
 
 function buildKgSongListHeaderMap(): Map<string, string> {
@@ -681,7 +633,7 @@ interface SongListInterface {
   listDetailLimit: number;
   getTags: () => Promise<SongListTagsResult>;
   getList: (sortId: string, tagId: string, page: number) => Promise<SongListResult>;
-  filterList: (rawData: RawSongListItem[]) => SongListItem[];
+  filterList: (rawData: RawSongListItem[]) => SongListInfo[];
   getListDetail: (id: string, page: number) => Promise<SongListDetailResult>;
   getListDetailBySpecialId: (id: string, page: number, tryNum?: number) => Promise<SongListDetailResult>;
   getListDetailByLink: (link: string) => Promise<SongListDetailResult>;
@@ -803,7 +755,7 @@ export const songList: SongListInterface = {
           let rows = songList.filterList(rawItems);
           if (rec.length > 0) {
             const recRows = songList.filterList(rec);
-            const merged: SongListItem[] = [];
+            const merged: SongListInfo[] = [];
             for (let i = 0; i < recRows.length; i++) {
               merged.push(recRows[i]);
             }
@@ -833,13 +785,13 @@ export const songList: SongListInterface = {
   /**
    * 过滤歌单列表
    */
-  filterList(rawData: RawSongListItem[]): SongListItem[] {
+  filterList(rawData: RawSongListItem[]): SongListInfo[] {
     return rawData.map(item => {
       const rawCount = item.total_play_count !== undefined ? item.total_play_count : item.play_count;
       const publishTime: number = item.publish_time || item.publishtime || 0;
       const img: string = item.img || item.imgurl;
 
-      const songItem: SongListItem = {
+      const songItem: SongListInfo = {
         play_count: formatPlayCount(rawCount ?? 0),
         id: 'id_' + item.specialid,
         author: item.nickname,

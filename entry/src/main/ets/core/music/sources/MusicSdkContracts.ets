@@ -119,6 +119,9 @@ export interface SongListInfo {
   desc: string;
   total: number;
   source: string;
+  /** 酷狗歌单列表额外返回的字段（其它源不返回，统一成可选避免各源再声明一套） */
+  time?: string;
+  grade?: number;
 }
 
 export interface SongListResult {
@@ -141,4 +144,3 @@ export interface HotSearchResult {
   list: HotSearchItem[];
   source: string;
 }
-

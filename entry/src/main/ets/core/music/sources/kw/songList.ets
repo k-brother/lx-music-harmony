@@ -2,61 +2,24 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { httpRequest } from '../../../../core/network/http';
 import type { MusicInfo, Quality, QualityDetail } from '../../../../types/MusicTypes';
 import { formatPlayTime, decodeHtmlEntities, formatSinger, formatPlayCount } from '../../../../utils/CommonUtils';
+// 歌单标签/信息/结果形状各音源一致，统一在 MusicSdkContracts 声明
+import type {
+  SongListTag,
+  SongListInfo,
+  SongListResult,
+  SongListDetailResult,
+} from '../MusicSdkContracts';
+
+export type { SongListTag, SongListInfo, SongListResult, SongListDetailResult } from '../MusicSdkContracts';
 
 const TAG = 'KwSongList';
 const DOMAIN = 0x0001;
-
-// 歌单标签
-export interface SongListTag {
-  id: string;
-  name: string;
-  parent_id?: string;
-  parent_name?: string;
-}
 
 // 歌单标签分类
 interface SongListTagCategory {
   name: string;
   id: string;
   list: SongListTag[];
-}
-
-// 歌单信息
-export interface SongListInfo {
-  id: string;
-  name: string;
-  author: string;
-  img: string;
-  play_count: string;
-  desc: string;
-  total: number;
-  source: string;
-}
-
-// 歌单结果
-export interface SongListResult {
-  list: SongListInfo[];
-  total: number;
-  page: number;
-  limit: number;
-  source: string;
-}
-
-// 歌单详情信息
-interface SongListDetailInfo {
-  name: string;
-  img: string;
-  desc: string;
-  author: string;
-  play_count: string;
-}
-
-// 歌单详情结果
-export interface SongListDetailResult {
-  list: MusicInfo[];
-  info: SongListDetailInfo;
-  total: number;
-  source: string;
 }
 
 // 歌单标签结果
