@@ -25,90 +25,95 @@ export struct LeaderboardSearchOverlay {
 
   build() {
     Column() {
-      Row() {
-        SearchStrip({
-          text: $searchText,
-          placeholder: t('search_board_hint'),
-          marginH: 0,
-          marginV: 0,
-          actions: this.searchActions,
-        })
-          .layoutWeight(1)
-        Text(t('cancel'))
-          .fontSize(DesignTokens.fontTitle())
-          .fontWeight(FontWeight.Medium)
-          .fontColor(DesignTokens.accent())
-          .padding({ left: 12, right: 0, top: 8, bottom: 8 })
-          .onClick(() => {
-            if (this.onCancel) {
-              this.onCancel();
-            }
-          })
-      }
-      .width('100%')
-      .padding({
-        left: DesignTokens.spaceGutter(),
-        right: DesignTokens.spaceGutter(),
-        top: 10,
-        bottom: 8,
-      })
-      .alignItems(VerticalAlign.Center)
+      this.SearchBar()
 
-      if (this.boards.length === 0) {
-        Column() {
-          Text(this.allEmpty ? t('no_data') : t('no_data'))
-            .fontSize(DesignTokens.fontSubhead())
-            .fontColor(DesignTokens.labelSecondary(this.theme))
-        }
-        .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-      } else {
-        List({ space: 0 }) {
-          ForEach(this.boards, (board: BoardItem) => {
-            ListItem() {
-              Row() {
-                Text(board.name.length > 0 ? board.name : t('board_item'))
-                  .layoutWeight(1)
-                  .fontSize(DesignTokens.fontTitle())
-                  .fontColor(DesignTokens.labelPrimary(this.theme))
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                Text(t('leaderboard_title'))
-                  .fontSize(DesignTokens.fontCaption())
-                  .fontColor(DesignTokens.labelTertiary(this.theme))
-                SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(DesignTokens.fontHeadline())
-                  .fontColor([DesignTokens.labelTertiary(this.theme)])
-                  .margin({ left: 6 })
-              }
-              .width('100%')
-              .padding({
-                left: DesignTokens.spaceGutter(),
-                right: DesignTokens.spaceGutter(),
-                top: 12,
-                bottom: 12,
-              })
-              .border({ width: { bottom: 0.33 }, color: DesignTokens.hairlineSeparator(this.theme) })
-              .onClick(() => {
-                if (this.onOpenBoard) {
-                  this.onOpenBoard(board);
-                }
-              })
-            }
-          }, (board: BoardItem) => board.id)
-        }
-        .width('100%')
-        .layoutWeight(1)
-      }
+      this.Results()
     }
     .width('100%')
     .height('100%')
     .backgroundColor(DesignTokens.pageBg(this.theme))
     // 大屏内容列居中：榜单搜索框与结果同样不该横跨整屏
     .padding({
-      left: Breakpoints.contentInset(this.windowWidthVp),
-      right: Breakpoints.contentInset(this.windowWidthVp),
+    left: Breakpoints.contentInset(this.windowWidthVp),
+    right: Breakpoints.contentInset(this.windowWidthVp),
     })
   }
+
+  /** 顶部：搜索框 + 取消 */
+  @Builder
+  SearchBar() {
+    Row() {
+      SearchStrip({
+        text: $searchText,
+        placeholder: t('search_board_hint'),
+        marginH: 0,
+        marginV: 0,
+        actions: this.searchActions,
+      })
+        .layoutWeight(1)
+      Text(t('cancel'))
+        .fontSize(DesignTokens.fontTitle())
+        .fontWeight(FontWeight.Medium)
+        .fontColor(DesignTokens.accent())
+        .padding({ left: 12, right: 0, top: 8, bottom: 8 })
+        .onClick(() => {
+          if (this.onCancel) {
+            this.onCancel();
+          }
+        })
+    }
+  }
+
+  /** 结果区：空态 / 榜单匹配列表 */
+  @Builder
+  Results() {
+    if (this.boards.length === 0) {
+      Column() {
+        Text(this.allEmpty ? t('no_data') : t('no_data'))
+          .fontSize(DesignTokens.fontSubhead())
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .justifyContent(FlexAlign.Center)
+    } else {
+      List({ space: 0 }) {
+        ForEach(this.boards, (board: BoardItem) => {
+          ListItem() {
+            Row() {
+              Text(board.name.length > 0 ? board.name : t('board_item'))
+                .layoutWeight(1)
+                .fontSize(DesignTokens.fontTitle())
+                .fontColor(DesignTokens.labelPrimary(this.theme))
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+              Text(t('leaderboard_title'))
+                .fontSize(DesignTokens.fontCaption())
+                .fontColor(DesignTokens.labelTertiary(this.theme))
+              SymbolGlyph($r('sys.symbol.chevron_right'))
+                .fontSize(DesignTokens.fontHeadline())
+                .fontColor([DesignTokens.labelTertiary(this.theme)])
+                .margin({ left: 6 })
+            }
+            .width('100%')
+            .padding({
+              left: DesignTokens.spaceGutter(),
+              right: DesignTokens.spaceGutter(),
+              top: 12,
+              bottom: 12,
+            })
+            .border({ width: { bottom: 0.33 }, color: DesignTokens.hairlineSeparator(this.theme) })
+            .onClick(() => {
+              if (this.onOpenBoard) {
+                this.onOpenBoard(board);
+              }
+            })
+          }
+        }, (board: BoardItem) => board.id)
+      }
+      .width('100%')
+      .layoutWeight(1)
+    }
+  }
+
 }
