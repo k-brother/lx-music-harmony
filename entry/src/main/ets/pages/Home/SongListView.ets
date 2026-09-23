@@ -625,53 +625,18 @@ export struct SongListView {
           })
         }
         .onAppear(() => {
-          if (this.hasUserScrolledForPagination &&
-            this.hasMore &&
-            !this.isLoading &&
-            this.songLists.length > 0 &&
-            index >= this.songLists.length - 3) {
-            this.loadSongList(false);
-          }
+          this.maybeLoadMoreOnAppear(index);
         })
       }, (item: SongListItemData, index: number) => `${item.id}_${index}`)
 
       // 底部加载指示器：自动触发加载 + 居中加载动画
       if (this.hasMore) {
-        GridItem() {
-          Row() {
-            LoadingProgress()
-              .width(20)
-              .height(20)
-              .color(DesignTokens.accent())
-            Text(t('loading'))
-              .fontSize(DesignTokens.fontCallout())
-              .fontColor(DesignTokens.labelSecondary(this.theme))
-              .margin({ left: 8 })
-          }
-          .width('100%')
-          .justifyContent(FlexAlign.Center)
-          .alignItems(VerticalAlign.Center)
-        }
-        .columnStart(0)
-        .columnEnd(this.cardColumns() - 1)
-        .padding({ top: 16, bottom: 24 })
-        .onAppear(() => {
-          if (this.hasUserScrolledForPagination && !this.isLoading && this.hasMore) {
-            this.loadSongList(false);
-          }
-        })
+        this.LoadingMoreFooter()
       }
 
       // 底部完结提示
       if (!this.hasMore && this.songLists.length > 0) {
-        GridItem() {
-          Text(t('list_all_loaded'))
-            .fontSize(DesignTokens.fontCaption())
-            .fontColor(DesignTokens.labelTertiary(this.theme))
-        }
-        .columnStart(0)
-        .columnEnd(this.cardColumns() - 1)
-        .padding({ top: 16, bottom: 24 })
+        this.EndOfListFooter()
       }
     }
     .columnsTemplate(Breakpoints.columnsTemplate(this.breakpoint, 3, 4, 6))
@@ -686,6 +651,61 @@ export struct SongListView {
     })
     .width('100%')
     .backgroundColor(DesignTokens.pageBg(this.theme))
+  }
+
+  /**
+   * 卡片进入可视区时按需翻页：只对「用户已经滚动过」的情况生效，
+   * 否则首屏就会因为预取而自动连翻好几页（真机表现为一进页面就在刷）。
+   */
+  private maybeLoadMoreOnAppear(index: number): void {
+    if (this.hasUserScrolledForPagination
+      && this.hasMore
+      && !this.isLoading
+      && this.songLists.length > 0
+      && index >= this.songLists.length - 3) {
+      this.loadSongList(false);
+    }
+  }
+
+  /** 分页加载中的页脚：出现在可视区即继续加载下一页 */
+  @Builder
+  LoadingMoreFooter() {
+    GridItem() {
+      Row() {
+        LoadingProgress()
+          .width(20)
+          .height(20)
+          .color(DesignTokens.accent())
+        Text(t('loading'))
+          .fontSize(DesignTokens.fontCallout())
+          .fontColor(DesignTokens.labelSecondary(this.theme))
+          .margin({ left: 8 })
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Center)
+      .alignItems(VerticalAlign.Center)
+    }
+    .columnStart(0)
+    .columnEnd(this.cardColumns() - 1)
+    .padding({ top: 16, bottom: 24 })
+    .onAppear(() => {
+      if (this.hasUserScrolledForPagination && !this.isLoading && this.hasMore) {
+        this.loadSongList(false);
+      }
+    })
+  }
+
+  /** 全部加载完的页脚 */
+  @Builder
+  EndOfListFooter() {
+    GridItem() {
+      Text(t('list_all_loaded'))
+        .fontSize(DesignTokens.fontCaption())
+        .fontColor(DesignTokens.labelTertiary(this.theme))
+    }
+    .columnStart(0)
+    .columnEnd(this.cardColumns() - 1)
+    .padding({ top: 16, bottom: 24 })
   }
 
 }
