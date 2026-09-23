@@ -644,6 +644,38 @@ Phase 4 续（第二轮）又补了四道只在真机才会暴露的缺陷门禁
 | `check_timer_cleanup.py` / `check_subscription_cleanup.py` | 组件里的定时器与订阅必须能清理（歌单详情的滚动恢复定时器就是这样被揪出来的） |
 | `check_design_tokens.py` / `check_resources.py` | 不许裸字号与写死颜色；media/string/rawfile 资源不许没人引用 |
 
+Phase 4 续（第三轮）：把「能读」这条件落到最长的那批函数上，并抽出一个设置页工厂。
+
+**设置行工厂** `components/ui/SettingsRows.ets`：`selectRow / toggleRow / buttonRow /
+inputRow / infoRow` 五个工厂把「一行 = 标题 + 值 + 选项 + 回调」的 12~20 行样板收成一行。
+7 个设置分组共 70 个设置行改用工厂，最长函数逐个数收敛：
+
+| 文件 | buildItems 原行数 | 现行数 | 拆法 |
+| --- | --- | --- | --- |
+| `DesktopLyricSection` | 272 | **8** | 拆成 状态 / 位置颜色 / 文字样式 / 行为 四组（最大单函数 86） |
+| `PlaybackSection` | 176 | 108 | 工厂改写 14 行 |
+| `SyncSection` | 144 | 91 | 工厂改写 10 行 |
+| `AppearanceSection` | 139 | 81 | 工厂改写 10 行 |
+| `BasicSection` | 106 | 63 | 工厂改写 7 行 |
+| `ListSection` | 93 | 50 | 工厂改写 8 行 |
+| `SearchSection` | 44 | 39 | 工厂改写 4 行 |
+
+**长函数拆分**（只改结构、代码原样搬移，逐个编译 + 全量检查）：
+
+| 文件 | 函数 | 前 → 后 | 拆出的具名段 |
+| --- | --- | --- | --- |
+| `Comment/CommentRow` | build | 184 → **30** | Avatar / AuthorLine / CommentBody / ImageGrid / ReplyBlock / ActionRow |
+| `Home/CustomSourceView` | build | 252 → **29** | TopBar / Builtin / Saved / Entry / UrlImport / PluginInfoCard / LocalImport / Help |
+| `ui/SettingsSection` | build | 113 → **12** | SectionTitle / ItemList / ItemRow / ItemLabels / ItemTrailing |
+| `Home/Home/SearchInputContent` | build | 153 → **11** | TipsList / HistorySection / HotSection（并去掉一层多余 Column） |
+| `player/PlayerBar` | BarCore | 125 → **22** | MiniCover / MiniTitle / MiniControls |
+| `Home/Mylist/UserPlaylistCard` | build | 106 → **25** | Cover / Info / Actions |
+| `SonglistDetail/SonglistDetailHeader` | build | 95 → **20** | ExpandedRow / CompactRow |
+| `Home/LeaderboardView` | loadPreviewForBoardId | 90 → **20** | indexOfCard / isStalePreview / patchCard / applyPreviewReady / applyPreviewError |
+
+`LeaderboardView` 那次拆分顺带把「同一段过期判断重复 4 次、findIndex 重复 3 次」
+收成三个小工具方法，并给卡片加载态加了 `CardLoadState` 类型别名（不再用裸 string）。
+
 **Phase 3（UI/UX 商业化）**：把首页/我的/下载/本地音乐/排行榜/评论页逐个套 UI Kit，
 统一大标题滚动收缩、Tab 切换动效、骨架屏与空态、深色层次、触控目标校验。
 
