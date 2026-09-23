@@ -1,3 +1,5 @@
+import { formatPlayCount as formatPlayCountCore } from './FormatTools';
+
 // 格式化播放时间 - 对应 src/utils/format.ts
 export function formatPlayTime(time: number): string {
   if (isNaN(time) || time < 0) return '00:00';
@@ -29,16 +31,6 @@ export function formatPlayTime2(time: number): string {
     return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-}
-
-// 格式化数字（带单位）
-export function formatNumber(num: number): string {
-  if (num >= 100000000) {
-    return (num / 100000000).toFixed(1) + '亿';
-  } else if (num >= 10000) {
-    return (num / 10000).toFixed(1) + '万';
-  }
-  return num.toString();
 }
 
 // 判断是否为空
@@ -124,15 +116,14 @@ export function formatSinger(singerStr: string): string {
   return singerStr.replace(/&/g, '、');
 }
 
-// 格式化播放数量
+/**
+ * 播放量格式化：统一走 utils/FormatTools。
+ *
+ * 原实现把「亿」按 1/10000000、「万」按 1/1000 计算（除数少了一位），
+ * 各音源歌单列表里的播放量整整大 10 倍；这里改为委托统一实现。
+ */
 export function formatPlayCount(num: number): string {
-  if (num > 100000000) {
-    return (num / 10000000).toFixed(1) + '亿';
-  }
-  if (num > 10000) {
-    return (num / 1000).toFixed(1) + '万';
-  }
-  return num.toString();
+  return formatPlayCountCore(num, '万', '亿');
 }
 
 // 字符串转数字（带默认值）

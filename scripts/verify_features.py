@@ -249,6 +249,9 @@ CHECKS = [
  ('播控命令注册器独立成文件', 'service/player/MediaControlCommands.ets', r'export function registerMediaControlCommands'),
  ('播控命令错误处理统一', 'service/player/MediaControlCommands.ets', r'function safeInvoke'),
  ('播控类型独立成文件', 'service/player/AvSessionTypes.ets', r'export interface AvSessionCallbacks'),
+ # 播放量格式化只允许一份实现：CommonUtils 的同名函数必须委托给 FormatTools
+ ('音源侧的播放量格式化也走统一实现', 'utils/CommonUtils.ets', r'formatPlayCountCore\(',
+  r"toFixed\(1\) \+ '万'"),
 ]
 
 fails = []
