@@ -194,9 +194,11 @@ CHECKS = [
  ('底栏动态文案在 Builder 内读状态', 'pages/PlayDetail/PlayerControls.ets', r'Text\(this\.labelFor\(kind\)\)'),
  ('底栏 Builder 不接收动态文案参数', 'pages/PlayDetail/PlayerControls.ets', r'private labelFor\(',
   r'label: string'),
- ('评论行 Builder 只接收 index', 'pages/CommentPage.ets', r'buildCommentItem\(index: number\)',
-  r'buildCommentItem\(comment:'),
- ('评论点赞态读组件状态', 'pages/CommentPage.ets', r'this\.comments\[index\]\.isLiked'),
+ # 评论行已抽成组件（@Prop 会随父组件重渲染更新），比“Builder 内按 index 读”更彻底
+ ('评论行抽成组件', 'pages/CommentPage.ets', r'CommentRow\(\{'),
+ ('评论行用 @Prop 接收数据', 'pages/Comment/CommentRow.ets', r'@Prop comment: Comment'),
+ ('评论点赞态读自身数据', 'pages/Comment/CommentRow.ets', r'this\.comment\.isLiked',
+  r'buildCommentItem\('),
  # 播放量格式化曾经在 4 处各写一遍（阈值/空格/小数不同，真机出现过 8550.7）
  ('播放量格式化单一出口', 'utils/FormatTools.ets', r'export function formatPlayCount'),
  ('排行榜播放量走统一实现', 'pages/Home/LeaderboardView.ets', r'formatPlayCount\(count, t\(',

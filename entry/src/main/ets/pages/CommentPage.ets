@@ -10,6 +10,7 @@ import type { Comment } from '../service/CommentService';
 import type { NavigationParams } from '../service/NavigationService';
 import { DesignTokens } from '../theme/DesignTokens';
 import { NavBar } from '../components/ui/NavBar';
+import { CommentRow } from './Comment/CommentRow';
 import { StateView } from '../components/ui/StateView';
 import { SegmentedBar } from '../components/ui/SegmentedBar';
 import { t } from '../service/LocalizationService';
@@ -224,214 +225,14 @@ export struct CommentPage {
   }
 
   @Builder
-  buildCommentItem(index: number) {
-    // 规则（真机对照实验结论）：@Builder 的参数不会随状态刷新，
-    // 所以评论对象不进参数 —— 只传稳定的 index，内容在内部从 this.comments 读，
-    // 这样点赞后图标与数量才会跟着更新。
-    Column() {
-      this.CommentBody(index)
-    }
-    .width('100%')
-    .backgroundColor(DesignTokens.card(this.theme))
-  }
-
-  /** 单条评论主体：从 this.comments[index] 读（点赞态属于会变的状态） */
-  @Builder
-  CommentBody(index: number) {
-    Column() {
-      Row() {
-        // 用户头像
-        if (this.comments[index].userAvatar) {
-          Image(this.comments[index].userAvatar)
-            .width(36)
-            .height(36)
-            .borderRadius(18)
-        } else {
-          // 默认头像
-          Column() {
-            Text(this.comments[index].userName.substring(0, 1))
-              .fontSize(16)
-              .fontColor(DesignTokens.onAccent())
-          }
-          .width(36)
-          .height(36)
-          .borderRadius(18)
-          .backgroundColor(DesignTokens.accent())
-          .justifyContent(FlexAlign.Center)
-          .alignItems(HorizontalAlign.Center)
-        }
-        
-        Column() {
-          // 用户信息和时间
-          Row() {
-            Text(this.comments[index].userName)
-              .fontSize(14)
-              .fontColor(DesignTokens.labelPrimary(this.theme))
-              .fontWeight(FontWeight.Medium)
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-            Text(this.comments[index].time)
-              .fontSize(12)
-              .fontColor(DesignTokens.labelTertiary(this.theme))
-              .margin({ left: 8 })
-
-            // IP 归属地（部分音源返回）
-            if (this.comments[index].location.length > 0) {
-              Text(this.comments[index].location)
-                .fontSize(11)
-                .fontColor(DesignTokens.labelTertiary(this.theme))
-                .margin({ left: 8 })
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-                .layoutWeight(1)
-            } else {
-              Blank()
-            }
-          }
-          .width('100%')
-          .margin({ bottom: 4 })
-
-          // 评论内容
-          Text(this.comments[index].content)
-            .fontSize(14)
-            .fontColor(DesignTokens.labelPrimary(this.theme))
-            .lineHeight(20)
-
-          // 评论图片：缩略图点击查看大图
-          if (this.comments[index].images.length > 0) {
-            Flex({ wrap: FlexWrap.Wrap }) {
-              ForEach(this.comments[index].images, (url: string) => {
-                Image(url)
-                  .width(96)
-                  .height(96)
-                  .borderRadius(8)
-                  .objectFit(ImageFit.Cover)
-                  .margin({ top: 8, right: 8 })
-                  .onClick(() => {
-                    this.previewImage = url;
-                  })
-              }, (url: string) => url)
-            }
-            .width('100%')
-          }
-
-          // 楼层回复：整块浅底，与主评论视觉分层
-          if (this.comments[index].replies.length > 0) {
-            Column() {
-              ForEach(this.comments[index].replies, (reply: Comment) => {
-                this.buildReplyFloor(reply)
-              }, (reply: Comment) => reply.id)
-            }
-            .width('100%')
-            .margin({ top: 10 })
-            .padding({ left: 10, right: 10, top: 8, bottom: 2 })
-            .backgroundColor(DesignTokens.pageBg(this.theme))
-            .borderRadius(8)
-          }
-
-          // 点赞和回复信息
-          Row() {
-            // 点赞按钮
-            Row() {
-              SymbolGlyph(this.comments[index].isLiked ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
-                .fontSize(18)
-                .fontColor([this.comments[index].isLiked ? DesignTokens.accent() : DesignTokens.labelSecondary(this.theme)])
-                .margin({ right: 4 })
-              
-              Text(this.comments[index].likeCount.toString())
-                .fontSize(12)
-                .fontColor(this.comments[index].isLiked ? DesignTokens.accent() : DesignTokens.labelSecondary(this.theme))
-            }
-            .stateStyles({ pressed: this.pressDim })
-            .onClick(() => {
-              this.toggleLikeComment(this.comments[index].id);
-            })
-            
-            // 回复按钮
-            Row() {
-              SymbolGlyph($r('sys.symbol.music_note_list'))
-                .fontSize(19)
-                .fontColor([DesignTokens.labelSecondary(this.theme)])
-                .margin({ left: 16, right: 4 })
-              
-              Text(this.comments[index].replyCount > 0 ? this.comments[index].replyCount.toString() : t('comment_new'))
-                .fontSize(12)
-                .fontColor(DesignTokens.labelSecondary(this.theme))
-            }
-            .margin({ left: 16 })
-            
-            // 热门标签
-            if (this.comments[index].isHot) {
-              Text(t('comment_hot_tag'))
-                .fontSize(10)
-                .fontColor(DesignTokens.accent())
-                .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-                .borderRadius(2)
-                .border({ width: 1, color: DesignTokens.accent() })
-                .margin({ left: 16 })
-            }
-          }
-          .width('100%')
-          .margin({ top: 8 })
-        }
-        .margin({ left: 12 })
-        .layoutWeight(1)
-      }
-      .width('100%')
-      .padding({ top: 16, bottom: 16, left: 16, right: 16 })
-      
-      // 分隔线
-      if (index < this.comments.length - 1) {
-        Divider()
-          .strokeWidth(0.5)
-          .color(this.theme === 'dark' ? DesignTokens.mutedFill(this.theme) : '#E8E8E8')
-          .margin({ left: 64, right: 16 })
-      }
-    }
-    .width('100%')
-    .backgroundColor(DesignTokens.card(this.theme))
-  }
-
-  @Builder
-  buildReplyFloor(reply: Comment) {
-    Column() {
-      Row() {
-        Text(reply.userName)
-          .fontSize(13)
-          .fontColor(DesignTokens.labelSecondary(this.theme))
-          .fontWeight(FontWeight.Medium)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-        Text(reply.time)
-          .fontSize(11)
-          .fontColor(DesignTokens.labelTertiary(this.theme))
-          .margin({ left: 8 })
-          .layoutWeight(1)
-          .maxLines(1)
-      }
-      .width('100%')
-
-      Text(reply.content)
-        .fontSize(13)
-        .fontColor(DesignTokens.labelPrimary(this.theme))
-        .lineHeight(19)
-        .width('100%')
-        .margin({ top: 2, bottom: 8 })
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  /** 全屏图片预览：点击任意处关闭 */
+  /** 全屏图片预览：点击任意处关闭（遮罩用纯黑，仅图片预览场景） */
   @Builder
   buildImagePreview() {
     Stack() {
       Column()
         .width('100%')
         .height('100%')
-        .backgroundColor('#000000')
+        .backgroundColor(Color.Black)
         .onClick(() => {
           this.previewImage = '';
         })
@@ -443,9 +244,9 @@ export struct CommentPage {
       Column() {
         Text(t('comment_image_close'))
           .fontSize(14)
-          .fontColor('#FFFFFF')
+          .fontColor(DesignTokens.onAccent())
           .padding({ left: 14, right: 14, top: 8, bottom: 8 })
-          .backgroundColor('#33FFFFFF')
+          .backgroundColor('rgba(255,255,255,0.20)')
           .borderRadius(18)
       }
       .align(Alignment.TopEnd)
@@ -501,7 +302,14 @@ export struct CommentPage {
           List() {
             ForEach(this.comments, (comment: Comment, index: number) => {
               ListItem() {
-                this.buildCommentItem(index)
+                CommentRow({
+                  comment: comment,
+                  isLast: index >= this.comments.length - 1,
+                  onToggleLike: (commentId: string): void => this.toggleLikeComment(commentId),
+                  onPreviewImage: (url: string): void => {
+                    this.previewImage = url;
+                  },
+                })
               }
             }, (comment: Comment) => comment.id)
 
