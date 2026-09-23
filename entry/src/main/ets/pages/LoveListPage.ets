@@ -270,24 +270,28 @@ export struct LoveListPage {
     List({ scroller: this.listScroller }) {
       LazyForEach(this.loveSource, (song: SongRow, index: number) => {
         ListItem() {
-          ListRow({
-            index: index + 1,
-            title: song.name,
-            subtitle: song.album ? `${song.singer} · ${song.album}` : song.singer,
-            active: song.id === this.playingId,
-            divider: index < this.songs.length - 1,
-            onTap: (): void => {
-              void this.playSong(index);
-            },
-            onLongPress: (): void => {
-              void this.openSongMenu(song, index);
-            },
-            trailing: (): void => {
-              this.rowTrailing(song, index);
-            },
-          })
+          // 行内容用一层 Column 承担左右留白：侧滑操作区能贴住屏幕右缘（与本地音乐一致）
+          Column() {
+            ListRow({
+              index: index + 1,
+              title: song.name,
+              subtitle: song.album ? `${song.singer} · ${song.album}` : song.singer,
+              active: song.id === this.playingId,
+              divider: index < this.songs.length - 1,
+              onTap: (): void => {
+                void this.playSong(index);
+              },
+              onLongPress: (): void => {
+                void this.openSongMenu(song, index);
+              },
+              trailing: (): void => {
+                this.rowTrailing(song, index);
+              },
+            })
+          }
+          .padding({ left: 16, right: 8 })
+          .width('100%')
         }
-        .padding({ left: 16, right: 8 })
         // 侧滑取消收藏（长按菜单里也有同一项，这里给更快的手势入口）
         .swipeAction({
           end: {

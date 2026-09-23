@@ -270,18 +270,22 @@ export struct HistoryListPage {
     List({ scroller: this.listScroller }) {
       LazyForEach(this.historySource, (song: PlayHistoryItem, index: number) => {
         ListItem() {
-          ListRow({
-            index: index + 1,
-            title: song.name,
-            subtitle: song.album ? `${song.singer} · ${song.album}` : song.singer,
-            trailingText: song.duration > 0 ? formatPlayTime(song.duration) : '',
-            divider: index < this.playHistory.length - 1,
-            onTap: (): void => {
-              void this.playHistorySong(song);
-            },
-          })
+          // 行内容用一层 Column 承担左右留白：这样侧滑操作区能贴住屏幕右缘（与本地音乐一致）
+          Column() {
+            ListRow({
+              index: index + 1,
+              title: song.name,
+              subtitle: song.album ? `${song.singer} · ${song.album}` : song.singer,
+              trailingText: song.duration > 0 ? formatPlayTime(song.duration) : '',
+              divider: index < this.playHistory.length - 1,
+              onTap: (): void => {
+                void this.playHistorySong(song);
+              },
+            })
+          }
+          .padding({ left: 16, right: 16 })
+          .width('100%')
         }
-        .padding({ left: 16, right: 16 })
         // 侧滑删除这一条（清空整表是粗操作，主流列表都支持单条移除）
         .swipeAction({
           end: {
