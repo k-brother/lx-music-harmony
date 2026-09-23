@@ -5,7 +5,6 @@ import { t } from '../../service/LocalizationService';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { Breakpoints } from '../../theme/Breakpoints';
-import { NavBackButton } from '../../components/common/NavBackButton';
 import { showAppToast, TOAST_DURATION_DEFAULT } from '../../utils/Toast';
 import { tf } from '../../service/LocalizationService';
 import { stateEvent, type VersionInfo } from '../../event/StateEvent';

@@ -15,15 +15,10 @@ import { picker as filePicker } from '@kit.CoreFileKit';
 import { common } from '@kit.AbilityKit';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { Breakpoints } from '../../theme/Breakpoints';
-import { NavBackButton } from '../../components/common/NavBackButton';
 import { NavBar } from '../../components/ui/NavBar';
 
 const TAG = 'CustomSource';
 const DOMAIN = 0x0001;
-
-interface PromptActionResult {
-  index: number;
-}
 
 // 默认源列表
 const DEFAULT_SOURCES: SourceItem[] = [

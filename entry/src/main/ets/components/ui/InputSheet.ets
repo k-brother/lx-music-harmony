@@ -8,7 +8,6 @@ import { t } from '../../service/LocalizationService';
 import { BottomSheet, dismissSheet } from './BottomSheet';
 import { requestFocusSafe } from '../../utils/FocusTools';
 import { SheetHeader } from './SheetHeader';
-import { isConfirmKey } from '../../utils/KeyboardTools';
 
 /** 输入框焦点键：面板出现即聚焦，省掉用户多点一次 */
 const INPUT_SHEET_KEY: string = 'sheetTextInput';

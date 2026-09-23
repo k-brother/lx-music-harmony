@@ -38,6 +38,9 @@ python3 "${SCRIPT_DIR}/check_mini_player.py"
 echo "== 回调属性内联组件（真机崩溃根因）=="
 python3 "${SCRIPT_DIR}/check_builder_params.py"
 
+echo "== 原生模块（.so）类型标注 =="
+python3 "${SCRIPT_DIR}/check_napi_typing.py"
+
 echo "== 2in1 键盘操作 =="
 python3 "${SCRIPT_DIR}/check_keyboard.py"
 

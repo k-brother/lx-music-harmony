@@ -11,14 +11,12 @@ import inflateNapiSo from 'libinflate_napi.so';
 const TAG = 'NapiInflate';
 const DOMAIN = 0x0001;
 
-interface InflateNapiModule {
-  inflateBytes(data: ArrayBuffer | Uint8Array): ArrayBuffer | undefined;
-}
-
-const inflateModule: InflateNapiModule = inflateNapiSo;
-
 /**
  * 内存解压（自动识别 zlib / gzip 头）
+ *
+ * 模块签名以 `native-modules.d.ts` 为唯一来源，这里不再本地重复声明接口：
+ * ArkTS 的结构化类型校验（arkts-no-structural-typing）不允许把「形状相同但
+ * 不同名」的两个接口互相赋值，重复声明会直接让 DevEco 报红。
  * @returns 解压后的字节；失败返回 null
  */
 export function zlibInflate(data: ArrayBuffer): ArrayBuffer | null {
@@ -26,7 +24,7 @@ export function zlibInflate(data: ArrayBuffer): ArrayBuffer | null {
     return null;
   }
   try {
-    const result: ArrayBuffer | undefined = inflateModule.inflateBytes(data);
+    const result: ArrayBuffer | undefined = inflateNapiSo.inflateBytes(data);
     if (result && result.byteLength > 0) {
       return result;
     }

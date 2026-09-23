@@ -8,7 +8,6 @@ import { DesignTokens } from '../theme/DesignTokens';
 import { Breakpoints } from '../theme/Breakpoints';
 import { logService } from '../service/LogService';
 import { StateView } from '../components/ui/StateView';
-import { NavBackButton } from '../components/common/NavBackButton';
 import { SegmentedBar } from '../components/ui/SegmentedBar';
 import { t, tf } from '../service/LocalizationService';
 import type { LogRecord } from '../core/log/LogStore';
@@ -294,8 +293,4 @@ export struct LogPage {
     // 顶部/底部安全区都由页面自己绘制（深色模式下底部手势区不能透出系统白底）
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
-}
-
-interface PromptActionResultLike {
-  index: number;
 }

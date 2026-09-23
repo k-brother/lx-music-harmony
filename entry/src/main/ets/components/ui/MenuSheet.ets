@@ -10,7 +10,6 @@
  * - 底部固定一行「取消」，与动作行之间有分隔，避免误触
  */
 import { DesignTokens } from '../../theme/DesignTokens';
-import { t } from '../../service/LocalizationService';
 import { BottomSheet, dismissSheet } from './BottomSheet';
 import { isConfirmKey } from '../../utils/KeyboardTools';
 import { SheetHeader } from './SheetHeader';

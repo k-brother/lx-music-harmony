@@ -13,7 +13,6 @@
  */
 import { setDownloadContext } from './download/DownloadContext';
 import {
-  repairPlayablePath,
   getDefaultDownloadPath,
   getLyricSavePath,
   getPicSavePath,
