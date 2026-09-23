@@ -939,6 +939,13 @@ export struct PlayDetailPage {
       onLongPress: (): void => {
         this.showCoverQuickMenu();
       },
+      onTap: (): void => {
+        // 窄屏：点封面直接翻到歌词（QQ 音乐等主流播放器的习惯）；
+        // 宽屏封面与歌词同屏，点封面不做任何跳转
+        if (!Breakpoints.isWide(this.breakpoint) && this.currentTab === 0) {
+          this.switchToLyricTab();
+        }
+      },
     })
   }
 

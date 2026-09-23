@@ -17,6 +17,8 @@ export struct AlbumCover {
   @Prop animationEnabled: boolean = true;
   onLoadError?: () => void;
   onLongPress?: () => void;
+  /** 单击封面（窄屏：切到歌词页；宽屏不需要，由页面决定是否响应） */
+  onTap?: () => void;
 
   private canRender(url: string): boolean {
     return url.length > 0
@@ -52,6 +54,11 @@ export struct AlbumCover {
     .scale({ x: this.active ? 1 : 0.92, y: this.active ? 1 : 0.92 })
     .opacity(this.active ? 1 : 0.65)
     .animation({ duration: this.animationEnabled ? DesignTokens.motionNormal() : 0, curve: Curve.EaseOut })
+    .onClick(() => {
+      if (this.onTap) {
+        this.onTap();
+      }
+    })
     .gesture(
       LongPressGesture()
         .onAction(() => {
