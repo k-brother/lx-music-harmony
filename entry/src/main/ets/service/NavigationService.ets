@@ -11,13 +11,8 @@ export enum RouteName {
   BOARD_DETAIL = 'boarddetail',
   CUSTOM_SOURCE = 'customsource',
   ABOUT = 'about',
-  NETWORK_TEST = 'networktest',
-  TEST_KW = 'testkw',
   SETTINGS = 'settings',
-  DOWNLOAD = 'download',
   HISTORY_LIST = 'historylist',
-  /** 关于页「测试功能」内：下载链路调试 */
-  DOWNLOAD_TEST = 'downloadtest',
   COMMENT = 'comment',
   /** 自建歌单管理页 */
   USER_LISTS = 'userlists',

@@ -10,7 +10,6 @@ import { SonglistDetailPage } from './SonglistDetailPage';
 import { PlayDetailPage } from './PlayDetailPage';
 import { SettingView } from './Home/SettingView';
 import { navigationService, RouteName } from '../service/NavigationService';
-import { DownloadPage } from './DownloadPage';
 import { CommentPage } from './CommentPage';
 import { HistoryListPage } from './HistoryListPage';
 import { UserListsPage } from './UserListsPage';
@@ -149,10 +148,6 @@ export struct NavIndex {
     } else if (name === 'settings') {
       AppDestination({ routeName: 'SettingView' }) {
         SettingView()
-      }
-    } else if (name === 'download') {
-      AppDestination({ routeName: 'DownloadPage' }) {
-        DownloadPage()
       }
     } else if (name === 'comment') {
       AppDestination({ routeName: 'CommentPage' }) {

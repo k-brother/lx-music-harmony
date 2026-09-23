@@ -17,6 +17,9 @@ python3 "${SCRIPT_DIR}/check_unused_exports.py"
 echo "== 入口可达性（死模块）=="
 python3 "${SCRIPT_DIR}/check_reachable.py"
 
+echo "== 路由一致性 =="
+python3 "${SCRIPT_DIR}/check_routes.py"
+
 echo "== i18n 词条对齐 =="
 python3 "${SCRIPT_DIR}/check_i18n.py"
 
