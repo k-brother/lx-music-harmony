@@ -7,6 +7,7 @@
  * - 长按出快捷菜单（分享/收藏/下载等由页面提供）
  */
 import { DesignTokens } from '../../theme/DesignTokens';
+import { t } from '../../service/LocalizationService';
 
 @Component
 export struct AlbumCover {
@@ -54,6 +55,8 @@ export struct AlbumCover {
     .scale({ x: this.active ? 1 : 0.92, y: this.active ? 1 : 0.92 })
     .opacity(this.active ? 1 : 0.65)
     .animation({ duration: this.animationEnabled ? DesignTokens.motionNormal() : 0, curve: Curve.EaseOut })
+    // 无障碍：封面本身是「切到歌词」的入口，读屏要能念出来
+    .accessibilityText(t('switch_to_lyric'))
     .onClick(() => {
       if (this.onTap) {
         this.onTap();
