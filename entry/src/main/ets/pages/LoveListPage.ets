@@ -20,6 +20,7 @@ import { StateView } from '../components/ui/StateView';
 import { RefreshContainer } from '../components/ui/RefreshContainer';
 import { hapticService } from '../service/HapticService';
 import { PlayerBar } from '../components/player/PlayerBar';
+import { pageScrollKey, ScrollMemoryHandle } from '../service/ScrollMemoryService';
 
 const DOMAIN = 0x0001;
 const TAG = 'LoveListPage';
@@ -40,6 +41,8 @@ export struct LoveListPage {
   /** 一多：窗口宽度（vp），大屏内容列居中 */
   @StorageProp('windowWidthVp') windowWidthVp: number = 360;
   @StorageProp('langVersion') langVersion: number = 0;
+  /** 设置 → 列表 → 记住列表滚动位置 */
+  @StorageProp('rememberScrollPosition') rememberScrollPosition: boolean = true;
   @State songs: SongRow[] = [];
   /** LazyForEach 数据源：长列表只创建可视区的行 */
   private loveSource: LazyDataSource<SongRow> = new LazyDataSource<SongRow>();
@@ -49,6 +52,9 @@ export struct LoveListPage {
   /** 大标题滚动收缩：列表下滚后切到居中常规标题 */
   @State navCollapsed: boolean = false;
   private listScroller: Scroller = new Scroller();
+  /** 滚动位置记忆（固定页面 key；定时器与恢复时序在把手内部） */
+  private scrollMemory: ScrollMemoryHandle = new ScrollMemoryHandle(pageScrollKey('love'), this.listScroller);
+  private scrollMemoryRestored: boolean = false;
   /** 正在播放的曲目 id（高亮行） */
   @State playingId: string = '';
 
@@ -85,6 +91,7 @@ export struct LoveListPage {
       }
       this.songs = rows;
       this.loveSource.reload(this.songs);
+      this.afterSongsLoaded();
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to load: %{public}s', JSON.stringify(err));
       if (!silent) {
@@ -95,6 +102,20 @@ export struct LoveListPage {
       this.isLoading = false;
       this.isRefreshing = false;
     }
+  }
+
+  /** 数据进列表后：标记就绪，首次进入时落回上次位置（下拉刷新不重复恢复） */
+  private afterSongsLoaded(): void {
+    this.scrollMemory.markLoaded();
+    if (!this.scrollMemoryRestored) {
+      this.scrollMemoryRestored = true;
+      this.scrollMemory.restore(this.rememberScrollPosition);
+    }
+  }
+
+  aboutToDisappear(): void {
+    this.scrollMemory.save(this.rememberScrollPosition);
+    this.scrollMemory.dispose();
   }
 
   /** 播放：队列 = 我喜欢列表（next/prev 可在喜欢列表里连续播放） */

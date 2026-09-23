@@ -313,6 +313,12 @@ CHECKS = [
  ('播放队列快照存储', 'service/player/QueueSnapshot.ets', r'export async function loadQueueSnapshot'),
  ('队列变更统一落盘出口', 'service/PlayerService.ets', r'private persistQueue\(\): void'),
  ('重启恢复整队列', 'service/PlayerService.ets', r'restoreQueue\(song, savedQueue\)'),
+ # 「记住列表滚动位置」从只有歌单详情覆盖到全部长列表
+ ('滚动位置记忆统一实现', 'service/ScrollMemoryService.ets', r'export class ScrollMemoryHandle'),
+ ('榜单详情记住滚动位置', 'pages/BoardDetailPage.ets', r'scrollMemory\.save'),
+ ('本地音乐记住滚动位置', 'pages/LocalMusicPage.ets', r'scrollMemory\.restore'),
+ ('历史记住滚动位置', 'pages/HistoryListPage.ets', r'scrollMemory\.restore'),
+ ('我喜欢记住滚动位置', 'pages/LoveListPage.ets', r'scrollMemory\.restore'),
 ]
 
 fails = []

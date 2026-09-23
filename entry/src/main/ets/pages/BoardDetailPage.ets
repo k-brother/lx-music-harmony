@@ -18,6 +18,7 @@ import { Breakpoints } from '../theme/Breakpoints';
 import { LazyDataSource } from '../utils/LazyDataSource';
 import { BoardDetailHeader } from './Board/BoardDetailHeader';
 import { scrollerOffsetY } from '../utils/ScrollTools';
+import { parameterizedPageScrollKey, ScrollMemoryHandle } from '../service/ScrollMemoryService';
 
 interface BoardDetailParams {
   boardId: string;
@@ -55,10 +56,15 @@ export struct BoardDetailPage {
   @State isLoading: boolean = true;
   @State totalCount: number = 0;
   @State headerCompact: boolean = false;
+  /** 设置 → 列表 → 记住列表滚动位置 */
+  @StorageProp('rememberScrollPosition') rememberScrollPosition: boolean = true;
 
   // 标记是否已加载数据（用于区分首次加载和参数更新）
   private hasLoadedData: boolean = false;
   private songListScroller: Scroller = new Scroller();
+  /** 滚动位置记忆（按榜单 id 区分；恢复时机与定时器在把手内部） */
+  private scrollMemory: ScrollMemoryHandle = new ScrollMemoryHandle('', this.songListScroller);
+  private scrollMemoryRestored: boolean = false;
 
   private getSongListOffsetY(): number {
     return scrollerOffsetY(this.songListScroller);
@@ -137,6 +143,8 @@ export struct BoardDetailPage {
 
   async loadBoardDetail() {
     this.isLoading = true;
+    // 榜单 id 只能在加载时确定：先把记忆 key 绑到这张榜单（换榜单不会串位置）
+    this.scrollMemory.setKey(parameterizedPageScrollKey('board', this.boardId));
     hilog.info(0x0001, 'BoardDetail', 'Loading detail for source: %{public}s, id: %{public}s', this.boardSource, this.boardId);
 
     try {
@@ -174,6 +182,12 @@ export struct BoardDetailPage {
         this.songList = items;
         this.songListSource.reload(this.songList);
         this.totalCount = result.total || items.length;
+        // 数据进列表后：首次进入落回上次位置（下拉/重试不再重复恢复）
+        this.scrollMemory.markLoaded();
+        if (!this.scrollMemoryRestored) {
+          this.scrollMemoryRestored = true;
+          this.scrollMemory.restore(this.rememberScrollPosition);
+        }
         hilog.info(0x0001, 'BoardDetail', 'Loaded %{public}d songs', items.length);
       }
     } catch (err) {
@@ -420,5 +434,11 @@ export struct BoardDetailPage {
         this.headerCompact = false;
       }
     })
+  }
+
+  aboutToDisappear(): void {
+    // 离开榜单时记住位置（关闭「记住滚动位置」时写入会被内部忽略）
+    this.scrollMemory.save(this.rememberScrollPosition);
+    this.scrollMemory.dispose();
   }
 }

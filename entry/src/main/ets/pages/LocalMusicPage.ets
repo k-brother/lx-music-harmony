@@ -23,6 +23,7 @@ import { LocalMusicActions } from './LocalMusic/LocalMusicActions';
 import { TrackRow } from './LocalMusic/TrackRow';
 import { Breakpoints } from '../theme/Breakpoints';
 import { LazyDataSource } from '../utils/LazyDataSource';
+import { pageScrollKey, ScrollMemoryHandle } from '../service/ScrollMemoryService';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'LocalMusicPage';
@@ -46,9 +47,20 @@ export struct LocalMusicPage {
   @State showEditDialog: boolean = false;
   private editingTrack: LocalMusicInfo | null = null;
   private coverLoaded: Set<string> = new Set();
+  /** 列表滚动控制与位置记忆（设置 → 列表 → 记住滚动位置） */
+  private trackScroller: Scroller = new Scroller();
+  private scrollMemory: ScrollMemoryHandle = new ScrollMemoryHandle(pageScrollKey('localMusic'), this.trackScroller);
+  private scrollMemoryRestored: boolean = false;
+  @StorageProp('rememberScrollPosition') rememberScrollPosition: boolean = true;
 
   aboutToAppear(): void {
     void this.loadLibrary();
+  }
+
+  aboutToDisappear(): void {
+    // 离开页面记住位置（关闭「记住滚动位置」时写入会被内部忽略）
+    this.scrollMemory.save(this.rememberScrollPosition);
+    this.scrollMemory.dispose();
   }
 
   private async loadLibrary(): Promise<void> {
@@ -58,6 +70,12 @@ export struct LocalMusicPage {
       this.tracks = list.slice();
       this.trackSource.reload(this.tracks);
       void this.loadCovers(list);
+      // 数据进列表后：首次进入落回上次位置（重扫/下拉刷新不重复恢复）
+      this.scrollMemory.markLoaded();
+      if (!this.scrollMemoryRestored) {
+        this.scrollMemoryRestored = true;
+        this.scrollMemory.restore(this.rememberScrollPosition);
+      }
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'loadLibrary failed: %{public}s', JSON.stringify(err));
     } finally {
@@ -384,7 +402,7 @@ export struct LocalMusicPage {
   /** 本地曲库列表（LazyForEach + 侧滑删除 + 大屏内容列居中） */
   @Builder
   TrackList() {
-    List() {
+    List({ scroller: this.trackScroller }) {
       LazyForEach(this.trackSource, (track: LocalMusicInfo, index: number) => {
         ListItem() {
           TrackRow({

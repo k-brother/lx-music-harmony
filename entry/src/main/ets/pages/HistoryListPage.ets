@@ -28,6 +28,7 @@ import { StateView } from '../components/ui/StateView';
 import { RefreshContainer } from '../components/ui/RefreshContainer';
 import { hapticService } from '../service/HapticService';
 import { PlayerBar } from '../components/player/PlayerBar';
+import { pageScrollKey, ScrollMemoryHandle } from '../service/ScrollMemoryService';
 
 const DOMAIN = 0x0001;
 const TAG = 'HistoryListPage';
@@ -40,12 +41,17 @@ export struct HistoryListPage {
   /** 一多：窗口宽度（vp），大屏内容列居中 */
   @StorageProp('windowWidthVp') windowWidthVp: number = 360;
   @StorageProp('langVersion') langVersion: number = 0;
+  /** 设置 → 列表 → 记住列表滚动位置 */
+  @StorageProp('rememberScrollPosition') rememberScrollPosition: boolean = true;
   @State isLoading: boolean = true;
   /** 下拉刷新中（静默刷新，保留当前列表不闪骨架） */
   @State isRefreshing: boolean = false;
   /** 大标题滚动收缩：列表下滚后切到居中常规标题 */
   @State navCollapsed: boolean = false;
   private listScroller: Scroller = new Scroller();
+  /** 滚动位置记忆（key 为固定页面，恢复时机与定时器都在把手内部） */
+  private scrollMemory: ScrollMemoryHandle = new ScrollMemoryHandle(pageScrollKey('history'), this.listScroller);
+  private scrollMemoryRestored: boolean = false;
   @State playHistory: PlayHistoryItem[] = [];
   /** LazyForEach 数据源：长列表只创建可视区的行 */
   private historySource: LazyDataSource<PlayHistoryItem> = new LazyDataSource<PlayHistoryItem>();
@@ -64,6 +70,7 @@ export struct HistoryListPage {
     try {
       this.playHistory = await getPlayHistory(HISTORY_LIMIT);
       this.historySource.reload(this.playHistory);
+      this.afterHistoryLoaded();
     } catch (err) {
       hilog.warn(DOMAIN, TAG, 'loadHistory failed: %{public}s', JSON.stringify(err));
       if (!silent) {
@@ -74,6 +81,21 @@ export struct HistoryListPage {
       this.isLoading = false;
       this.isRefreshing = false;
     }
+  }
+
+  /** 数据进列表后：标记就绪，首次进入时落回上次的滚动位置（下拉刷新不重复恢复） */
+  private afterHistoryLoaded(): void {
+    this.scrollMemory.markLoaded();
+    if (!this.scrollMemoryRestored) {
+      this.scrollMemoryRestored = true;
+      this.scrollMemory.restore(this.rememberScrollPosition);
+    }
+  }
+
+  aboutToDisappear(): void {
+    // 离开页面记录位置（关闭「记住滚动位置」时写入会被内部忽略）
+    this.scrollMemory.save(this.rememberScrollPosition);
+    this.scrollMemory.dispose();
   }
 
   /** 下拉刷新入口：重读本地历史 */
