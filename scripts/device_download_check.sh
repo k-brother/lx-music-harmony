@@ -64,6 +64,9 @@ PY
   tap $coord
 }
 
+# 先按标签点、失败退回坐标（布局微调不至于让整段脚本失效）
+tap_label_or_coord() { tap_text "$1" >/dev/null 2>&1 || tap "$2" "$3"; }
+
 if [ ! -x "$HDC" ]; then
   printf '找不到 hdc：%s（可用 HDC=... 指定）\n' "$HDC"
   exit 2
@@ -161,7 +164,7 @@ print(best[1] if best else 0)
 PY
 )
 if [ "${TRASH:-0}" -gt 0 ]; then
-  tap 1160 "$TRASH"; sleep 3
+  tap_label_or_coord "删除" 1160 "$TRASH"; sleep 3
   if has "确定删除"; then ok "批量删除有二次确认"; else bad "批量删除有二次确认"; fi
   key 2; sleep 2   # 返回键 = 取消，不动用户下载数据
   ok "确认框可用返回键取消"

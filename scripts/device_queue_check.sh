@@ -65,6 +65,9 @@ PY
   tap $coord
 }
 
+# 先按标签点、失败退回坐标（布局微调不至于让整段脚本失效）
+tap_label_or_coord() { tap_text "$1" >/dev/null 2>&1 || tap "$2" "$3"; }
+
 # 打印队列面板里前 N 行的标题（只取行内主标题：字号 15、位于行高范围内）
 queue_titles() {
   dump >/dev/null 2>&1 || return 1
@@ -111,7 +114,7 @@ sleep 6
 
 # 造队列：进第一张歌单 → 播放全部 → 迷你播放器 → 播放页 → 更多 → 播放队列
 tap_text "歌单" >/dev/null 2>&1; sleep 3
-tap 173 997; sleep 6
+tap_label_or_coord "歌单" 173 997; sleep 6
 tap_text "播放全部" >/dev/null 2>&1; sleep 6
 dump >/dev/null 2>&1
 MINI_Y=$(python3 - "$UI_TMP" <<'PY'
@@ -137,7 +140,7 @@ print(best if best else 2600)
 PY
 )
 tap 129 "$MINI_Y"; sleep 5
-tap 1155 232; sleep 3
+tap_label_or_coord "更多" 1155 232; sleep 3
 tap_text "播放队列" >/dev/null 2>&1; sleep 3
 if has "播放队列（"; then ok "打开播放队列"; else bad "打开播放队列"; fi
 

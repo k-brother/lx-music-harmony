@@ -63,6 +63,9 @@ PY
   tap $coord
 }
 
+# 先按标签点、失败退回坐标（布局微调不至于让整段脚本失效）
+tap_label_or_coord() { tap_text "$1" >/dev/null 2>&1 || tap "$2" "$3"; }
+
 if [ ! -x "$HDC" ]; then
   printf '找不到 hdc：%s（可用 HDC=... 指定）\n' "$HDC"
   exit 2
@@ -83,7 +86,7 @@ hdc_do shell "aa start -a ${ABILITY} -b ${BUNDLE}" >/dev/null 2>&1
 sleep 6
 
 # 冷启动落在歌单页：进第一张歌单 → 点第一首播放 → 从迷你播放器封面进播放页
-tap 173 997; sleep 6
+tap_label_or_coord "歌单" 173 997; sleep 6
 tap 500 760; sleep 6
 dump >/dev/null 2>&1
 MINI_Y=$(python3 - "$UI_TMP" <<'PY'
@@ -115,7 +118,7 @@ sleep 6
 if has "歌词"; then ok "进入播放页"; else bad "进入播放页"; fi
 
 # 打开「更多」
-tap 1146 222; sleep 3
+tap_label_or_coord "更多" 1146 222; sleep 3
 if has "播放队列"; then ok "「更多」面板打开"; else bad "「更多」面板打开"; fi
 for group in 歌曲 播放 歌词 保存; do
   if has "$group"; then ok "分组标题可见：$group"; else bad "分组标题可见：$group"; fi
@@ -128,10 +131,10 @@ check_item() {          # $1 文案  $2 面板特征文案
   sleep 3
   if has "$2"; then ok "「$1」打开对应面板"; else bad "「$1」打开对应面板"; fi
   key 2; sleep 2
-  tap 1146 222; sleep 3
+  tap_label_or_coord "更多" 1146 222; sleep 3
   if ! has "播放队列"; then
     # 面板可能还在关闭动画中，再点一次
-    tap 1146 222; sleep 3
+    tap_label_or_coord "更多" 1146 222; sleep 3
   fi
 }
 

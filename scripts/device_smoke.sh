@@ -98,6 +98,26 @@ tap_until_ui_text() {
 
 tap() { hdc_do shell "uitest uiInput click $1 $2" >/dev/null 2>&1 || true; }
 swipe() { hdc_do shell "uitest uiInput swipe $1 $2 $3 $4 ${5:-300}" >/dev/null 2>&1 || true; }
+
+# 按文案（含无障碍文案）取节点中心；找不到返回非 0
+ui_find_text() {
+  local target="$1"
+  local dump="/data/local/tmp/smoke_layout.json"
+  local local_dump="${TMPDIR:-/tmp}/smoke_layout.json"
+  : > "$local_dump"
+  hdc_do shell "uitest dumpLayout -p ${dump}" >/dev/null 2>&1 || return 1
+  hdc_do file recv "$dump" "$local_dump" >/dev/null 2>&1 || return 1
+  [ -s "$local_dump" ] || return 1
+  python3 "${SCRIPT_DIR}/ui_find.py" "$target" "$local_dump"
+}
+
+# 先按标签点（图标按钮只有无障碍文案，也能匹配），失败再退回坐标：
+# 布局做了小调整时，脚本不会因为一个写死的坐标就整段失效。
+tap_label_or_coord() {
+  local label="$1" x="$2" y="$3" coords
+  coords=$(ui_find_text "$label" 2>/dev/null) && { tap $coords; return 0; }
+  tap "$x" "$y"
+}
 key() { hdc_do shell "uitest uiInput keyEvent $1" >/dev/null 2>&1 || true; }
 
 if [ ! -x "$HDC" ]; then
@@ -175,15 +195,15 @@ key Back
 sleep 3
 
 log "== 4. 播放与歌词 =="
-tap 129 2464         # 迷你播放器封面 -> 播放详情
+tap_label_or_coord "打开播放页" 129 2464   # 迷你播放器 -> 播放详情（标签优先，坐标兜底）
 sleep 6
 assert_log "播放页就绪（路由 onReady）" "NavIndex: PlayDetailPage onReady"
 assert_log "歌词链路成功" "ONLINE_MUSIC: lyric (fetch success|source result)"
 
 log "== 5. 队列面板 =="
-tap 1146 222         # 右上角更多
+tap_label_or_coord "更多" 1146 222      # 右上角更多（标签优先，坐标兜底）
 sleep 3
-tap 630 218          # 更多菜单里的「播放队列」
+tap_label_or_coord "播放队列" 630 218   # 更多菜单里的「播放队列」
 sleep 3
 assert_ui_text "队列面板打开（面板标题可见）" "播放队列"
 key Back

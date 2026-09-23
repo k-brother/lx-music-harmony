@@ -60,6 +60,16 @@ ui_find() {
 
 ui_tap() { ui_hdc shell "uitest uiInput click $1 $2" >/dev/null 2>&1; }
 
+# 先按标签点（无障碍文案也匹配），找不到再退回坐标：
+# 这样布局做了小调整时，脚本不会因为一个写死的坐标就整段失效。
+ui_tap_label_or_coord() {
+  local label="$1" x="$2" y="$3"
+  if ui_tap_text "$label" >/dev/null 2>&1; then
+    return 0
+  fi
+  ui_tap "$x" "$y"
+}
+
 # 按文案点击（找不到返回非 0）
 ui_tap_text() {
   local coords
