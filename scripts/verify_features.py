@@ -387,6 +387,10 @@ CHECKS = [
  # 空态给出路：喜欢/历史为空时能一键回歌单广场
  ('我喜欢空态给行动项', 'pages/LoveListPage.ets', r"empty_go_songlist"),
  ('播放历史空态给行动项', 'pages/HistoryListPage.ets', r"empty_go_songlist"),
+ # 播放历史只在「真正开始播放」时写：切歌路过、自动播放关闭时不进历史
+ ('播放历史在开播时记录', 'service/PlayerService.ets',
+  r'async play\(\)[\s\S]{0,900}?this\.recordPlayedSongIfNeeded\(\)'),
+ ('播放历史按歌曲去重', 'service/PlayerService.ets', r'recordedSongKey'),
  # 评论点赞落盘（源的评论接口没有登录态，只能本地记，但不能刷新就没）
  ('评论点赞本地持久化', 'service/comment/CommentLikeStore.ets', r'export async function loadLikedIds'),
  ('评论点赞打开时套用本地状态', 'pages/CommentPage.ets', r'applyLikedState\(newComments'),

@@ -196,6 +196,8 @@ export class PlayerService {
   private urlFailureStreak: number = 0;
   /** 连续播放失败次数（播放器报错）：与取源失败共用「整轮失败」判定 */
   private playbackErrorStreak: number = 0;
+  /** 本次加载已写入播放历史的歌曲 key（避免暂停/续播重复写） */
+  private recordedSongKey: string = '';
 
   // 事件监听器数组
   // 订阅与广播统一由 service/player/PlaybackEvents 承担（原先 6 组样板各写一遍）
@@ -716,6 +718,8 @@ export class PlayerService {
     const musicInfo: MusicInfo = songInfoToMusicInfo(song);
     playerStateData.musicInfo = musicInfo;
     this.notifyMusicInfoChange();
+    // 换歌了：允许为新歌记一次播放历史（真正开始播放时再写，见 play()）
+    this.recordedSongKey = '';
     // 切歌后异步加载歌词：既喂给系统（锁屏/控制中心/灵动岛），也供桌面歌词使用
     this.loadLyricForSong(musicInfo);
 
@@ -730,7 +734,6 @@ export class PlayerService {
 
       // 在音频播放前创建并激活 AVSession，确保播控中心能感知
       await backgroundRunningManager.initSession();
-      this.recordPlayedSongSafe(song);
     } catch (err) {
       const error: BusinessError = err as BusinessError;
       hilog.error(DOMAIN, TAG, 'Failed to set source: code=%{public}d, name=%{public}s, msg=%{public}s', error.code, error.name || 'unknown', error.message || 'unknown');
@@ -783,6 +786,26 @@ export class PlayerService {
   }
 
   /**
+   * 记录当前歌曲的播放历史，同一首歌在一次加载里只记一次。
+   *
+   * 之前是在 setSource（加载音频源）时就记录，于是「自动播放关闭时点开一首」、
+   * 「切歌路过某一首」都会写进历史，历史列表很快被没真正听过的歌塞满。
+   * 现在改由 play() 在真正开始播放后调用，并用 key 去重（暂停再播不会重复写）。
+   */
+  private recordPlayedSongIfNeeded(): void {
+    const song = this.currentSong;
+    if (!song || !song.id) {
+      return;
+    }
+    const key = `${song.source ?? ''}|${song.id}`;
+    if (this.recordedSongKey === key) {
+      return;
+    }
+    this.recordedSongKey = key;
+    this.recordPlayedSongSafe(song);
+  }
+
+  /**
    * 用户"选中歌曲"后的统一入口。
    * 受「设置 -> 播放设置 -> 自动播放」控制：关闭时只切换当前歌曲并保持暂停。
    */
@@ -831,6 +854,8 @@ export class PlayerService {
     try {
       await avSetPlay();
       hilog.info(DOMAIN, TAG, 'Play started successfully');
+      // 真正开始播放才记播放历史：切歌路过（自动播放关闭、取源后立刻换歌）不该进历史
+      this.recordPlayedSongIfNeeded();
       this.currentStatus = 'playing';
       playerStateData.isPlay = true;
       this.notifyStateChange();
