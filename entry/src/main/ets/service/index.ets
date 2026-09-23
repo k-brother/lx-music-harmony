@@ -14,6 +14,7 @@ import { initDownloadService, setMaxConcurrentDownloads } from '../core/music/Mu
 import { imageCacheService } from '../utils/ImageCache';
 import { initSettings, settingsService } from './SettingsService';
 import { sleepTimerService } from './SleepTimerService';
+import { syncService } from './SyncService';
 import type { common } from '@kit.AbilityKit';
 
 // HTTP服务（统一从 core/network/http 导出）
@@ -73,6 +74,10 @@ export async function initAllServices(): Promise<void> {
   // 引擎默认 1，此前只有用户打开「设置 → 下载」时才会被同步过来，
   // 于是设过 3 的用户重启后（没进设置页）实际还是 1，队列明显变慢。
   setMaxConcurrentDownloads(settingsService.get().maxConcurrentDownloads);
+
+  // 初始化同步服务：loadConfig 会读设置里的「自动同步」，开了就按间隔起定时器。
+  // 此前 initialize() 没有任何调用方，导致重启后自动同步根本不跑（只有进过设置页才生效）。
+  await syncService.initialize();
 
   // 初始化播放器
   await playerService.init();

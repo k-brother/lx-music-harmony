@@ -38,11 +38,22 @@ export struct BackupSection {
   }
 
   aboutToAppear(): void {
-    this.loadConfig();
+    void this.loadConfig();
     void this.refreshBackupCount();
   }
 
-  private loadConfig(): void {
+  /**
+   * 读取备份配置。
+   * 先跑一遍服务初始化（它是幂等的：loadConfig + 需要时重启定时器），
+   * 这样即使用户直接在冷启动后进设置页，也能看到落盘的真实开关，而不是服务里的默认值。
+   */
+  private async loadConfig(): Promise<void> {
+    backupService.setContext(this.hostContext());
+    try {
+      await backupService.initialize();
+    } catch (err) {
+      hilog.warn(0x0001, 'BackupSection', 'initialize failed: %{public}s', JSON.stringify(err));
+    }
     const config = backupService.getConfig();
     this.autoBackup = config.autoBackup;
     this.backupInterval = config.backupInterval;

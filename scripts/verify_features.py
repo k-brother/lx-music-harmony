@@ -372,6 +372,11 @@ CHECKS = [
  # 整张列表取源失败必须停下来（此前 listLoop 会从队尾绕回队首，无限重试）
  ('整轮取源失败停下', 'service/PlayerService.ets', r'urlFailureStreak'),
  ('取源失败收尾独立成函数', 'service/PlayerService.ets', r'handleUrlFetchFailure'),
+ # 自动同步/自动备份：服务必须在启动时初始化，否则重启后开关看着开着却不跑
+ ('自动同步启动即恢复', 'service/index.ets', r'syncService\.initialize\(\)'),
+ ('自动备份启动即恢复', 'app/entryability/EntryAbility.ets', r'backupService\.initialize\(\)'),
+ ('备份设置页先初始化服务', 'pages/Home/Setting/BackupSection.ets',
+  r'await backupService\.initialize\(\)'),
 ]
 
 fails = []

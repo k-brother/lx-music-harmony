@@ -22,6 +22,7 @@ import { mediaSaveService } from '../../service/MediaSaveService';
 import { localMusicService } from '../../service/LocalMusicService';
 import { logService } from '../../service/LogService';
 import { setSystemDarkMode, applyAutoTheme } from '../../service/ThemeService';
+import { backupService } from '../../service/BackupService';
 
 const TAG = 'EntryAbility';
 const DOMAIN = 0x0001;
@@ -235,6 +236,12 @@ export default class EntryAbility extends UIAbility {
         });
         initImageCache(this.context).catch((err: Error) => {
           hilog.warn(DOMAIN, TAG, 'Deferred image cache init failed: %{public}s', err.message);
+        });
+        // 备份服务需要 ability context 才能读自己的配置（含「自动备份」开关）：
+        // 此前没人调用 initialize()，等于重启后自动备份不再运行，设置页还会把开关显示成关。
+        backupService.setContext(this.context);
+        backupService.initialize().catch((err: Error) => {
+          hilog.warn(DOMAIN, TAG, 'Deferred backup init failed: %{public}s', err.message);
         });
       }, 300);
 
