@@ -14,6 +14,7 @@ import { navigationService, NavigationParams } from '../service/NavigationServic
 import { DesignTokens } from '../theme/DesignTokens';
 import { NavBar } from '../components/ui/NavBar';
 import { StateView } from '../components/ui/StateView';
+import { Breakpoints } from '../theme/Breakpoints';
 import { BoardDetailHeader } from './Board/BoardDetailHeader';
 import { scrollerOffsetY } from '../utils/ScrollTools';
 
@@ -39,6 +40,8 @@ interface BoardSongItem {
 @Component
 export struct BoardDetailPage {
   @StorageProp('theme') theme: string = 'light';
+  /** 一多：窗口宽度（vp），大屏内容列居中 */
+  @StorageProp('windowWidthVp') windowWidthVp: number = 360;
 
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
@@ -401,7 +404,12 @@ export struct BoardDetailPage {
     }
     .width('100%')
     .layoutWeight(1)
-    .padding({ left: 12, right: 12, bottom: 8 })
+    // 大屏内容列居中（平板/PC 上歌曲行不拉满整屏）
+    .padding({
+      left: 12 + Breakpoints.contentInset(this.windowWidthVp),
+      right: 12 + Breakpoints.contentInset(this.windowWidthVp),
+      bottom: 8,
+    })
     .edgeEffect(EdgeEffect.None)
     .onDidScroll(() => {
       const y = this.getSongListOffsetY();

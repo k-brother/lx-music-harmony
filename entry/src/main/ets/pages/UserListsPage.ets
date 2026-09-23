@@ -6,6 +6,7 @@ import { showPlaylistActionMenu, type PlaylistMenuTarget } from './Home/Mylist/L
 import hilog from '@ohos.hilog';
 import { navigationService, RouteName } from '../service/NavigationService';
 import { DesignTokens } from '../theme/DesignTokens';
+import { Breakpoints } from '../theme/Breakpoints';
 import { NavBar } from '../components/ui/NavBar';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { StateView } from '../components/ui/StateView';
@@ -42,6 +43,8 @@ export struct UserListsPage {
   }
 
   @StorageProp('theme') theme: string = 'light';
+  /** 一多：窗口宽度（vp），大屏内容列居中 */
+  @StorageProp('windowWidthVp') windowWidthVp: number = 360;
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
   @State userLists: UserListRow[] = [];
@@ -418,7 +421,12 @@ export struct UserListsPage {
               }, (list: UserListRow) => `${list.id}_${list.count}_${list.bindingListId}`)
             }
             .width('100%')
-            .padding({ left: 16, right: 16, top: 8, bottom: 20 })
+            .padding({
+              left: 16 + Breakpoints.contentInset(this.windowWidthVp),
+              right: 16 + Breakpoints.contentInset(this.windowWidthVp),
+              top: 8,
+              bottom: 20,
+            })
           }
           .align(Alignment.TopStart)
           .width('100%')

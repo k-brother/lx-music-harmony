@@ -13,6 +13,7 @@ import hilog from '@ohos.hilog';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { CoverPalette } from '../../theme/CoverPalette';
 import { DeferredScrollToTop } from '../../utils/ScrollTools';
+import { Breakpoints } from '../../theme/Breakpoints';
 import { SearchStrip, SearchStripActions } from '../../components/common/SearchStrip';
 import { FilterPillBar, type FilterPillOption } from './Home/FilterPillBar';
 import { RefreshContainer } from '../../components/ui/RefreshContainer';
@@ -47,6 +48,8 @@ interface LeaderboardFilterOption {
 @Component
 export struct LeaderboardView {
   @StorageProp('theme') theme: string = 'light';
+  /** 一多：窗口宽度（vp），大屏内容列居中 */
+  @StorageProp('windowWidthVp') windowWidthVp: number = 360;
   @StorageProp('language') language: string = 'zh-CN';
   // 语言变化时重建筛选文案：这些文案缓存在 @State 里，不重建会残留旧语言
   @StorageProp('langVersion') @Watch('onLanguageChanged') langVersion: number = 0;
@@ -841,7 +844,11 @@ export struct LeaderboardView {
                         onRetry: (): void => this.retryPreview(index),
                       })
                       .width('100%')
-                      .padding({ left: 12, right: 12 })
+                      // 大屏内容列居中（榜单卡片在 PC 上不拉满整屏）
+                      .padding({
+                        left: 12 + Breakpoints.contentInset(this.windowWidthVp),
+                        right: 12 + Breakpoints.contentInset(this.windowWidthVp),
+                      })
                       .onAppear(() => {
                         this.ensurePreviewAtIndex(index);
                       })

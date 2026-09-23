@@ -7,6 +7,7 @@ import { RouteName, NavigationParams } from '../service/NavigationService';
 import { isInLoveList } from '../service/ListService';
 import { getCurrentLyricIndex, LyricLine } from '../core/music/MusicParsingUtils';
 import { DesignTokens } from '../theme/DesignTokens';
+import { Breakpoints } from '../theme/Breakpoints';
 import { t } from '../service/LocalizationService';
 import { settingsService, type PlayMode } from '../service/SettingsService';
 import { DesktopLyricManager } from '../components/common/DesktopLyric';
@@ -67,6 +68,8 @@ interface ActionMenuResult {
 @Component
 export struct PlayDetailPage {
   @StorageProp('theme') theme: string = 'light';
+  /** 一多：窗口断点（WindowService 广播）—— 宽屏走封面/歌词双栏 */
+  @StorageProp('breakpoint') breakpoint: string = 'sm';
   @StorageProp('showLyricProgress') showLyricProgress: boolean = false;
   /** 是否允许拖动进度条（设置 → 基础）：关闭时拖不动，防误触 */
   @StorageProp('allowProgressBarSeek') allowProgressBarSeek: boolean = true;
@@ -692,6 +695,8 @@ export struct PlayDetailPage {
         singer: this.singer,
         fontShadow: this.fontShadow,
         currentTab: this.currentTab,
+        // 宽屏封面与歌词同屏，不再需要切换控件
+        showTabSwitch: !Breakpoints.isWide(this.breakpoint),
         onMore: (): void => this.showMoreActions(),
         onSelectTab: (tab: number): void => {
           if (tab === 0) {
@@ -702,62 +707,93 @@ export struct PlayDetailPage {
         },
       })
 
-      Swiper(this.swiperController) {
-        this.AlbumArt()
-        // 滑动切换的视觉反馈：非当前页轻微缩小淡出（@Builder 不能链式修饰，包一层容器）
-        Column() {
-          LyricPane({
-            lyricLines: this.lyricLines,
-            secondaryLyricLines: this.secondaryLyricLines,
-            romaLines: this.romaLines,
-            currentLyricIndex: this.currentLyricIndex,
-            showLyricProgress: this.showLyricProgress,
-            progress: this.progress,
-            isSeeking: this.isSeeking,
-            previewProgress: this.previewProgress,
-            currentTime: this.currentTime,
-            previewTime: this.previewTimeText(),
-            totalTime: this.totalTime,
-            onSeekChange: (value: number, mode: SliderChangeMode): void => {
-              this.handleSeekChange(value, mode);
-            },
-          })
-        }
-        .justifyContent(FlexAlign.SpaceBetween)
-        .width('100%')
-        .height('100%')
-        .scale({ x: this.currentTab === 1 ? 1 : 0.94, y: this.currentTab === 1 ? 1 : 0.94 })
-        .opacity(this.currentTab === 1 ? 1 : 0.7)
-        .animation({ duration: DesignTokens.motionNormal(), curve: Curve.EaseOut })
-      }
-      .index(this.currentTab)
-      .width('100%')
-      .layoutWeight(1)
-      .duration(DesignTokens.motionSlow())
-      .curve(Curve.EaseOut)
-      .indicator(false)
-      .loop(false)
-      .onChange((newIndex: number) => {
-        this.currentTab = newIndex;
-        const currentMusicInfo = playerService.getCurrentMusicInfo();
-        if (newIndex === 0) {
-          if (!this.canRenderCover(this.pic)) {
-            void this.ensureCoverReady(currentMusicInfo, false);
+      if (Breakpoints.isWide(this.breakpoint)) {
+        // 一多：平板横屏 / PC 用双栏（左封面右歌词，与主流播放器的大屏形态一致）
+        Row() {
+          Column() {
+            this.AlbumArt()
           }
-          return;
+          .layoutWeight(1)
+          .height('100%')
+
+          Column() {
+            this.LyricSection()
+          }
+          .layoutWeight(1)
+          .height('100%')
+          .padding({ left: 8, right: 8 })
         }
-        // 歌词页：没有歌词时补拉一次（失败/无歌词时不会反复请求，见 PlayMediaAssets）
-        const hasLyric = this.lyricTimeline.length > 0 ||
-          (this.lyricLines.length > 0 && this.lyricLines[0] !== t('player_no_lyric'));
-        if (!hasLyric) {
-          void this.ensureLyricReady(currentMusicInfo, false);
+        .width('100%')
+        .layoutWeight(1)
+      } else {
+        Swiper(this.swiperController) {
+          this.AlbumArt()
+          // 滑动切换的视觉反馈：非当前页轻微缩小淡出（@Builder 不能链式修饰，包一层容器）
+          Column() {
+            this.LyricSection()
+          }
+          .justifyContent(FlexAlign.SpaceBetween)
+          .width('100%')
+          .height('100%')
+          .scale({ x: this.currentTab === 1 ? 1 : 0.94, y: this.currentTab === 1 ? 1 : 0.94 })
+          .opacity(this.currentTab === 1 ? 1 : 0.7)
+          .animation({ duration: DesignTokens.motionNormal(), curve: Curve.EaseOut })
         }
-      })
+        .index(this.currentTab)
+        .width('100%')
+        .layoutWeight(1)
+        .duration(DesignTokens.motionSlow())
+        .curve(Curve.EaseOut)
+        .indicator(false)
+        .loop(false)
+        .onChange((newIndex: number) => {
+          this.currentTab = newIndex;
+          this.onTabChanged(newIndex);
+        })
+      }
 
       this.PlayerControls()
     }
     .width('100%')
     .height('100%')
+  }
+
+  /** 歌词区（含进度条）：宽屏常驻显示，窄屏放在 Swiper 第二页 */
+  @Builder
+  LyricSection() {
+    LyricPane({
+      lyricLines: this.lyricLines,
+      secondaryLyricLines: this.secondaryLyricLines,
+      romaLines: this.romaLines,
+      currentLyricIndex: this.currentLyricIndex,
+      showLyricProgress: this.showLyricProgress,
+      progress: this.progress,
+      isSeeking: this.isSeeking,
+      previewProgress: this.previewProgress,
+      currentTime: this.currentTime,
+      previewTime: this.previewTimeText(),
+      totalTime: this.totalTime,
+      onSeekChange: (value: number, mode: SliderChangeMode): void => {
+        this.handleSeekChange(value, mode);
+      },
+    })
+  }
+
+  /** 切到某一页时按需补拉封面/歌词（避免首次进入空白） */
+  private onTabChanged(newIndex: number): void {
+    const currentMusicInfo = playerService.getCurrentMusicInfo();
+    if (newIndex === 0) {
+      if (!this.canRenderCover(this.pic)) {
+        void this.ensureCoverReady(currentMusicInfo, false);
+      }
+      return;
+    }
+    // 歌词页：没有歌词时补拉一次（失败/无歌词时不会反复请求，见 PlayMediaAssets）
+    const hasLyric = this.lyricTimeline.length > 0 ||
+      (this.lyricLines.length > 0 && this.lyricLines[0] !== t('player_no_lyric'));
+    if (!hasLyric) {
+      void this.ensureLyricReady(currentMusicInfo, false);
+    }
   }
 
   /** 五个底部面板：都只在打开时挂载（未挂载的面板点了不会有反应） */

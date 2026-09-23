@@ -8,6 +8,7 @@ import { delayMs } from '../utils/Utils';
 import window from '@ohos.window';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { onThemeChange, getActiveTheme, getAppBackground } from './ThemeService';
+import { display } from '@kit.ArkUI';
 
 const TAG = 'WindowService';
 const DOMAIN = 0x0005;
@@ -83,6 +84,87 @@ function toHex2(value: number): string {
 // 窗口实例
 let mainWindow: window.Window | null = null;
 
+// ==================== 一多（响应式）窗口尺寸 ====================
+
+/**
+ * 断点：按 HarmonyOS 一多布局规范以 vp 划分
+ * - sm：手机竖屏（< 600）
+ * - md：折叠屏展开 / 平板竖屏（600 ~ 839）
+ * - lg：平板横屏 / PC（>= 840）
+ */
+export type Breakpoint = 'sm' | 'md' | 'lg';
+
+/** 关键宽度阈值（vp） */
+export const BREAKPOINT_MEDIUM_VP = 600;
+export const BREAKPOINT_LARGE_VP = 840;
+
+/** AppStorage 键：当前断点与窗口宽度（供 @StorageProp 绑定自动刷新） */
+export const KEY_BREAKPOINT = 'breakpoint';
+export const KEY_WINDOW_WIDTH_VP = 'windowWidthVp';
+
+let currentBreakpoint: Breakpoint = 'sm';
+let currentWidthVp: number = 360;
+
+/** 宽度（vp）→ 断点（纯函数，便于复用与核对） */
+export function resolveBreakpoint(widthVp: number): Breakpoint {
+  if (widthVp >= BREAKPOINT_LARGE_VP) {
+    return 'lg';
+  }
+  if (widthVp >= BREAKPOINT_MEDIUM_VP) {
+    return 'md';
+  }
+  return 'sm';
+}
+
+
+
+/**
+ * 记录并广播窗口尺寸。
+ * 组件侧用 `@StorageProp('breakpoint')` / `@StorageProp('windowWidthVp')` 消费，
+ * 窗口尺寸变化（折叠屏展开、PC 拖动窗口、分屏）时自动重组布局。
+ */
+export function publishWindowWidth(widthVp: number): void {
+  const safeWidth = widthVp > 0 ? Math.round(widthVp) : currentWidthVp;
+  const next = resolveBreakpoint(safeWidth);
+  const changed = next !== currentBreakpoint || safeWidth !== currentWidthVp;
+  currentWidthVp = safeWidth;
+  currentBreakpoint = next;
+  if (changed) {
+    AppStorage.setOrCreate(KEY_WINDOW_WIDTH_VP, safeWidth);
+    AppStorage.setOrCreate(KEY_BREAKPOINT, next);
+    hilog.info(DOMAIN, TAG, 'Window size changed: %{public}dvp, breakpoint=%{public}s', safeWidth, next);
+  }
+}
+
+/** 读取当前窗口宽度（px → vp）并广播 */
+function syncWindowWidth(): void {
+  if (!mainWindow) {
+    return;
+  }
+  try {
+    const rect = mainWindow.getWindowProperties().windowRect;
+    const density = display.getDefaultDisplaySync().densityPixels;
+    publishWindowWidth(density > 0 ? rect.width / density : rect.width);
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'syncWindowWidth failed: %{public}s', JSON.stringify(err));
+  }
+}
+
+/** 订阅窗口尺寸变化（分屏/折叠/PC 缩放） */
+function bindWindowSizeListener(): void {
+  if (!mainWindow) {
+    return;
+  }
+  try {
+    mainWindow.on('windowSizeChange', (size: window.Size) => {
+      const density = display.getDefaultDisplaySync().densityPixels;
+      publishWindowWidth(density > 0 ? size.width / density : size.width);
+    });
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'bindWindowSizeListener failed: %{public}s', JSON.stringify(err));
+  }
+}
+
 /** 上次已成功下发到窗口的背景色；与本次相同时跳过 setWindowBackgroundColor，避免 initTheme 二次 notify 触发 401 */
 let lastSuccessfulWindowBg: string = '';
 
@@ -93,6 +175,10 @@ export async function initWindowService(windowStage: window.WindowStage): Promis
   try {
     mainWindow = await windowStage.getMainWindow();
     hilog.info(DOMAIN, TAG, 'WindowService initialized');
+
+    // 一多布局：首帧就广播断点，并订阅窗口尺寸变化
+    syncWindowWidth();
+    bindWindowSizeListener();
 
     // 与 EntryAbility.initApp 中的 initAllServices（含 initTheme）并发：首帧前改系统栏易返回 401，略延迟再应用
     await delayMs(80);
@@ -285,6 +371,7 @@ export interface WindowServiceInterface {
   applyThemeToWindow: () => Promise<void>;
   getMainWindow: () => window.Window | null;
   setImmersiveMode: (immersive: boolean) => Promise<void>;
+  publishWindowWidth: (widthVp: number) => void;
 }
 
 const windowService: WindowServiceInterface = {
@@ -292,6 +379,7 @@ const windowService: WindowServiceInterface = {
   applyThemeToWindow,
   getMainWindow,
   setImmersiveMode,
+  publishWindowWidth,
 };
 
 export default windowService;

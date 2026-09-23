@@ -11,6 +11,7 @@
  * - 新增设置项 = 加一个分组组件或往现有分组的 items 里加一项，不会互相踩状态。
  */
 import { DesignTokens } from '../../theme/DesignTokens';
+import { Breakpoints } from '../../theme/Breakpoints';
 import { BasicSection } from './Setting/BasicSection';
 import { PlaybackSection } from './Setting/PlaybackSection';
 import { DownloadSection } from './Setting/DownloadSection';
@@ -27,6 +28,8 @@ import { AboutSection } from './Setting/AboutSection';
 @Component
 export struct SettingView {
   @StorageProp('theme') theme: string = 'light';
+  /** 一多：窗口宽度（vp），大屏时内容列居中 */
+  @StorageProp('windowWidthVp') windowWidthVp: number = 360;
 
   build() {
     Scroll() {
@@ -45,8 +48,12 @@ export struct SettingView {
         AboutSection()
       }
       .width('100%')
-      // 分组卡片左右留白（8pt 网格，和商业化设置页一致）
-      .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter(), bottom: 28 })
+      // 分组卡片左右留白（8pt 网格，和商业化设置页一致）；大屏额外居中，避免卡片被拉满整屏
+      .padding({
+        left: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+        right: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+        bottom: 28,
+      })
     }
     .width('100%')
     .height('100%')

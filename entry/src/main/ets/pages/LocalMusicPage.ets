@@ -19,6 +19,7 @@ import { appActionMenu } from '../service/DialogService';
 import { EditMetadataSheet } from './LocalMusic/EditMetadataSheet';
 import { LocalMusicActions } from './LocalMusic/LocalMusicActions';
 import { TrackRow } from './LocalMusic/TrackRow';
+import { Breakpoints } from '../theme/Breakpoints';
 
 const DOMAIN: number = 0x0001;
 const TAG: string = 'LocalMusicPage';
@@ -26,6 +27,8 @@ const TAG: string = 'LocalMusicPage';
 @Component
 export struct LocalMusicPage {
   @StorageProp('theme') theme: string = 'light';
+  /** 一多：窗口宽度（vp），大屏内容列居中 */
+  @StorageProp('windowWidthVp') windowWidthVp: number = 360;
 
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
@@ -304,6 +307,10 @@ export struct LocalMusicPage {
         }
         .width('100%')
         .layoutWeight(1)
+        .padding({
+          left: Breakpoints.contentInset(this.windowWidthVp),
+          right: Breakpoints.contentInset(this.windowWidthVp),
+        })
       }
 
       PlayerBar()

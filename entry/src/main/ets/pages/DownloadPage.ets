@@ -15,6 +15,7 @@
 import hilog from '@ohos.hilog';
 import { common } from '@kit.AbilityKit';
 import { DesignTokens } from '../theme/DesignTokens';
+import { Breakpoints } from '../theme/Breakpoints';
 import { t, tf } from '../service/LocalizationService';
 import { appConfirm, appToast } from '../service/DialogService';
 import { hapticService } from '../service/HapticService';
@@ -46,6 +47,8 @@ const POLL_INTERVAL_MS: number = 1000;
 @Component
 export struct DownloadPage {
   @StorageProp('theme') theme: string = 'light';
+  /** 一多：窗口宽度（vp），大屏内容列居中 */
+  @StorageProp('windowWidthVp') windowWidthVp: number = 360;
   @State downloadTasks: DownloadTask[] = [];
   @State rows: DownloadRowModel[] = [];
   @State selectedTasks: Set<string> = new Set();
@@ -503,6 +506,11 @@ export struct DownloadPage {
       }
       .layoutWeight(1)
       .width('100%')
+      // 大屏内容列居中（任务卡在 PC 上不该拉满整屏）
+      .padding({
+        left: Breakpoints.contentInset(this.windowWidthVp),
+        right: Breakpoints.contentInset(this.windowWidthVp),
+      })
 
       if (this.isSelectMode) {
         DownloadSelectionBar({

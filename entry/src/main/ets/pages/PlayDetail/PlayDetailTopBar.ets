@@ -21,6 +21,8 @@ export struct PlayDetailTopBar {
   @Prop fontShadow: boolean = false;
   /** 0 = 封面，1 = 歌词 */
   @Prop currentTab: number = 0;
+  /** 宽屏（平板横屏 / PC）封面与歌词同屏展示，不再需要「封面/歌词」切换 */
+  @Prop showTabSwitch: boolean = true;
   onMore?: () => void;
   onSelectTab?: (tab: number) => void;
 
@@ -95,7 +97,10 @@ export struct PlayDetailTopBar {
   build() {
     Column() {
       this.TitleBar()
-      this.TabSwitch()
+      // 宽屏封面/歌词同屏，切换控件没有意义，直接不渲染（保留下方留白节奏）
+      if (this.showTabSwitch) {
+        this.TabSwitch()
+      }
     }
     .width('100%')
   }

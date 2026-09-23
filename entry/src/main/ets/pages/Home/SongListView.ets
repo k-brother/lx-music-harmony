@@ -20,6 +20,7 @@ import { SegmentedBar, type SegmentOption } from '../../components/ui/SegmentedB
 import { RefreshContainer } from '../../components/ui/RefreshContainer';
 import { hapticService } from '../../service/HapticService';
 import { DeferredScrollToTop } from '../../utils/ScrollTools';
+import { Breakpoints } from '../../theme/Breakpoints';
 
 // 排序选项接口
 interface SortOption {
@@ -65,6 +66,16 @@ export struct SongListView {
   /** 切源/切排序后「等一帧再回顶部」（实现在 utils/ScrollTools） */
   private scrollTopDefer: DeferredScrollToTop = new DeferredScrollToTop();
   @State coverInteractionUnlocked: boolean = false;
+  /** 一多：窗口断点（WindowService 广播），驱动网格列数 */
+  @StorageProp('breakpoint') breakpoint: string = 'sm';
+  /** 当前窗口宽度（vp），用于大屏内容列居中 */
+  @StorageProp('windowWidthVp') windowWidthVp: number = 360;
+
+  /** 歌单广场列数：手机 3 列 / 折叠屏展开 4 列 / 平板横屏与 PC 6 列 */
+  private cardColumns(): number {
+    return Breakpoints.gridColumns(this.breakpoint, 3, 4, 6);
+  }
+
 
   private scrollToTopSoon(): void {
     this.scrollTopDefer.schedule(this.songListScroller);
@@ -516,7 +527,8 @@ export struct SongListView {
         }
       }, (index: number) => `skeleton_${index}`)
     }
-    .columnsTemplate('1fr 1fr')
+    // 骨架列数与真实卡片同一档，避免加载完成时跳变
+    .columnsTemplate(Breakpoints.columnsTemplate(this.breakpoint, 2, 3, 4))
     .columnsGap(12)
     .rowsGap(16)
     .width('100%')
@@ -566,7 +578,7 @@ export struct SongListView {
           .alignItems(VerticalAlign.Center)
         }
         .columnStart(0)
-        .columnEnd(2)
+        .columnEnd(this.cardColumns() - 1)
         .padding({ top: 16, bottom: 24 })
         .onAppear(() => {
           if (this.hasUserScrolledForPagination && !this.isLoading && this.hasMore) {
@@ -583,15 +595,20 @@ export struct SongListView {
             .fontColor(DesignTokens.labelTertiary(this.theme))
         }
         .columnStart(0)
-        .columnEnd(2)
+        .columnEnd(this.cardColumns() - 1)
         .padding({ top: 16, bottom: 24 })
       }
     }
-    .columnsTemplate('1fr 1fr 1fr')
+    .columnsTemplate(Breakpoints.columnsTemplate(this.breakpoint, 3, 4, 6))
     .cachedCount(4)
     .rowsGap(16)
     .columnsGap(12)
-    .padding(DesignTokens.spaceGutter())
+    .padding({
+      left: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+      right: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+      top: DesignTokens.spaceGutter(),
+      bottom: DesignTokens.spaceGutter(),
+    })
     .width('100%')
     .backgroundColor(DesignTokens.pageBg(this.theme))
   }

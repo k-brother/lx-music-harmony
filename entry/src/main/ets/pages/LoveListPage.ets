@@ -6,6 +6,7 @@
  */
 import hilog from '@ohos.hilog';
 import { DesignTokens } from '../theme/DesignTokens';
+import { Breakpoints } from '../theme/Breakpoints';
 import { getLoveList, toggleLoveList, type MusicItem } from '../service/ListService';
 import { playerService, SongInfo } from '../service/PlayerService';
 import { t, tf } from '../service/LocalizationService';
@@ -30,6 +31,8 @@ interface SongRow {
 @Component
 export struct LoveListPage {
   @StorageProp('theme') theme: string = 'light';
+  /** 一多：窗口宽度（vp），大屏内容列居中 */
+  @StorageProp('windowWidthVp') windowWidthVp: number = 360;
   @StorageProp('langVersion') langVersion: number = 0;
   @State songs: SongRow[] = [];
   @State isLoading: boolean = true;
@@ -209,6 +212,10 @@ export struct LoveListPage {
         .layoutWeight(1)
         .width('100%')
         .scrollBar(BarState.Off)
+        .padding({
+          left: Breakpoints.contentInset(this.windowWidthVp),
+          right: Breakpoints.contentInset(this.windowWidthVp),
+        })
       }
     }
     .width('100%')

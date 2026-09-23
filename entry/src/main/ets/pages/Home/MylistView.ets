@@ -35,6 +35,7 @@ import type { MylistSongRow as MyListSongRow } from './Mylist/MylistTypes';
 import type { UserListRow } from './Mylist/MylistTypes';
 import { RefreshContainer } from '../../components/ui/RefreshContainer';
 import { hapticService } from '../../service/HapticService';
+import { Breakpoints } from '../../theme/Breakpoints';
 
 interface PromptActionResult {
   index: number;
@@ -43,6 +44,8 @@ interface PromptActionResult {
 @Component
 export struct MylistView {
   @StorageProp('theme') theme: string = 'light';
+  /** 一多：窗口宽度（vp），大屏内容列居中 */
+  @StorageProp('windowWidthVp') windowWidthVp: number = 360;
 
   /** 按压反馈：卡片轻微缩放 */
   @Styles
@@ -233,7 +236,12 @@ export struct MylistView {
               })
             }
             .width('100%')
-            .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter(), top: 12, bottom: 6 })
+            .padding({
+              left: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+              right: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+              top: 12,
+              bottom: 6,
+            })
 
             // 本地音乐入口
             MylistEntryRow({
@@ -244,7 +252,10 @@ export struct MylistView {
                 navigationService.navigateTo(RouteName.LOCAL_MUSIC);
               },
             })
-              .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter() })
+              .padding({
+                left: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+                right: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+              })
 
             // 我喜欢
             MylistSectionHeader({
@@ -333,7 +344,10 @@ export struct MylistView {
                       void this.openListMenu(list);
                     },
                   })
-                    .padding({ left: DesignTokens.spaceGutter(), right: DesignTokens.spaceGutter() })
+                    .padding({
+                      left: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+                      right: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+                    })
                 }, (list: UserListRow) => list.id)
               }
               .width('100%')

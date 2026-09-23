@@ -9,6 +9,7 @@ import { commentService } from '../service/CommentService';
 import type { Comment } from '../service/CommentService';
 import type { NavigationParams } from '../service/NavigationService';
 import { DesignTokens } from '../theme/DesignTokens';
+import { Breakpoints } from '../theme/Breakpoints';
 import { NavBar } from '../components/ui/NavBar';
 import { CommentRow } from './Comment/CommentRow';
 import { StateView } from '../components/ui/StateView';
@@ -34,6 +35,8 @@ interface CommentResponse {
 @Component
 export struct CommentPage {
   @StorageProp('theme') theme: string = 'light';
+  /** 一多：窗口宽度（vp），大屏内容列居中 */
+  @StorageProp('windowWidthVp') windowWidthVp: number = 360;
 
   /** 按压反馈：列表行/按钮变淡 */
   @Styles
@@ -331,6 +334,11 @@ export struct CommentPage {
           .layoutWeight(1)
           .width('100%')
           .scrollBar(BarState.Off)
+          // 大屏内容列居中：评论正文在 PC 上不该横跨整屏
+          .padding({
+            left: Breakpoints.contentInset(this.windowWidthVp),
+            right: Breakpoints.contentInset(this.windowWidthVp),
+          })
           .onReachEnd(() => {
             this.onLoadMore();
           })

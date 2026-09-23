@@ -5,6 +5,7 @@ import hilog from '@ohos.hilog';
 import { appConfirm } from '../service/DialogService';
 import { showAppToast, TOAST_DURATION_DEFAULT } from '../utils/Toast';
 import { DesignTokens } from '../theme/DesignTokens';
+import { Breakpoints } from '../theme/Breakpoints';
 import { logService } from '../service/LogService';
 import { StateView } from '../components/ui/StateView';
 import { NavBackButton } from '../components/common/NavBackButton';
@@ -23,6 +24,8 @@ interface LogFilterOption {
 @Component
 export struct LogPage {
   @StorageProp('theme') theme: string = 'light';
+  /** 一多：窗口宽度（vp），大屏内容列居中 */
+  @StorageProp('windowWidthVp') windowWidthVp: number = 360;
   @StorageProp('langVersion') langVersion: number = 0;
   @State filter: string = 'ALL';
   @State records: LogRecord[] = [];
@@ -277,7 +280,14 @@ export struct LogPage {
         }
         .layoutWeight(1)
         .width('100%')
-        .padding({ top: 4, bottom: 20 })
+        // 大屏内容列居中：与上下留白合并成一次 padding（重复调用 padding 会覆盖而非合并）
+        .padding({
+          left: Breakpoints.contentInset(this.windowWidthVp),
+          right: Breakpoints.contentInset(this.windowWidthVp),
+          top: 4,
+          bottom: 20,
+        })
+
         .scrollBar(BarState.Off)
       }
     }

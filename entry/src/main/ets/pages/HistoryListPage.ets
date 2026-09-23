@@ -11,6 +11,7 @@ import { getPlayHistory, clearPlayHistory, PlayHistoryItem } from '../service/Pl
 import type { MusicInfo as AppMusicInfo, MusicSource } from '../types/MusicTypes';
 import { formatPlayTime } from '../utils/CommonUtils';
 import { DesignTokens } from '../theme/DesignTokens';
+import { Breakpoints } from '../theme/Breakpoints';
 import { t, tf } from '../service/LocalizationService';
 import { appConfirm, appToast } from '../service/DialogService';
 import { NavBar } from '../components/ui/NavBar';
@@ -25,6 +26,8 @@ const HISTORY_LIMIT = 120;
 @Component
 export struct HistoryListPage {
   @StorageProp('theme') theme: string = 'light';
+  /** 一多：窗口宽度（vp），大屏内容列居中 */
+  @StorageProp('windowWidthVp') windowWidthVp: number = 360;
   @StorageProp('langVersion') langVersion: number = 0;
   @State isLoading: boolean = true;
   @State playHistory: PlayHistoryItem[] = [];
@@ -193,7 +196,11 @@ export struct HistoryListPage {
         }
         .layoutWeight(1)
         .width('100%')
-        .scrollBar(BarState.Off)
+        .scrollBar(BarState.Off)        .padding({
+          left: Breakpoints.contentInset(this.windowWidthVp),
+          right: Breakpoints.contentInset(this.windowWidthVp),
+        })
+
       }
     }
     .width('100%')

@@ -44,6 +44,7 @@ import {
   type SonglistTarget,
 } from './SonglistDetail/SonglistActions';
 import { DesignTokens } from '../theme/DesignTokens';
+import { Breakpoints } from '../theme/Breakpoints';
 import { formatPlayTime } from '../utils/CommonUtils';
 import { scrollerOffsetY } from '../utils/ScrollTools';
 import { SkeletonListItem } from '../components/common/SkeletonView';
@@ -92,6 +93,8 @@ interface MenuActionItem {
 @Component
 export struct SonglistDetailPage {
   @StorageProp('theme') theme: string = 'light';
+  /** 一多：窗口宽度（vp），大屏内容列居中 */
+  @StorageProp('windowWidthVp') windowWidthVp: number = 360;
   // 列表显示项（设置 → 列表设置）
   @StorageProp('showListSource') showListSource: boolean = true;
   @StorageProp('showListAlbum') showListAlbum: boolean = true;
@@ -317,7 +320,12 @@ export struct SonglistDetailPage {
     }
     .width('100%')
     .layoutWeight(1)
-    .padding({ left: 12, right: 12, bottom: 8 })
+    // 大屏内容列居中（平板/PC 上歌曲行不拉满整屏）
+    .padding({
+      left: 12 + Breakpoints.contentInset(this.windowWidthVp),
+      right: 12 + Breakpoints.contentInset(this.windowWidthVp),
+      bottom: 8,
+    })
     .edgeEffect(EdgeEffect.None)
     .onDidScroll(() => {
       const y = this.getSongListOffsetY();
