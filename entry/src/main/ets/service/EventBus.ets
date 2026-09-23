@@ -9,103 +9,44 @@ const DOMAIN = 0x0006;
 
 // 事件类型接口
 interface EventTypesInterface {
-  PLAY_STATE_CHANGED: string;
-  PLAY_PROGRESS_CHANGED: string;
-  PLAY_MUSIC_CHANGED: string;
-  PLAY_LIST_CHANGED: string;
-  SEARCH_STARTED: string;
-  SEARCH_COMPLETED: string;
-  SEARCH_CLEARED: string;
   SEARCH_REQUEST: string;
   LIST_UPDATED: string;
-  LIST_MUSIC_ADDED: string;
-  LIST_MUSIC_REMOVED: string;
   SETTING_CHANGED: string;
-  THEME_CHANGED: string;
-  LANGUAGE_CHANGED: string;
-  ERROR_OCCURRED: string;
-  TOAST_SHOW: string;
 }
 
-// 事件类型
+/**
+ * 事件类型
+ *
+ * 只保留真正有人在用的事件：播放状态/进度/歌曲信息的跨模块通知已经由
+ * PlayerService 自己的订阅接口（onStatusChange 等）承担，这里不再重复一份；
+ * 主题深浅色由 ThemeService 的监听器回调，语言变更直接重渲染。
+ */
 export const EventTypes: EventTypesInterface = {
-  // 播放事件
-  PLAY_STATE_CHANGED: 'play:stateChanged',
-  PLAY_PROGRESS_CHANGED: 'play:progressChanged',
-  PLAY_MUSIC_CHANGED: 'play:musicChanged',
-  PLAY_LIST_CHANGED: 'play:listChanged',
-
-  // 搜索事件
-  SEARCH_STARTED: 'search:started',
-  SEARCH_COMPLETED: 'search:completed',
-  SEARCH_CLEARED: 'search:cleared',
   /** 其他页面请求首页发起搜索（如歌单里的「查看歌手/专辑」） */
   SEARCH_REQUEST: 'search:request',
-
-  // 列表事件
   LIST_UPDATED: 'list:updated',
-  LIST_MUSIC_ADDED: 'list:musicAdded',
-  LIST_MUSIC_REMOVED: 'list:musicRemoved',
-
-  // 设置事件
   SETTING_CHANGED: 'setting:changed',
-  THEME_CHANGED: 'theme:changed',
-  LANGUAGE_CHANGED: 'setting:languageChanged',
-
-  // 全局事件
-  ERROR_OCCURRED: 'app:error',
-  TOAST_SHOW: 'app:toast',
 };
 
 // 事件监听器类型
 type EventListener = (data?: Object) => void;
 
 // 事件数据接口
-interface PlayStateChangedData {
-  isPlay: boolean;
-}
 
-interface PlayProgressChangedData {
-  nowPlayTime: number;
-  maxPlayTime: number;
-  progress: number;
-}
 
-interface PlayMusicChangedData {
-  id: string;
-  name: string;
-  singer: string;
-  album: string;
-  pic: string;
-}
 
-interface SearchStartedData {
-  keyword: string;
-}
 
-interface SearchCompletedData {
-  results: Object[];
-}
 
 interface ListUpdatedData {
   listId: string;
 }
 
-interface ThemeChangedData {
-  isDark: boolean;
-}
 
 interface SettingChangedData {
   key: string;
 }
 
-interface ErrorOccurredData {
-  message: string;
-}
 
-interface ToastShowData {
-  message: string;
-}
 
 // 事件总线类（内部使用）
 class EventBusImpl {
@@ -228,43 +169,10 @@ export function clear(): void {
 
 // ============ 快捷方法 ============
 
-/**
- * 播放状态变化
- */
-export function emitPlayStateChanged(isPlay: boolean): void {
-  const data: PlayStateChangedData = { isPlay: isPlay };
-  emit(EventTypes.PLAY_STATE_CHANGED, data);
-}
 
-/**
- * 播放进度变化
- */
-export function emitPlayProgressChanged(progress: PlayProgressChangedData): void {
-  emit(EventTypes.PLAY_PROGRESS_CHANGED, progress);
-}
 
-/**
- * 播放音乐变化
- */
-export function emitPlayMusicChanged(music: PlayMusicChangedData): void {
-  emit(EventTypes.PLAY_MUSIC_CHANGED, music);
-}
 
-/**
- * 搜索开始
- */
-export function emitSearchStarted(keyword: string): void {
-  const data: SearchStartedData = { keyword: keyword };
-  emit(EventTypes.SEARCH_STARTED, data);
-}
 
-/**
- * 搜索完成
- */
-export function emitSearchCompleted(results: Object[]): void {
-  const data: SearchCompletedData = { results: results };
-  emit(EventTypes.SEARCH_COMPLETED, data);
-}
 
 /** 请求首页发起搜索（其他页面「查看歌手/专辑」用） */
 export interface SearchRequestData {
@@ -284,13 +192,6 @@ export function emitListUpdated(listId: string): void {
   emit(EventTypes.LIST_UPDATED, data);
 }
 
-/**
- * 主题变化
- */
-export function emitThemeChanged(isDark: boolean): void {
-  const data: ThemeChangedData = { isDark: isDark };
-  emit(EventTypes.THEME_CHANGED, data);
-}
 
 /**
  * 设置变化（key 为变更的设置项，'all' 表示整体初始化完成）
@@ -300,23 +201,9 @@ export function emitSettingChanged(key: string): void {
   emit(EventTypes.SETTING_CHANGED, data);
 }
 
-/**
- * 显示错误
- */
-export function emitError(message: string): void {
-  const data: ErrorOccurredData = { message: message };
-  emit(EventTypes.ERROR_OCCURRED, data);
-}
 
-/**
- * 显示提示
- */
-export function emitToast(message: string): void {
-  const data: ToastShowData = { message: message };
-  emit(EventTypes.TOAST_SHOW, data);
-}
 
-// 事件总线接口
+// 事件总线门面（供需要「一个对象拿到全部事件能力」的地方使用）
 export interface EventBusInterface {
   EventTypes: EventTypesInterface;
   on: (event: string, callback: EventListener) => () => void;
@@ -324,16 +211,9 @@ export interface EventBusInterface {
   off: (event: string, callback: EventListener) => void;
   emit: (event: string, data?: Object) => void;
   clear: () => void;
-  emitPlayStateChanged: (isPlay: boolean) => void;
-  emitPlayProgressChanged: (progress: PlayProgressChangedData) => void;
-  emitPlayMusicChanged: (music: PlayMusicChangedData) => void;
-  emitSearchStarted: (keyword: string) => void;
-  emitSearchCompleted: (results: Object[]) => void;
   emitListUpdated: (listId: string) => void;
-  emitThemeChanged: (isDark: boolean) => void;
+  emitSearchRequest: (keyword: string) => void;
   emitSettingChanged: (key: string) => void;
-  emitError: (message: string) => void;
-  emitToast: (message: string) => void;
 }
 
 // 导出事件总线
@@ -344,16 +224,9 @@ const eventBus: EventBusInterface = {
   off,
   emit,
   clear,
-  emitPlayStateChanged,
-  emitPlayProgressChanged,
-  emitPlayMusicChanged,
-  emitSearchStarted,
-  emitSearchCompleted,
   emitListUpdated,
-  emitThemeChanged,
+  emitSearchRequest,
   emitSettingChanged,
-  emitError,
-  emitToast,
 };
 
 export default eventBus;

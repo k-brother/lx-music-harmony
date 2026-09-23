@@ -46,8 +46,8 @@ export { default as ThemeService, initTheme, getCurrentThemeId, getActiveTheme, 
 // 列表服务
 export { default as ListService, LIST_IDS, initListService, getDefaultList, getLoveList, getUserList, getUserListMusic, addMusicToList, removeMusicFromList, createUserList, deleteUserList, setPlayList, getPlayList, setPlayIndex, getCurrentMusic, playNext, playPrev, isInLoveList, toggleLoveList, onListChange, MusicItem, ListInfo } from './ListService';
 
-// 事件总线（重命名 clear 避免冲突）
-export { default as EventBus, EventTypes, on, once, off, emit, clear as clearAllEvents, emitPlayStateChanged, emitPlayProgressChanged, emitPlayMusicChanged, emitSearchStarted, emitSearchCompleted, emitListUpdated, emitThemeChanged, emitError, emitToast } from './EventBus';
+// 事件总线：只对外暴露真正在用的订阅入口与三个事件
+export { EventTypes, on, emitListUpdated, emitSearchRequest, emitSettingChanged } from './EventBus';
 
 /**
  * 初始化所有服务
