@@ -51,6 +51,9 @@ import { toRoma } from '../utils/RomaConverter';
 import { hapticService } from '../service/HapticService';
 import { appActionMenu, appToast } from '../service/DialogService';
 
+/** 宽屏下控制区（进度条 + 传送键 + 菜单入口）的最大宽度（vp） */
+const PLAY_CONTROLS_MAX_WIDTH_VP: number = 640;
+
 const DOMAIN: number = 0x0001;
 const TAG: string = 'PlayDetailPage';
 
@@ -748,7 +751,18 @@ export struct PlayDetailPage {
         })
       }
 
-      this.PlayerControls()
+      // 控制区在大屏上限宽居中：否则进度条与三个按钮会被拉到整屏宽，显得松散
+      Row() {
+        Column() {
+          this.PlayerControls()
+        }
+        .width('100%')
+        .constraintSize({
+          maxWidth: Breakpoints.isWide(this.breakpoint) ? PLAY_CONTROLS_MAX_WIDTH_VP : '100%',
+        })
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Center)
     }
     .width('100%')
     .height('100%')
