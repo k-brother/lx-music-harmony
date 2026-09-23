@@ -41,6 +41,9 @@ python3 "${SCRIPT_DIR}/check_builder_state_args.py"
 echo "== 组件定时器清理 =="
 python3 "${SCRIPT_DIR}/check_timer_cleanup.py"
 
+echo "== 组件订阅清理 =="
+python3 "${SCRIPT_DIR}/check_subscription_cleanup.py"
+
 echo "== 系统符号渲染（SymbolGlyph）=="
 python3 "${SCRIPT_DIR}/check_symbols.py"
 
