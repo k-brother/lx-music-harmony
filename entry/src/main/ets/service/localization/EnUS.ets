@@ -481,6 +481,8 @@ export function buildEnUS(): Map<string, string> {
   m.set('comment_hot', 'Hot');
   m.set('comment_new', 'New');
   m.set('comment_reply', 'Reply');
+  m.set('comment_expand_replies', 'Show all {0} replies');
+  m.set('comment_collapse_replies', 'Collapse replies');
   m.set('comment_anonymous', 'Anonymous');
   m.set('comment_time_unknown', 'Unknown time');
   m.set('comment_time_just_now', 'Just now');

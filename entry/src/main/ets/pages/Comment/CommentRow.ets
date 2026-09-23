@@ -6,13 +6,18 @@
  * 点赞态与点赞数会停在旧值；@Prop 在父组件重渲染时会更新。
  */
 import { DesignTokens } from '../../theme/DesignTokens';
-import { t } from '../../service/LocalizationService';
+import { t, tf } from '../../service/LocalizationService';
 import type { Comment } from '../../service/comment/CommentTypes';
+
+/** 楼层回复默认展开条数：超出部分折叠为「展开全部 N 条回复」 */
+const REPLY_PREVIEW_COUNT: number = 2;
 
 @Component
 export struct CommentRow {
   @StorageProp('theme') theme: string = 'light';
   @Prop comment: Comment;
+  /** 楼层回复是否已展开（默认只展示前两条） */
+  @State expandedReplies: boolean = false;
   /** 最后一行不画分割线 */
   @Prop isLast: boolean = false;
   onToggleLike?: (commentId: string) => void;
@@ -22,6 +27,14 @@ export struct CommentRow {
   @Styles
   pressed() {
     .opacity(DesignTokens.pressedOpacity())
+  }
+
+  /** 折叠态只给前两条，展开后给全部 */
+  private visibleReplies(): Comment[] {
+    if (this.expandedReplies || this.comment.replies.length <= REPLY_PREVIEW_COUNT) {
+      return this.comment.replies;
+    }
+    return this.comment.replies.slice(0, REPLY_PREVIEW_COUNT);
   }
 
   @Builder
@@ -142,9 +155,27 @@ export struct CommentRow {
           // 楼层回复：整块浅底，与主评论视觉分层
           if (this.comment.replies.length > 0) {
             Column() {
-              ForEach(this.comment.replies, (reply: Comment) => {
+              // 主流评论区的做法：默认只展开前两条，其余折叠成「展开全部 N 条回复」
+              ForEach(this.visibleReplies(), (reply: Comment) => {
                 this.ReplyFloor(reply)
               }, (reply: Comment) => reply.id)
+
+              if (this.comment.replies.length > REPLY_PREVIEW_COUNT) {
+                Text(this.expandedReplies
+                  ? t('comment_collapse_replies')
+                  : tf('comment_expand_replies', [(this.comment.replies.length - REPLY_PREVIEW_COUNT).toString()]))
+                  .fontSize(DesignTokens.fontCaption())
+                  .fontColor(DesignTokens.accent())
+                  .width('100%')
+                  .textAlign(TextAlign.Start)
+                  .padding({ top: 2, bottom: 8 })
+                  .accessibilityText(this.expandedReplies
+                    ? t('comment_collapse_replies')
+                    : tf('comment_expand_replies', [(this.comment.replies.length - REPLY_PREVIEW_COUNT).toString()]))
+                  .onClick(() => {
+                    this.expandedReplies = !this.expandedReplies;
+                  })
+              }
             }
             .width('100%')
             .margin({ top: 10 })

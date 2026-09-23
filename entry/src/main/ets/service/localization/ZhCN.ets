@@ -484,6 +484,8 @@ export function buildZhCN(): Map<string, string> {
   m.set('comment_hot', '热门');
   m.set('comment_new', '最新');
   m.set('comment_reply', '回复');
+  m.set('comment_expand_replies', '展开全部 {0} 条回复');
+  m.set('comment_collapse_replies', '收起回复');
   m.set('comment_anonymous', '匿名用户');
   m.set('comment_time_unknown', '未知时间');
   m.set('comment_time_just_now', '刚刚');
