@@ -18,13 +18,13 @@
         "name": "LXMusic",
         "type": "HarmonyOS",
         "material": {
-          "storeFile": "/Users/<user>/work/personal/lxmusic-harmony/LX_Music.p12",
+          "storeFile": "../LX_Music.p12",
           "storePassword": "",
           "keyAlias": "lx",
           "keyPassword": "",
           "signAlg": "SHA256withECDSA",
-          "profile": "/Users/<user>/work/personal/lxmusic-harmony/LX MusicRelease.p7b",
-          "certpath": "/Users/<user>/work/personal/lxmusic-harmony/LX Music.cer"
+          "profile": "../LX MusicRelease.p7b",
+          "certpath": "../LX Music.cer"
         }
       }
     ],
