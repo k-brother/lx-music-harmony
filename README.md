@@ -53,7 +53,7 @@
 
 ## 构建
 
-用 DevEco Studio 打开本目录（`harmony/` 即工程根目录），首次打开后按提示配置签名：
+用 DevEco Studio 打开本仓库根目录，首次打开后按提示配置签名：
 
 ```
 File → Project Structure → Signing Configs → 勾选 Automatically generate signature
