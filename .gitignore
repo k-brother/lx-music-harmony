@@ -10,5 +10,16 @@
 /.clang-format
 /.clang-tidy
 **/.test
-/.appanalyzer/.codegenie
+# IDE 分析器产物（DevEco 生成，与工程无关）
+/.appanalyzer/
 /.codegenie/
+
+# 签名材料：证书/私钥/口令一律不入库（本地放在工程上层目录，见 dev-material/signing）
+*.p12
+*.p7b
+*.cer
+*.jks
+*.keystore
+*.pem
+*.key
+signing/

@@ -1,0 +1,20 @@
+LX Music for HarmonyOS
+Copyright (c) 2026 Brother
+
+本产品是 LX Music（洛雪音乐）的 HarmonyOS 移植实现，基于上游 Apache-2.0 协议的代码与资源开发：
+
+  LX Music / lx-music-desktop / lx-music-mobile
+  Copyright (c) lyswhut
+  https://github.com/lyswhut/lx-music-desktop
+  https://github.com/lyswhut/lx-music-mobile
+  以 Apache License 2.0 授权
+
+本项目包含以下第三方组件：
+
+  QuickJS（entry/src/main/cpp/quickjs_src/）
+  Copyright (c) Fabrice Bellard
+  https://bellard.org/quickjs/
+  以 MIT 协议授权
+
+  zlib inflate 原生封装（entry/src/main/cpp/napi_inflate.cpp）
+  使用 zlib，Copyright (c) Jean-loup Gailly and Mark Adler，zlib 许可
