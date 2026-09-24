@@ -17,8 +17,10 @@ UI_HDC="${HDC:-$HOME/Library/OpenHarmony/Sdk/26.0.0/toolchains/hdc}"
 UI_TARGET="${TARGET:-$("$UI_HDC" list targets 2>/dev/null | head -1)}"
 if [ "$UI_TARGET" = "[Empty]" ]; then UI_TARGET=""; fi
 UI_TMP="${TMPDIR:-/tmp}/lx-ui-layout.json"
-# 设备走 TCP 连接时偶尔会掉线，这里记住地址以便自动重连
-UI_CONNECT="${CONNECT:-127.0.0.1:39305}"
+# 设备走 TCP 连接时偶尔会掉线，这里记住地址以便自动重连。
+# 地址是本机环境相关的东西，不写死在仓库里：用 CONNECT=ip:port 传入，例如
+#   CONNECT=192.168.1.2:5555 source scripts/ui.sh
+UI_CONNECT="${CONNECT:-}"
 
 ui_hdc() {
   if [ -n "$UI_TARGET" ]; then "$UI_HDC" -t "$UI_TARGET" "$@"; else "$UI_HDC" "$@"; fi
@@ -30,6 +32,10 @@ ui_ensure_device() {
   targets=$("$UI_HDC" list targets 2>/dev/null | head -1)
   if [ -n "$targets" ] && [ "$targets" != "[Empty]" ]; then
     return 0
+  fi
+  if [ -z "$UI_CONNECT" ]; then
+    echo "设备未连接；如走 TCP 调试请用 CONNECT=ip:port 重新 source 本脚本" >&2
+    return 1
   fi
   "$UI_HDC" tconn "$UI_CONNECT" >/dev/null 2>&1 || true
   sleep 2
