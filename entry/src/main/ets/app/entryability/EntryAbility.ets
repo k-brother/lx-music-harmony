@@ -27,6 +27,7 @@ import { logService } from '../../service/LogService';
 import { setSystemDarkMode, applyAutoTheme } from '../../service/ThemeService';
 import { backupService } from '../../service/BackupService';
 import { cardFormService } from '../../service/CardFormService';
+import { liveViewService } from '../../service/LiveViewService';
 
 const TAG = 'EntryAbility';
 const DOMAIN = 0x0001;
@@ -146,6 +147,8 @@ export default class EntryAbility extends UIAbility {
     // 停止卡片推送与订阅
     cardFormService.stop();
     this.callee.off('cardAction');
+    // 停止实况窗订阅与实况窗本体
+    liveViewService.stop();
   }
 
   /**
@@ -294,6 +297,10 @@ export default class EntryAbility extends UIAbility {
       // 桌面卡片：订阅播放器事件并开始向已注册卡片推送快照
       cardFormService.setContext(this.context);
       cardFormService.start();
+
+      // 实况窗：订阅播放器事件，锁屏/胶囊歌词随播放自动创建与更新
+      liveViewService.setContext(this.context);
+      liveViewService.start();
 
       // 首帧之后再补做非关键初始化：避免冷启动被磁盘/目录操作拖慢
       setTimeout(() => {

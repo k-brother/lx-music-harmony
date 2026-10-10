@@ -181,6 +181,7 @@ class SettingsServiceImpl {
     copy.sleepTimerMinutes = source.sleepTimerMinutes;
     copy.sleepTimerWaitTrackEnd = source.sleepTimerWaitTrackEnd;
     copy.showDesktopLyric = source.showDesktopLyric;
+    copy.enableLiveView = source.enableLiveView;
     copy.desktopLyricPosition = source.desktopLyricPosition;
     copy.desktopLyricColor = source.desktopLyricColor;
     copy.desktopLyricBgAlpha = source.desktopLyricBgAlpha;
@@ -326,6 +327,7 @@ class SettingsServiceImpl {
       sleepTimerMinutes: defaults.sleepTimerMinutes,
       sleepTimerWaitTrackEnd: defaults.sleepTimerWaitTrackEnd,
       showDesktopLyric: defaults.showDesktopLyric,
+      enableLiveView: defaults.enableLiveView,
       desktopLyricPosition: defaults.desktopLyricPosition,
       desktopLyricColor: defaults.desktopLyricColor,
       desktopLyricBgAlpha: defaults.desktopLyricBgAlpha,

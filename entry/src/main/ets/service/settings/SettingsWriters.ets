@@ -191,6 +191,11 @@ export async function applyPlaybackSettings(
       await storage.setBoolean(StorageKeys.PLAY_DESKTOP_LYRIC, patch.showDesktopLyric);
       changed.push('showDesktopLyric');
     }
+    if (patch.enableLiveView !== undefined && patch.enableLiveView !== values.enableLiveView) {
+      values.enableLiveView = patch.enableLiveView;
+      await storage.setBoolean(StorageKeys.PLAY_LIVE_VIEW, patch.enableLiveView);
+      changed.push('enableLiveView');
+    }
     if (patch.desktopLyricPosition !== undefined &&
       patch.desktopLyricPosition !== values.desktopLyricPosition) {
       values.desktopLyricPosition = patch.desktopLyricPosition;

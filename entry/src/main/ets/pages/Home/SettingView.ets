@@ -24,6 +24,7 @@ import { BackupSection } from './Setting/BackupSection';
 import { SyncSection } from './Setting/SyncSection';
 import { AppearanceSection } from './Setting/AppearanceSection';
 import { DesktopLyricSection } from './Setting/DesktopLyricSection';
+import { LiveViewSection } from './Setting/LiveViewSection';
 import { CustomSourceSection } from './Setting/CustomSourceSection';
 import { SourceSection } from './Setting/SourceSection';
 import { AboutSection } from './Setting/AboutSection';
@@ -54,6 +55,7 @@ export struct SettingView {
     SyncSection()
     AppearanceSection()
     DesktopLyricSection()
+    LiveViewSection()
     SourceSection()
     CustomSourceSection()
     AboutSection()

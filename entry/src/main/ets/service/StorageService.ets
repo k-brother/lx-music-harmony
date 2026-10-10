@@ -313,6 +313,7 @@ interface StorageKeysInterface {
   /** 取源失败时自动跨源切换 */
   PLAY_AUTO_SOURCE_SWITCH: string;
   PLAY_DESKTOP_LYRIC: string;
+  PLAY_LIVE_VIEW: string;
   PLAY_DESKTOP_LYRIC_POSITION: string;
   PLAY_DESKTOP_LYRIC_COLOR: string;
   PLAY_DESKTOP_LYRIC_BG_ALPHA: string;
@@ -437,6 +438,7 @@ export const StorageKeys: StorageKeysInterface = {
   PLAY_SLEEP_WAIT_TRACK_END: 'setting.play.sleepTimerWaitTrackEnd',
   PLAY_AUTO_SOURCE_SWITCH: 'setting.play.autoSourceSwitch',
   PLAY_DESKTOP_LYRIC: 'setting.play.desktopLyric',
+  PLAY_LIVE_VIEW: 'setting.play.liveView',
   PLAY_DESKTOP_LYRIC_POSITION: 'setting.play.desktopLyricPosition',
   PLAY_DESKTOP_LYRIC_COLOR: 'setting.play.desktopLyricColor',
   PLAY_DESKTOP_LYRIC_BG_ALPHA: 'setting.play.desktopLyricBgAlpha',

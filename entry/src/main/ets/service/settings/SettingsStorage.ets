@@ -266,6 +266,8 @@ export async function loadSettingsFromStorage(): Promise<AppSettings> {
       StorageKeys.PLAY_SLEEP_WAIT_TRACK_END, defaults.sleepTimerWaitTrackEnd);
     settings.showDesktopLyric = await storage.getBoolean(
       StorageKeys.PLAY_DESKTOP_LYRIC, defaults.showDesktopLyric);
+    settings.enableLiveView = await storage.getBoolean(
+      StorageKeys.PLAY_LIVE_VIEW, defaults.enableLiveView);
     settings.desktopLyricPosition = toDesktopLyricPosition(
       await storage.getString(StorageKeys.PLAY_DESKTOP_LYRIC_POSITION, defaults.desktopLyricPosition),
       defaults.desktopLyricPosition);

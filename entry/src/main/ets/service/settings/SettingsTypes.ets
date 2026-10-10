@@ -157,6 +157,8 @@ export interface AppSettings {
   /** 定时退出时是否等待当前歌曲播放完（安卓版 player.timeoutExitPlayed） */
   sleepTimerWaitTrackEnd: boolean;
   showDesktopLyric: boolean;
+  /** 系统实况窗（锁屏/胶囊歌词）：总开关，另受系统实况窗开关约束 */
+  enableLiveView: boolean;
   desktopLyricPosition: DesktopLyricPosition;
   desktopLyricColor: string;
   /** 歌词窗口背景不透明度 0-100（0 = 全透明） */
@@ -283,6 +285,7 @@ export interface SettingsPatch {
   sleepTimerMinutes?: number;
   sleepTimerWaitTrackEnd?: boolean;
   showDesktopLyric?: boolean;
+  enableLiveView?: boolean;
   desktopLyricPosition?: DesktopLyricPosition;
   desktopLyricColor?: string;
   desktopLyricBgAlpha?: number;
@@ -385,6 +388,7 @@ export function createDefaultSettings(): AppSettings {
     sleepTimerMinutes: 30,
     sleepTimerWaitTrackEnd: true,
     showDesktopLyric: false,
+    enableLiveView: false,
     desktopLyricPosition: 'top',
     desktopLyricColor: '#FFFFFF',
     desktopLyricBgAlpha: 0,

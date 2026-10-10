@@ -461,6 +461,17 @@ export function buildEnUS(): Map<string, string> {
   m.set('custom_source_manage', 'Manage custom sources');
   m.set('custom_source_import_from_url', 'Import from URL');
   m.set('settings_desktop_lyric', 'Desktop Lyric');
+  m.set('settings_live_view', 'Live View');
+  m.set('live_view', 'Live View');
+  m.set('live_view_desc', 'Show lock-screen lyrics in a live view while playing; tap to return to the app');
+  m.set('live_view_hint', 'System constraint');
+  m.set('live_view_hint_desc', 'The live view also depends on the system live view switch; it is created only while playing and dismissed when playback stops');
+  m.set('live_view_playing', 'Now playing');
+  m.set('live_view_paused', 'Paused');
+  m.set('live_view_no_lyric', 'No lyrics');
+  m.set('live_view_fallback_title', 'LX Music');
+  m.set('toast_live_view_on', 'Live view enabled');
+  m.set('toast_live_view_off', 'Live view disabled');
   m.set('settings_custom_source_desc', 'Import JS link or file');
   m.set('settings_source', 'Sources');
   m.set('settings_auto_source_switch', 'Auto source switch');

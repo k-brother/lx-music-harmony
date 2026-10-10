@@ -467,6 +467,17 @@ export function buildZhCN(): Map<string, string> {
   m.set('custom_source_manage', '管理自定义源');
   m.set('custom_source_import_from_url', '从链接导入');
   m.set('settings_desktop_lyric', '桌面歌词');
+  m.set('settings_live_view', '实况窗');
+  m.set('live_view', '实况窗');
+  m.set('live_view_desc', '播放时以实况窗展示锁屏歌词，点按回到应用');
+  m.set('live_view_hint', '系统约束');
+  m.set('live_view_hint_desc', '实况窗另受系统「实况窗」总开关约束；仅在播放时创建，停止播放自动消失');
+  m.set('live_view_playing', '正在播放');
+  m.set('live_view_paused', '已暂停');
+  m.set('live_view_no_lyric', '暂无歌词');
+  m.set('live_view_fallback_title', 'LX Music');
+  m.set('toast_live_view_on', '实况窗已开启');
+  m.set('toast_live_view_off', '实况窗已关闭');
   m.set('settings_custom_source_desc', '弹框配置：在线链接导入或本地JS文件导入');
   m.set('settings_source', '音源');
   m.set('settings_auto_source_switch', '自动跨源切换');

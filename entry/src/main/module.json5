@@ -49,6 +49,12 @@
         ]
       },
       {
+        "name": "LiveViewAbility",
+        "srcEntry": "./ets/app/liveviewability/LiveViewAbility.ets",
+        "type": "liveViewLockScreen",
+        "exported": false
+      },
+      {
         "name": "EntryBackupAbility",
         "srcEntry": "./ets/app/entrybackupability/EntryBackupAbility.ets",
         "type": "backup",
