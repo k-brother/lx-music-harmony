@@ -22,6 +22,9 @@ FRAMEWORK_MEMBERS = {
     'build', 'onWindowStageCreate', 'onWindowStageDestroy',
     'onForeground', 'onBackground', 'onCreate', 'onDestroy',
     'onConfigurationUpdate', 'onMemoryLevel', 'onDraw', 'onChange',
+    # FormExtensionAbility：生命周期由卡片框架调用
+    'onAddForm', 'onUpdateForm', 'onRemoveForm', 'onFormEvent',
+    'onCastToNormal', 'onVisibilityChange', 'onAcquireFormState',
     # IDataSource：由 LazyForEach 内部调用（LazyDataSource 的四个必备成员）
     'totalCount', 'getData', 'registerDataChangeListener', 'unregisterDataChangeListener',
 }

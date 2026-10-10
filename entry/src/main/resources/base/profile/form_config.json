@@ -1,0 +1,26 @@
+{
+  "forms": [
+    {
+      "name": "MusicCard",
+      "displayName": "$string:music_card_name",
+      "description": "$string:music_card_desc",
+      "src": "./ets/widget/pages/MusicCard.ets",
+      "uiSyntax": "arkts",
+      "window": {
+        "designWidth": 720,
+        "autoDesignWidth": true
+      },
+      "colorMode": "auto",
+      "isDynamic": true,
+      "isDefault": true,
+      "updateEnabled": false,
+      "scheduledUpdateTime": "00:00",
+      "updateDuration": 0,
+      "defaultDimension": "2*2",
+      "supportDimensions": [
+        "2*2",
+        "2*4"
+      ]
+    }
+  ]
+}

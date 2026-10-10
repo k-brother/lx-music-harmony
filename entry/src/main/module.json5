@@ -38,6 +38,17 @@
     ],
     "extensionAbilities": [
       {
+        "name": "CardFormAbility",
+        "srcEntry": "./ets/widget/CardFormAbility.ets",
+        "type": "form",
+        "metadata": [
+          {
+            "name": "ohos.extension.form",
+            "resource": "$profile:form_config"
+          }
+        ]
+      },
+      {
         "name": "EntryBackupAbility",
         "srcEntry": "./ets/app/entrybackupability/EntryBackupAbility.ets",
         "type": "backup",

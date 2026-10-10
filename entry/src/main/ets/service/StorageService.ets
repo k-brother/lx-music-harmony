@@ -14,10 +14,12 @@ import {
   createMemoryStorageService,
   type IStorageService
 } from '../core/interfaces/IStorageService';
+import { CARD_PREFERENCES_NAME, CARD_FORM_IDS_KEY, CARD_SNAPSHOT_KEY } from '../utils/CardFormKeys';
 
 const TAG = 'StorageService';
 const DOMAIN = 0x0003;
-const PREFERENCES_NAME = 'lx_music_preferences';
+// 值定义在 utils/CardFormKeys（卡片进程跨进程契约），这里转出保持既有引用不变
+export const PREFERENCES_NAME = CARD_PREFERENCES_NAME;
 
 // 全局上下文变量
 let abilityContext: common.UIAbilityContext | null = null;
@@ -371,6 +373,12 @@ interface StorageKeysInterface {
   COLLECTION_SONGLISTS: string;
   /** 本地音乐曲库 */
   LOCAL_MUSIC_LIST: string;
+
+  // 桌面卡片（CardFormAbility 运行在独立进程，经 preferences 共享；见 widget/CardFormPrefs）
+  /** 已注册卡片的 formId 列表（JSON 字符串数组，由卡片进程写，UI 进程只读） */
+  CARD_FORM_IDS: string;
+  /** 卡片快照（JSON：title/singer/cover/playing/lyric，仅 UI 进程写，卡片进程只读） */
+  CARD_SNAPSHOT: string;
 }
 
 // 存储键名常量
@@ -491,6 +499,10 @@ export const StorageKeys: StorageKeysInterface = {
 
   // 本地音乐
   LOCAL_MUSIC_LIST: 'local.music.list',
+
+  // 桌面卡片（跨进程桥接键，值定义在 utils/CardFormKeys，写入方约定见 StorageKeysInterface 注释）
+  CARD_FORM_IDS: CARD_FORM_IDS_KEY,
+  CARD_SNAPSHOT: CARD_SNAPSHOT_KEY,
 };
 
 // 存储服务接口

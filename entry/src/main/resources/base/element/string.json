@@ -27,6 +27,26 @@
     {
       "name": "vibrate_permission_reason",
       "value": "用于切换歌曲、收藏等操作时的轻微触感反馈"
+    },
+    {
+      "name": "music_card_name",
+      "value": "音乐卡片"
+    },
+    {
+      "name": "music_card_desc",
+      "value": "在桌面控制音乐播放，显示当前歌曲与歌词"
+    },
+    {
+      "name": "music_card_play_pause",
+      "value": "播放/暂停"
+    },
+    {
+      "name": "music_card_next",
+      "value": "下一首"
+    },
+    {
+      "name": "music_card_previous",
+      "value": "上一首"
     }
   ]
 }

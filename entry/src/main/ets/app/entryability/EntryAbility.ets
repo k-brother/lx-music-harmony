@@ -5,6 +5,7 @@ import { UIAbility } from '@kit.AbilityKit';
 import type { Configuration } from '@kit.AbilityKit';
 import { ConfigurationConstant } from '@kit.AbilityKit';
 import { errorManager } from '@kit.AbilityKit';
+import { rpc } from '@kit.IPCKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
@@ -25,6 +26,7 @@ import { localMusicService } from '../../service/LocalMusicService';
 import { logService } from '../../service/LogService';
 import { setSystemDarkMode, applyAutoTheme } from '../../service/ThemeService';
 import { backupService } from '../../service/BackupService';
+import { cardFormService } from '../../service/CardFormService';
 
 const TAG = 'EntryAbility';
 const DOMAIN = 0x0001;
@@ -73,6 +75,23 @@ export default class EntryAbility extends UIAbility {
     this.initGlobalState();
     // 初始化后台任务管理器（传入 context 用于后续长时任务申请）
     backgroundRunningManager.init(this.context);
+    // 注册桌面卡片动作处理：卡片点击/控制按钮通过 postCardAction 以 callee 消息送达。
+    // 回调跑在 IPC 线程，直接调播放器会崩，必须 setTimeout(0) 跳回 JS 主线程再派发。
+    this.callee.on('cardAction', (data: rpc.MessageSequence) => {
+      let action: string = '';
+      try {
+        const params: Record<string, string> = JSON.parse(data.readString()) as Record<string, string>;
+        action = params.actionType ?? '';
+      } catch (err) {
+        hilog.warn(DOMAIN, TAG, 'cardAction parse failed: %{public}s', JSON.stringify(err));
+      }
+      if (action.length > 0) {
+        setTimeout((): void => {
+          cardFormService.handleCardAction(action);
+        }, 0);
+      }
+      return null;
+    });
     // 初始化应用（异步，传入 want 供深链等后续扩展）
     void this.initApp(want);
   }
@@ -124,6 +143,9 @@ export default class EntryAbility extends UIAbility {
     playerService.destroy();
     // 清理后台任务资源
     void backgroundRunningManager.destroy();
+    // 停止卡片推送与订阅
+    cardFormService.stop();
+    this.callee.off('cardAction');
   }
 
   /**
@@ -268,6 +290,10 @@ export default class EntryAbility extends UIAbility {
       initLocalization();
 
       await runBootstrapAfterServices(want);
+
+      // 桌面卡片：订阅播放器事件并开始向已注册卡片推送快照
+      cardFormService.setContext(this.context);
+      cardFormService.start();
 
       // 首帧之后再补做非关键初始化：避免冷启动被磁盘/目录操作拖慢
       setTimeout(() => {

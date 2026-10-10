@@ -52,6 +52,13 @@ def main():
     for p in files:
         if 'EntryAbility' in p.name:
             starts.add(p)
+    # module.json5 注册的扩展能力（form 等）：按 srcEntry 作为入口
+    module_cfg = root.parent / 'module.json5'
+    if module_cfg.exists():
+        for m in re.finditer(r'"srcEntry"\s*:\s*"\./ets/([^"]+)"', module_cfg.read_text()):
+            cand = (root / m.group(1)).resolve()
+            if cand.exists():
+                starts.add(cand)
     for p, t in texts.items():
         if '@Entry' in t:
             starts.add(p)

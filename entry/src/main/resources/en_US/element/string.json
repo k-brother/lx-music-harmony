@@ -27,6 +27,26 @@
     {
       "name": "vibrate_permission_reason",
       "value": "Used for light haptic feedback when changing tracks or liking a song"
+    },
+    {
+      "name": "music_card_name",
+      "value": "Music Card"
+    },
+    {
+      "name": "music_card_desc",
+      "value": "Control playback from the home screen with the current song and lyric"
+    },
+    {
+      "name": "music_card_play_pause",
+      "value": "Play/Pause"
+    },
+    {
+      "name": "music_card_next",
+      "value": "Next track"
+    },
+    {
+      "name": "music_card_previous",
+      "value": "Previous track"
     }
   ]
 }
