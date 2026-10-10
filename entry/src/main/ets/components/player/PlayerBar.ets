@@ -13,6 +13,8 @@ import { hapticService } from '../../service/HapticService';
 // 使用与PlayerService一致的MusicInfo接口
 import type { MusicInfo } from '../../service/PlayerService';
 import { DesignTokens } from '../../theme/DesignTokens';
+import { createDockGlassMaterial } from '../../theme/GlassMaterial';
+import { uiMaterial } from '@kit.ArkUI';
 
 
 @Component
@@ -39,6 +41,8 @@ export struct PlayerBar {
    * 玻璃形态下左右留白由底舱统一给，条本身不再自己加外边距 —— 否则两处留白会叠成 32vp。
    */
   @Prop glass: boolean = false;
+  /** 系统沉浸材质（玻璃形态用；不支持时为 undefined，走自绘玻璃回退） */
+  private glassMaterial: uiMaterial.Material | undefined = createDockGlassMaterial();
   /**
    * 收拢态：与底部 Tab 栏联动（内容滚离顶部时）。此时左侧让出一个动作位（`leading`），
    * 播放控件整体靠右 —— 对齐华为音乐滚动后的那条"主页 + 播放控件"迷你条。
@@ -224,16 +228,20 @@ export struct PlayerBar {
       // 玻璃形态下与 Tab 栏的间距由底舱的 Column space 统一给，这里不再自己加
       bottom: this.immersiveBottom || this.glass ? 0 : 4,
     })
-    // 玻璃形态下条本身是"裸内容"：材质（底色/模糊/描边/投影/沉浸材质）由底舱容器统一给，
-    // 这样底舱是一整片玻璃，而不是两片各自带阴影的药丸（后者视觉上更高更碎）
-    .backgroundColor(this.glass ? Color.Transparent : DesignTokens.chromeBar(this.theme))
-    .backgroundBlurStyle(BlurStyle.NONE)
-    .borderRadius(DesignTokens.radiusCard())
-    .border({
-      width: this.glass ? 0 : 0.33,
-      color: DesignTokens.cardBorder(this.theme),
+    // 玻璃形态：自己就是一片圆角玻璃（迷你条与 Tab 栏是两个独立圆角容器，中间留缝分界）
+    .backgroundColor(this.glass ? DesignTokens.glassFill(this.theme) : DesignTokens.chromeBar(this.theme))
+    .backgroundBlurStyle(this.glass ? BlurStyle.COMPONENT_THICK : BlurStyle.NONE, {
+      adaptiveColor: AdaptiveColor.AVERAGE,
+      scale: 1,
     })
-    .shadow(this.glass ? DesignTokens.noShadow() : DesignTokens.floatingShadow())
+    .borderRadius(this.glass ? DesignTokens.dockRadius() : DesignTokens.radiusCard())
+    .border({
+      width: this.glass ? 0.5 : 0.33,
+      color: this.glass ? DesignTokens.glassStroke(this.theme) : DesignTokens.cardBorder(this.theme),
+    })
+    .shadow(DesignTokens.floatingShadow())
+    // 系统沉浸材质（含交互形变与光感反馈）；设备不支持时为 undefined，走上面的自绘回退
+    .systemMaterial(this.glass ? this.glassMaterial : undefined)
     .alignItems(VerticalAlign.Center)
   }
 

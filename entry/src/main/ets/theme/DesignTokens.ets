@@ -238,9 +238,18 @@ export class DesignTokens {
    * Tab 里的滚动内容按这个值留出底部空间，内容才能滚到玻璃底舱"下面"（玻璃才有东西可透）。
    */
   static bottomDockHeight(): number {
-    // 迷你播放条 46 + Tab 栏 42 = 88，取 92 留 4 余量
+    // 迷你播放条 40 + 两行间隙 4 + Tab 栏 40 = 84，取 88 留 4 余量
     //（迷你条与 Tab 栏高度见下面各自的 token，改一处即可整组跟随）
-    return 92;
+    return 88;
+  }
+
+  /**
+   * 底舱两行（迷你播放条 / Tab 栏）之间的间隙。
+   * 两行是**两个独立的圆角容器**（对照华为音乐的底舱）：这段缝就是天然的分界，
+   * 不需要再画分隔线；贴在一起会糊成一片、看不出是两行。
+   */
+  static dockRowGap(): number {
+    return 4;
   }
 
   /**
@@ -252,12 +261,23 @@ export class DesignTokens {
    * 只留系统手势条那条小横条的生存空间即可。
    */
   static dockBottomGap(): number {
-    return 6;
+    // 10：底舱"悬"在系统手势条上方一点点。参照华为音乐的底舱（原图量出来 ≈15vp，但它那台
+    // 机型的手势条更矮），这里取 10 —— 既能看出玻璃与横条是两段，又不至于把底舱顶太高。
+    return 10;
   }
 
   /** 底舱容器圆角：里面装两行内容，比普通卡片圆一档 */
   static dockRadius(): number {
     return 20;
+  }
+
+  /**
+   * 底舱距屏幕左右边缘的间距。
+   * 比普通页面留白（spaceGutter 16）大：底舱是"悬浮"在内容之上的一片玻璃，
+   * 左右留够才透气；贴着屏幕边框会显得糊在边上（对照华为音乐的底舱观感定的）。
+   */
+  static dockSideMargin(): number {
+    return 24;
   }
 
   /** 玻璃底舱给内容留的底部空间（底舱本体 + 与屏幕底的间距） */
@@ -270,17 +290,17 @@ export class DesignTokens {
   // 不要去组件里翻写死的数字。间距尽量由 spaceUnit() 推导，避免又散出新常量。
   /** 迷你条高度 */
   static miniBarHeight(): number {
-    return 46;
+    return 40;
   }
 
   /** 迷你条封面边长 */
   static miniCoverSize(): number {
-    return 38;
+    return 34;
   }
 
   /** 迷你条播放键直径 */
   static miniPlaySize(): number {
-    return 28;
+    return 24;
   }
 
   /** 迷你条左右内边距 */
@@ -296,7 +316,7 @@ export class DesignTokens {
   // ── 底部 Tab 栏（仅窄屏；宽屏走左侧侧栏导航）─────────────────────────────
   /** Tab 栏高度 */
   static tabBarHeight(): number {
-    return 42;
+    return 40;
   }
 
   /** Tab 条目高度（图标 + 文案的可点区，留 40 保证点按手感） */
@@ -531,11 +551,6 @@ export class DesignTokens {
   /** 底部迷你播放条这类「贴边悬浮」元素的投影（比卡片更软、偏移更大） */
   static floatingShadow(): ShadowOptions {
     return { radius: 16, color: 'rgba(0,0,0,0.08)', offsetX: 0, offsetY: 4 };
-  }
-
-  /** 无投影：容器已经有投影时，内部元素用它"关掉"自己的投影（.shadow 不接受 undefined） */
-  static noShadow(): ShadowOptions {
-    return { radius: 0, color: 'rgba(0,0,0,0)', offsetX: 0, offsetY: 0 };
   }
 
   /**

@@ -12,8 +12,6 @@ import { DesignTokens } from '../../../theme/DesignTokens';
 import { t } from '../../../service/LocalizationService';
 import { PlayerBar } from '../../../components/player/PlayerBar';
 import { HomeBottomTabBar, type HomeTabItem } from './HomeBottomTabBar';
-import { createDockGlassMaterial } from '../../../theme/GlassMaterial';
-import { uiMaterial } from '@kit.ArkUI';
 
 @Component
 export struct HomeBottomDock {
@@ -30,13 +28,6 @@ export struct HomeBottomDock {
   onRestore?: () => void;
   /** 内容是否正在滚动（utils/ScrollActivity 写入）：滚动时底舱轻微收一点 */
   @StorageProp('contentScrolling') contentScrolling: boolean = false;
-
-  /**
-   * 系统沉浸材质（鸿蒙版"液态玻璃"）。
-   * 不支持时是 undefined：下面自绘的玻璃底色 + 模糊 + 描边就是回退，两者不冲突
-   * （支持时以系统材质为准，系统材质会覆盖组件的底色/描边/阴影）。
-   */
-  private material: uiMaterial.Material | undefined = createDockGlassMaterial();
 
   /**
    * 收拢态左侧的动作位：回到顶部。
@@ -62,9 +53,9 @@ export struct HomeBottomDock {
   }
 
   build() {
-    // 一片玻璃装两行（迷你播放条 + Tab 栏）：此前是两个各自带材质的药丸，
-    // 视觉上又高又碎；合成一片后与华为音乐的底舱形态一致。
-    Column() {
+    // 两行是**两个独立的圆角容器**（对齐华为音乐的底舱）：材质与圆角各自带，
+    // 中间留 `dockRowGap()` 的缝 —— 缝本身就是分界，不用再画分隔线。
+    Column({ space: DesignTokens.dockRowGap() }) {
       PlayerBar({
         glass: true,
         compact: this.collapsed,
@@ -87,8 +78,9 @@ export struct HomeBottomDock {
     }
     .width('100%')
     .padding({
-      left: DesignTokens.spaceGutter(),
-      right: DesignTokens.spaceGutter(),
+      // 左右留白比普通页面大：底舱是浮在内容上的玻璃，贴边会显得糊在边框上
+      left: DesignTokens.dockSideMargin(),
+      right: DesignTokens.dockSideMargin(),
       // 贴屏幕底部放，只留系统手势条小横条的生存空间
       bottom: DesignTokens.dockBottomGap(),
     })
@@ -98,17 +90,6 @@ export struct HomeBottomDock {
       y: this.contentScrolling ? 0.985 : 1,
     })
     .animation({ duration: 200, curve: Curve.EaseOut })
-    .backgroundColor(DesignTokens.glassFill(this.theme))
-    // adaptiveColor.AVERAGE：材质取背后内容的平均色，透过去不会发灰
-    .backgroundBlurStyle(BlurStyle.COMPONENT_THICK, {
-      adaptiveColor: AdaptiveColor.AVERAGE,
-      scale: 1,
-    })
-    .borderRadius(DesignTokens.dockRadius())
-    .border({ width: 0.5, color: DesignTokens.glassStroke(this.theme) })
-    .shadow(DesignTokens.floatingShadow())
-    // 系统沉浸材质（含交互形变与光感反馈）；设备不支持时为 undefined，走上面的自绘回退
-    .systemMaterial(this.material)
     // 注意：安全区扩展不在这里做。窗口内容区本身已避开底部安全区，扩展必须挂在
     // HomePage 那一层 Stack 上，底舱才真正落到屏幕底部（挂在这里无效，会多出一条空带）。
   }

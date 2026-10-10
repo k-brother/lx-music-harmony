@@ -12,6 +12,8 @@
  */
 import { DesignTokens } from '../../../theme/DesignTokens';
 import { hapticService } from '../../../service/HapticService';
+import { createDockGlassMaterial } from '../../../theme/GlassMaterial';
+import { uiMaterial } from '@kit.ArkUI';
 
 export interface HomeTabItem {
   idx: number;
@@ -36,6 +38,9 @@ export struct HomeBottomTabBar {
    */
   @Prop collapsed: boolean = false;
   onSelect?: (index: number) => void;
+
+  /** 系统沉浸材质（鸿蒙版"液态玻璃"）：不支持时为 undefined，走自绘玻璃回退 */
+  private material: uiMaterial.Material | undefined = createDockGlassMaterial();
 
   /** 条目行实测宽度：选中胶囊按它算位置（不猜像素，也不依赖百分比定位） */
   @State rowWidth: number = 0;
@@ -150,7 +155,18 @@ export struct HomeBottomTabBar {
       .visibility(this.collapsed ? Visibility.Hidden : Visibility.Visible)
       .hitTestBehavior(this.collapsed ? HitTestMode.None : HitTestMode.Default)
       .animation({ duration: 220, curve: Curve.EaseOut })
-      // 玻璃材质由底舱容器统一给（见 HomeBottomDock）：这里只负责行内容与收拢动画
+      // 自己就是一片圆角玻璃（与迷你条是两个独立容器，中间留缝分界）
+      .backgroundColor(DesignTokens.glassFill(this.theme))
+      // adaptiveColor.AVERAGE：材质取背后内容的平均色，透过去不会发灰
+      .backgroundBlurStyle(BlurStyle.COMPONENT_THICK, {
+        adaptiveColor: AdaptiveColor.AVERAGE,
+        scale: 1,
+      })
+      .borderRadius(DesignTokens.dockRadius())
+      .border({ width: 0.5, color: DesignTokens.glassStroke(this.theme) })
+      .shadow(DesignTokens.floatingShadow())
+      // 系统沉浸材质（含交互形变与光感反馈）；设备不支持时为 undefined，走上面的自绘回退
+      .systemMaterial(this.material)
     }
   }
 }
