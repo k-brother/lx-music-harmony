@@ -6,6 +6,7 @@
     "mainElement": "EntryAbility",
     "deviceTypes": [
       "phone",
+      "tablet",
       "2in1"
     ],
     "deliveryWithInstall": true,
@@ -21,6 +22,8 @@
         "startWindowIcon": "$media:layered_image",
         "startWindowBackground": "$color:start_window_background",
         "exported": true,
+        "minWindowWidth": 360,
+        "minWindowHeight": 560,
         "backgroundModes": [
           "audioPlayback"
         ],

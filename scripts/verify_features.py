@@ -266,6 +266,12 @@ CHECKS = [
  ('全局面板宿主', 'components/ui/SheetHost.ets', r'export struct SheetHost'),
  ('全局面板服务', 'service/SheetService.ets', r'export const sheetService'),
  ('面板宿主挂在根节点', 'pages/NavIndex.ets', r'SheetHost\(\)'),
+ # 默认 Auto 在宽屏自动分栏：PC 上首页被挤进 240vp 左栏、右侧整块空白（真机踩过）
+ ('根导航固定压栈模式(宽屏不分栏)', 'pages/NavIndex.ets', r'\.mode\(NavigationMode\.Stack\)'),
+ # Image 默认可拖拽，会吞掉 PC 鼠标/触控板滚动（官方 FAQ「鼠标无法滑动Scroll组件图片」）
+ ('列表封面禁用拖拽', 'components/ui/ListRow.ets', r'draggable\(false\)'),
+ # 宽屏内容列在「窗口−侧栏」内居中（按窗口居中会让右侧空一大块，PC 上像没铺满）
+ ('宽屏内容列扣除侧栏居中', 'theme/Breakpoints.ets', r'contentInsetDock'),
  ('设置项走全局面板', 'components/ui/SettingsSection.ets', r'sheetService\.(select|input)'),
  ('主题写入走设置服务(单一入口)', 'service/ThemeService.ets', r'settingsService\.update\(\{ themeId \}\)'),
  ('切源自动重载歌单列表', 'pages/Home/SongListView.ets', r'@Watch\(.onSourceIdChange.\)'),
