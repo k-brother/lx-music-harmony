@@ -27,6 +27,8 @@ const SCROLL_PRESS_SCALE: number = 0.985;
 @Component
 export struct HomeBottomTabBar {
   @StorageProp('theme') theme: string = 'light';
+  /** 一多：窗口宽度（vp）——横向展开动画需要"展开后的确定宽度"，不能用百分比（会被压扁） */
+  @StorageProp('windowWidthVp') windowWidthVp: number = 360;
   @Prop tabs: HomeTabItem[] = [];
   @Prop activeIndex: number = 0;
   /** 宽屏：竖排在左侧（不透明侧栏） */
@@ -64,6 +66,15 @@ export struct HomeBottomTabBar {
 
   private capsuleY(): number {
     return (DesignTokens.tabBarHeight() - DesignTokens.tabCapsuleHeight()) / 2;
+  }
+
+  /**
+   * 展开后的内容宽度（= 屏幕宽 - 底舱左右留白）。
+   * 收拢/展开用"容器宽度动画 + clip"做**从左向右拉开**的效果：内容必须保持这个定宽，
+   * 否则条目会跟着容器一起被压扁（用百分比宽度就会这样）。
+   */
+  private contentWidth(): number {
+    return Math.max(0, this.windowWidthVp - DesignTokens.dockSideMargin() * 2);
   }
 
   private onRowResize(area: Area): void {
@@ -142,19 +153,21 @@ export struct HomeBottomTabBar {
             this.TabItem(tab)
           }, (tab: HomeTabItem) => tab.idx.toString())
         }
-        .width('100%')
+        // 定宽：容器裁剪时内容不会被压扁（横向展开的关键）
+        .width(this.contentWidth())
         .height(DesignTokens.tabBarHeight())
         .onAreaChange((_oldArea: Area, newArea: Area): void => {
           this.onRowResize(newArea);
         })
       }
-      .width('100%')
+      // 从左向右"拉开"：宽度 0 ↔ 展开宽度（以左端为锚点），高度同时补上必需的行高
+      .width(this.collapsed ? 0 : this.contentWidth())
       .height(this.collapsed ? 0 : DesignTokens.tabBarHeight())
+      .clip(true)
       .scale({ x: this.collapsed ? 0.9 : 1, y: this.collapsed ? 0.9 : 1 })
       .opacity(this.collapsed ? 0 : 1)
-      .visibility(this.collapsed ? Visibility.Hidden : Visibility.Visible)
       .hitTestBehavior(this.collapsed ? HitTestMode.None : HitTestMode.Default)
-      .animation({ duration: 220, curve: Curve.EaseOut })
+      .animation({ duration: 240, curve: Curve.EaseOut })
       // 自己就是一片圆角玻璃（与迷你条是两个独立容器，中间留缝分界）
       .backgroundColor(DesignTokens.glassFill(this.theme))
       // adaptiveColor.AVERAGE：材质取背后内容的平均色，透过去不会发灰
