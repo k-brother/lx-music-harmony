@@ -1153,10 +1153,8 @@ export struct HomePage {
         }
         .width('100%')
         .height('100%')
-        // 安全区扩展要挂在**这一层**：窗口内容区本身已避开底部安全区，
-        // 只有让这个 Stack 的布局盒伸进安全区，贴着底部的玻璃底舱才真正落到屏幕底部
-        //（挂在底舱自己身上无效——它的"底"仍停在内容区底部，于是底下空出一条安全区）
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+        // 注意：底部安全区不靠这里的 expandSafeArea 处理（在嵌套容器里实测无效），
+        // 改由 HomeBottomDock 按 safeBottomVp 直接把底舱压到屏幕底部。
       }
 
       // 搜索面板覆盖层

@@ -30,6 +30,14 @@ export struct HomeBottomDock {
   onRestore?: () => void;
   /** 内容是否正在滚动（utils/ScrollActivity 写入）：滚动时底舱轻微收一点 */
   @StorageProp('contentScrolling') contentScrolling: boolean = false;
+  /**
+   * 底部安全区（系统手势条）高度。
+   * 窗口内容区**本身已经避开**了这段区域，所以悬浮在底部的底舱会被挡在上面；
+   * 这里按这个高度把底舱往下压，使它真正贴到屏幕底部。
+   * 不用 `expandSafeArea`：它在嵌套容器里不可靠（实测挂在底舱和页面 Stack 上都没生效，
+   * 真机上表现为"底舱离底部总是差一大截"）。
+   */
+  @StorageProp('safeBottomVp') safeBottomVp: number = 0;
 
   /** 房子按钮的系统沉浸材质（与播放条各是一片玻璃，各自独立） */
   private houseMaterial: uiMaterial.Material | undefined = createDockGlassMaterial();
@@ -117,6 +125,8 @@ export struct HomeBottomDock {
       y: this.contentScrolling ? 0.985 : 1,
     })
     .animation({ duration: 200, curve: Curve.EaseOut })
+    // 压回屏幕底部：让"窗口内容区之上"的那段安全区不再顶住底舱
+    .offset({ y: this.safeBottomVp })
     // 注意：安全区扩展不在这里做。窗口内容区本身已避开底部安全区，扩展必须挂在
     // HomePage 那一层 Stack 上，底舱才真正落到屏幕底部（挂在这里无效，会多出一条空带）。
   }
