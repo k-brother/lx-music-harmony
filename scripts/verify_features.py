@@ -556,6 +556,12 @@ CHECKS = [
  ('取链显式关闭内部回退', 'service/PlayerService.ets', r'allowToggleSource: false'),
  ('播放身份 key 单一实现', 'core/music/PlayKeys.ets', r'export function playKeyOfIds'),
  # —— 桌面卡片 / 锁屏实况窗 ——
+ # —— 玻璃材质（系统沉浸材质 / 液态玻璃）——
+ ('沉浸材质不支持时回退自绘玻璃', 'theme/GlassMaterial.ets', r'isImmersiveMaterialSupported'),
+ ('底部底舱用系统沉浸材质', 'pages/Home/Home/HomeBottomTabBar.ets', r'\.systemMaterial\('),
+ ('迷你播放条玻璃形态用系统材质', 'components/player/PlayerBar.ets', r'\.systemMaterial\('),
+ ('面板走系统材质模糊', 'components/ui/BottomSheet.ets', r'blurStyle: BlurStyle\.COMPONENT_THICK'),
+ ('底舱给内容留出滚动空间', 'pages/HomePage.ets', r'bottomDockHeight\(\)'),
  ('卡片跨进程契约编解码单点', 'utils/CardFormCodec.ets', r'export function decodeRegisteredCards'),
  ('卡片快照单写入方', 'service/CardFormService.ets', r'CARD_SNAPSHOT'),
  ('卡片页全 ArkUI 绘制（不引 rawfile 贴图）', 'widget/pages/MusicCard.ets',

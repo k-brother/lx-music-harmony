@@ -218,6 +218,29 @@ export class DesignTokens {
     return theme === 'dark' ? '#121214' : '#FBFBFD';
   }
 
+  /**
+   * 玻璃材质底色（底部导航 / 迷你播放条这类"浮在内容之上"的底舱）。
+   *
+   * 为什么是半透明：要和 `.backgroundBlurStyle(COMPONENT_THICK)` 配合 —— 模糊负责
+   * "透出下面滚动的内容"，这层底色负责在没有模糊能力时文字依然可读（不等于全透明）。
+   */
+  static glassFill(theme: string): string {
+    return theme === 'dark' ? 'rgba(28,29,33,0.70)' : 'rgba(255,255,255,0.70)';
+  }
+
+  /** 玻璃材质描边：比卡片描边亮一档，浮在内容上时有"一片玻璃"的厚度感 */
+  static glassStroke(theme: string): string {
+    return theme === 'dark' ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.72)';
+  }
+
+  /**
+   * 底部玻璃底舱的占位高度（迷你播放条 + Tab 栏 + 间距，不含底部安全区）。
+   * Tab 里的滚动内容按这个值留出底部空间，内容才能滚到玻璃底舱"下面"（玻璃才有东西可透）。
+   */
+  static bottomDockHeight(): number {
+    return 128;
+  }
+
   // Typography scale (core surfaces: tab bar / player bar / play detail)
   static fontTitle(): number {
     return 16;

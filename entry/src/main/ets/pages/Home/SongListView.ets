@@ -20,6 +20,7 @@ import { SegmentedBar, type SegmentOption } from '../../components/ui/SegmentedB
 import { RefreshContainer } from '../../components/ui/RefreshContainer';
 import { hapticService } from '../../service/HapticService';
 import { DeferredScrollToTop } from '../../utils/ScrollTools';
+import { markContentScrolling } from '../../utils/ScrollActivity';
 import { Breakpoints } from '../../theme/Breakpoints';
 import { LazyDataSource } from '../../utils/LazyDataSource';
 import { getStorageService } from '../../core/interfaces/IStorageService';
@@ -49,6 +50,8 @@ export struct SongListView {
   // @Watch 回调里会清空旧列表再按新源加载，避免旧源数据留在屏幕上被误点。
   @Prop @Watch('onSourceIdChange') sourceId: string = 'kw';
   @Prop @Watch("onReCreateKeyChange") reCreateKey: number = 0;
+  /** 底部玻璃底舱占位（由 HomePage 按是否浮层底舱传入；0 = 不浮层） */
+  @Prop bottomInset: number = 0;
   @StorageProp('theme') theme: string = 'light';
 
   /** 按压反馈：卡片轻微缩放 */
@@ -649,10 +652,14 @@ export struct SongListView {
       left: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
       right: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
       top: DesignTokens.spaceGutter(),
-      bottom: DesignTokens.spaceGutter(),
+      // 底部留白 = 常规留白 + 玻璃底舱高度：内容能滚到玻璃下面（否则底舱下面没有内容可透）
+      bottom: DesignTokens.spaceGutter() + this.bottomInset,
     })
     .width('100%')
     .backgroundColor(DesignTokens.pageBg(this.theme))
+    .onDidScroll(() => {
+      markContentScrolling();
+    })
   }
 
   /**

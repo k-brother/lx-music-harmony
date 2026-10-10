@@ -98,6 +98,8 @@ export struct HomePage {
   @StorageProp('windowWidthVp') windowWidthVp: number = 360;
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
+  /** 底部手势条高度（vp）：玻璃底舱要浮在它上面 */
+  @StorageProp('safeBottomVp') safeBottomVp: number = 0;
   @State currentTab: number = 0;
   @State isPlay: boolean = false;
   @State musicName: string = '';
@@ -1042,29 +1044,42 @@ export struct HomePage {
     })
   }
 
+  /**
+   * 底部玻璃底舱（迷你播放条 + Tab 栏）占用的高度。
+   * Tab 里的滚动内容按它留底部空间，内容才能滚到玻璃底舱"下面"——玻璃才有东西可透。
+   */
+  private dockInset(): number {
+    return DesignTokens.bottomDockHeight() + this.safeBottomVp;
+  }
+
   // 内容区域
   @Builder
-  ContentArea() {
+  ContentArea(bottomInset: number) {
     if (this.currentTab === 0) {
       SongListView({
         sourceId: this.currentSource,
         reCreateKey: this.sourceContentEpoch,
         searchText: $searchText,
         searchStripActions: this.globalSearchStripActions,
+        bottomInset: bottomInset,
       })
     } else if (this.currentTab === 1) {
-      LeaderboardView({ sourceId: this.currentSource, reCreateKey: this.sourceContentEpoch })
+      LeaderboardView({
+        sourceId: this.currentSource,
+        reCreateKey: this.sourceContentEpoch,
+        bottomInset: bottomInset,
+      })
     } else if (this.currentTab === 2) {
-      DownloadPage()
+      DownloadPage({ bottomInset: bottomInset })
     } else if (this.currentTab === 3) {
       // 我的页面
-      MylistView()
+      MylistView({ bottomInset: bottomInset })
     }
   }
 
-  /** 主界面右半部：顶栏 + 内容 + 播放条（宽屏时右侧，窄屏时整屏） */
+  /** 主界面右半部：顶栏 + 内容（迷你播放条在窄屏时移到底部玻璃底舱里） */
   @Builder
-  MainPane() {
+  MainPane(showPlayerBar: boolean, bottomInset: number) {
     Column() {
       // 下载页使用自身头部，避免与 Home 顶栏重复
       if (this.currentTab !== 2) {
@@ -1073,16 +1088,39 @@ export struct HomePage {
 
       // 内容区
       Column() {
-        this.ContentArea()
+        this.ContentArea(bottomInset)
       }
       .width('100%')
       .layoutWeight(1)
 
-      // 播放器栏
-      PlayerBar()
+      // 播放器栏：宽屏时留在右侧内容列里（没有浮层底舱）
+      if (showPlayerBar) {
+        PlayerBar()
+      }
     }
     .width('100%')
     .height('100%')
+  }
+
+  /**
+   * 底部玻璃底舱：迷你播放条 + Tab 栏合成一片浮在内容之上的玻璃。
+   *
+   * 为什么合成一个 Builder：这两块是同一片"系统 chrome"，材质、留白、随滑动的反应都该一致；
+   * 分开写容易出现"上面是玻璃、下面是纯色条"的割裂感（这正是改造前的问题）。
+   */
+  @Builder
+  BottomDock() {
+    Column({ space: DesignTokens.spaceUnit() / 2 }) {
+      PlayerBar({ glass: true })
+      this.BottomTabBar(false)
+    }
+    .width('100%')
+    .padding({
+      left: DesignTokens.spaceGutter(),
+      right: DesignTokens.spaceGutter(),
+      // 浮在手势条之上（底舱不铺到底，壁纸/内容在它周围露出来）
+      bottom: this.safeBottomVp + DesignTokens.spaceUnit(),
+    })
   }
 
   build() {
@@ -1092,7 +1130,7 @@ export struct HomePage {
         Row() {
           this.BottomTabBar(true)
           Column() {
-            this.MainPane()
+            this.MainPane(true, 0)
           }
           .layoutWeight(1)
           .height('100%')
@@ -1101,21 +1139,21 @@ export struct HomePage {
         .height('100%')
         .backgroundColor(DesignTokens.pageBg(this.theme))
       } else {
-        Column() {
-          // 内容区必须用 layoutWeight 占剩余高度，不能直接用 MainPane
-          // （MainPane 自身是 height('100%')，会和底栏一起把底栏挤出屏幕）
+        // 窄屏：内容铺满整屏，玻璃底舱浮在它上面（内容要能滚到玻璃下面，才有"透"的效果）
+        Stack({ alignContent: Alignment.Bottom }) {
           Column() {
-            this.MainPane()
+            this.MainPane(false, this.dockInset())
           }
-          .layoutWeight(1)
           .width('100%')
+          .height('100%')
+          .backgroundColor(DesignTokens.pageBg(this.theme))
+          // 底部手势区由页面自己画（深色模式不能透出系统白底）
+          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
 
-          // 底部 Tab 栏
-          this.BottomTabBar(false)
+          this.BottomDock()
         }
         .width('100%')
         .height('100%')
-        .backgroundColor(DesignTokens.pageBg(this.theme))
       }
 
       // 搜索面板覆盖层

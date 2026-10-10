@@ -13,6 +13,8 @@ import { hapticService } from '../../service/HapticService';
 // 使用与PlayerService一致的MusicInfo接口
 import type { MusicInfo } from '../../service/PlayerService';
 import { DesignTokens } from '../../theme/DesignTokens';
+import { createDockGlassMaterial } from '../../theme/GlassMaterial';
+import { uiMaterial } from '@kit.ArkUI';
 
 @Component
 export struct PlayerBar {
@@ -20,6 +22,8 @@ export struct PlayerBar {
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
   @StorageProp('showAnimation') showAnimation: boolean = true;
+  /** 内容是否正在滚动（utils/ScrollActivity 写入）：玻璃形态下随滑动轻微收放 */
+  @StorageProp('contentScrolling') contentScrolling: boolean = false;
 
   /** 统一的按压缩放反馈（卡片/按钮通用） */
   @Styles
@@ -33,6 +37,13 @@ export struct PlayerBar {
     .opacity(0.6)
   }
   @Prop immersiveBottom: boolean = false;
+  /**
+   * 玻璃形态：交给首页的底部玻璃底舱（迷你播放条 + Tab 栏合成一片玻璃）。
+   * 玻璃形态下左右留白由底舱统一给，条本身不再自己加外边距 —— 否则两处留白会叠成 32vp。
+   */
+  @Prop glass: boolean = false;
+  /** 系统沉浸材质（玻璃形态用；不支持时为 undefined，走自绘玻璃回退） */
+  private glassMaterial: uiMaterial.Material | undefined = createDockGlassMaterial();
   @State isPlay: boolean = false;
   @State musicName: string = '';
   @State singer: string = '';
@@ -198,14 +209,29 @@ export struct PlayerBar {
     .height(62)
     .padding({ left: 14, right: 14, top: 5, bottom: 5 })
     .margin({
-      left: DesignTokens.spaceGutter(),
-      right: DesignTokens.spaceGutter(),
+      left: this.glass ? 0 : DesignTokens.spaceGutter(),
+      right: this.glass ? 0 : DesignTokens.spaceGutter(),
       bottom: this.immersiveBottom ? 0 : 4,
     })
-    .backgroundColor(DesignTokens.chromeBar(this.theme))
+    // 材质随滑动"呼吸"：滚动时收一点点，停手回弹（与底部 Tab 栏同一套反应）
+    .scale({
+      x: this.glass && this.contentScrolling ? 0.985 : 1,
+      y: this.glass && this.contentScrolling ? 0.985 : 1,
+    })
+    .animation({ duration: 200, curve: Curve.EaseOut })
+    .backgroundColor(this.glass ? DesignTokens.glassFill(this.theme) : DesignTokens.chromeBar(this.theme))
+    .backgroundBlurStyle(this.glass ? BlurStyle.COMPONENT_THICK : BlurStyle.NONE, {
+      adaptiveColor: AdaptiveColor.AVERAGE,
+      scale: 1,
+    })
     .borderRadius(DesignTokens.radiusCard())
-    .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
+    .border({
+      width: this.glass ? 0.5 : 0.33,
+      color: this.glass ? DesignTokens.glassStroke(this.theme) : DesignTokens.cardBorder(this.theme),
+    })
     .shadow(DesignTokens.floatingShadow())
+    // 玻璃形态：交给系统沉浸材质（不支持时上面的底色/描边/阴影即回退）
+    .systemMaterial(this.glass ? this.glassMaterial : undefined)
     .alignItems(VerticalAlign.Center)
   }
 

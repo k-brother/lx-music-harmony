@@ -37,6 +37,7 @@ import { RefreshContainer } from '../../components/ui/RefreshContainer';
 import { hapticService } from '../../service/HapticService';
 import { Breakpoints } from '../../theme/Breakpoints';
 import { SheetHeader } from '../../components/ui/SheetHeader';
+import { markContentScrolling } from '../../utils/ScrollActivity';
 
 interface PromptActionResult {
   index: number;
@@ -64,6 +65,8 @@ export struct MylistView {
 
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
+  /** 底部玻璃底舱占位（由 HomePage 按是否浮层底舱传入；0 = 不浮层） */
+  @Prop bottomInset: number = 0;
   @State loveList: UserListRow | null = null;
   @State userLists: UserListRow[] = [];
   @State isLoading: boolean = false;
@@ -397,12 +400,17 @@ LeftSections() {
             .padding({
               left: Breakpoints.contentInset(this.windowWidthVp),
               right: Breakpoints.contentInset(this.windowWidthVp),
+              // 底部留白 = 玻璃底舱高度：内容滚到玻璃下面，玻璃才有东西可透
+              bottom: this.bottomInset,
             })
           }
           .width('100%')
           .height('100%')
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
+          .onDidScroll(() => {
+            markContentScrolling();
+          })
           // Scroll 默认 align 是 Center：卡片少时会被整体居中，上下留白（列表页一律顶部对齐）
           .align(Alignment.TopStart)
         }

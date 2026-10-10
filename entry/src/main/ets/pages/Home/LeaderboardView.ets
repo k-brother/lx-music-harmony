@@ -13,6 +13,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { CoverPalette } from '../../theme/CoverPalette';
 import { DeferredScrollToTop } from '../../utils/ScrollTools';
+import { markContentScrolling } from '../../utils/ScrollActivity';
 import { Breakpoints } from '../../theme/Breakpoints';
 import { SearchStrip, SearchStripActions } from '../../components/common/SearchStrip';
 import { FilterPillBar, type FilterPillOption } from './Home/FilterPillBar';
@@ -58,6 +59,8 @@ export struct LeaderboardView {
   @StorageProp('langVersion') @Watch('onLanguageChanged') langVersion: number = 0;
   @Prop sourceId: string = 'kw';
   @Prop @Watch("onReCreateKeyChange") reCreateKey: number = 0;
+  /** 底部玻璃底舱占位（由 HomePage 按是否浮层底舱传入；0 = 不浮层） */
+  @Prop bottomInset: number = 0;
   @State boardList: BoardItem[] = [];
   @State isLoading: boolean = false;
   /** 加载失败（与「该源确实没有榜单」区分，失败态给重试入口） */
@@ -821,6 +824,7 @@ export struct LeaderboardView {
         .edgeEffect(EdgeEffect.None)
         .onDidScroll(() => {
           this.syncFilterPinnedByOffset();
+          markContentScrolling();
         })
         // Scroll 默认 align 是 Center：榜单卡片少（含加载中）时会被整体居中、上下留白
         .align(Alignment.TopStart)
@@ -902,7 +906,8 @@ export struct LeaderboardView {
       }, (card: LeaderboardCardState, index: number) => `${card.board.source}_${card.board.id}_${index}`)
     }
     .width('100%')
-    .padding({ bottom: 16 })
+    // 底部留白 = 常规留白 + 玻璃底舱高度（内容滚到玻璃下面，玻璃才有东西可透）
+    .padding({ bottom: 16 + this.bottomInset })
   }
 
 

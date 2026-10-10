@@ -26,6 +26,7 @@ import { NavBar } from '../components/ui/NavBar';
 import { SegmentedBar } from '../components/ui/SegmentedBar';
 import { RefreshContainer } from '../components/ui/RefreshContainer';
 import { StateView } from '../components/ui/StateView';
+import { markContentScrolling } from '../utils/ScrollActivity';
 import { DownloadTaskRow } from './Download/DownloadTaskRow';
 import { DownloadSelectionBar } from './Download/DownloadSelectionBar';
 import {
@@ -49,6 +50,8 @@ export struct DownloadPage {
   @StorageProp('theme') theme: string = 'light';
   /** 一多：窗口宽度（vp），大屏内容列居中 */
   @StorageProp('windowWidthVp') windowWidthVp: number = 360;
+  /** 底部玻璃底舱占位（由 HomePage 按是否浮层底舱传入；0 = 不浮层） */
+  @Prop bottomInset: number = 0;
   /** 设置 → 列表 → 显示专辑（下载列表副标题与其它列表同一口径） */
   @StorageProp('showListAlbum') showListAlbum: boolean = true;
   @State downloadTasks: DownloadTask[] = [];
@@ -460,7 +463,8 @@ export struct DownloadPage {
         }
       }
       .width('100%')
-      .padding({ top: 8, bottom: 24 })
+      // 底部留白 = 常规留白 + 玻璃底舱高度（内容滚到玻璃下面，玻璃才有东西可透）
+      .padding({ top: 8, bottom: 24 + this.bottomInset })
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
@@ -468,6 +472,9 @@ export struct DownloadPage {
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
     .align(Alignment.TopStart)
+    .onDidScroll(() => {
+      markContentScrolling();
+    })
   }
 
   /**
