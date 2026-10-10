@@ -330,14 +330,18 @@ export class DesignTokens {
     return 48;
   }
 
-  /** Tab 选中胶囊高度 */
+  /**
+   * Tab 选中胶囊高度。
+   * 必须能**完整包住**条目内容（图标 20 + 间距 2 + 文案 12 = 34），否则胶囊比内容小，
+   * 图标顶部/文案底部会露在红色背景外（真机反馈过）。
+   */
   static tabCapsuleHeight(): number {
-    return 30;
+    return 38;
   }
 
-  /** Tab 选中胶囊相对条目的左右内缩 */
+  /** Tab 选中胶囊相对条目的左右内缩（留一点缝，胶囊不会顶着相邻条目） */
   static tabCapsuleInset(): number {
-    return 6;
+    return 4;
   }
 
   /** Tab 图标字号 */
