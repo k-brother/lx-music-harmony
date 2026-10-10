@@ -308,8 +308,12 @@ export class DesignTokens {
     return 12;
   }
 
-  /** 收拢态左侧动作位边长（与封面同宽，视觉重量对称） */
-  static miniActionSlot(): number {
+  /**
+   * 收拢态左侧「房子」圆形按钮的直径。
+   * 取行高同值（= miniBarHeight）：房子是**独立的圆形容器**，与播放条同一行，
+   * 高度一致才不会把这一行撑高（之前把房子塞进播放条内部，收拢时把行撑高了 6vp）。
+   */
+  static dockHouseSize(): number {
     return 40;
   }
 

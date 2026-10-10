@@ -12,6 +12,8 @@ import { DesignTokens } from '../../../theme/DesignTokens';
 import { t } from '../../../service/LocalizationService';
 import { PlayerBar } from '../../../components/player/PlayerBar';
 import { HomeBottomTabBar, type HomeTabItem } from './HomeBottomTabBar';
+import { createDockGlassMaterial } from '../../../theme/GlassMaterial';
+import { uiMaterial } from '@kit.ArkUI';
 
 @Component
 export struct HomeBottomDock {
@@ -29,20 +31,32 @@ export struct HomeBottomDock {
   /** 内容是否正在滚动（utils/ScrollActivity 写入）：滚动时底舱轻微收一点 */
   @StorageProp('contentScrolling') contentScrolling: boolean = false;
 
+  /** 房子按钮的系统沉浸材质（与播放条各是一片玻璃，各自独立） */
+  private houseMaterial: uiMaterial.Material | undefined = createDockGlassMaterial();
+
   /**
-   * 收拢态左侧的动作位：回到顶部。
-   * 这是**渲染内容**的 @Builder（@BuilderParam 传的是"这个槽位画什么"）。
+   * 收拢态左侧的「房子」：**独立一个圆形容器**（与右侧播放条的圆角矩形同一行）。
+   * 直径取 `dockHouseSize()`（= 行高），所以它出现/消失都不会把这一行撑高或压扁。
    */
   @Builder
-  RestoreAction() {
+  HouseButton() {
     Stack({ alignContent: Alignment.Center }) {
       SymbolGlyph($r('sys.symbol.house_fill'))
-        // 比 Tab 图标大一档、用强调色：它是收拢态下的主入口，太小会显得没分量
-        .fontSize(DesignTokens.fontDisplay())
+        // 用强调色：它是收拢态下的主入口
+        .fontSize(DesignTokens.fontLarge())
         .fontColor([DesignTokens.accent()])
     }
-    .width(DesignTokens.miniActionSlot())
-    .height(DesignTokens.miniActionSlot())
+    .width(DesignTokens.dockHouseSize())
+    .height(DesignTokens.dockHouseSize())
+    .borderRadius(DesignTokens.dockHouseSize() / 2)
+    .backgroundColor(DesignTokens.glassFill(this.theme))
+    .backgroundBlurStyle(BlurStyle.COMPONENT_THICK, {
+      adaptiveColor: AdaptiveColor.AVERAGE,
+      scale: 1,
+    })
+    .border({ width: 0.5, color: DesignTokens.glassStroke(this.theme) })
+    .shadow(DesignTokens.floatingShadow())
+    .systemMaterial(this.houseMaterial)
     .accessibilityText(t('dock_expand_menu'))
     .onClick((): void => {
       // 只复原底舱（不回顶部）：再滑动时内容继续上报"已滚离"，底舱会再次收拢
@@ -56,13 +70,26 @@ export struct HomeBottomDock {
     // 两行是**两个独立的圆角容器**（对齐华为音乐的底舱）：材质与圆角各自带，
     // 中间留 `dockRowGap()` 的缝 —— 缝本身就是分界，不用再画分隔线。
     Column({ space: DesignTokens.dockRowGap() }) {
-      PlayerBar({
-        glass: true,
-        compact: this.collapsed,
-        leading: (): void => {
-          this.RestoreAction();
-        },
-      })
+      // 迷你行：收拢态 = [房子圆] + [播放圆角矩形]；展开态 = 整条播放圆角矩形。
+      // 房子用"宽度 0 ↔ 直径"动画进出（不是 if 分支：滚动回调里没有 animateTo 上下文，
+      // 分支切换会跳），高度始终等于行高，所以这一行不会因为收拢而变高。
+      Row({ space: DesignTokens.dockRowGap() }) {
+        Column() {
+          if (this.collapsed) {
+            this.HouseButton()
+          }
+        }
+        .width(this.collapsed ? DesignTokens.dockHouseSize() : 0)
+        .opacity(this.collapsed ? 1 : 0)
+        .clip(true)
+        .animation({ duration: 220, curve: Curve.EaseOut })
+
+        Column() {
+          PlayerBar({ glass: true })
+        }
+        .layoutWeight(1)
+      }
+      .width('100%')
 
       HomeBottomTabBar({
         tabs: this.tabs,

@@ -43,13 +43,6 @@ export struct PlayerBar {
   @Prop glass: boolean = false;
   /** 系统沉浸材质（玻璃形态用；不支持时为 undefined，走自绘玻璃回退） */
   private glassMaterial: uiMaterial.Material | undefined = createDockGlassMaterial();
-  /**
-   * 收拢态：与底部 Tab 栏联动（内容滚离顶部时）。此时左侧让出一个动作位（`leading`），
-   * 播放控件整体靠右 —— 对齐华为音乐滚动后的那条"主页 + 播放控件"迷你条。
-   */
-  @Prop compact: boolean = false;
-  /** 收拢态左侧的动作（"回到顶部"这类）；未传时不占位 */
-  @BuilderParam leading?: () => void;
   @State isPlay: boolean = false;
   @State musicName: string = '';
   @State singer: string = '';
@@ -205,8 +198,6 @@ export struct PlayerBar {
   @Builder
   private BarCore() {
     Row() {
-      this.LeadingSlot()
-
       this.MiniCover()
 
       this.MiniTitle()
@@ -243,27 +234,6 @@ export struct PlayerBar {
     // 系统沉浸材质（含交互形变与光感反馈）；设备不支持时为 undefined，走上面的自绘回退
     .systemMaterial(this.glass ? this.glassMaterial : undefined)
     .alignItems(VerticalAlign.Center)
-  }
-
-  /**
-   * 收拢态左侧的动作位。
-   * 宽度从 0 到 40 渐变（不用 if 分支）：滚动回调里触发的状态变化没有 animateTo 上下文，
-   * 分支切换会"跳"，而宽度/透明度动画始终是顺的。
-   */
-  @Builder
-  private LeadingSlot() {
-    Row() {
-      if (this.leading) {
-        this.leading()
-      }
-    }
-    .width(this.compact && this.leading ? DesignTokens.miniActionSlot() : 0)
-    .height(DesignTokens.miniActionSlot())
-    // 收拢后与封面留一点间距；展开态宽度为 0，这里也跟着回到 0，不会多出空档
-    .margin({ right: this.compact ? DesignTokens.spaceUnit() / 2 : 0 })
-    .opacity(this.compact ? 1 : 0)
-    .clip(true)
-    .animation({ duration: 220, curve: Curve.EaseOut })
   }
 
   /** 迷你条封面：点击进入播放页；加载失败回退占位图 */
