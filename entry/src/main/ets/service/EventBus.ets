@@ -13,6 +13,7 @@ interface EventTypesInterface {
   LIST_UPDATED: string;
   SETTING_CHANGED: string;
   PLAYBACK_ERROR: string;
+  SOURCE_SWITCHED: string;
 }
 
 /**
@@ -29,6 +30,8 @@ export const EventTypes: EventTypesInterface = {
   SETTING_CHANGED: 'setting:changed',
   /** 播放期错误（解码/网络等）：界面据此提示用户（如「已跳过这首歌」） */
   PLAYBACK_ERROR: 'playback:error',
+  /** 取源失败自动跨源成功：界面据此提示「已从某某源换源播放」 */
+  SOURCE_SWITCHED: 'playback:sourceSwitched',
 };
 
 // 事件监听器类型
@@ -213,6 +216,21 @@ export function emitPlaybackError(title: string, skipped: boolean): void {
   emit(EventTypes.PLAYBACK_ERROR, data);
 }
 
+/** 换源数据：被换源的歌名 + 换到哪个内置源（原始 id，显示名由界面按设置换算） */
+export interface SourceSwitchedData {
+  title: string;
+  source: string;
+}
+
+/**
+ * 自动跨源成功（由 PlayerService 在换源取链后发出）。
+ * 与 emitPlaybackError 同一条分层约定：服务只广播，界面订阅后提示。
+ */
+export function emitSourceSwitched(title: string, source: string): void {
+  const data: SourceSwitchedData = { title: title, source: source };
+  emit(EventTypes.SOURCE_SWITCHED, data);
+}
+
 
 
 // 事件总线门面（供需要「一个对象拿到全部事件能力」的地方使用）
@@ -227,6 +245,7 @@ export interface EventBusInterface {
   emitSearchRequest: (keyword: string) => void;
   emitSettingChanged: (key: string) => void;
   emitPlaybackError: (title: string, skipped: boolean) => void;
+  emitSourceSwitched: (title: string, source: string) => void;
 }
 
 // 导出事件总线
@@ -241,6 +260,7 @@ const eventBus: EventBusInterface = {
   emitSearchRequest,
   emitSettingChanged,
   emitPlaybackError,
+  emitSourceSwitched,
 };
 
 export default eventBus;

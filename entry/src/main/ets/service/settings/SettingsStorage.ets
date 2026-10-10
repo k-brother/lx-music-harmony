@@ -23,6 +23,7 @@ import {
   toPlayMode,
   toQuality,
   toShareType,
+  toSourceList,
   toSourceNameType,
   toStartupPage,
   toThemeMode,
@@ -232,6 +233,12 @@ export async function loadSettingsFromStorage(): Promise<AppSettings> {
       await storage.getString(StorageKeys.LYRIC_S2T_MODE, defaults.s2tMode));
     settings.sourceNameType = toSourceNameType(
       await storage.getString(StorageKeys.COMMON_SOURCE_NAME_TYPE, defaults.sourceNameType));
+    settings.sourceOrder = toSourceList(
+      await storage.getString(StorageKeys.COMMON_SOURCE_ORDER, ''), defaults.sourceOrder);
+    settings.disabledSources = toSourceList(
+      await storage.getString(StorageKeys.COMMON_SOURCES_DISABLED, ''), defaults.disabledSources);
+    settings.autoSourceSwitch = await storage.getBoolean(
+      StorageKeys.PLAY_AUTO_SOURCE_SWITCH, defaults.autoSourceSwitch);
     settings.shareType = toShareType(
       await storage.getString(StorageKeys.COMMON_SHARE_TYPE, defaults.shareType));
     settings.agreedPact = await storage.getBoolean(StorageKeys.COMMON_AGREE_PACT, defaults.agreedPact);

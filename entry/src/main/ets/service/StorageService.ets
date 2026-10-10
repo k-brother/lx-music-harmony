@@ -292,6 +292,10 @@ interface StorageKeysInterface {
   LYRIC_S2T_MODE: string;
   HAPTIC_FEEDBACK: string;
   COMMON_SOURCE_NAME_TYPE: string;
+  /** 音源启用顺序（逗号分隔的音源 id，见 core/music/SourcePolicy） */
+  COMMON_SOURCE_ORDER: string;
+  /** 已停用的音源（逗号分隔的音源 id） */
+  COMMON_SOURCES_DISABLED: string;
   COMMON_SHARE_TYPE: string;
   COMMON_AGREE_PACT: string;
   COMMON_ALLOW_PROGRESS_SEEK: string;
@@ -304,6 +308,8 @@ interface StorageKeysInterface {
   PLAY_SLEEP_ENABLED: string;
   PLAY_SLEEP_MINUTES: string;
   PLAY_SLEEP_WAIT_TRACK_END: string;
+  /** 取源失败时自动跨源切换 */
+  PLAY_AUTO_SOURCE_SWITCH: string;
   PLAY_DESKTOP_LYRIC: string;
   PLAY_DESKTOP_LYRIC_POSITION: string;
   PLAY_DESKTOP_LYRIC_COLOR: string;
@@ -407,6 +413,8 @@ export const StorageKeys: StorageKeysInterface = {
   LYRIC_S2T_MODE: 'setting.lyric.s2tMode',
   HAPTIC_FEEDBACK: 'setting.ui.hapticFeedback',
   COMMON_SOURCE_NAME_TYPE: 'setting.common.sourceNameType',
+  COMMON_SOURCE_ORDER: 'setting.common.sourceOrder',
+  COMMON_SOURCES_DISABLED: 'setting.common.sourcesDisabled',
   COMMON_SHARE_TYPE: 'setting.common.shareType',
   COMMON_AGREE_PACT: 'setting.common.isAgreePact',
   COMMON_ALLOW_PROGRESS_SEEK: 'setting.common.allowProgressBarSeek',
@@ -419,6 +427,7 @@ export const StorageKeys: StorageKeysInterface = {
   PLAY_SLEEP_ENABLED: 'setting.play.sleepTimerEnabled',
   PLAY_SLEEP_MINUTES: 'setting.play.sleepTimerMinutes',
   PLAY_SLEEP_WAIT_TRACK_END: 'setting.play.sleepTimerWaitTrackEnd',
+  PLAY_AUTO_SOURCE_SWITCH: 'setting.play.autoSourceSwitch',
   PLAY_DESKTOP_LYRIC: 'setting.play.desktopLyric',
   PLAY_DESKTOP_LYRIC_POSITION: 'setting.play.desktopLyricPosition',
   PLAY_DESKTOP_LYRIC_COLOR: 'setting.play.desktopLyricColor',

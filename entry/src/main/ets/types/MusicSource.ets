@@ -6,6 +6,9 @@
 // 音乐源类型
 export type MusicSource = 'kw' | 'kg' | 'tx' | 'wy' | 'mg' | 'all';
 
+/** 具体音源（不含 all/local/custom 等虚拟源），音源管理设置使用 */
+export type BuiltinSource = 'kw' | 'kg' | 'tx' | 'wy' | 'mg';
+
 // 所有支持的源列表（不含 all）
 export const SUPPORTED_SOURCES: MusicSource[] = [
   'kw', 'kg', 'tx', 'wy', 'mg',

@@ -115,6 +115,8 @@ export function buildZhCN(): Map<string, string> {
   // 播放期出错（解码/网络等）：见 service/EventBus 的 PLAYBACK_ERROR
   m.set('playback_error_skipped', '「{0}」播放失败，已跳到下一首');
   m.set('playback_error_stopped', '播放失败，请检查网络或换源后重试');
+  // 取源失败自动跨源成功：见 service/EventBus 的 SOURCE_SWITCHED
+  m.set('source_switched_toast', '「{0}」已从{1}换源播放');
   m.set('a11y_previous', '上一首');
   m.set('a11y_next', '下一首');
   m.set('a11y_play', '播放');
@@ -466,6 +468,15 @@ export function buildZhCN(): Map<string, string> {
   m.set('custom_source_import_from_url', '从链接导入');
   m.set('settings_desktop_lyric', '桌面歌词');
   m.set('settings_custom_source_desc', '弹框配置：在线链接导入或本地JS文件导入');
+  m.set('settings_source', '音源');
+  m.set('settings_auto_source_switch', '自动跨源切换');
+  m.set('settings_auto_source_switch_desc', '当前音源取不到播放地址时，自动按下方顺序去其它音源找同一首歌');
+  m.set('settings_source_manage', '音源管理');
+  m.set('settings_source_manage_desc', '已启用 {0}/{1}');
+  m.set('settings_source_order_hint', '搜索聚合与自动跨源都按此顺序进行，已停用的源会被跳过');
+  m.set('source_last_enabled', '至少保留一个启用音源');
+  m.set('source_move_up', '上移');
+  m.set('source_move_down', '下移');
   m.set('settings_about', '关于');
   m.set('settings_reset', '恢复默认设置');
   m.set('settings_reset_desc', '把全部设置项还原为初始值（歌单与本地音乐不受影响）');

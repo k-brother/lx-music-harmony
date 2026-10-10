@@ -104,6 +104,8 @@ export function buildEnUS(): Map<string, string> {
   m.set('lyric_resume_follow', 'Back to current line');
   m.set('playback_error_skipped', 'Failed to play "{0}", skipped to the next track');
   m.set('playback_error_stopped', 'Playback failed, check your network or try another source');
+  // Auto cross-source success: see SOURCE_SWITCHED in service/EventBus
+  m.set('source_switched_toast', '"{0}" is now playing from {1}');
   m.set('a11y_previous', 'Previous');
   m.set('a11y_next', 'Next');
   m.set('a11y_play', 'Play');
@@ -460,6 +462,15 @@ export function buildEnUS(): Map<string, string> {
   m.set('custom_source_import_from_url', 'Import from URL');
   m.set('settings_desktop_lyric', 'Desktop Lyric');
   m.set('settings_custom_source_desc', 'Import JS link or file');
+  m.set('settings_source', 'Sources');
+  m.set('settings_auto_source_switch', 'Auto source switch');
+  m.set('settings_auto_source_switch_desc', 'When the current source has no playable URL, look up the same song on other sources in the order below');
+  m.set('settings_source_manage', 'Manage sources');
+  m.set('settings_source_manage_desc', '{0} of {1} enabled');
+  m.set('settings_source_order_hint', 'Aggregated search and auto source switch both follow this order; disabled sources are skipped');
+  m.set('source_last_enabled', 'Keep at least one source enabled');
+  m.set('source_move_up', 'Move up');
+  m.set('source_move_down', 'Move down');
   m.set('settings_about', 'About');
   m.set('settings_reset', 'Restore defaults');
   m.set('settings_reset_desc', 'Reset every setting to its initial value (lists and local music are kept)');

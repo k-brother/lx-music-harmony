@@ -17,8 +17,8 @@ import {
 import { getStorageService } from '../interfaces/IStorageService';
 import { pluginManager } from '../plugin/PluginManager';
 import { settingsService } from '../../service/SettingsService';
+import { orderedEnabledSources } from '../music/SourcePolicy';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { SUPPORTED_SOURCES } from '../../types/MusicSource';
 
 const TAG = 'SEARCH';
 const DOMAIN = 0x0004;
@@ -216,13 +216,15 @@ function toMusicInfoItem(item: SearchResultItem): MusicInfoItem {
 }
 
 /**
- * 全源聚合搜索：逐个源串行拉取（并发会让小水管音源直接限流），
+ * 全源聚合搜索：按「音源管理」的用户顺序逐个源串行拉取（并发会让小水管音源直接限流），
  * 单个源失败只跳过它，不影响其它源的结果。
  */
 async function searchAllSources(text: string, page: number, limit: number): Promise<MusicInfoItem[]> {
+  const settings = settingsService.get();
+  const sources = orderedEnabledSources(settings.sourceOrder, settings.disabledSources);
   const allResults: MusicInfoItem[] = [];
-  for (let i = 0; i < SUPPORTED_SOURCES.length; i++) {
-    const src = SUPPORTED_SOURCES[i];
+  for (let i = 0; i < sources.length; i++) {
+    const src = sources[i];
     try {
       const result: SearchResultItem[] = await searchMusicApi({
         name: text,

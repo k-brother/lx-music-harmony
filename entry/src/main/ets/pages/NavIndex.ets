@@ -20,9 +20,9 @@ import { PactDialog } from '../components/common/PactDialog';
 import { setAppUiContext } from '../service/UiContext';
 import { settingsService } from '../service/SettingsService';
 import { on, EventTypes } from '../service/EventBus';
-import type { PlaybackErrorData } from '../service/EventBus';
+import type { PlaybackErrorData, SourceSwitchedData } from '../service/EventBus';
 import { appToast } from '../service/DialogService';
-import { t, tf } from '../service/LocalizationService';
+import { t, tf, sourceName } from '../service/LocalizationService';
 import { playerService } from '../service/PlayerService';
 import { SheetHost } from '../components/ui/SheetHost';
 import { AppDestination } from '../components/ui/AppDestination';
@@ -35,6 +35,7 @@ export struct NavIndex {
   private startupPageApplied: boolean = false;
   private settingsUnsub: (() => void) | null = null;
   private playbackErrorUnsub: (() => void) | null = null;
+  private sourceSwitchedUnsub: (() => void) | null = null;
   /** 首次启动未同意许可协议时全屏拦截 */
   @State showPact: boolean = false;
 
@@ -59,6 +60,14 @@ export struct NavIndex {
         ? tf('playback_error_skipped', [info.title])
         : t('playback_error_stopped'));
     });
+    // 取源失败自动跨源成功：提示换到了哪个源（显示名按「音源名称」设置换算）
+    this.sourceSwitchedUnsub = on(EventTypes.SOURCE_SWITCHED, (data?: Object): void => {
+      const info = data as SourceSwitchedData;
+      if (!info) {
+        return;
+      }
+      appToast(tf('source_switched_toast', [info.title, sourceName(info.source)]));
+    });
     this.syncPactState();
     this.applyStartupPageOnce();
   }
@@ -81,6 +90,10 @@ export struct NavIndex {
     if (this.playbackErrorUnsub) {
       this.playbackErrorUnsub();
       this.playbackErrorUnsub = null;
+    }
+    if (this.sourceSwitchedUnsub) {
+      this.sourceSwitchedUnsub();
+      this.sourceSwitchedUnsub = null;
     }
   }
 

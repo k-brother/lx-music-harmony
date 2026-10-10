@@ -25,6 +25,7 @@ import { SyncSection } from './Setting/SyncSection';
 import { AppearanceSection } from './Setting/AppearanceSection';
 import { DesktopLyricSection } from './Setting/DesktopLyricSection';
 import { CustomSourceSection } from './Setting/CustomSourceSection';
+import { SourceSection } from './Setting/SourceSection';
 import { AboutSection } from './Setting/AboutSection';
 
 @Component
@@ -53,6 +54,7 @@ export struct SettingView {
     SyncSection()
     AppearanceSection()
     DesktopLyricSection()
+    SourceSection()
     CustomSourceSection()
     AboutSection()
   }

@@ -12,11 +12,14 @@ import { StorageKeys } from '../StorageService';
 import type { IStorageService } from '../../core/interfaces/IStorageService';
 import {
   clampNumber,
+  isSameSourceList,
   normalizeS2TMode,
+  sourceListToString,
   toDlTextPosX,
   toDlTextPosY,
   toQuality,
   toShareType,
+  toSourceList,
   toSourceNameType,
 } from './SettingsTypes';
 import type { AppSettings, SettingsPatch } from './SettingsTypes';
@@ -556,6 +559,36 @@ export async function applyAppearanceSettings(
       values.showAnimation = patch.showAnimation;
       await storage.setBoolean(StorageKeys.APPEARANCE_SHOW_ANIMATION, patch.showAnimation);
       changed.push('showAnimation');
+    }
+}
+
+/** 音源管理（启用顺序 / 停用表 / 自动跨源切换） */
+export async function applySourceSettings(
+  patch: SettingsPatch, values: AppSettings, changed: string[],
+  storage: IStorageService): Promise<void> {
+    if (patch.sourceOrder !== undefined) {
+      // 经 toSourceList 过滤非法 id + 去重，坏数据不会写进设置
+      const next = toSourceList(sourceListToString(patch.sourceOrder), values.sourceOrder);
+      if (!isSameSourceList(next, values.sourceOrder)) {
+        values.sourceOrder = next;
+        await storage.setString(StorageKeys.COMMON_SOURCE_ORDER, sourceListToString(next));
+        changed.push('sourceOrder');
+      }
+    }
+    if (patch.disabledSources !== undefined) {
+      // 空表是合法值（全部启用）：fallback 给 []，不能用旧值兜底，否则永远清不掉停用表
+      const next = toSourceList(sourceListToString(patch.disabledSources), []);
+      if (!isSameSourceList(next, values.disabledSources)) {
+        values.disabledSources = next;
+        await storage.setString(StorageKeys.COMMON_SOURCES_DISABLED, sourceListToString(next));
+        changed.push('disabledSources');
+      }
+    }
+    if (patch.autoSourceSwitch !== undefined
+      && patch.autoSourceSwitch !== values.autoSourceSwitch) {
+      values.autoSourceSwitch = patch.autoSourceSwitch;
+      await storage.setBoolean(StorageKeys.PLAY_AUTO_SOURCE_SWITCH, patch.autoSourceSwitch);
+      changed.push('autoSourceSwitch');
     }
 }
 

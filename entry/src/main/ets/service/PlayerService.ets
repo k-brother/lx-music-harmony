@@ -27,11 +27,14 @@ import { formatPlayTime } from '../utils/CommonUtils';
 import { recordPlayedSong } from './PlayHistoryService';
 import { backgroundRunningManager, type AvMediaMetadata, type AvSessionCallbacks } from './BackgroundRunningManager';
 import { getMusicUrl, getPicPath } from '../core/music/MusicFeatureEntry';
+import { orderedEnabledSources, toBuiltinSourceId } from '../core/music/SourcePolicy';
+import { resolveCrossSource } from '../core/music/CrossSourceResolver';
 import { playKeyOf } from '../core/music/PlayKeys';
 import { settingsService, type PlayMode as SettingsPlayMode } from './SettingsService';
 import { dislikeList } from '../core/dislike/DislikeList';
 import { on, EventTypes } from './EventBus';
 import { emitPlaybackError } from './EventBus';
+import { emitSourceSwitched } from './EventBus';
 import { LyricHub } from './player/LyricHub';
 import {
   playModeToAvLoopMode,
@@ -197,6 +200,8 @@ export class PlayerService {
   private urlFailureStreak: number = 0;
   /** 连续播放失败次数（播放器报错）：与取源失败共用「整轮失败」判定 */
   private playbackErrorStreak: number = 0;
+  /** 当前这首是否已经过重取（播放中地址失效只允许救一次，避免卡死循环） */
+  private urlRetryUsed: boolean = false;
   /** 本次加载已写入播放历史的歌曲 key（避免暂停/续播重复写） */
   private recordedSongKey: string = '';
 
@@ -468,6 +473,7 @@ export class PlayerService {
     }
     this.currentIndex = index;
     const song = this.playList[index];
+    this.urlRetryUsed = false;
     // 切歌会改当前下标：队列快照同步（否则重启后回到的是旧位置）
     this.persistQueue();
 
@@ -543,6 +549,22 @@ export class PlayerService {
 
     this.playbackErrorStreak += 1;
     const limit: number = Math.max(1, this.playList.length);
+
+    // 地址拿到但播不起来（过期/被源掐断）：跳过之前先重取一次（含跨源），尽力救回当前这首；
+    // 每首只救一次，重试还失败就按原有逻辑跳下一首，避免卡死循环
+    if (!this.urlRetryUsed && song) {
+      this.urlRetryUsed = true;
+      song.url = '';
+      const retriedUrl = await this.fetchMusicUrl(song);
+      if (retriedUrl) {
+        hilog.info(DOMAIN, TAG, 'Re-resolved play url for %{public}s after playback failure', song.title);
+        this.playbackErrorStreak = 0;
+        await this.setSource(song, retriedUrl);
+        await this.play();
+        return;
+      }
+    }
+
     const canSkip: boolean = this.playbackErrorStreak < limit && this.playList.length > 1;
     emitPlaybackError(song ? song.title : '', canSkip);
     if (!canSkip) {
@@ -601,7 +623,14 @@ export class PlayerService {
     await this.playSongByIndex(nextIndex);
   }
 
-  /** 从音乐源获取播放URL */
+  /**
+   * 从音乐源获取播放URL。
+   *
+   * 首选源取不到且「设置 → 自动跨源切换」开启时，按「音源管理」的用户顺序去其它源
+   * 找同一首歌（见 tryCrossSourceSwitch）。这里显式关闭 ResolvePlayback 的内部换源
+   * 回退：换源决策收敛到 SourcePolicy/CrossSourceResolver，遵守停用表并会改写元数据，
+   * 内部回退做不到这两件事。
+   */
   private async fetchMusicUrl(song: SongInfo): Promise<string> {
     try {
       const musicInfo: MusicInfo = {
@@ -619,10 +648,14 @@ export class PlayerService {
         img: song.artwork,
         lrc: null,
       };
-      const url = await getMusicUrl({ musicInfo, quality: this.preferredQuality });
+      const url = await getMusicUrl({ musicInfo, quality: this.preferredQuality, allowToggleSource: false });
       if (url) {
         hilog.info(DOMAIN, TAG, 'Fetched URL for %{public}s: %{public}s', song.title, url.substring(0, 80));
         return url;
+      }
+      const switched = await this.tryCrossSourceSwitch(song);
+      if (switched) {
+        return switched;
       }
       hilog.warn(DOMAIN, TAG, 'fetchMusicUrl: no URL returned for %{public}s', song.title);
       return '';
@@ -631,6 +664,57 @@ export class PlayerService {
       hilog.error(DOMAIN, TAG, 'fetchMusicUrl failed for %{public}s: %{public}s', song.title, msg);
       return '';
     }
+  }
+
+  /**
+   * 自动跨源：按「音源管理」设置去其它内置源找同一首歌。
+   *
+   * 命中后改写播放列表里这首歌的元数据（source/id/songmid/hash/.../封面），
+   * 歌词、封面、播放详情都会跟着新源走，并广播 SOURCE_SWITCHED 让界面提示；
+   * 未命中返回空串。本地/自定义源不属于内置五源，不做跨源。
+   */
+  private async tryCrossSourceSwitch(song: SongInfo): Promise<string> {
+    const settings = settingsService.get();
+    if (!settings.autoSourceSwitch) {
+      return '';
+    }
+    const currentSource = toBuiltinSourceId(song.source || '');
+    if (!currentSource) {
+      return '';
+    }
+    const hit = await resolveCrossSource({
+      title: song.title,
+      artist: song.artist,
+      durationSec: song.duration,
+      currentSource: currentSource,
+      enabledSources: orderedEnabledSources(settings.sourceOrder, settings.disabledSources),
+      quality: this.preferredQuality,
+    });
+    if (!hit) {
+      hilog.info(DOMAIN, TAG, 'cross-source resolve gave up on %{public}s', song.title);
+      return '';
+    }
+    // 改写队列里的歌曲（song 即 playList[index] 的引用，改它会同步到列表快照）
+    song.source = hit.source;
+    if (hit.id) {
+      song.id = hit.id;
+    }
+    if (hit.songmid) {
+      song.songmid = hit.songmid;
+    }
+    song.hash = hit.hash.length > 0 ? hit.hash : undefined;
+    song.strMediaMid = hit.strMediaMid.length > 0 ? hit.strMediaMid : undefined;
+    song.songId = hit.songId > 0 ? hit.songId : undefined;
+    song.albumId = hit.albumId.length > 0 ? hit.albumId : undefined;
+    song.copyrightId = hit.copyrightId.length > 0 ? hit.copyrightId : undefined;
+    if (hit.pic.length > 0) {
+      song.artwork = hit.pic;
+    }
+    song.url = hit.url;
+    this.persistQueue();
+    hilog.info(DOMAIN, TAG, 'cross-source switched %{public}s to %{public}s', song.title, hit.source);
+    emitSourceSwitched(song.title, hit.source);
+    return hit.url;
   }
 
   /** 更新 AVSession 元数据：拼装在 player/PlaybackSession.buildAvMetadata */

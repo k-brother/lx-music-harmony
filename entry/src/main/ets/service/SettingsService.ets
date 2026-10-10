@@ -23,6 +23,7 @@ import {
   applyLyricSettings,
   applySearchSettings,
   applyListSettings,
+  applySourceSettings,
   applyDownloadSettings,
   applySyncSettings,
   applyAppearanceSettings,
@@ -165,6 +166,9 @@ class SettingsServiceImpl {
     copy.enableVerboseLog = source.enableVerboseLog;
     copy.s2tMode = source.s2tMode;
     copy.sourceNameType = source.sourceNameType;
+    copy.sourceOrder = source.sourceOrder;
+    copy.disabledSources = source.disabledSources;
+    copy.autoSourceSwitch = source.autoSourceSwitch;
     copy.shareType = source.shareType;
     copy.agreedPact = source.agreedPact;
     copy.allowProgressBarSeek = source.allowProgressBarSeek;
@@ -223,6 +227,7 @@ class SettingsServiceImpl {
     await applyLyricSettings(patch, this.values, changed, storage);
     await applySearchSettings(patch, this.values, changed, storage);
     await applyListSettings(patch, this.values, changed, storage);
+    await applySourceSettings(patch, this.values, changed, storage);
     await applyDownloadSettings(patch, this.values, changed, storage);
     await applySyncSettings(patch, this.values, changed, storage);
     await applyAppearanceSettings(patch, this.values, changed, storage);
@@ -305,6 +310,9 @@ class SettingsServiceImpl {
       enableVerboseLog: defaults.enableVerboseLog,
       s2tMode: defaults.s2tMode,
       sourceNameType: defaults.sourceNameType,
+      sourceOrder: defaults.sourceOrder,
+      disabledSources: defaults.disabledSources,
+      autoSourceSwitch: defaults.autoSourceSwitch,
       shareType: defaults.shareType,
       agreedPact: defaults.agreedPact,
       allowProgressBarSeek: defaults.allowProgressBarSeek,

@@ -6,7 +6,9 @@
  */
 import type { S2TMode } from '../../core/lyric/ChineseConvert';
 import type { DownloadFileNameFormat } from '../../core/music/MusicTitle';
+import { toBuiltinSourceId } from '../../core/music/SourcePolicy';
 import type { Quality } from '../../types/MusicTypes';
+import type { BuiltinSource } from '../../types/MusicSource';
 
 export type { S2TMode, DownloadFileNameFormat };
 export { toDownloadFileNameFormat } from '../../core/music/MusicTitle';
@@ -134,6 +136,12 @@ export interface AppSettings {
   s2tMode: S2TMode;
   /** 音源名称显示：align with 安卓版 common.sourceNameType */
   sourceNameType: SourceNameType;
+  /** 音源启用顺序（靠前的优先；搜索聚合与自动跨源切换都按此顺序） */
+  sourceOrder: BuiltinSource[];
+  /** 已停用的音源（搜索聚合与自动切换都跳过） */
+  disabledSources: BuiltinSource[];
+  /** 取源失败时自动跨源切换（关闭则取不到就直接跳过） */
+  autoSourceSwitch: boolean;
   /** 分享方式：系统分享 / 复制文本（安卓版 common.shareType，默认系统分享） */
   shareType: ShareType;
   /** 是否已同意许可协议（安卓版 common.isAgreePact），首次启动必须同意 */
@@ -263,6 +271,9 @@ export interface SettingsPatch {
   enableVerboseLog?: boolean;
   s2tMode?: S2TMode;
   sourceNameType?: SourceNameType;
+  sourceOrder?: BuiltinSource[];
+  disabledSources?: BuiltinSource[];
+  autoSourceSwitch?: boolean;
   shareType?: ShareType;
   agreedPact?: boolean;
   allowProgressBarSeek?: boolean;
@@ -362,6 +373,9 @@ export function createDefaultSettings(): AppSettings {
     enableVerboseLog: false,
     s2tMode: 'off',
     sourceNameType: 'alias',
+    sourceOrder: ['kw', 'kg', 'tx', 'wy', 'mg'],
+    disabledSources: [],
+    autoSourceSwitch: true,
     shareType: 'system',
     agreedPact: false,
     allowProgressBarSeek: true,
@@ -448,6 +462,42 @@ export function normalizeS2TMode(value: string): S2TMode {
 /** 音源名称显示方式容错（默认别名） */
 export function toSourceNameType(value: string): SourceNameType {
   return value === 'real' ? 'real' : 'alias';
+}
+
+/**
+ * 音源列表容错：逗号分隔存储串 → 强类型列表。
+ * 过滤非法 id、去重、保序；空串/全部非法时回退 fallback。
+ */
+export function toSourceList(value: string, fallback: BuiltinSource[]): BuiltinSource[] {
+  const result: BuiltinSource[] = [];
+  if (value && value.length > 0) {
+    const parts = value.split(',');
+    for (let i = 0; i < parts.length; i++) {
+      const id = toBuiltinSourceId(parts[i].trim());
+      if (id !== null && result.indexOf(id) < 0) {
+        result.push(id);
+      }
+    }
+  }
+  return result.length > 0 ? result : fallback.slice();
+}
+
+/** 音源列表 → 逗号分隔存储串（与 toSourceList 互逆） */
+export function sourceListToString(list: BuiltinSource[]): string {
+  return list.join(',');
+}
+
+/** 两个音源列表是否完全一致（同序同元素；写入时用于「真的变化了才落盘」判断） */
+export function isSameSourceList(a: BuiltinSource[], b: BuiltinSource[]): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /** 分享方式容错（默认系统分享，与安卓版一致） */
