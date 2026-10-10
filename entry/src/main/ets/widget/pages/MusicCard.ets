@@ -241,7 +241,10 @@ struct MusicCard {
           this.PlayPauseButton(WIDE_PLAY_SIZE, WIDE_PLAY_GLYPH, $r('app.string.music_card_play_pause'))
           this.StepButton($r('sys.symbol.forward_end_fill'), 'next', $r('app.string.music_card_next'))
         }
-        .margin({ top: 6, left: -8 })
+        .width('100%')
+        // 控制条在右列里居中：右列本身比三个按钮宽，贴着封面摆会左边挤、右边空
+        .justifyContent(FlexAlign.Center)
+        .margin({ top: 6 })
         .alignItems(VerticalAlign.Center)
       }
       .layoutWeight(1)
