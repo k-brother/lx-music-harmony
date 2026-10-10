@@ -12,8 +12,6 @@
  */
 import { DesignTokens } from '../../../theme/DesignTokens';
 import { hapticService } from '../../../service/HapticService';
-import { createDockGlassMaterial } from '../../../theme/GlassMaterial';
-import { uiMaterial } from '@kit.ArkUI';
 
 export interface HomeTabItem {
   idx: number;
@@ -27,8 +25,6 @@ const SCROLL_PRESS_SCALE: number = 0.985;
 @Component
 export struct HomeBottomTabBar {
   @StorageProp('theme') theme: string = 'light';
-  /** 内容是否正在滚动（utils/ScrollActivity 写入）：滚动时底舱轻微收一点 */
-  @StorageProp('contentScrolling') contentScrolling: boolean = false;
   @Prop tabs: HomeTabItem[] = [];
   @Prop activeIndex: number = 0;
   /** 宽屏：竖排在左侧（不透明侧栏） */
@@ -43,12 +39,6 @@ export struct HomeBottomTabBar {
 
   /** 条目行实测宽度：选中胶囊按它算位置（不猜像素，也不依赖百分比定位） */
   @State rowWidth: number = 0;
-  /**
-   * 系统沉浸材质（鸿蒙版"液态玻璃"）。
-   * 不支持时是 undefined：下面自绘的玻璃底色 + 模糊 + 描边就是回退，两者不冲突
-   * （支持时以系统材质为准，系统材质会覆盖组件的底色/描边/阴影）。
-   */
-  private material: uiMaterial.Material | undefined = createDockGlassMaterial();
 
   private tabCount(): number {
     return Math.max(1, this.tabs.length);
@@ -155,26 +145,12 @@ export struct HomeBottomTabBar {
       }
       .width('100%')
       .height(this.collapsed ? 0 : DesignTokens.tabBarHeight())
-      // 材质随滑动"呼吸"：滚动时收一点点，停手回弹
-      .scale({
-        x: this.collapsed ? 0.9 : (this.contentScrolling ? SCROLL_PRESS_SCALE : 1),
-        y: this.collapsed ? 0.9 : (this.contentScrolling ? SCROLL_PRESS_SCALE : 1),
-      })
+      .scale({ x: this.collapsed ? 0.9 : 1, y: this.collapsed ? 0.9 : 1 })
       .opacity(this.collapsed ? 0 : 1)
       .visibility(this.collapsed ? Visibility.Hidden : Visibility.Visible)
       .hitTestBehavior(this.collapsed ? HitTestMode.None : HitTestMode.Default)
       .animation({ duration: 220, curve: Curve.EaseOut })
-      .backgroundColor(DesignTokens.glassFill(this.theme))
-      // adaptiveColor.AVERAGE：材质取背后内容的平均色，透过去不会发灰
-      .backgroundBlurStyle(BlurStyle.COMPONENT_THICK, {
-        adaptiveColor: AdaptiveColor.AVERAGE,
-        scale: 1,
-      })
-      .borderRadius(DesignTokens.radiusCard())
-      .border({ width: 0.5, color: DesignTokens.glassStroke(this.theme) })
-      .shadow(DesignTokens.floatingShadow())
-      // 系统沉浸材质（含交互形变与光感反馈）；设备不支持时为 undefined，走上面的自绘回退
-      .systemMaterial(this.material)
+      // 玻璃材质由底舱容器统一给（见 HomeBottomDock）：这里只负责行内容与收拢动画
     }
   }
 }

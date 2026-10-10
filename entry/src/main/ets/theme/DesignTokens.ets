@@ -238,9 +238,9 @@ export class DesignTokens {
    * Tab 里的滚动内容按这个值留出底部空间，内容才能滚到玻璃底舱"下面"（玻璃才有东西可透）。
    */
   static bottomDockHeight(): number {
-    // 迷你播放条 + 底舱间距 + Tab 栏 = 98，取 102 留 4 余量
-    // （迷你条高度与 Tab 栏高度见下面各自的 token，改一处即可整组跟随）
-    return 102;
+    // 迷你播放条 46 + Tab 栏 42 = 88，取 92 留 4 余量
+    //（迷你条与 Tab 栏高度见下面各自的 token，改一处即可整组跟随）
+    return 92;
   }
 
   /**
@@ -252,7 +252,12 @@ export class DesignTokens {
    * 只留系统手势条那条小横条的生存空间即可。
    */
   static dockBottomGap(): number {
-    return 8;
+    return 6;
+  }
+
+  /** 底舱容器圆角：里面装两行内容，比普通卡片圆一档 */
+  static dockRadius(): number {
+    return 20;
   }
 
   /** 玻璃底舱给内容留的底部空间（底舱本体 + 与屏幕底的间距） */
@@ -265,17 +270,17 @@ export class DesignTokens {
   // 不要去组件里翻写死的数字。间距尽量由 spaceUnit() 推导，避免又散出新常量。
   /** 迷你条高度 */
   static miniBarHeight(): number {
-    return 50;
+    return 46;
   }
 
   /** 迷你条封面边长 */
   static miniCoverSize(): number {
-    return 40;
+    return 38;
   }
 
   /** 迷你条播放键直径 */
   static miniPlaySize(): number {
-    return 30;
+    return 28;
   }
 
   /** 迷你条左右内边距 */
@@ -291,7 +296,7 @@ export class DesignTokens {
   // ── 底部 Tab 栏（仅窄屏；宽屏走左侧侧栏导航）─────────────────────────────
   /** Tab 栏高度 */
   static tabBarHeight(): number {
-    return 44;
+    return 42;
   }
 
   /** Tab 条目高度（图标 + 文案的可点区，留 40 保证点按手感） */
@@ -526,6 +531,11 @@ export class DesignTokens {
   /** 底部迷你播放条这类「贴边悬浮」元素的投影（比卡片更软、偏移更大） */
   static floatingShadow(): ShadowOptions {
     return { radius: 16, color: 'rgba(0,0,0,0.08)', offsetX: 0, offsetY: 4 };
+  }
+
+  /** 无投影：容器已经有投影时，内部元素用它"关掉"自己的投影（.shadow 不接受 undefined） */
+  static noShadow(): ShadowOptions {
+    return { radius: 0, color: 'rgba(0,0,0,0)', offsetX: 0, offsetY: 0 };
   }
 
   /**

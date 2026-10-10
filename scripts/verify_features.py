@@ -558,8 +558,9 @@ CHECKS = [
  # —— 桌面卡片 / 锁屏实况窗 ——
  # —— 玻璃材质（系统沉浸材质 / 液态玻璃）——
  ('沉浸材质不支持时回退自绘玻璃', 'theme/GlassMaterial.ets', r'isImmersiveMaterialSupported'),
- ('底部底舱用系统沉浸材质', 'pages/Home/Home/HomeBottomTabBar.ets', r'\.systemMaterial\('),
- ('迷你播放条玻璃形态用系统材质', 'components/player/PlayerBar.ets', r'\.systemMaterial\('),
+ # 沉浸材质挂在底舱容器上（一片玻璃装两行）；播放条/Tab 栏是"裸内容"，材质由容器统一给
+ ('底舱容器用系统沉浸材质', 'pages/Home/Home/HomeBottomDock.ets', r'\.systemMaterial\('),
+ ('底舱容器承载玻璃材质', 'pages/Home/Home/HomeBottomDock.ets', r'glassFill\(this\.theme\)'),
  ('面板走系统材质模糊', 'components/ui/BottomSheet.ets', r'blurStyle: BlurStyle\.COMPONENT_THICK'),
  ('底舱给内容留出滚动空间', 'pages/HomePage.ets', r'dockContentInset\(\)'),
  ('底舱尺寸走 token（不写死像素）', 'theme/DesignTokens.ets',

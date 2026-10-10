@@ -1137,8 +1137,6 @@ export struct HomePage {
           .width('100%')
           .height('100%')
           .backgroundColor(DesignTokens.pageBg(this.theme))
-          // 底部手势区由页面自己画（深色模式不能透出系统白底）
-          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
 
           // 玻璃底舱（迷你播放条 + Tab 栏）：滚离顶部时收拢成"房子 + 播放控件"，点房子复原
           HomeBottomDock({
@@ -1155,6 +1153,10 @@ export struct HomePage {
         }
         .width('100%')
         .height('100%')
+        // 安全区扩展要挂在**这一层**：窗口内容区本身已避开底部安全区，
+        // 只有让这个 Stack 的布局盒伸进安全区，贴着底部的玻璃底舱才真正落到屏幕底部
+        //（挂在底舱自己身上无效——它的"底"仍停在内容区底部，于是底下空出一条安全区）
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
       }
 
       // 搜索面板覆盖层
