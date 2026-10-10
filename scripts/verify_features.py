@@ -562,6 +562,12 @@ CHECKS = [
   r'SymbolGlyph', r'\$rawfile\(|rawfile/'),
  ('卡片页配色走媒体层 token', 'widget/pages/MusicCard.ets',
   r'MediaOverlayTokens', r"'#[0-9A-Fa-f]{6,8}'"),
+ # 卡片观感：底部用渐变压暗（此前是一条硬边黑带），上/下一首用同一套符号
+ # （SDK 没有 forward_fill，配成 backward_end_fill / forward_end_fill 才对称）
+ ('卡片底部渐变压暗', 'widget/pages/MusicCard.ets',
+  r'GradientDirection\.Bottom[\s\S]{0,120}onMediaScrim', None),
+ ('卡片上/下一首符号成对', 'widget/pages/MusicCard.ets',
+  r'backward_end_fill[\s\S]{0,400}forward_end_fill', r'fast_forward'),
  ('锁屏页配色走媒体层 token', 'liveview/pages/LockScreenPage.ets',
   r'MediaOverlayTokens', r"'#[0-9A-Fa-f]{6,8}'"),
  ('实况窗文案由 UI 进程下发', 'liveview/pages/LockScreenPage.ets',

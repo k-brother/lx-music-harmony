@@ -23,11 +23,11 @@ export const onMediaLyricIdle: string = '#59FFFFFF';
 
 /** 控件底（弱）：描边、图标按钮底 */
 export const onMediaFillWeak: string = '#26FFFFFF';
-/** 控件底（强）：主播放按钮底 */
-export const onMediaFillStrong: string = '#40FFFFFF';
 
 /** 无封面时的兜底底板 */
 export const onMediaSurface: string = '#1F2226';
+/** 兜底底板的深端：卡片/面板底用「上浅下深」的微渐变，比纯色有层次（亮壁纸上也更稳） */
+export const onMediaSurfaceDeep: string = '#141619';
 /** 卡片内文字压暗遮罩 */
 export const onMediaScrim: string = '#99000000';
 /** 锁屏沉浸页整体遮罩（更深，保证文字可读） */

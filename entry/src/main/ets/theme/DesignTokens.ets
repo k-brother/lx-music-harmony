@@ -289,14 +289,9 @@ export class DesignTokens {
     return 22;
   }
 
-  /** 锁屏大标题（32） */
+  /** 大图标/大标题（32）：锁屏大标题、卡片无封面时的占位音符 */
   static fontHero(): number {
     return 32;
-  }
-
-  /** 超大图标字号（48，卡片无封面时的占位音符） */
-  static fontHeroLarge(): number {
-    return 48;
   }
 
   /** 特大图标字号（22，用于入口行图标） */
