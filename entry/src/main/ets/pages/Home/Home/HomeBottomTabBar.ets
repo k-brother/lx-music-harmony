@@ -137,7 +137,7 @@ export struct HomeBottomTabBar {
           this.TabItem(tab)
         }, (tab: HomeTabItem) => tab.idx.toString())
       }
-      .width(96)
+      .width(DesignTokens.navRailWidth())
       .height('100%')
       .padding({ top: 12, bottom: 12 })
       .backgroundColor(DesignTokens.tabBarBg(this.theme))

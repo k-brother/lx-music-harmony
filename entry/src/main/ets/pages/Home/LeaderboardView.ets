@@ -54,6 +54,8 @@ export struct LeaderboardView {
   @StorageProp('theme') theme: string = 'light';
   /** 一多：窗口宽度（vp），大屏内容列居中 */
   @StorageProp('windowWidthVp') windowWidthVp: number = 360;
+  /** 一多：断点（宽屏内容列按扣除侧栏后的宽度居中） */
+  @StorageProp('breakpoint') breakpoint: string = 'sm';
   @StorageProp('language') language: string = 'zh-CN';
   // 语言变化时重建筛选文案：这些文案缓存在 @State 里，不重建会残留旧语言
   @StorageProp('langVersion') @Watch('onLanguageChanged') langVersion: number = 0;
@@ -538,6 +540,15 @@ export struct LeaderboardView {
 
 
   /** 列表懒渲染时：项进入可视区域再补一次 idle 预览（与顺序预拉互补） */
+  /**
+   * 内容列留白：宽屏按「窗口 − 左侧导航」居中（不把侧栏算进留白，PC 内容区才铺得满），
+   * 窄屏与 Breakpoints.contentInset 行为一致。
+   */
+  private contentInset(): number {
+    const dock = Breakpoints.isWide(this.breakpoint) ? DesignTokens.navRailWidth() : 0;
+    return Breakpoints.contentInsetDock(this.windowWidthVp, dock);
+  }
+
   private ensurePreviewAtIndex(index: number): void {
     if (index < 0 || index >= this.cardStates.length) {
       return;
@@ -897,10 +908,10 @@ export struct LeaderboardView {
           onRetry: (): void => this.retryPreview(index),
         })
         .width('100%')
-        // 大屏内容列居中（榜单卡片在 PC 上不拉满整屏）
+        // 大屏内容列居中（按扣除左侧导航后的宽度，PC 上铺满内容区）
         .padding({
-          left: 12 + Breakpoints.contentInset(this.windowWidthVp),
-          right: 12 + Breakpoints.contentInset(this.windowWidthVp),
+          left: 12 + this.contentInset(),
+          right: 12 + this.contentInset(),
         })
         .onAppear(() => {
           this.ensurePreviewAtIndex(index);

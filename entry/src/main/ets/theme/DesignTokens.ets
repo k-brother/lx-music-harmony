@@ -319,6 +319,12 @@ export class DesignTokens {
     return 50;
   }
 
+  // ── 宽屏左侧导航栏（平板横屏 / PC）────────────────────────────────────────
+  /** 左侧导航栏宽度：HomeBottomTabBar 宽屏形态与内容列留白（Breakpoints.contentInsetDock）共用 */
+  static navRailWidth(): number {
+    return 96;
+  }
+
   // ── 底部 Tab 栏（仅窄屏；宽屏走左侧侧栏导航）─────────────────────────────
   /** Tab 栏高度 */
   static tabBarHeight(): number {

@@ -134,6 +134,15 @@ export struct MylistView {
     }
   }
 
+  /**
+   * 内容列留白：宽屏按「窗口 − 左侧导航」居中（不把侧栏算进留白，PC 内容区才铺得满），
+   * 窄屏与 Breakpoints.contentInset 行为一致。
+   */
+  private contentInset(): number {
+    const dock = Breakpoints.isWide(this.breakpoint) ? DesignTokens.navRailWidth() : 0;
+    return Breakpoints.contentInsetDock(this.windowWidthVp, dock);
+  }
+
   private convertToSongRows(musicList: MusicItem[]): MyListSongRow[] {
     const rows: MyListSongRow[] = [];
     for (let i = 0; i < musicList.length; i++) {
@@ -401,8 +410,8 @@ LeftSections() {
             .width('100%')
             // 大屏内容列居中：只在这里加一次留白，各区块只管自己的 16vp 边距
             .padding({
-              left: Breakpoints.contentInset(this.windowWidthVp),
-              right: Breakpoints.contentInset(this.windowWidthVp),
+              left: this.contentInset(),
+              right: this.contentInset(),
               // 底部留白 = 玻璃底舱高度：内容滚到玻璃下面，玻璃才有东西可透
               bottom: this.bottomInset,
             })

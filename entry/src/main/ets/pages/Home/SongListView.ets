@@ -94,6 +94,15 @@ export struct SongListView {
     return Breakpoints.gridColumns(this.breakpoint, 3, 4, 6);
   }
 
+  /**
+   * 内容列留白：宽屏按「窗口 − 左侧导航」居中（不把侧栏算进留白，PC 内容区才铺得满），
+   * 窄屏与 Breakpoints.contentInset 行为一致。
+   */
+  private contentInset(): number {
+    const dock = Breakpoints.isWide(this.breakpoint) ? DesignTokens.navRailWidth() : 0;
+    return Breakpoints.contentInsetDock(this.windowWidthVp, dock);
+  }
+
 
   private scrollToTopSoon(): void {
     this.scrollTopDefer.schedule(this.songListScroller);
@@ -424,7 +433,7 @@ export struct SongListView {
         SearchStrip({
           text: $searchText,
           placeholder: t('search_placeholder'),
-          marginH: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+          marginH: DesignTokens.spaceGutter() + this.contentInset(),
           marginV: DesignTokens.spaceUnit(),
           tapToOpenOnly: true,
           showMic: true,
@@ -588,8 +597,8 @@ export struct SongListView {
       }
       .padding({
         // 大屏时与下方网格的内容列对齐（筛选条本身仍通栏）
-        left: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
-        right: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+        left: DesignTokens.spaceGutter() + this.contentInset(),
+        right: DesignTokens.spaceGutter() + this.contentInset(),
         top: DesignTokens.spaceUnit(),
         bottom: DesignTokens.spaceUnit(),
       })
@@ -654,8 +663,8 @@ export struct SongListView {
     .rowsGap(16)
     .columnsGap(12)
     .padding({
-      left: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
-      right: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+      left: DesignTokens.spaceGutter() + this.contentInset(),
+      right: DesignTokens.spaceGutter() + this.contentInset(),
       top: DesignTokens.spaceGutter(),
       // 底部留白 = 常规留白 + 玻璃底舱高度：内容能滚到玻璃下面（否则底舱下面没有内容可透）
       bottom: DesignTokens.spaceGutter() + this.bottomInset,
