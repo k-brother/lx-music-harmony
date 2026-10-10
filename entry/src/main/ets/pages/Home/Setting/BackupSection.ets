@@ -21,6 +21,8 @@ import {
 } from '../../../service/PlaylistTransferService';
 import { SettingsSection } from '../../../components/ui/SettingsSection';
 import type { SettingSectionItem } from '../../../components/ui/SettingsTypes';
+import { WebDavSheet } from './WebDavSheet';
+import { normalizeWebDavUrl } from '../../../core/network/webdav/WebDavClient';
 
 const DOMAIN = 0x0001;
 const TAG = 'BackupSection';
@@ -32,6 +34,9 @@ export struct BackupSection {
   @State backupInterval: number = 7;
   /** 应用目录里的备份个数（用于「本地备份」行的说明） */
   @State localBackupCount: number = 0;
+  /** WebDAV 配置状态（用于设置行说明与「WebDAV 上的备份」行显隐） */
+  @State webdavConfigured: boolean = false;
+  @State showWebDavSheet: boolean = false;
 
   private hostContext(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext;
@@ -57,6 +62,7 @@ export struct BackupSection {
     const config = backupService.getConfig();
     this.autoBackup = config.autoBackup;
     this.backupInterval = config.backupInterval;
+    this.webdavConfigured = backupService.isWebDavConfigured();
   }
 
   private async refreshBackupCount(): Promise<void> {
@@ -71,12 +77,19 @@ export struct BackupSection {
       appToast(t('toast_backup_running'));
       backupService.setContext(this.hostContext());
       const file = await backupService.createBackup(BackupDataType.ALL);
-      if (file) {
+      if (!file) {
+        appToast(t('toast_backup_fail'));
+      } else if (backupService.isWebDavConfigured()) {
+        // 配置了 WebDAV：创建时已顺带上传，这里区分三种结局给用户明确反馈
+        hilog.info(DOMAIN, TAG, 'Backup created: %{public}s', file.fileName);
+        appToast(file.remoteUploaded === true
+          ? t('toast_backup_success_remote')
+          : t('toast_backup_local_only'));
+        this.localBackupCount++;
+      } else {
         hilog.info(DOMAIN, TAG, 'Backup created: %{public}s', file.fileName);
         appToast(t('toast_backup_success'));
         this.localBackupCount++;
-      } else {
-        appToast(t('toast_backup_fail'));
       }
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'backupData failed: %{public}s', JSON.stringify(err));
@@ -182,10 +195,13 @@ export struct BackupSection {
     }
   }
 
-  /** 备份行的展示文案：时间 · 类型 · 大小 */
+  /** 备份行的展示文案：时间 · 类型 · 大小（远端没返回修改时间时退回文件名） */
   private describeBackup(file: BackupFileInfo): string {
-    const when = new Date(file.backupTime).toLocaleString();
     const sizeKb = Math.max(1, Math.round(file.fileSize / 1024));
+    if (file.backupTime <= 0) {
+      return `${file.fileName} · ${sizeKb} KB`;
+    }
+    const when = new Date(file.backupTime).toLocaleString();
     return `${when} · ${sizeKb} KB`;
   }
 
@@ -231,6 +247,100 @@ export struct BackupSection {
     const ok = await backupService.deleteBackup(file);
     appToast(ok ? t('toast_backup_deleted') : t('toast_operation_failed'));
     await this.refreshBackupCount();
+  }
+
+  // ------------------------------------------------------------ WebDAV
+
+  /** 保存 WebDAV 配置（格式不合法时面板保持打开并提示） */
+  private async saveWebDav(url: string, user: string, password: string): Promise<void> {
+    if (url.length > 0) {
+      try {
+        normalizeWebDavUrl(url);
+      } catch (e) {
+        hilog.warn(DOMAIN, TAG, 'invalid webdav url: %{public}s',
+          e instanceof Error ? e.message : JSON.stringify(e));
+        appToast(t('webdav_url_invalid'));
+        return;
+      }
+    }
+    await backupService.updateConfig({ webdavUrl: url, webdavUser: user, webdavPassword: password });
+    this.webdavConfigured = backupService.isWebDavConfigured();
+    this.showWebDavSheet = false;
+    appToast(t('webdav_saved'));
+  }
+
+  /** 清除 WebDAV 配置（面板里的危险操作，配置项少不再二次确认） */
+  private async clearWebDav(): Promise<void> {
+    await backupService.updateConfig({ webdavUrl: '', webdavUser: '', webdavPassword: '' });
+    this.webdavConfigured = false;
+    appToast(t('webdav_saved'));
+  }
+
+  /** WebDAV 上的备份列表：列出 → 选中后可恢复或删除（交互对齐本地备份列表） */
+  private async openWebDavList(): Promise<void> {
+    let list: BackupFileInfo[] = [];
+    try {
+      list = await backupService.listWebDavBackups();
+    } catch (err) {
+      hilog.error(DOMAIN, TAG, 'listWebDavBackups failed: %{public}s', JSON.stringify(err));
+      appToast(t('toast_webdav_fail'));
+      return;
+    }
+    if (list.length === 0) {
+      appToast(t('backup_list_webdav_empty'));
+      return;
+    }
+    const labels: string[] = [];
+    for (let i: number = 0; i < list.length; i++) {
+      labels.push(this.describeBackup(list[i]));
+    }
+    const picked = await appActionMenu(t('settings_webdav_backups'), labels);
+    if (picked < 0 || picked >= list.length) {
+      return;
+    }
+    const target = list[picked];
+    const action = await appActionMenu(target.fileName, [
+      t('settings_backup_restore'),
+      t('settings_backup_delete'),
+    ], { dangerIndexes: [1] });
+    if (action === 0) {
+      await this.restoreFromWebDav(target);
+    } else if (action === 1) {
+      await this.deleteFromWebDav(target);
+    }
+  }
+
+  /** 从 WebDAV 恢复（确认 → 下载并恢复 → 重载列表数据） */
+  private async restoreFromWebDav(file: BackupFileInfo): Promise<void> {
+    const confirmed = await appConfirmSystem(
+      t('restore_confirm_title'),
+      tf('confirm_restore_backup', [file.fileName]),
+      { danger: true });
+    if (!confirmed) {
+      appToast(t('toast_restore_cancel'));
+      return;
+    }
+    appToast(t('toast_restore_running'));
+    const ok = await backupService.restoreWebDavBackup(file.fileName, file.dataType);
+    if (!ok) {
+      appToast(t('toast_restore_fail'));
+      return;
+    }
+    appToast(t('toast_restore_success'));
+    await initListService();
+    hilog.info(DOMAIN, TAG, 'App data reloaded after WebDAV restore: %{public}s', file.fileName);
+  }
+
+  private async deleteFromWebDav(file: BackupFileInfo): Promise<void> {
+    const confirmed = await appConfirmSystem(
+      t('settings_backup_delete'),
+      tf('confirm_delete_backup', [file.fileName]),
+      { danger: true });
+    if (!confirmed) {
+      return;
+    }
+    const ok = await backupService.deleteWebDavBackup(file.fileName);
+    appToast(ok ? t('toast_backup_deleted') : t('toast_webdav_fail'));
   }
 
   /** 自动备份开关：写配置并启停计时器 */
@@ -290,6 +400,25 @@ export struct BackupSection {
         void this.openBackupList();
       },
     });
+    // WebDAV：配置行 + 配置后的远端备份清单
+    items.push({
+      type: 'button',
+      title: t('settings_webdav'),
+      description: this.webdavConfigured ? t('settings_webdav_on') : t('settings_webdav_desc'),
+      onClick: (): void => {
+        this.showWebDavSheet = true;
+      },
+    });
+    if (this.webdavConfigured) {
+      items.push({
+        type: 'button',
+        title: t('settings_webdav_backups'),
+        description: t('settings_webdav_backups_desc'),
+        onClick: (): void => {
+          void this.openWebDavList();
+        },
+      });
+    }
     items.push({
       type: 'toggle',
       title: t('settings_backup_auto'),
@@ -331,6 +460,25 @@ export struct BackupSection {
   }
 
   build() {
-    SettingsSection({ title: t('settings_backup'), items: this.buildItems() })
+    Column() {
+      SettingsSection({ title: t('settings_backup'), items: this.buildItems() })
+
+      if (this.showWebDavSheet) {
+        WebDavSheet({
+          visible: $showWebDavSheet,
+          url: backupService.getConfig().webdavUrl,
+          user: backupService.getConfig().webdavUser,
+          password: backupService.getConfig().webdavPassword,
+          configured: this.webdavConfigured,
+          onCancel: (): void => {},
+          onSave: (url: string, user: string, password: string): void => {
+            void this.saveWebDav(url, user, password);
+          },
+          onClear: (): void => {
+            void this.clearWebDav();
+          },
+        })
+      }
+    }
   }
 }

@@ -226,6 +226,24 @@ export function buildZhCN(): Map<string, string> {
   m.set('settings_backup_delete', '删除该备份');
   m.set('confirm_delete_backup', '确定删除备份 {0} 吗？');
   m.set('toast_backup_deleted', '备份已删除');
+  // WebDAV 备份
+  m.set('settings_webdav', 'WebDAV 备份');
+  m.set('settings_webdav_desc', '配置后，备份将同时上传到 WebDAV 服务器');
+  m.set('settings_webdav_on', '已配置，备份时会自动同步上传');
+  m.set('settings_webdav_backups', 'WebDAV 上的备份');
+  m.set('settings_webdav_backups_desc', '查看并恢复/删除服务器上的备份');
+  m.set('backup_list_webdav_empty', 'WebDAV 上还没有备份');
+  m.set('webdav_sheet_title', 'WebDAV 设置');
+  m.set('webdav_url', '服务器地址');
+  m.set('webdav_url_placeholder', 'https://nas.example.com/dav/lxmusic');
+  m.set('webdav_url_invalid', '地址需以 http(s):// 开头，不含查询参数或内嵌账号');
+  m.set('webdav_user', '用户名');
+  m.set('webdav_password', '密码');
+  m.set('webdav_clear', '清除配置');
+  m.set('webdav_saved', 'WebDAV 配置已保存');
+  m.set('toast_webdav_fail', 'WebDAV 操作失败，请检查配置与网络');
+  m.set('toast_backup_success_remote', '备份完成，已同步到 WebDAV');
+  m.set('toast_backup_local_only', '已生成本地备份，但上传到 WebDAV 失败');
   m.set('settings_restore_data', '恢复数据');
   m.set('settings_restore_data_desc', '从备份文件恢复数据');
   m.set('settings_export_list', '导出歌单');

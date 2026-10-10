@@ -9,6 +9,15 @@ import { preferences } from '@kit.ArkData';
 import { encryptWithPassword, decryptWithPassword } from './crypto/AesPayload';
 import { utf8Decode } from '../utils/TextCodec';
 import {
+  normalizeWebDavUrl,
+  webDavDelete,
+  webDavDownload,
+  webDavList,
+  webDavUpload,
+  type WebDavEntry,
+  type WebDavTarget,
+} from '../core/network/webdav/WebDavClient';
+import {
   collectBackupData,
   restoreBackupData,
   validateBackupData,
@@ -30,6 +39,10 @@ export interface BackupConfig {
   backupLocation: string;
   encryptBackup: boolean;
   backupPassword?: string;
+  // WebDAV 备份目标（留空即不启用；配置跟其它备份配置同一个 preferences，不重复建链）
+  webdavUrl: string;
+  webdavUser: string;
+  webdavPassword: string;
 }
 
 
@@ -41,7 +54,10 @@ export class BackupService {
     autoBackup: false,
     backupInterval: 7,
     backupLocation: '',
-    encryptBackup: false
+    encryptBackup: false,
+    webdavUrl: '',
+    webdavUser: '',
+    webdavPassword: ''
   };
   
   private backupTimer: number | null = null;
@@ -83,6 +99,9 @@ export class BackupService {
       this.config.backupLocation = await pref.get('backupLocation', context.filesDir) as string;
       this.config.encryptBackup = await pref.get('encryptBackup', false) as boolean;
       this.config.backupPassword = await pref.get('backupPassword', '') as string;
+      this.config.webdavUrl = await pref.get('webdavUrl', '') as string;
+      this.config.webdavUser = await pref.get('webdavUser', '') as string;
+      this.config.webdavPassword = await pref.get('webdavPassword', '') as string;
       
       hilog.info(DOMAIN, TAG, 'Backup config loaded');
     } catch (err) {
@@ -103,6 +122,9 @@ export class BackupService {
       if (this.config.backupPassword) {
         await pref.put('backupPassword', this.config.backupPassword);
       }
+      await pref.put('webdavUrl', this.config.webdavUrl);
+      await pref.put('webdavUser', this.config.webdavUser);
+      await pref.put('webdavPassword', this.config.webdavPassword);
       
       await pref.flush();
       hilog.info(DOMAIN, TAG, 'Backup config saved');
@@ -117,10 +139,17 @@ export class BackupService {
       autoBackup: this.config.autoBackup,
       backupInterval: this.config.backupInterval,
       backupLocation: this.config.backupLocation,
-      encryptBackup: this.config.encryptBackup
+      encryptBackup: this.config.encryptBackup,
+      webdavUrl: this.config.webdavUrl,
+      webdavUser: this.config.webdavUser,
+      webdavPassword: ''
     };
     if (this.config.backupPassword) {
       result.backupPassword = this.config.backupPassword;
+    }
+    // 密码只在已设置时回传（编辑表单回显用），调用方不应把它打到日志里
+    if (this.config.webdavPassword) {
+      result.webdavPassword = this.config.webdavPassword;
     }
     return result;
   }
@@ -141,6 +170,17 @@ export class BackupService {
     }
     if (newConfig.backupPassword !== undefined) {
       this.config.backupPassword = newConfig.backupPassword;
+    }
+    if (newConfig.webdavUrl !== undefined) {
+      // 提前校验格式，让设置页能就地报错，而不是等第一次备份才失败
+      this.config.webdavUrl = newConfig.webdavUrl.trim().length > 0
+        ? normalizeWebDavUrl(newConfig.webdavUrl) : '';
+    }
+    if (newConfig.webdavUser !== undefined) {
+      this.config.webdavUser = newConfig.webdavUser.trim();
+    }
+    if (newConfig.webdavPassword !== undefined) {
+      this.config.webdavPassword = newConfig.webdavPassword;
     }
     await this.saveConfig();
     
@@ -190,7 +230,7 @@ export class BackupService {
       }
       
       hilog.info(DOMAIN, TAG, 'Backup created successfully: %{public}s', fileName);
-      
+
       // 5. 返回备份信息
       const fileInfo: BackupFileInfo = {
         fileName,
@@ -200,7 +240,15 @@ export class BackupService {
         dataType,
         version: '1.0.0'
       };
-      
+
+      // 配置了 WebDAV 就顺手同步上传；失败不丢本地备份，只把结果标给调用方提示
+      if (this.isWebDavConfigured()) {
+        fileInfo.remoteUploaded = await this.uploadBackupToWebDav(fileInfo);
+        if (!fileInfo.remoteUploaded) {
+          hilog.warn(DOMAIN, TAG, 'WebDAV upload failed, local backup kept: %{public}s', fileName);
+        }
+      }
+
       return fileInfo;
       
     } catch (err) {
@@ -219,38 +267,43 @@ export class BackupService {
         const stat = fs.statSync(file.fd);
         const buffer = new ArrayBuffer(stat.size);
         fs.readSync(file.fd, buffer);
-
-        let jsonData = utf8Decode(new Uint8Array(buffer));
-
-        // 2. 解密数据（如果需要）
-        if (backupFile.fileName.endsWith('.enc')) {
-          if (!this.config.backupPassword) {
-            throw new Error('Backup password required for encrypted backup');
-          }
-          jsonData = await this.decryptData(jsonData, this.config.backupPassword);
-        }
-
-        // 3. 解析JSON数据
-        const backupData: BackupDataContent = JSON.parse(jsonData) as BackupDataContent;
-
-        // 4. 验证数据格式
-        if (!validateBackupData(backupData, backupFile.dataType)) {
-          throw new Error('Invalid backup data format');
-        }
-
-        // 5. 恢复数据
-        await restoreBackupData(backupData, backupFile.dataType);
-
-        hilog.info(DOMAIN, TAG, 'Backup restored successfully: %{public}s', backupFile.fileName);
-        return true;
+        const jsonData = utf8Decode(new Uint8Array(buffer));
+        return await this.restoreFromText(jsonData, backupFile.fileName, backupFile.dataType);
       } finally {
         fs.closeSync(file.fd);
       }
-
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to restore backup: %{public}s', JSON.stringify(err));
       return false;
     }
+  }
+
+  /**
+   * 从文本内容恢复（本地文件与 WebDAV 下载共用后半段：解密 → 校验 → 落数据）。
+   * 文件名用于识别 .enc 加密备份与 dataType。
+   */
+  private async restoreFromText(jsonData: string, fileName: string, dataType: BackupDataType): Promise<boolean> {
+    let plain = jsonData;
+    // 解密数据（如果需要）
+    if (fileName.endsWith('.enc')) {
+      if (!this.config.backupPassword) {
+        throw new Error('Backup password required for encrypted backup');
+      }
+      plain = await this.decryptData(jsonData, this.config.backupPassword);
+    }
+
+    // 解析JSON数据
+    const backupData: BackupDataContent = JSON.parse(plain) as BackupDataContent;
+
+    // 验证数据格式
+    if (!validateBackupData(backupData, dataType)) {
+      throw new Error('Invalid backup data format');
+    }
+
+    // 恢复数据
+    await restoreBackupData(backupData, dataType);
+    hilog.info(DOMAIN, TAG, 'Backup restored successfully: %{public}s', fileName);
+    return true;
   }
 
   // 选择备份文件
@@ -354,6 +407,95 @@ export class BackupService {
       hilog.error(DOMAIN, TAG, 'Failed to delete backup: %{public}s', JSON.stringify(err));
       return false;
     }
+  }
+
+  // ------------------------------------------------------------ WebDAV
+
+  /** WebDAV 目标是否已配置完整（地址 + 用户名；密码允许为空） */
+  isWebDavConfigured(): boolean {
+    return this.config.webdavUrl.trim().length > 0 && this.config.webdavUser.trim().length > 0;
+  }
+
+  /** 把已生成的本地备份上传到 WebDAV（读取文件 → 上传；失败返回 false 不抛错） */
+  async uploadBackupToWebDav(fileInfo: BackupFileInfo): Promise<boolean> {
+    try {
+      const file = fs.openSync(fileInfo.filePath, fs.OpenMode.READ_ONLY);
+      let content: string;
+      try {
+        const stat = fs.statSync(file.fd);
+        const buffer = new ArrayBuffer(stat.size);
+        fs.readSync(file.fd, buffer);
+        content = utf8Decode(new Uint8Array(buffer));
+      } finally {
+        fs.closeSync(file.fd);
+      }
+      await webDavUpload(this.webDavTarget(), fileInfo.fileName, content);
+      hilog.info(DOMAIN, TAG, 'Backup uploaded to WebDAV: %{public}s', fileInfo.fileName);
+      return true;
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'WebDAV upload failed: %{public}s',
+        err instanceof Error ? err.message : JSON.stringify(err));
+      return false;
+    }
+  }
+
+  /** 列出 WebDAV 上的本应用备份（按修改时间倒序；filePath 为空表示远端条目） */
+  async listWebDavBackups(): Promise<BackupFileInfo[]> {
+    const entries: WebDavEntry[] = await webDavList(this.webDavTarget());
+    const out: BackupFileInfo[] = [];
+    for (let i: number = 0; i < entries.length; i++) {
+      const name: string = entries[i].name;
+      if (!name.startsWith('lxmusic-backup-')) {
+        continue;
+      }
+      out.push({
+        fileName: name,
+        filePath: '',
+        fileSize: entries[i].size,
+        backupTime: entries[i].modifiedMs > 0 ? entries[i].modifiedMs : 0,
+        dataType: this.parseDataTypeFromFileName(name),
+        version: '1.0.0'
+      });
+    }
+    out.sort((a: BackupFileInfo, b: BackupFileInfo): number => b.backupTime - a.backupTime);
+    return out;
+  }
+
+  /** 从 WebDAV 恢复备份（下载 → 与本地恢复共用后半段） */
+  async restoreWebDavBackup(fileName: string, dataType: BackupDataType): Promise<boolean> {
+    try {
+      const text: string = await webDavDownload(this.webDavTarget(), fileName);
+      return await this.restoreFromText(text, fileName, dataType);
+    } catch (err) {
+      hilog.error(DOMAIN, TAG, 'Failed to restore WebDAV backup: %{public}s',
+        err instanceof Error ? err.message : JSON.stringify(err));
+      return false;
+    }
+  }
+
+  /** 删除 WebDAV 上的备份 */
+  async deleteWebDavBackup(fileName: string): Promise<boolean> {
+    try {
+      await webDavDelete(this.webDavTarget(), fileName);
+      hilog.info(DOMAIN, TAG, 'WebDAV backup deleted: %{public}s', fileName);
+      return true;
+    } catch (err) {
+      hilog.error(DOMAIN, TAG, 'Failed to delete WebDAV backup: %{public}s',
+        err instanceof Error ? err.message : JSON.stringify(err));
+      return false;
+    }
+  }
+
+  /** 组装 WebDAV 连接目标（未配置时抛错，调用前先过 isWebDavConfigured） */
+  private webDavTarget(): WebDavTarget {
+    if (!this.isWebDavConfigured()) {
+      throw new Error('WebDAV not configured');
+    }
+    return {
+      url: this.config.webdavUrl,
+      user: this.config.webdavUser,
+      password: this.config.webdavPassword
+    };
   }
 
   // 开始自动备份

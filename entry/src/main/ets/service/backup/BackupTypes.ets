@@ -21,6 +21,8 @@ export interface BackupFileInfo {
   backupTime: number;
   dataType: BackupDataType;
   version: string;
+  /** 创建备份时已配置 WebDAV：true=已同步上传 / false=上传失败（仅本地成功） */
+  remoteUploaded?: boolean;
 }
 
 /** 备份中的歌单快照 */

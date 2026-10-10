@@ -16,7 +16,8 @@ const DOMAIN = 0x0001;
 
 export interface HttpRequestConfig {
   url?: string;
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD';
+  /** MKCOL/PROPFIND 供 WebDAV 使用（底层 @ohos.net.http 全量支持） */
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'MKCOL' | 'PROPFIND';
   headers?: Record<string, string>;
   header?: Record<string, string> | Map<string, string>;
   params?: Record<string, string | number | boolean>;
@@ -25,6 +26,8 @@ export interface HttpRequestConfig {
   timeout?: number;
   connectTimeout?: number;
   readTimeout?: number;
+  /** 响应体上限（字节），超出抛错；备份/歌词等已知小响应按需设置 */
+  maxLimit?: number;
   responseType?: 'json' | 'text' | 'arraybuffer' | 'blob' | 'binary';
   retryCount?: number;
   loggingEnabled?: boolean;
@@ -142,6 +145,9 @@ function doRequest<T>(
   } else if (config.data !== undefined && config.data.length > 0) {
     opts.extraData = config.data;
   }
+  if (config.maxLimit !== undefined) {
+    opts.maxLimit = config.maxLimit;
+  }
 
   // 应用 URL 参数
   const finalUrl = withQuery(url, config.params);
@@ -217,6 +223,7 @@ function mergeRequestConfig(target: HttpRequestConfig, source?: HttpRequestConfi
   target.timeout = source.timeout;
   target.connectTimeout = source.connectTimeout;
   target.readTimeout = source.readTimeout;
+  target.maxLimit = source.maxLimit;
   target.responseType = source.responseType;
   target.retryCount = source.retryCount;
   target.loggingEnabled = source.loggingEnabled;

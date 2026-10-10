@@ -215,6 +215,24 @@ export function buildEnUS(): Map<string, string> {
   m.set('settings_backup_delete', 'Delete this backup');
   m.set('confirm_delete_backup', 'Delete backup {0}?');
   m.set('toast_backup_deleted', 'Backup deleted');
+  // WebDAV backup
+  m.set('settings_webdav', 'WebDAV Backup');
+  m.set('settings_webdav_desc', 'When set, backups are also uploaded to the WebDAV server');
+  m.set('settings_webdav_on', 'Configured; backups upload automatically');
+  m.set('settings_webdav_backups', 'Backups on WebDAV');
+  m.set('settings_webdav_backups_desc', 'View, restore or delete backups on the server');
+  m.set('backup_list_webdav_empty', 'No backup on WebDAV yet');
+  m.set('webdav_sheet_title', 'WebDAV Settings');
+  m.set('webdav_url', 'Server URL');
+  m.set('webdav_url_placeholder', 'https://nas.example.com/dav/lxmusic');
+  m.set('webdav_url_invalid', 'URL must start with http(s)://, no query or embedded credentials');
+  m.set('webdav_user', 'Username');
+  m.set('webdav_password', 'Password');
+  m.set('webdav_clear', 'Clear configuration');
+  m.set('webdav_saved', 'WebDAV settings saved');
+  m.set('toast_webdav_fail', 'WebDAV operation failed, check settings and network');
+  m.set('toast_backup_success_remote', 'Backup completed and uploaded to WebDAV');
+  m.set('toast_backup_local_only', 'Local backup created, but WebDAV upload failed');
   m.set('settings_restore_data', 'Restore Data');
   m.set('settings_restore_data_desc', 'Restore from backup file');
   m.set('settings_export_list', 'Export Playlists');
