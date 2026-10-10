@@ -252,7 +252,7 @@ export class DesignTokens {
    * 只留系统手势条那条小横条的生存空间即可。
    */
   static dockBottomGap(): number {
-    return 14;
+    return 8;
   }
 
   /** 玻璃底舱给内容留的底部空间（底舱本体 + 与屏幕底的间距） */

@@ -266,6 +266,8 @@ export struct PlayerBar {
     }
     .width(this.compact && this.leading ? DesignTokens.miniActionSlot() : 0)
     .height(DesignTokens.miniActionSlot())
+    // 收拢后与封面留一点间距；展开态宽度为 0，这里也跟着回到 0，不会多出空档
+    .margin({ right: this.compact ? DesignTokens.spaceUnit() / 2 : 0 })
     .opacity(this.compact ? 1 : 0)
     .clip(true)
     .animation({ duration: 220, curve: Curve.EaseOut })

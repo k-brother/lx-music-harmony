@@ -4,6 +4,7 @@
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { SourceTabBar } from './Home/Home/SourceTabBar';
 import { HomeBottomTabBar, type HomeTabItem } from './Home/Home/HomeBottomTabBar';
+import { HomeBottomDock } from './Home/Home/HomeBottomDock';
 import { SearchMusicResultList, SearchSonglistResultList } from './Home/Home/SearchResultLists';
 import { SearchInputContent } from './Home/Home/SearchInputContent';
 import { promoteHistoryWord, runSongSearch, runSonglistSearch } from './Home/Home/SearchRunner';
@@ -54,7 +55,7 @@ import {
 } from '../core/search/search';
 import { type NavigationParams } from '../service/NavigationService';
 import { on, EventTypes } from '../service/EventBus';
-import { requestScrollToTop, resetScrollAway } from '../utils/ScrollActivity';
+import { resetScrollAway } from '../utils/ScrollActivity';
 
 /** 搜索输入框的焦点键（供 FocusController 定位，浮层出现时自动聚焦） */
 const SEARCH_INPUT_KEY: string = 'homeSearchInput';
@@ -1033,37 +1034,22 @@ export struct HomePage {
     ];
   }
 
-  /** 底部 Tab 栏（组件化，选中态带放大动效） */
-  @Builder
-  BottomTabBar(vertical: boolean) {
-    HomeBottomTabBar({
-      tabs: this.getBottomTabs(),
-      activeIndex: this.currentTab,
-      // 宽屏走左侧竖排导航（大屏使用习惯），窄屏仍是底部 Tab
-      vertical: vertical,
-      // 窄屏底舱在"已滚离顶部"时收拢；宽屏侧栏不参与（侧栏没有收拢语义）
-      collapsed: !vertical && this.contentScrolledAway,
-      onSelect: (index: number): void => {
-        if (this.currentTab === index) {
-          return;
-        }
-        this.currentTab = index;
-        this.persistLastTab(index);
-        // 切 Tab 后新列表在顶部，底舱应立刻恢复展开态
-        resetScrollAway();
-      },
-    })
-  }
-
-  /** 底舱左键：把当前列表滚回顶部（滚回后底舱自动展开） */
-  private ScrollToTopAction(): void {
-    requestScrollToTop();
-  }
-
   /**
-   * 底部玻璃底舱（迷你播放条 + Tab 栏）占用的高度。
-   * Tab 里的滚动内容按它留底部空间，内容才能滚到玻璃底舱"下面"——玻璃才有东西可透。
+   * 切换底部 Tab。
+   * 直接调组件而不是包一层 @Builder：带参数的 @Builder 会按参数缓存，
+   * 状态变化时可能不重建（真机上踩过"滚动后 Tab 栏不收拢"），见 scripts/check_builder_state_args.py。
    */
+  private switchTab(index: number): void {
+    if (this.currentTab === index) {
+      return;
+    }
+    this.currentTab = index;
+    this.persistLastTab(index);
+    // 切 Tab 后新列表在顶部，底舱应立刻恢复展开态
+    resetScrollAway();
+  }
+
+  /** 底部玻璃底舱（迷你播放条 + Tab 栏）占用的高度：Tab 里的滚动内容按它留底部空间 */
   private dockInset(): number {
     // 内容只要躲开玻璃底舱本体 + 底舱与屏幕底之间那条间距即可（内容区已避开安全区）
     return DesignTokens.dockContentInset();
@@ -1119,44 +1105,20 @@ export struct HomePage {
     .height('100%')
   }
 
-  /**
-   * 底部玻璃底舱：迷你播放条 + Tab 栏合成一片浮在内容之上的玻璃。
-   *
-   * 为什么合成一个 Builder：这两块是同一片"系统 chrome"，材质、留白、随滑动的反应都该一致；
-   * 分开写容易出现"上面是玻璃、下面是纯色条"的割裂感（这正是改造前的问题）。
-   */
-  @Builder
-  BottomDock() {
-    Column({ space: DesignTokens.spaceUnit() / 2 }) {
-      // 迷你播放条：滚离顶部时左侧让出「回到顶部」动作位（宽度动画，不是 if 分支）
-      PlayerBar({
-        glass: true,
-        compact: this.contentScrolledAway,
-        leading: (): void => {
-          this.ScrollToTopAction();
-        },
-      })
-      // Tab 栏：滚离顶部时收成 0 高（同一棵树里做高度/透明度动画，切换才是"收拢"而不是"跳变"）
-      this.BottomTabBar(false)
-    }
-    .width('100%')
-    .padding({
-      left: DesignTokens.spaceGutter(),
-      right: DesignTokens.spaceGutter(),
-      // 贴屏幕底部放，只留手势条小横条的生存空间；安全区已由窗口/内容区避开，
-      // 这里再叠加 safeBottomVp 会把底舱顶上去一大截（此前那条空带就是这么来的）
-      bottom: DesignTokens.dockBottomGap(),
-    })
-    // 底舱盒子延伸进底部安全区（否则它的"底"停在内容区底部，等于又空出一条安全区）
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
-  }
-
   build() {
     Stack() {
       if (Breakpoints.isWide(this.breakpoint)) {
         // 一多：平板横屏 / PC 用「左侧导航 + 右侧内容」，与主流音乐 App 的大屏形态一致
         Row() {
-          this.BottomTabBar(true)
+          // 宽屏走左侧竖排导航（大屏使用习惯）
+          HomeBottomTabBar({
+            tabs: this.getBottomTabs(),
+            activeIndex: this.currentTab,
+            vertical: true,
+            onSelect: (index: number): void => {
+              this.switchTab(index);
+            },
+          })
           Column() {
             this.MainPane(true, 0)
           }
@@ -1178,7 +1140,18 @@ export struct HomePage {
           // 底部手势区由页面自己画（深色模式不能透出系统白底）
           .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
 
-          this.BottomDock()
+          // 玻璃底舱（迷你播放条 + Tab 栏）：滚离顶部时收拢成"房子 + 播放控件"，点房子复原
+          HomeBottomDock({
+            tabs: this.getBottomTabs(),
+            activeIndex: this.currentTab,
+            collapsed: this.contentScrolledAway,
+            onSelect: (index: number): void => {
+              this.switchTab(index);
+            },
+            onRestore: (): void => {
+              resetScrollAway();
+            },
+          })
         }
         .width('100%')
         .height('100%')

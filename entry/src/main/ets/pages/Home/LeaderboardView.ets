@@ -12,8 +12,8 @@ import type { MusicInfo } from '../../types/MusicTypes';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { CoverPalette } from '../../theme/CoverPalette';
-import { DeferredScrollToTop, scrollerOffsetY, scrollToTop } from '../../utils/ScrollTools';
-import { markContentScrolling, reportScrollOffset, resetScrollAway } from '../../utils/ScrollActivity';
+import { DeferredScrollToTop, scrollerOffsetY } from '../../utils/ScrollTools';
+import { markContentScrolling, reportScrollOffset } from '../../utils/ScrollActivity';
 import { Breakpoints } from '../../theme/Breakpoints';
 import { SearchStrip, SearchStripActions } from '../../components/common/SearchStrip';
 import { FilterPillBar, type FilterPillOption } from './Home/FilterPillBar';
@@ -61,8 +61,6 @@ export struct LeaderboardView {
   @Prop @Watch("onReCreateKeyChange") reCreateKey: number = 0;
   /** 底部玻璃底舱占位（由 HomePage 按是否浮层底舱传入；0 = 不浮层） */
   @Prop bottomInset: number = 0;
-  /** 「回到顶部」请求号（底舱左键触发）：变化时把本列表滚回顶部 */
-  @StorageProp('scrollTopRequest') @Watch('onScrollTopRequest') scrollTopRequest: number = 0;
   @State boardList: BoardItem[] = [];
   @State isLoading: boolean = false;
   /** 加载失败（与「该源确实没有榜单」区分，失败态给重试入口） */
@@ -110,11 +108,6 @@ export struct LeaderboardView {
     this.scrollTopDefer.schedule(this.leaderboardScroller);
   }
 
-  /** 底舱左键「回到顶部」：滚回顶部并让底舱立刻恢复展开态 */
-  private onScrollTopRequest(): void {
-    scrollToTop(this.leaderboardScroller);
-    resetScrollAway();
-  }
 
   private leaderboardSearchActions: SearchStripActions = new SearchStripActions();
   private leaderboardOverlaySearchActions: SearchStripActions = new SearchStripActions();

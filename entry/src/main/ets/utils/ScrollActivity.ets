@@ -19,8 +19,6 @@
 export const CONTENT_SCROLLING_KEY: string = 'contentScrolling';
 /** AppStorage 键：内容是否已滚离顶部（底舱据此收拢） */
 export const CONTENT_SCROLLED_AWAY_KEY: string = 'contentScrolledAway';
-/** AppStorage 键：请求把当前列表滚回顶部（底舱左键触发） */
-export const SCROLL_TOP_REQUEST_KEY: string = 'scrollTopRequest';
 
 /** 停手多久算"滚动结束" */
 const IDLE_MS: number = 320;
@@ -65,12 +63,3 @@ export function resetScrollAway(): void {
   }
 }
 
-/**
- * 请求把当前列表滚回顶部（底舱左键用）。
- * 用"递增的请求号"广播：当前挂载的那个 Tab 视图监听到变化就去滚自己的 scroller，
- * 不需要 HomePage 持有各视图的 scroller 引用。
- */
-export function requestScrollToTop(): void {
-  const current: number = AppStorage.get<number>(SCROLL_TOP_REQUEST_KEY) ?? 0;
-  AppStorage.setOrCreate(SCROLL_TOP_REQUEST_KEY, current + 1);
-}

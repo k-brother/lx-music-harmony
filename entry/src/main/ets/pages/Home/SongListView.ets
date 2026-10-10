@@ -19,8 +19,8 @@ import { SkeletonGridItem } from '../../components/common/SkeletonView';
 import { SegmentedBar, type SegmentOption } from '../../components/ui/SegmentedBar';
 import { RefreshContainer } from '../../components/ui/RefreshContainer';
 import { hapticService } from '../../service/HapticService';
-import { DeferredScrollToTop, scrollerOffsetY, scrollToTop } from '../../utils/ScrollTools';
-import { markContentScrolling, reportScrollOffset, resetScrollAway } from '../../utils/ScrollActivity';
+import { DeferredScrollToTop, scrollerOffsetY } from '../../utils/ScrollTools';
+import { markContentScrolling, reportScrollOffset } from '../../utils/ScrollActivity';
 import { Breakpoints } from '../../theme/Breakpoints';
 import { LazyDataSource } from '../../utils/LazyDataSource';
 import { getStorageService } from '../../core/interfaces/IStorageService';
@@ -52,8 +52,6 @@ export struct SongListView {
   @Prop @Watch("onReCreateKeyChange") reCreateKey: number = 0;
   /** 底部玻璃底舱占位（由 HomePage 按是否浮层底舱传入；0 = 不浮层） */
   @Prop bottomInset: number = 0;
-  /** 「回到顶部」请求号（底舱左键触发）：变化时把本列表滚回顶部 */
-  @StorageProp('scrollTopRequest') @Watch('onScrollTopRequest') scrollTopRequest: number = 0;
   @StorageProp('theme') theme: string = 'light';
 
   /** 按压反馈：卡片轻微缩放 */
@@ -101,11 +99,6 @@ export struct SongListView {
     this.scrollTopDefer.schedule(this.songListScroller);
   }
 
-  /** 底舱左键「回到顶部」：滚回顶部并让底舱立刻恢复展开态 */
-  private onScrollTopRequest(): void {
-    scrollToTop(this.songListScroller);
-    resetScrollAway();
-  }
 
   // 排序选项
   private sortOptions: SortOption[] = [];

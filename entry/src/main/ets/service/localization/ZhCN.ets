@@ -187,6 +187,7 @@ export function buildZhCN(): Map<string, string> {
   m.set('settings_basic', '基础设置');
   // 设置首页的分类入口（分类页标题与行说明；目录见 pages/Home/Setting/SettingsCatalog）
   m.set('settings_home_group_play', '播放');
+  m.set('dock_expand_menu', '展开底部菜单');
   m.set('settings_home_group_ui', '界面');
   m.set('settings_home_group_data', '数据');
   m.set('settings_group_lyric', '桌面歌词与实况窗');
