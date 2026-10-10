@@ -228,12 +228,15 @@ struct MusicCard {
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .width('100%')
+          // 文案与控制条同一条中轴线：右列比内容宽，全左对齐会显得挤在封面边上
+          .textAlign(TextAlign.Center)
         Text(this.subTitle())
           .fontSize(DesignTokens.fontCaption())
           .fontColor(onMediaTextSecondary)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .width('100%')
+          .textAlign(TextAlign.Center)
           .margin({ top: 3 })
 
         Row({ space: 2 }) {
@@ -250,7 +253,7 @@ struct MusicCard {
       .layoutWeight(1)
       .height('100%')
       .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Start)
+      .alignItems(HorizontalAlign.Center)
     }
     .width('100%')
     .height('100%')
