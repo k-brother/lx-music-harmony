@@ -5,9 +5,15 @@
  * CardPushPayload（见 utils/CardFormPayload），键名与本页 @LocalStorageProp 一一对应。
  *
  * 样式说明：卡片不走 components/ui 主题体系（服务卡片由系统渲染、拿不到应用主题状态），
- * 这里固定深色玻璃质感调色板；check_design_tokens 只扫描 pages/ 与 components/，不覆盖本目录。
+ * 配色统一从 theme/MediaOverlayTokens（媒体层调色板）取，字号走 DesignTokens 字阶。
  * 全部图形用 ArkUI 绘制，不引 rawfile 资源（对方项目 5 张 png 的做法会让换肤/暗色失效）。
  */
+import { DesignTokens } from '../../theme/DesignTokens';
+import {
+  onMediaTextSecondary, onMediaTextFaint, onMediaLyricIdle,
+  onMediaFillWeak, onMediaFillStrong, onMediaSurface, onMediaScrim,
+} from '../../theme/MediaOverlayTokens';
+
 @Entry
 @Component
 struct MusicCard {
@@ -58,13 +64,13 @@ struct MusicCard {
       } else {
         Column() {
           SymbolGlyph($r('sys.symbol.music_note_circle'))
-            .fontSize(24)
-            .fontColor(['#66FFFFFF'])
+            .fontSize(DesignTokens.fontDisplay())
+            .fontColor([onMediaTextFaint])
         }
         .width('100%')
         .height('100%')
         .justifyContent(FlexAlign.Center)
-        .backgroundColor('#26FFFFFF')
+        .backgroundColor(onMediaFillWeak)
       }
     }
     .width('100%')
@@ -95,7 +101,7 @@ struct MusicCard {
     .width(size + 24)
     .height(size + 24)
     .borderRadius((size + 24) / 2)
-    .backgroundColor('#40FFFFFF')
+    .backgroundColor(onMediaFillStrong)
     .justifyContent(FlexAlign.Center)
     .onClick((): void => {
       this.postAction('playPause');
@@ -115,7 +121,7 @@ struct MusicCard {
   @Builder
   private TitleBlock(textAlign: TextAlign) {
     Text(this.displayTitle())
-      .fontSize(15)
+      .fontSize(DesignTokens.fontSubhead())
       .fontWeight(FontWeight.Bold)
       .fontColor(Color.White)
       .maxLines(1)
@@ -123,8 +129,8 @@ struct MusicCard {
       .width('100%')
       .textAlign(textAlign)
     Text(this.subTitle())
-      .fontSize(11)
-      .fontColor('#B3FFFFFF')
+      .fontSize(DesignTokens.fontMicro())
+      .fontColor(onMediaTextSecondary)
       .maxLines(1)
       .textOverflow({ overflow: TextOverflow.Ellipsis })
       .width('100%')
@@ -144,27 +150,27 @@ struct MusicCard {
       } else {
         Column() {
           SymbolGlyph($r('sys.symbol.music_note_circle'))
-            .fontSize(48)
-            .fontColor(['#59FFFFFF'])
+            .fontSize(DesignTokens.fontHeroLarge())
+            .fontColor([onMediaLyricIdle])
         }
         .width('100%')
         .height('100%')
         .justifyContent(FlexAlign.Center)
-        .backgroundColor('#1F2226')
+        .backgroundColor(onMediaSurface)
       }
 
       Row() {
         Column() {
           Text(this.displayTitle())
-            .fontSize(13)
+            .fontSize(DesignTokens.fontCallout())
             .fontWeight(FontWeight.Bold)
             .fontColor(Color.White)
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .width('100%')
           Text(this.subTitle())
-            .fontSize(10)
-            .fontColor('#B3FFFFFF')
+            .fontSize(DesignTokens.fontBadge())
+            .fontColor(onMediaTextSecondary)
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .width('100%')
@@ -178,7 +184,7 @@ struct MusicCard {
       .width('100%')
       .padding({ left: 10, right: 10, top: 16, bottom: 10 })
       .alignItems(VerticalAlign.Center)
-      .backgroundColor('#99000000')
+      .backgroundColor(onMediaScrim)
     }
     .width('100%')
     .height('100%')
@@ -208,7 +214,7 @@ struct MusicCard {
     .width('100%')
     .height('100%')
     .padding(10)
-    .backgroundColor('#1F2226')
+    .backgroundColor(onMediaSurface)
   }
 
   build() {

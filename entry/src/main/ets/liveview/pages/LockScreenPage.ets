@@ -12,9 +12,9 @@
  * - 播放状态做成标题区右侧的状态胶囊（对方放底部、靠 SpaceBetween 撑开，
  *   在矮屏上歌词会被挤变形）。
  *
- * 样式说明：锁屏页由系统渲染、拿不到应用主题状态，固定深色玻璃质感调色板；
- * 与 widget/pages 同理不走 components/ui 主题体系（design token 收口只覆盖
- * 应用自身页面，不扫描本目录）。
+ * 样式说明：锁屏页由系统渲染、拿不到应用主题状态，配色统一从
+ * theme/MediaOverlayTokens（媒体层调色板）取，字号走 DesignTokens 字阶；
+ * 与 widget/pages 同一套约定（check_design_tokens 已覆盖 liveview/ 与 widget/）。
  */
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { commonEventManager } from '@kit.BasicServicesKit';
@@ -24,6 +24,11 @@ import {
   LIVE_VIEW_LYRIC_EVENT,
   type LiveViewLyricPayload,
 } from '../../utils/LiveViewKeys';
+import { DesignTokens } from '../../theme/DesignTokens';
+import {
+  onMediaTextPrimary, onMediaTextTertiary, onMediaTextFaint,
+  onMediaFillWeak, lockScreenScrim, liveViewAccent,
+} from '../../theme/MediaOverlayTokens';
 
 const TAG = 'LockScreenPage';
 const DOMAIN = 0x0003;
@@ -131,15 +136,15 @@ struct LockScreenPage {
     Row({ space: 12 }) {
       Column({ space: 6 }) {
         Text(this.title)
-          .fontSize(22)
+          .fontSize(DesignTokens.fontBanner())
           .fontWeight(FontWeight.Medium)
           .fontColor(Color.White)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .width('100%')
         Text(this.artist)
-          .fontSize(16)
-          .fontColor('#99FFFFFF')
+          .fontSize(DesignTokens.fontTitle())
+          .fontColor(onMediaTextTertiary)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .width('100%')
@@ -151,15 +156,15 @@ struct LockScreenPage {
         Circle()
           .width(6)
           .height(6)
-          .fill(this.isPlaying ? '#07C556' : '#66FFFFFF')
+          .fill(this.isPlaying ? liveViewAccent : onMediaTextFaint)
         Text(this.isPlaying ? this.playingLabel : this.pausedLabel)
-          .fontSize(13)
-          .fontColor('#CCFFFFFF')
+          .fontSize(DesignTokens.fontCallout())
+          .fontColor(onMediaTextPrimary)
           .maxLines(1)
       }
       .padding({ left: 10, right: 10, top: 5, bottom: 5 })
       .borderRadius(12)
-      .backgroundColor('#26FFFFFF')
+      .backgroundColor(onMediaFillWeak)
     }
     .width('100%')
     .alignItems(VerticalAlign.Center)
@@ -170,7 +175,7 @@ struct LockScreenPage {
   private LyricBlock() {
     Column({ space: 16 }) {
       Text(this.curLine.length > 0 ? this.curLine : this.noLyricLabel)
-        .fontSize(32)
+        .fontSize(DesignTokens.fontHero())
         .fontWeight(FontWeight.Medium)
         .fontColor(Color.White)
         .maxLines(3)
@@ -179,8 +184,8 @@ struct LockScreenPage {
         .width('100%')
       if (this.nextLine.length > 0) {
         Text(this.nextLine)
-          .fontSize(20)
-          .fontColor('#66FFFFFF')
+          .fontSize(DesignTokens.fontLarge())
+          .fontColor(onMediaTextFaint)
           .maxLines(2)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .textAlign(TextAlign.Center)
@@ -200,6 +205,6 @@ struct LockScreenPage {
     .width('100%')
     .height('100%')
     .padding({ left: 32, right: 32, top: 48, bottom: 48 })
-    .backgroundColor('#E6000000')
+    .backgroundColor(lockScreenScrim)
   }
 }

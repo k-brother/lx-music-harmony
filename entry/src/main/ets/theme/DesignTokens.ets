@@ -284,6 +284,21 @@ export class DesignTokens {
     return 19;
   }
 
+  /** 卡片/锁屏标题与中号图标（22） */
+  static fontBanner(): number {
+    return 22;
+  }
+
+  /** 锁屏大标题（32） */
+  static fontHero(): number {
+    return 32;
+  }
+
+  /** 超大图标字号（48，卡片无封面时的占位音符） */
+  static fontHeroLarge(): number {
+    return 48;
+  }
+
   /** 特大图标字号（22，用于入口行图标） */
   static fontIconXl(): number {
     return 22;

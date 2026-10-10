@@ -23,6 +23,8 @@ ALLOWED = {
     'pages/Home/Setting/DesktopLyricSection.ets',  # 颜色预设选项本身
     'pages/PlayDetailPage.ets',              # 动态背景渐变（按主题拼半透明色）
     'pages/Home/Setting/AppearanceSection.ets',    # 主题预览色（主题数据驱动）
+    # 媒体层调色板：画在封面/锁屏遮罩上的配色与主题无关，字面量只允许出现在这份 token 里
+    'theme/MediaOverlayTokens.ets',
 }
 
 FONT = re.compile(r'\.fontSize\((\d+)\)')
@@ -31,7 +33,9 @@ COLOR = re.compile(r"'#[0-9A-Fa-f]{3,8}'|\"#[0-9A-Fa-f]{3,8}\"|'rgba?\([^)]*\)'"
 
 def main():
     problems = []
-    for folder in ('pages', 'components'):
+    # widget（桌面卡片）与 liveview（锁屏实况窗）跑在独立进程、不走主题体系，
+    # 但同样必须走 MediaOverlayTokens / DesignTokens，所以一并纳入扫描
+    for folder in ('pages', 'components', 'widget', 'liveview'):
         for p in sorted((ROOT / folder).rglob('*.ets')):
             rel = str(p.relative_to(ROOT))
             text = p.read_text()
