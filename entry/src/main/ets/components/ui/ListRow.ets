@@ -90,6 +90,8 @@ export struct ListRow {
         .height(DesignTokens.rowCover())
         .borderRadius(DesignTokens.radiusCover())
         .objectFit(ImageFit.Cover)
+        // Image 默认可拖拽，会吞掉 PC 鼠标/触控板的滚动（官方 FAQ「鼠标无法滑动Scroll组件图片」）
+        .draggable(false)
     } else {
       Column() {
         SymbolGlyph($r('sys.symbol.music_note_list'))

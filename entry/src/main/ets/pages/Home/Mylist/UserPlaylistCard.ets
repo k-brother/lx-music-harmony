@@ -59,6 +59,7 @@ export struct UserPlaylistCard {
         .height(52)
         .borderRadius(DesignTokens.radiusCover())
         .objectFit(ImageFit.Cover)
+        .draggable(false)
     } else {
       Column() {
         SymbolGlyph($r('sys.symbol.music_note_list'))

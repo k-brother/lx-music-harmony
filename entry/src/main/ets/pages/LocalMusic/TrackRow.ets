@@ -106,6 +106,7 @@ export struct TrackRow {
         .height(52)
         .borderRadius(8)
         .objectFit(ImageFit.Cover)
+        .draggable(false)
         .backgroundColor(DesignTokens.mutedFill(this.theme))
     } else {
       Image($r('app.media.ic_player_cover_placeholder'))
@@ -113,6 +114,7 @@ export struct TrackRow {
         .height(52)
         .borderRadius(8)
         .objectFit(ImageFit.Cover)
+        .draggable(false)
     }
   }
 

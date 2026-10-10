@@ -112,6 +112,7 @@ export struct CommentRow {
         .width(36)
         .height(36)
         .borderRadius(18)
+        .draggable(false)
     } else {
       // 默认头像
       Column() {

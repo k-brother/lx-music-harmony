@@ -118,6 +118,7 @@ export struct SearchSonglistResultList {
                   .height(56)
                   .borderRadius(DesignTokens.radiusCover())
                   .objectFit(ImageFit.Cover)
+                  .draggable(false)
                   .backgroundColor(DesignTokens.mutedFill(this.theme))
               } else {
                 Column() {
