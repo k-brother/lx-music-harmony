@@ -9,6 +9,12 @@ import { preferences } from '@kit.ArkData';
 import { encryptWithPassword, decryptWithPassword } from './crypto/AesPayload';
 import { utf8Decode } from '../utils/TextCodec';
 import {
+  readSecret,
+  saveSecret,
+  CREDENTIAL_BACKUP_PASSWORD,
+  CREDENTIAL_WEBDAV_PASSWORD,
+} from './CredentialStore';
+import {
   normalizeWebDavUrl,
   webDavDelete,
   webDavDownload,
@@ -93,20 +99,48 @@ export class BackupService {
     try {
       const context = this.getContext();
       const pref = await preferences.getPreferences(context, 'backup_config');
-      
+
       this.config.autoBackup = await pref.get('autoBackup', false) as boolean;
       this.config.backupInterval = await pref.get('backupInterval', 7) as number;
       this.config.backupLocation = await pref.get('backupLocation', context.filesDir) as string;
       this.config.encryptBackup = await pref.get('encryptBackup', false) as boolean;
-      this.config.backupPassword = await pref.get('backupPassword', '') as string;
       this.config.webdavUrl = await pref.get('webdavUrl', '') as string;
       this.config.webdavUser = await pref.get('webdavUser', '') as string;
-      this.config.webdavPassword = await pref.get('webdavPassword', '') as string;
-      
+
+      // 口令走系统资产存储；同时把历史上写在 preferences 里的明文迁移过去并清除
+      this.config.backupPassword = await this.loadPassword(pref, 'backupPassword', CREDENTIAL_BACKUP_PASSWORD);
+      this.config.webdavPassword = await this.loadPassword(pref, 'webdavPassword', CREDENTIAL_WEBDAV_PASSWORD);
+
       hilog.info(DOMAIN, TAG, 'Backup config loaded');
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to load backup config: %{public}s', JSON.stringify(err));
     }
+  }
+
+  /**
+   * 读口令：优先资产存储；若资产存储里没有、而旧 preferences 里还留着明文，
+   * 则迁移到资产存储并删除明文键（一次性的兼容处理，之后 preferences 不再持有口令）。
+   */
+  private async loadPassword(pref: preferences.Preferences, legacyKey: string,
+    alias: string): Promise<string> {
+    const stored: string = await readSecret(alias);
+    if (stored.length > 0) {
+      // 资产存储已就绪：顺手清掉可能残留的明文
+      if (await pref.has(legacyKey)) {
+        await pref.delete(legacyKey);
+        await pref.flush();
+      }
+      return stored;
+    }
+    const legacy: string = await pref.get(legacyKey, '') as string;
+    if (legacy.length === 0) {
+      return '';
+    }
+    await saveSecret(alias, legacy);
+    await pref.delete(legacyKey);
+    await pref.flush();
+    hilog.info(DOMAIN, TAG, 'migrated %{public}s from preferences to AssetStore', legacyKey);
+    return legacy;
   }
 
   // 保存配置
@@ -114,18 +148,23 @@ export class BackupService {
     try {
       const context = this.getContext();
       const pref = await preferences.getPreferences(context, 'backup_config');
-      
+
       await pref.put('autoBackup', this.config.autoBackup);
       await pref.put('backupInterval', this.config.backupInterval);
       await pref.put('backupLocation', this.config.backupLocation);
       await pref.put('encryptBackup', this.config.encryptBackup);
-      if (this.config.backupPassword) {
-        await pref.put('backupPassword', this.config.backupPassword);
-      }
       await pref.put('webdavUrl', this.config.webdavUrl);
       await pref.put('webdavUser', this.config.webdavUser);
-      await pref.put('webdavPassword', this.config.webdavPassword);
-      
+
+      // 口令只进资产存储，不进明文偏好文件（历史明文键一并清掉）
+      await saveSecret(CREDENTIAL_BACKUP_PASSWORD, this.config.backupPassword ?? '');
+      await saveSecret(CREDENTIAL_WEBDAV_PASSWORD, this.config.webdavPassword);
+      for (const legacyKey of ['backupPassword', 'webdavPassword']) {
+        if (await pref.has(legacyKey)) {
+          await pref.delete(legacyKey);
+        }
+      }
+
       await pref.flush();
       hilog.info(DOMAIN, TAG, 'Backup config saved');
     } catch (err) {
