@@ -86,16 +86,24 @@ struct LockScreenPage {
       commonEventManager.createSubscriber(info).then(
         (sub: commonEventManager.CommonEventSubscriber): void => {
           this.subscriber = sub;
-          sub.on('receive', (event: commonEventManager.CommonEventData): void => {
-            const data: string | undefined = event.data;
-            if (data !== undefined && data.length > 0) {
-              try {
-                this.applyPayload(JSON.parse(data) as LiveViewLyricPayload);
-              } catch (err) {
-                hilog.warn(DOMAIN, TAG, 'parse payload failed: %{public}s', JSON.stringify(err));
+          // 注意：subscribe 的第二个参数是 AsyncCallback<CommonEventData, void> 接口，
+          // ArkTS 的严格函数类型检查要求回调参数列表与接口签名逐一对应（不能只写 data），
+          // 否则 tsCheck 会报 "Types of parameters 'event' and 'err' are incompatible"。
+          commonEventManager.subscribe(sub,
+            (err: BusinessError, event: commonEventManager.CommonEventData): void => {
+              if (err) {
+                hilog.warn(DOMAIN, TAG, 'lyric event error: %{public}s', JSON.stringify(err));
+                return;
               }
-            }
-          });
+              const data: string | undefined = event.data;
+              if (data !== undefined && data.length > 0) {
+                try {
+                  this.applyPayload(JSON.parse(data) as LiveViewLyricPayload);
+                } catch (parseErr) {
+                  hilog.warn(DOMAIN, TAG, 'parse payload failed: %{public}s', JSON.stringify(parseErr));
+                }
+              }
+            });
         }).catch((err: BusinessError): void => {
         hilog.warn(DOMAIN, TAG, 'createSubscriber failed: %{public}s', JSON.stringify(err));
       });
@@ -109,11 +117,6 @@ struct LockScreenPage {
     this.subscriber = null;
     if (sub === null) {
       return;
-    }
-    try {
-      sub.off('receive');
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'subscriber off failed: %{public}s', JSON.stringify(err));
     }
     try {
       commonEventManager.unsubscribe(sub);
