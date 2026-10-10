@@ -14,6 +14,8 @@ export struct LocalMusicActions {
   onImport?: () => void;
   /** 播放全部（有曲目时显示） */
   onPlayAll?: () => void;
+  /** 全部匹配在线歌词/封面（有曲目时显示） */
+  onMatchAll?: () => void;
 
   build() {
     Row({ space: 4 }) {
@@ -39,6 +41,19 @@ export struct LocalMusicActions {
           onTap: (): void => {
             if (this.onRescan) {
               this.onRescan();
+            }
+          },
+        })
+      }
+      if (this.hasTracks) {
+        IconActionButton({
+          icon: $r('sys.symbol.wand_and_stars'),
+          glyphColor: DesignTokens.labelSecondary(this.theme),
+          bgFill: DesignTokens.mutedFill(this.theme),
+          a11yLabel: t('match_all'),
+          onTap: (): void => {
+            if (this.onMatchAll) {
+              this.onMatchAll();
             }
           },
         })

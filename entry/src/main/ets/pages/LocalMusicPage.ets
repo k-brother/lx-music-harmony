@@ -19,6 +19,7 @@ import { hapticService } from '../service/HapticService';
 import { appActionMenu, appConfirm } from '../service/DialogService';
 import { SkeletonListItem } from '../components/common/SkeletonView';
 import { EditMetadataSheet } from './LocalMusic/EditMetadataSheet';
+import { MatchLyricSheet } from './LocalMusic/MatchLyricSheet';
 import { LocalMusicActions } from './LocalMusic/LocalMusicActions';
 import { TrackRow } from './LocalMusic/TrackRow';
 import { Breakpoints } from '../theme/Breakpoints';
@@ -51,6 +52,9 @@ export struct LocalMusicPage {
   /** 元数据编辑弹窗 */
   @State showEditDialog: boolean = false;
   private editingTrack: LocalMusicInfo | null = null;
+  /** 手动匹配歌词/封面面板 */
+  @State showMatchDialog: boolean = false;
+  private matchingTrack: LocalMusicInfo | null = null;
   private coverLoaded: Set<string> = new Set();
   /** 列表滚动控制与位置记忆（设置 → 列表 → 记住滚动位置） */
   private trackScroller: Scroller = new Scroller();
@@ -236,8 +240,9 @@ export struct LocalMusicPage {
       t('play'),
       t('edit_metadata'),
       t('pick_cover'),
+      t('match_lyric'),
       t('local_remove_title'),
-    ], { dangerIndexes: [3] });
+    ], { dangerIndexes: [4] });
     if (picked === 0) {
       void this.playTrack(this.tracks.indexOf(track));
     } else if (picked === 1) {
@@ -245,6 +250,8 @@ export struct LocalMusicPage {
     } else if (picked === 2) {
       void this.pickCover(track);
     } else if (picked === 3) {
+      this.openMatchDialog(track);
+    } else if (picked === 4) {
       void this.removeTrack(track);
     }
   }
@@ -270,6 +277,33 @@ export struct LocalMusicPage {
     } else {
       this.showToast(t('metadata_name_required'));
     }
+  }
+
+  /** 打开手动匹配面板 */
+  private openMatchDialog(track: LocalMusicInfo): void {
+    this.matchingTrack = track;
+    this.showMatchDialog = true;
+  }
+
+  /** 选中一条在线匹配结果：正在播这首就重新取词，其余情况刷新列表即可 */
+  private async onMatchPicked(): Promise<void> {
+    const track = this.matchingTrack;
+    this.matchingTrack = null;
+    if (!track) {
+      return;
+    }
+    if (playKeyOfIds('local', track.id, track.id) === this.playingSongKey) {
+      playerService.reloadLyricForCurrent();
+    }
+    await this.loadLibrary();
+    this.showToast(t('match_lyric_saved'));
+  }
+
+  /** 给全部本地歌做自动匹配（跳过已有匹配的，含手动选过的） */
+  private async matchAllTracks(): Promise<void> {
+    const summary = await localMusicService.matchAllTracks();
+    await this.loadLibrary();
+    this.showToast(tf('match_all_done', [summary.ok.toString(), summary.fail.toString()]));
   }
 
   /** 选择并保存自定义封面 */
@@ -365,6 +399,9 @@ export struct LocalMusicPage {
       onRescan: (): void => {
         void this.rescan();
       },
+      onMatchAll: (): void => {
+        void this.matchAllTracks();
+      },
       onImport: (): void => {
         void this.chooseImportSource();
       },
@@ -442,6 +479,22 @@ export struct LocalMusicPage {
           },
           onSave: (name: string, singer: string, album: string): void => {
             void this.saveMetadata(name, singer, album);
+          },
+        })
+      }
+
+      if (this.showMatchDialog) {
+        MatchLyricSheet({
+          visible: $showMatchDialog,
+          songKey: this.matchingTrack ? this.matchingTrack.id : '',
+          songName: this.matchingTrack ? this.matchingTrack.name : '',
+          singer: this.matchingTrack ? this.matchingTrack.singer : '',
+          durationMs: this.matchingTrack ? this.matchingTrack.duration : 0,
+          onCancel: (): void => {
+            this.matchingTrack = null;
+          },
+          onPicked: (): void => {
+            void this.onMatchPicked();
           },
         })
       }

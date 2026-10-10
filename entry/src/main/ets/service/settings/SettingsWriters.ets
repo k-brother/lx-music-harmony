@@ -351,6 +351,11 @@ export async function applyLyricSettings(
       await storage.setBoolean(StorageKeys.LYRIC_SHOW_ROMA, patch.showLyricRoma);
       changed.push('showLyricRoma');
     }
+    if (patch.autoMatchLocalLyric !== undefined && patch.autoMatchLocalLyric !== values.autoMatchLocalLyric) {
+      values.autoMatchLocalLyric = patch.autoMatchLocalLyric;
+      await storage.setBoolean(StorageKeys.LYRIC_AUTO_MATCH_LOCAL, patch.autoMatchLocalLyric);
+      changed.push('autoMatchLocalLyric');
+    }
     if (patch.wordLyric !== undefined && patch.wordLyric !== values.wordLyric) {
       values.wordLyric = patch.wordLyric;
       await storage.setBoolean(StorageKeys.LYRIC_SHOW_WORD, patch.wordLyric);

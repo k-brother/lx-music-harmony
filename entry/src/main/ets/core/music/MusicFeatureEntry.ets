@@ -309,7 +309,6 @@ export {
   scanLocalMusic,
   getLocalMusicUrl,
   getLocalPicUrl,
-  getLocalLyricInfo,
   localToOnlineMusicInfo,
   getSupportedAudioFormats,
   getMusicFileMetadata,
@@ -360,7 +359,6 @@ export type { MusicInfo, LyricInfo } from '../../types/MusicTypes';
 
 // 导出子模块供高级用法
 export { online } from './ResolvePlayback';
-export { local } from './local/LocalPlayback';
 export { download } from './RunMusicDownloads';
 // 下载文件的可播放路径修复（老记录存的是公共目录 URI）
 export { repairPlayablePath } from './download/DownloadFiles';

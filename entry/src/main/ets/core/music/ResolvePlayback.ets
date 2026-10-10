@@ -37,6 +37,22 @@ function ensureSongMid(musicInfo: MusicInfo): void {
   }
 }
 
+/**
+ * 本地音乐的在线匹配歌词解析器（由 service 层注册，见 LocalMusicService）。
+ *
+ * 本地曲目没有平台身份，同名 .lrc 缺失时需要拿 歌名/歌手/时长 去各音源猜，
+ * 打分与落盘在 core/music/local/LyricMatch，这里只留一个钩子：
+ * core 不认识设置服务，开关与平台顺序由 service 层读完设置再传进来。
+ * 返回 null = 没有可用歌词（不是错误），调用方按「无歌词」处理。
+ */
+export type LocalMatchLyricResolver = (musicInfo: MusicInfo) => Promise<LyricInfo | null>;
+
+let localMatchLyricResolver: LocalMatchLyricResolver | null = null;
+
+export function setLocalMatchLyricResolver(resolver: LocalMatchLyricResolver): void {
+  localMatchLyricResolver = resolver;
+}
+
 
 
 
@@ -467,7 +483,14 @@ export async function getLyricInfo(params: GetLyricInfoParams): Promise<LyricInf
         musicInfo.name, sidecar.length);
       return buildLyricInfo({ lyric: sidecar, tlyric: null, rlyric: null, lxlyric: null });
     }
-    hilog.info(DOMAIN, TAG, 'no sidecar lyric for %{public}s, fallback to online sources', musicInfo.name);
+    // 其次走在线匹配（service 层注册：已保存的匹配直接取词，否则按设置自动匹配一次）
+    const matchedLyric = localMatchLyricResolver ? await localMatchLyricResolver(musicInfo) : null;
+    if (matchedLyric && matchedLyric.lyric && matchedLyric.lyric.length > 0) {
+      return matchedLyric;
+    }
+    // 本地曲目没有平台身份，不能继续往下走在线解析（songmid 是文件路径，必然失败）
+    hilog.info(DOMAIN, TAG, 'no lyric for local track %{public}s', musicInfo.name);
+    return createEmptyLyricInfo();
   }
 
   ensureSongMid(musicInfo);

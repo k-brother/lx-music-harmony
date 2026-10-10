@@ -29,6 +29,18 @@ export function buildEnUS(): Map<string, string> {
   m.set('local_import_none', 'No audio file selected');
   m.set('local_empty_hint', 'No local music yet\nTap "+" at the top right or the button below to import audio files');
   m.set('local_remove_title', 'Remove from local library');
+  m.set('match_lyric', 'Match Lyrics');
+  m.set('match_lyric_sheet_title', 'Match Lyrics / Cover');
+  m.set('match_lyric_hint', 'Edit the keywords and search; tapping a result uses its lyrics and cover for this track');
+  m.set('match_lyric_placeholder', 'Song artist');
+  m.set('match_lyric_search', 'Search');
+  m.set('match_lyric_searching', 'Searching…');
+  m.set('match_lyric_partial', '{0} found, still searching…');
+  m.set('match_lyric_empty', 'No close match. Try different keywords (e.g. song name only)');
+  m.set('match_lyric_saved', 'Saved. Its lyrics and cover will be used');
+  m.set('match_lyric_clear', 'Clear saved match');
+  m.set('match_all', 'Match All');
+  m.set('match_all_done', 'Matching done: {0} matched, {1} unmatched');
   m.set('play', 'Play');
   m.set('toast_deleted', 'Deleted');
   m.set('toast_share_copy', 'Song info copied to clipboard');
@@ -285,6 +297,8 @@ export function buildEnUS(): Map<string, string> {
   m.set('settings_notification_image_desc', 'Show the song cover on the lock screen and media center');
   m.set('settings_bluetooth_lyric', 'Bluetooth / Car Lyrics');
   m.set('settings_bluetooth_lyric_desc', 'Write the full lyric into system media info (off: only the current line)');
+  m.set('settings_auto_match_local_lyric', 'Online Match for Local Music');
+  m.set('settings_auto_match_local_lyric_desc', 'Automatically match lyrics and covers when playing local tracks (once per track; correctable in Local Music)');
   m.set('settings_sleep_wait_track', 'Stop After Current Song');
   m.set('settings_sleep_wait_track_desc', 'When the timer ends, finish the current song before stopping');
   m.set('sleep_waiting_track', 'Waiting for the current song to finish');

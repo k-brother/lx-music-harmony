@@ -89,6 +89,8 @@ export interface AppSettings {
   showLyricTranslation: boolean;
   /** 歌词是否显示罗马音（拼音） */
   showLyricRoma: boolean;
+  /** 本地音乐自动在线匹配歌词/封面（关闭后仍可手动匹配） */
+  autoMatchLocalLyric: boolean;
   /** 逐字歌词：有逐字数据的歌按字高亮（卡拉OK 效果） */
   wordLyric: boolean;
   /** 歌词字号（14-24） */
@@ -245,6 +247,7 @@ export interface SettingsPatch {
   showBluetoothLyric?: boolean;
   showLyricTranslation?: boolean;
   showLyricRoma?: boolean;
+  autoMatchLocalLyric?: boolean;
   /** 逐字歌词（卡拉OK 高亮） */
   wordLyric?: boolean;
   lyricFontSize?: number;
@@ -350,6 +353,7 @@ export function createDefaultSettings(): AppSettings {
     showLyricTranslation: true,
     wordLyric: true,
     showLyricRoma: false,
+    autoMatchLocalLyric: true,
     lyricFontSize: 16,
     lyricAlign: 'center',
     showLyricProgress: false,

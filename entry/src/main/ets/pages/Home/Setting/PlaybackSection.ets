@@ -28,6 +28,7 @@ export struct PlaybackSection {
   @State savePlayTime: boolean = true;
   @State showNotificationImage: boolean = true;
   @State showBluetoothLyric: boolean = false;
+  @State autoMatchLocalLyric: boolean = true;
   @State s2tMode: string = 'off';
   @State audioFocus: boolean = true;
   @State audioOffload: boolean = false;
@@ -63,6 +64,7 @@ export struct PlaybackSection {
     this.savePlayTime = settings.savePlayTime;
     this.showNotificationImage = settings.showNotificationImage;
     this.showBluetoothLyric = settings.showBluetoothLyric;
+    this.autoMatchLocalLyric = settings.autoMatchLocalLyric;
     this.s2tMode = settings.s2tMode;
     this.audioFocus = settings.audioFocus;
     this.audioOffload = settings.audioOffload;
@@ -174,6 +176,11 @@ export struct PlaybackSection {
       this.showBluetoothLyric = value;
       void settingsService.update({ showBluetoothLyric: value });
     }, t('settings_bluetooth_lyric_desc')));
+
+    items.push(toggleRow(t('settings_auto_match_local_lyric'), this.autoMatchLocalLyric, (value: boolean): void => {
+      this.autoMatchLocalLyric = value;
+      void settingsService.update({ autoMatchLocalLyric: value });
+    }, t('settings_auto_match_local_lyric_desc')));
 
     items.push(selectRow(t('settings_s2t'), this.s2tMode, s2tOptions, (value: string): void => {
       this.s2tMode = value;

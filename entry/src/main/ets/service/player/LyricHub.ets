@@ -142,6 +142,12 @@ export class LyricHub {
     });
   }
 
+  /** 同一首歌重新取词（本地歌手动匹配歌词后用）：绕过去重缓存强制重载 */
+  reloadForSong(musicInfo: MusicInfo): void {
+    this.loadKey = '';
+    this.loadForSong(musicInfo);
+  }
+
   /** 播放进度推进时刷新当前句；行变化才通知（含偏移设置） */
   updateIndex(positionSec: number): void {
     if (this.lines.length === 0) {

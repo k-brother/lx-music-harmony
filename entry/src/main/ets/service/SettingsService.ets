@@ -139,6 +139,7 @@ class SettingsServiceImpl {
     copy.showBluetoothLyric = source.showBluetoothLyric;
     copy.showLyricTranslation = source.showLyricTranslation;
     copy.showLyricRoma = source.showLyricRoma;
+    copy.autoMatchLocalLyric = source.autoMatchLocalLyric;
     copy.wordLyric = source.wordLyric;
     copy.lyricFontSize = source.lyricFontSize;
     copy.lyricAlign = source.lyricAlign;
@@ -282,6 +283,7 @@ class SettingsServiceImpl {
       showBluetoothLyric: defaults.showBluetoothLyric,
       showLyricTranslation: defaults.showLyricTranslation,
       showLyricRoma: defaults.showLyricRoma,
+      autoMatchLocalLyric: defaults.autoMatchLocalLyric,
       wordLyric: defaults.wordLyric,
       lyricFontSize: defaults.lyricFontSize,
       lyricAlign: defaults.lyricAlign,

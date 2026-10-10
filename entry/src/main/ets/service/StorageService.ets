@@ -288,6 +288,8 @@ interface StorageKeysInterface {
   LIST_SHOW_DURATION: string;
   LIST_REMEMBER_SCROLL: string;
   LYRIC_SHOW_ROMA: string;
+  /** 本地音乐自动在线匹配歌词/封面 */
+  LYRIC_AUTO_MATCH_LOCAL: string;
   /** 逐字歌词（卡拉OK 高亮） */
   LYRIC_SHOW_WORD: string;
   LOG_VERBOSE: string;
@@ -374,6 +376,8 @@ interface StorageKeysInterface {
   COLLECTION_SONGLISTS: string;
   /** 本地音乐曲库 */
   LOCAL_MUSIC_LIST: string;
+  /** 本地音乐的在线匹配结果（trackId -> 平台歌曲，歌词/封面匹配用） */
+  LOCAL_MUSIC_MATCHES: string;
 
   // 桌面卡片（CardFormAbility 运行在独立进程，经 preferences 共享；见 widget/CardFormPrefs）
   /** 已注册卡片的 formId 列表（JSON 字符串数组，由卡片进程写，UI 进程只读） */
@@ -417,6 +421,7 @@ export const StorageKeys: StorageKeysInterface = {
   LIST_SHOW_DURATION: 'setting.list.showDuration',
   LIST_REMEMBER_SCROLL: 'setting.list.rememberScroll',
   LYRIC_SHOW_ROMA: 'setting.lyric.showRoma',
+  LYRIC_AUTO_MATCH_LOCAL: 'setting.lyric.autoMatchLocal',
   LYRIC_SHOW_WORD: 'setting.lyric.showWord',
   LOG_VERBOSE: 'setting.log.verbose',
   LYRIC_S2T_MODE: 'setting.lyric.s2tMode',
@@ -501,6 +506,7 @@ export const StorageKeys: StorageKeysInterface = {
 
   // 本地音乐
   LOCAL_MUSIC_LIST: 'local.music.list',
+  LOCAL_MUSIC_MATCHES: 'local.music.matches',
 
   // 桌面卡片（跨进程桥接键，值定义在 utils/CardFormKeys，写入方约定见 StorageKeysInterface 注释）
   CARD_FORM_IDS: CARD_FORM_IDS_KEY,

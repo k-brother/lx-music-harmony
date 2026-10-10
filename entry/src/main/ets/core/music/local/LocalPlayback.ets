@@ -11,11 +11,9 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { media } from '@kit.MediaKit';
 import { image } from '@kit.ImageKit';
-import type { MusicInfo, LyricInfo, MusicQualityType } from '../../../types/MusicTypes';
-import { buildLyricInfo, createEmptyLyricInfo } from '../MusicParsingUtils';
-import { getMusicUrl, getLyricInfo, getPicUrl } from '../ResolvePlayback';
+import type { MusicInfo, MusicQualityType } from '../../../types/MusicTypes';
+import { getMusicUrl, getPicUrl } from '../ResolvePlayback';
 import { formatBytes } from '../../../utils/FormatTools';
-import { readSidecarLyric } from './LocalLyricFile';
 
 const TAG_LOCAL = 'LOCAL_MUSIC';
 const DOMAIN_LOCAL = 0x0003;
@@ -243,47 +241,6 @@ export async function getLocalPicUrl(params: LocalGetPicUrlParams): Promise<stri
   return musicInfo.picUrl || '';
 }
 
-// 本地音乐歌词获取参数接口
-interface LocalGetLyricInfoParams {
-  musicInfo: LocalMusicInfo;
-  isRefresh?: boolean;
-  onToggleSource?: ((musicInfo?: MusicInfo) => void) | null;
-}
-
-/**
- * 获取本地音乐歌词
- */
-export async function getLocalLyricInfo(params: LocalGetLyricInfoParams): Promise<LyricInfo> {
-  const musicInfo: LocalMusicInfo = params.musicInfo;
-  const isRefresh: boolean = params.isRefresh ?? false;
-  const onToggleSource = params.onToggleSource;
-
-  // 尝试从歌词文件读取
-  try {
-    const lyricInfo = await readLyricFile(musicInfo.filePath);
-    if (lyricInfo) {
-      return buildLyricInfo(lyricInfo);
-    }
-  } catch (err) {
-    hilog.warn(DOMAIN_LOCAL, TAG_LOCAL, 'readLyricFile failed: %{public}s', (err as Error).message);
-  }
-
-  // 尝试从在线源获取
-  try {
-    const onlineMusicInfo = localToOnlineMusicInfo(musicInfo);
-    const lyric = await getLyricInfo({
-      musicInfo: onlineMusicInfo,
-      isRefresh,
-      onToggleSource,
-    });
-    return lyric;
-  } catch (err) {
-    hilog.warn(DOMAIN_LOCAL, TAG_LOCAL, 'getLocalLyricInfo online fetch failed: %{public}s', (err as Error).message);
-  }
-
-  return createEmptyLyricInfo();
-}
-
 /**
  * 将本地音乐信息转换为在线音乐信息
  */
@@ -372,17 +329,6 @@ async function readEmbeddedPic(filePath: string): Promise<string | null> {
 }
 
 /**
- * 读取同名歌词文件（.lrc）
- *
- * 本地音乐最常见的整理方式是「音频与歌词同名放一起」，读到了就不必联网取词。
- * 读写实现在 core/music/local/LocalLyricFile（播放链路也用它）。
- */
-async function readLyricFile(filePath: string): Promise<LyricInfo | null> {
-  const text = await readSidecarLyric(filePath);
-  return text === null ? null : { lyric: text };
-}
-
-/**
  * 获取支持的音乐格式
  */
 export function getSupportedAudioFormats(): string[] {
@@ -403,29 +349,3 @@ export async function getMusicFileMetadata(filePath: string): Promise<LocalMusic
 export function formatFileSize(bytes: number): string {
   return formatBytes(bytes);
 }
-
-// 本地音乐模块接口
-
-// ==================== 模块对象（供高级用法直接取用） ====================
-
-interface LocalModule {
-  scanLocalMusic: (dirPath: string) => Promise<LocalMusicInfo[]>;
-  getMusicUrl: (params: LocalGetMusicUrlParams) => Promise<string>;
-  getPicUrl: (params: LocalGetPicUrlParams) => Promise<string>;
-  getLyricInfo: (params: LocalGetLyricInfoParams) => Promise<LyricInfo>;
-  localToOnlineMusicInfo: (localInfo: LocalMusicInfo) => MusicInfo;
-  getSupportedAudioFormats: () => string[];
-  getMusicFileMetadata: (filePath: string) => Promise<LocalMusicInfo | null>;
-  formatFileSize: (bytes: number) => string;
-}
-
-export const local: LocalModule = {
-  scanLocalMusic,
-  getMusicUrl: getLocalMusicUrl,
-  getPicUrl: getLocalPicUrl,
-  getLyricInfo: getLocalLyricInfo,
-  localToOnlineMusicInfo,
-  getSupportedAudioFormats,
-  getMusicFileMetadata,
-  formatFileSize,
-};

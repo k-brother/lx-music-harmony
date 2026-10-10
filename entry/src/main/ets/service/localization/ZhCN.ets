@@ -32,6 +32,18 @@ export function buildZhCN(): Map<string, string> {
   m.set('local_import_none', '没有选中任何音频文件');
   m.set('local_empty_hint', '还没有本地音乐\n点击右上角「+」或下方按钮导入音频文件');
   m.set('local_remove_title', '从本地曲库移除');
+  m.set('match_lyric', '匹配歌词');
+  m.set('match_lyric_sheet_title', '手动匹配歌词 / 封面');
+  m.set('match_lyric_hint', '可修改关键词后再搜索；点选结果后将用于这首歌的歌词与封面');
+  m.set('match_lyric_placeholder', '歌名 歌手');
+  m.set('match_lyric_search', '搜索');
+  m.set('match_lyric_searching', '正在搜索…');
+  m.set('match_lyric_partial', '已找到 {0} 条，继续搜索…');
+  m.set('match_lyric_empty', '没有搜到相近的歌，换个关键词（比如只留歌名）再试');
+  m.set('match_lyric_saved', '已使用该歌曲的歌词与封面');
+  m.set('match_lyric_clear', '清除已保存的匹配');
+  m.set('match_all', '全部匹配');
+  m.set('match_all_done', '匹配完成：成功 {0} 首，未匹配 {1} 首');
   m.set('play', '播放');
   m.set('toast_deleted', '已删除');
   m.set('toast_share_copy', '歌曲信息已复制到剪贴板');
@@ -289,6 +301,8 @@ export function buildZhCN(): Map<string, string> {
   m.set('settings_notification_image_desc', '锁屏与播控中心显示歌曲封面');
   m.set('settings_bluetooth_lyric', '蓝牙/车机歌词');
   m.set('settings_bluetooth_lyric_desc', '把整段歌词写入系统媒体信息（关闭后仅显示当前一句）');
+  m.set('settings_auto_match_local_lyric', '本地音乐在线匹配');
+  m.set('settings_auto_match_local_lyric_desc', '播放本地音乐时自动在线匹配歌词与封面（每首只搜一次，可在本地音乐页手动纠正）');
   m.set('settings_sleep_wait_track', '播完当前歌曲再退出');
   m.set('settings_sleep_wait_track_desc', '定时到点后先播完这首歌再停止');
   m.set('sleep_waiting_track', '等待当前歌曲播完后停止');

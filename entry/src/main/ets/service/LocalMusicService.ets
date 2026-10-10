@@ -16,12 +16,52 @@ import type { common } from '@kit.AbilityKit';
 import type { BusinessError } from '@kit.BasicServicesKit';
 import storageService, { StorageKeys } from './StorageService';
 import { scanLocalMusic, getLocalPicUrl, type LocalMusicInfo } from '../core/music/local/LocalPlayback';
+import { getLyricInfo } from '../core/music/MusicFeatureEntry';
+import { setLocalMatchLyricResolver } from '../core/music/ResolvePlayback';
+import {
+  autoMatchLyric,
+  infoFromJson,
+  infoToJson,
+  toPlatformMusicInfo,
+  type MatchSongInfo
+} from '../core/music/local/LyricMatch';
+import { orderedEnabledSources } from '../core/music/SourcePolicy';
+import { httpRequestBinary } from '../core/network/http/HttpClient';
+import { settingsService } from './SettingsService';
 import type { SongInfo } from './PlayerService';
-import type { MusicInfo } from '../types/MusicTypes';
+import type { LyricInfo, MusicInfo } from '../types/MusicTypes';
 
 const TAG = 'LocalMusicService';
 const DOMAIN = 0x0005;
 const LOCAL_DIR_NAME = 'localMusic';
+
+/**
+ * 一条本地歌的在线匹配记录（存 local.music.matches）。
+ *
+ * 存成数组而不是 Record：ArkTS 对 Record 的动态键写入有限制，
+ * 数组 + 线性查找在这个量级（本地曲库通常几百首以内）完全没有性能问题。
+ *
+ * matchAt 有三态语义：
+ * - 0：从没搜过（自动匹配会尝试）
+ * - >0 且有 matchJson：匹配成功（直接用）
+ * - >0 且无 matchJson：搜过了但没找到（自动匹配不再重试，手动匹配仍可用）
+ */
+export interface LocalMatchRecord {
+  trackId: string;
+  /** 平台 id（'kw' | 'kg' | 'tx' | 'wy' | 'mg'），空串 = 无匹配 */
+  source: string;
+  /** MatchSongInfo 的 JSON；空串 = 无匹配 */
+  matchJson: string;
+  /** 首次搜索/成功匹配的时间戳；0 = 从没搜过 */
+  matchAt: number;
+}
+
+/** 「全部匹配」的统计结果 */
+export interface MatchAllSummary {
+  ok: number;
+  fail: number;
+  total: number;
+}
 
 /** 建目录：已存在（13900015）不算失败，其它错误才记日志 */
 function ensureLocalDir(dir: string): void {
@@ -55,6 +95,7 @@ function copyUriToSandbox(uri: string, destPath: string): void {
 class LocalMusicServiceImpl {
   private context: common.UIAbilityContext | null = null;
   private library: LocalMusicInfo[] = [];
+  private matches: LocalMatchRecord[] = [];
   private initialized: boolean = false;
 
   setContext(context: common.UIAbilityContext): void {
@@ -74,6 +115,17 @@ class LocalMusicServiceImpl {
       hilog.warn(DOMAIN, TAG, 'load local library failed: %{public}s', JSON.stringify(err));
       this.library = [];
     }
+    try {
+      const rawMatches = await storageService.getString(StorageKeys.LOCAL_MUSIC_MATCHES, '');
+      this.matches = rawMatches.length > 0 ? JSON.parse(rawMatches) as LocalMatchRecord[] : [];
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'load local matches failed: %{public}s', JSON.stringify(err));
+      this.matches = [];
+    }
+    // 本地歌没有平台身份，歌词中枢取词时经过这里做在线匹配（见 ResolvePlayback 的 local 分支）。
+    // core 不能依赖 service，所以由 service 在启动时把解析器注册进 core。
+    setLocalMatchLyricResolver((musicInfo: MusicInfo): Promise<LyricInfo | null> =>
+      this.resolveLocalMatchLyric(musicInfo));
   }
 
   getLibrary(): LocalMusicInfo[] {
@@ -183,6 +235,7 @@ class LocalMusicServiceImpl {
     }
     this.library = await scanLocalMusic(dir);
     await this.persist();
+    await this.pruneMatches();
     return this.library.length;
   }
 
@@ -254,6 +307,11 @@ class LocalMusicServiceImpl {
     const track = this.library[index];
     this.library.splice(index, 1);
     await this.persist();
+    const recordIndex = this.matchRecordIndexOf(track.id);
+    if (recordIndex >= 0) {
+      this.matches.splice(recordIndex, 1);
+      await this.persistMatches();
+    }
     // 删除沙箱内的文件与封面缓存（失败不影响列表）
     try {
       if (fs.accessSync(track.filePath)) {
@@ -318,6 +376,217 @@ class LocalMusicServiceImpl {
         err instanceof Error ? err.message : '');
     }
     return '';
+  }
+
+  // ------------------------------------------------------------ 在线匹配
+
+  /** 曲目已保存的匹配结果（没有返回 null） */
+  matchOf(trackId: string): MatchSongInfo | null {
+    const index = this.matchRecordIndexOf(trackId);
+    if (index < 0) {
+      return null;
+    }
+    const json = this.matches[index].matchJson;
+    return json.length > 0 ? infoFromJson(json) : null;
+  }
+
+  /** 手动匹配面板选中一条：落盘（下次直接用它的歌词与封面）+ 异步补封面 */
+  async applyPickedMatch(trackId: string, source: string, info: MatchSongInfo): Promise<void> {
+    await this.saveMatch(trackId, source, info);
+    void this.applyMatchCover(trackId, info);
+  }
+
+  /** 曲目是否搜过（成功或确认无结果都算） */
+  matchTried(trackId: string): boolean {
+    const index = this.matchRecordIndexOf(trackId);
+    return index >= 0 && this.matches[index].matchAt > 0;
+  }
+
+  /** 保存用户选中 / 自动匹配的在线歌曲（下次直接用它的歌词与封面） */
+  async saveMatch(trackId: string, source: string, info: MatchSongInfo): Promise<void> {
+    const json = infoToJson(info);
+    const index = this.matchRecordIndexOf(trackId);
+    if (index >= 0) {
+      this.matches[index].source = source;
+      this.matches[index].matchJson = json;
+      this.matches[index].matchAt = Date.now();
+    } else {
+      this.matches.push({ trackId: trackId, source: source, matchJson: json, matchAt: Date.now() });
+    }
+    await this.persistMatches();
+  }
+
+  /** 清除匹配：保留 matchAt（表示搜过了），自动匹配不会因此重试 */
+  async clearMatch(trackId: string): Promise<void> {
+    const index = this.matchRecordIndexOf(trackId);
+    if (index < 0) {
+      return;
+    }
+    this.matches[index].source = '';
+    this.matches[index].matchJson = '';
+    if (this.matches[index].matchAt === 0) {
+      this.matches[index].matchAt = Date.now();
+    }
+    await this.persistMatches();
+  }
+
+  /**
+   * core 取词入口（ResolvePlayback 的 local 分支回调到这里）。
+   *
+   * 顺序：已保存的匹配直接用 → 设置关了/搜过了就不动 → 按用户启用的平台顺序自动匹配。
+   * 自动匹配是「宁缺勿错」的（打分规则见 core/music/local/LyricMatch），
+   * 匹配成功会顺手把封面也补上。
+   */
+  private async resolveLocalMatchLyric(musicInfo: MusicInfo): Promise<LyricInfo | null> {
+    const trackId = musicInfo.id ?? musicInfo.songmid ?? '';
+    if (trackId.length === 0) {
+      return null;
+    }
+    const saved = this.matchOf(trackId);
+    if (saved) {
+      return this.fetchMatchedLyric(saved);
+    }
+    const settings = settingsService.get();
+    if (!settings.autoMatchLocalLyric || this.matchTried(trackId)) {
+      return null;
+    }
+    const track = this.libraryItem(trackId);
+    const name = track ? track.name : musicInfo.name;
+    const singer = track ? track.singer : musicInfo.singer;
+    const durationMs = track ? track.duration : 0;
+    const platforms = orderedEnabledSources(settings.sourceOrder, settings.disabledSources);
+    const result = await autoMatchLyric(name, singer, durationMs, platforms);
+    if (result.match) {
+      await this.saveMatch(trackId, result.match.source, result.match.info);
+      void this.applyMatchCover(trackId, result.match.info);
+      return this.fetchMatchedLyric(result.match.info);
+    }
+    // 有平台应答过但没找到：记下来，避免每次播放都重搜。
+    // 全部平台都失败（断网）时不记 —— 不能因第一次恰好没网就永久失去歌词。
+    if (result.searched) {
+      await this.markMatchTried(trackId);
+    }
+    return null;
+  }
+
+  /** 拿匹配到的平台歌去走正常歌词链路（翻译/罗马音/缓存/简繁全部生效） */
+  private async fetchMatchedLyric(info: MatchSongInfo): Promise<LyricInfo | null> {
+    try {
+      const lyric = await getLyricInfo({ musicInfo: toPlatformMusicInfo(info) });
+      if (lyric.lyric && lyric.lyric.length > 0) {
+        return lyric;
+      }
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'fetch matched lyric failed: %{public}s',
+        err instanceof Error ? err.message : JSON.stringify(err));
+    }
+    return null;
+  }
+
+  /** 匹配成功但本地没有封面时，把平台封面下载为封面缓存（失败不影响主流程） */
+  private async applyMatchCover(trackId: string, info: MatchSongInfo): Promise<void> {
+    const track = this.libraryItem(trackId);
+    if (!track || (track.picUrl && track.picUrl.length > 0) || info.img.length <= 8) {
+      return;
+    }
+    try {
+      const data = await httpRequestBinary(info.img);
+      if (!data || data.byteLength < 100) {
+        return;
+      }
+      const coverPath = `${track.filePath}.cover.jpg`;
+      const dst: fs.File = fs.openSync(coverPath, fs.OpenMode.CREATE | fs.OpenMode.WRITE_ONLY);
+      try {
+        fs.writeSync(dst.fd, data);
+        fs.fsyncSync(dst.fd);
+      } finally {
+        fs.closeSync(dst);
+      }
+      track.picUrl = coverPath;
+      await this.persist();
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'apply matched cover failed: %{public}s',
+        err instanceof Error ? err.message : JSON.stringify(err));
+    }
+  }
+
+  /**
+   * 「全部匹配」：给曲库里还没有匹配的本地歌逐首自动匹配。
+   * 跳过已有匹配的（含手动匹配的，不能覆盖用户的选择）。
+   */
+  async matchAllTracks(onProgress?: (done: number, total: number, name: string) => void): Promise<MatchAllSummary> {
+    const settings = settingsService.get();
+    const platforms = orderedEnabledSources(settings.sourceOrder, settings.disabledSources);
+    const targets: LocalMusicInfo[] = [];
+    for (const track of this.library) {
+      if (!this.matchOf(track.id)) {
+        targets.push(track);
+      }
+    }
+    let ok = 0;
+    let fail = 0;
+    for (let i = 0; i < targets.length; i++) {
+      const track = targets[i];
+      onProgress?.(i, targets.length, track.name);
+      const result = await autoMatchLyric(track.name, track.singer, track.duration, platforms);
+      if (result.match) {
+        await this.saveMatch(track.id, result.match.source, result.match.info);
+        void this.applyMatchCover(track.id, result.match.info);
+        ok += 1;
+      } else {
+        fail += 1;
+        if (result.searched) {
+          await this.markMatchTried(track.id);
+        }
+      }
+      onProgress?.(i + 1, targets.length, track.name);
+    }
+    hilog.info(DOMAIN, TAG, 'match all done: %{public}d ok, %{public}d fail', ok, fail);
+    return { ok: ok, fail: fail, total: targets.length };
+  }
+
+  private async markMatchTried(trackId: string): Promise<void> {
+    const index = this.matchRecordIndexOf(trackId);
+    if (index >= 0) {
+      if (this.matches[index].matchAt === 0) {
+        this.matches[index].matchAt = Date.now();
+        await this.persistMatches();
+      }
+      return;
+    }
+    this.matches.push({ trackId: trackId, source: '', matchJson: '', matchAt: Date.now() });
+    await this.persistMatches();
+  }
+
+  private matchRecordIndexOf(trackId: string): number {
+    for (let i = 0; i < this.matches.length; i++) {
+      if (this.matches[i].trackId === trackId) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  private libraryItem(trackId: string): LocalMusicInfo | null {
+    const index = this.indexOf(trackId);
+    return index >= 0 ? this.library[index] : null;
+  }
+
+  /** 重扫后丢掉已不存在曲目的匹配记录 */
+  private async pruneMatches(): Promise<void> {
+    const before = this.matches.length;
+    this.matches = this.matches.filter((record: LocalMatchRecord) => this.indexOf(record.trackId) >= 0);
+    if (this.matches.length !== before) {
+      await this.persistMatches();
+    }
+  }
+
+  private async persistMatches(): Promise<void> {
+    try {
+      await storageService.setString(StorageKeys.LOCAL_MUSIC_MATCHES, JSON.stringify(this.matches));
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'persist local matches failed: %{public}s', JSON.stringify(err));
+    }
   }
 
   private indexOf(trackId: string): number {

@@ -1455,6 +1455,15 @@ export class PlayerService {
     this.lyricHub.refreshIndex();
   }
 
+  /** 当前正在播的本地歌换了匹配结果后重新取词 */
+  reloadLyricForCurrent(): void {
+    const musicInfo = playerStateData.musicInfo;
+    if (!musicInfo) {
+      return;
+    }
+    this.lyricHub.reloadForSong(musicInfo);
+  }
+
   private loadLyricForSong(musicInfo: MusicInfo): void {
     this.lyricHub.loadForSong(musicInfo);
   }
