@@ -534,6 +534,25 @@ CHECKS = [
  ('自动备份启动即恢复', 'app/entryability/EntryAbility.ets', r'backupService\.initialize\(\)'),
  ('备份设置页先初始化服务', 'pages/Home/Setting/BackupSection.ets',
   r'await backupService\.initialize\(\)'),
+ # —— 音源管理 / 自动跨源（qoder 交付后由 Codex 收口，判据在此钉住）——
+ ('音源顺序单一出口', 'core/music/SourcePolicy.ets', r'export function orderedEnabledSources'),
+ ('搜索聚合按用户音源顺序', 'core/search/search.ets',
+  r'orderedEnabledSources\(settings\.sourceOrder, settings\.disabledSources\)'),
+ ('取链显式关闭内部回退', 'service/PlayerService.ets', r'allowToggleSource: false'),
+ ('播放身份 key 单一实现', 'core/music/PlayKeys.ets', r'export function playKeyOfIds'),
+ # —— 桌面卡片 / 锁屏实况窗 ——
+ ('卡片跨进程契约编解码单点', 'utils/CardFormCodec.ets', r'export function decodeRegisteredCards'),
+ ('卡片快照单写入方', 'service/CardFormService.ets', r'CARD_SNAPSHOT'),
+ ('卡片页全 ArkUI 绘制（不引 rawfile 贴图）', 'widget/pages/MusicCard.ets',
+  r'SymbolGlyph', r'\$rawfile\(|rawfile/'),
+ ('卡片页配色走媒体层 token', 'widget/pages/MusicCard.ets',
+  r'MediaOverlayTokens', r"'#[0-9A-Fa-f]{6,8}'"),
+ ('锁屏页配色走媒体层 token', 'liveview/pages/LockScreenPage.ets',
+  r'MediaOverlayTokens', r"'#[0-9A-Fa-f]{6,8}'"),
+ ('实况窗文案由 UI 进程下发', 'liveview/pages/LockScreenPage.ets',
+  r'LiveViewLyricPayload', r"import[^\n]*LocalizationService"),
+ # 应用级存储文件名归基础设施（卡片契约不得再定义）
+ ('preferences 名字单点声明', 'utils/PreferenceNames.ets', r'APP_PREFERENCES_NAME'),
 ]
 
 fails = []

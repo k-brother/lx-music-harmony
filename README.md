@@ -51,6 +51,13 @@
 | HarmonyOS SDK | API 26（`compileSdkVersion` / `targetSdkVersion` = 26.0.0） |
 | 设备 | HarmonyOS NEXT 手机 / 2in1（系统桌面歌词等能力需 API 26 真机） |
 
+> **SDK 说明（重要）**：实况窗（LiveView）与桌面服务卡片依赖 **HMS 套件**
+> （`@kit.LiveViewKit`、`@kit.FormKit` 等），只有 **DevEco Studio 自带的 HarmonyOS SDK**
+> （`<DevEco 安装目录>/Contents/sdk/default/hms`）提供。
+> 如果 SDK 管理里只装了 OpenHarmony SDK（不含 HMS，例如 `~/Library/OpenHarmony/Sdk/...`），
+> 这两块代码会因为找不到 `@kit.LiveViewKit` 的类型声明而编译失败。
+> 本工程 hvigor 的默认解析路径就是 DevEco 自带 SDK，用 IDE 打开即可正常构建。
+
 ## 构建
 
 用 DevEco Studio 打开本仓库根目录，首次打开后按提示配置签名：
