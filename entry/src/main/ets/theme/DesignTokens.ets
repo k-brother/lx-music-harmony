@@ -238,7 +238,8 @@ export class DesignTokens {
    * Tab 里的滚动内容按这个值留出底部空间，内容才能滚到玻璃底舱"下面"（玻璃才有东西可透）。
    */
   static bottomDockHeight(): number {
-    return 128;
+    // 迷你播放条 50 + 底舱间距 4 + Tab 栏 44 + 底舱下边距 4
+    return 102;
   }
 
   // Typography scale (core surfaces: tab bar / player bar / play detail)

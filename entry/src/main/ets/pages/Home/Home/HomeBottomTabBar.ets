@@ -21,14 +21,14 @@ export interface HomeTabItem {
   label: string;
 }
 
-/** 底部 Tab 栏高度（玻璃胶囊的高度按它居中） */
-const TAB_BAR_HEIGHT: number = 50;
-/** 单个条目高度（图标 + 文案） */
-const TAB_ITEM_HEIGHT: number = 46;
+/** 底部 Tab 栏高度（玻璃胶囊按它居中）——44 与系统底部导航一致，再高就"压屏"了 */
+const TAB_BAR_HEIGHT: number = 44;
+/** 单个条目高度（图标 + 文案）：留 40 保证点按手感，条高 44 只多出 2vp 余量 */
+const TAB_ITEM_HEIGHT: number = 40;
 /** 选中胶囊相对条目的内缩（左右各缩一点，胶囊不会顶着相邻条目） */
 const CAPSULE_INSET: number = 6;
 /** 选中胶囊高度 */
-const CAPSULE_HEIGHT: number = 36;
+const CAPSULE_HEIGHT: number = 30;
 /** 滚动时的收放比例（小到能感觉到"回应"，又不会明显跳） */
 const SCROLL_PRESS_SCALE: number = 0.985;
 
@@ -82,11 +82,11 @@ export struct HomeBottomTabBar {
 
   @Builder
   TabItem(tab: HomeTabItem) {
-    Column({ space: 3 }) {
+    Column({ space: 2 }) {
       // 系统符号必须用 SymbolGlyph 渲染（Image 加载 sys.symbol.* 会空白）
       SymbolGlyph(tab.icon)
-        // 底部导航图标按平台规范取 22vp（iconMd 是正文图标尺寸，这里加一档）
-        .fontSize(DesignTokens.iconMd() + 6)
+        // 底部导航图标按平台规范取 20vp（iconMd 是正文图标尺寸，这里加一档）
+        .fontSize(DesignTokens.iconMd() + 4)
         .fontColor([this.activeIndex === tab.idx ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme)])
         .scale({ x: this.activeIndex === tab.idx ? 1.08 : 1, y: this.activeIndex === tab.idx ? 1.08 : 1 })
         .animation({ duration: DesignTokens.motionFast(), curve: Curve.EaseOut })

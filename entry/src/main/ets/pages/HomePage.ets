@@ -1119,7 +1119,7 @@ export struct HomePage {
       left: DesignTokens.spaceGutter(),
       right: DesignTokens.spaceGutter(),
       // 浮在手势条之上（底舱不铺到底，壁纸/内容在它周围露出来）
-      bottom: this.safeBottomVp + DesignTokens.spaceUnit(),
+      bottom: this.safeBottomVp + DesignTokens.spaceUnit() / 2,
     })
   }
 

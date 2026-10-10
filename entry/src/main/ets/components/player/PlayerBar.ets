@@ -206,8 +206,9 @@ export struct PlayerBar {
       this.MiniControls()
     }
     .width('100%')
-    .height(62)
-    .padding({ left: 14, right: 14, top: 5, bottom: 5 })
+    // 高度按"迷你"的定位收紧：封面 40 + 上下各 5 —— 底舱整体才不会又高又笨
+    .height(50)
+    .padding({ left: 12, right: 12, top: 5, bottom: 5 })
     .margin({
       left: this.glass ? 0 : DesignTokens.spaceGutter(),
       right: this.glass ? 0 : DesignTokens.spaceGutter(),
@@ -240,8 +241,8 @@ export struct PlayerBar {
   private MiniCover() {
     if (this.canRenderMiniCover(this.pic)) {
       Image(this.pic)
-        .width(48)
-        .height(48)
+        .width(40)
+        .height(40)
         .borderRadius(DesignTokens.radiusCover())
         .objectFit(ImageFit.Cover)
         .onError(() => {
@@ -255,8 +256,8 @@ export struct PlayerBar {
         .animation({ duration: this.showAnimation ? 200 : 0, curve: Curve.EaseOut })
     } else {
       Image($r('app.media.ic_player_cover_placeholder'))
-        .width(48)
-        .height(48)
+        .width(40)
+        .height(40)
         .borderRadius(DesignTokens.radiusCover())
         .objectFit(ImageFit.Cover)
         .accessibilityText(t('a11y_play'))
@@ -316,22 +317,22 @@ export struct PlayerBar {
       })
 
       Stack() {
-        Circle({ width: 36, height: 36 })
+        Circle({ width: 30, height: 30 })
           .fill(DesignTokens.accent())
         if (this.isPlay) {
           Image($r('app.media.ic_pd_pause'))
-            .width(13)
-            .height(13)
+            .width(12)
+            .height(12)
             .fillColor(DesignTokens.onAccent())
         } else {
           Image($r('app.media.ic_pd_play'))
-            .width(13)
-            .height(13)
+            .width(12)
+            .height(12)
             .fillColor(DesignTokens.onAccent())
             .margin({ left: 1 })
         }
       }
-      .scale({ x: 0.9, y: 0.9 })
+      .scale({ x: 0.94, y: 0.94 })
       .responseRegion({ x: -4, y: -4, width: 44, height: 44 })
       .stateStyles({ pressed: this.pressDim })
       .accessibilityText(t('a11y_play'))
