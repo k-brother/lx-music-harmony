@@ -24,6 +24,17 @@ export enum RouteName {
   LOGS = 'logs',
   /** 听歌识曲 */
   RECOGNIZE = 'recognize',
+  // 设置二级页：值即分类标识（首页分类入口 → 对应分类页），目录见
+  // pages/Home/Setting/SettingsCatalog，页面按这些值选择要渲染的分组
+  SETTINGS_BASIC = 'settings-basic',
+  SETTINGS_PLAYBACK = 'settings-playback',
+  SETTINGS_LYRIC = 'settings-lyric',
+  SETTINGS_SOURCE = 'settings-source',
+  SETTINGS_STORAGE = 'settings-storage',
+  SETTINGS_APPEARANCE = 'settings-appearance',
+  SETTINGS_SEARCH_LIST = 'settings-search-list',
+  SETTINGS_BACKUP = 'settings-backup',
+  SETTINGS_ABOUT = 'settings-about',
 }
 
 // 导航参数类型

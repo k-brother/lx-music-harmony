@@ -85,6 +85,10 @@ export struct SettingsSection {
         this.ItemList()
       }
       .width('100%')
+      // 分组之间的留白由标题自带（标题的 padding）；没有标题的卡片
+      //（设置首页最后那张放「关于」的独立卡片）在这里补同一档，
+      // 否则两张卡片会贴在一起。
+      .padding({ top: this.title.length > 0 ? 0 : 18 })
     }
     .width('100%')
   }

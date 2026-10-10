@@ -9,6 +9,7 @@ import { BoardDetailPage } from './BoardDetailPage';
 import { SonglistDetailPage } from './SonglistDetailPage';
 import { PlayDetailPage } from './PlayDetailPage';
 import { SettingView } from './Home/SettingView';
+import { SettingsCategoryPage } from './Home/Setting/SettingsCategoryPage';
 import { navigationService, RouteName } from '../service/NavigationService';
 import { CommentPage } from './CommentPage';
 import { HistoryListPage } from './HistoryListPage';
@@ -180,6 +181,42 @@ export struct NavIndex {
     } else if (name === 'settings') {
       AppDestination({ routeName: 'SettingView' }) {
         SettingView()
+      }
+    } else if (name === 'settings-basic') {
+      AppDestination({ routeName: 'SettingsCategoryPage' }) {
+        SettingsCategoryPage({ category: RouteName.SETTINGS_BASIC })
+      }
+    } else if (name === 'settings-playback') {
+      AppDestination({ routeName: 'SettingsCategoryPage' }) {
+        SettingsCategoryPage({ category: RouteName.SETTINGS_PLAYBACK })
+      }
+    } else if (name === 'settings-lyric') {
+      AppDestination({ routeName: 'SettingsCategoryPage' }) {
+        SettingsCategoryPage({ category: RouteName.SETTINGS_LYRIC })
+      }
+    } else if (name === 'settings-source') {
+      AppDestination({ routeName: 'SettingsCategoryPage' }) {
+        SettingsCategoryPage({ category: RouteName.SETTINGS_SOURCE })
+      }
+    } else if (name === 'settings-storage') {
+      AppDestination({ routeName: 'SettingsCategoryPage' }) {
+        SettingsCategoryPage({ category: RouteName.SETTINGS_STORAGE })
+      }
+    } else if (name === 'settings-appearance') {
+      AppDestination({ routeName: 'SettingsCategoryPage' }) {
+        SettingsCategoryPage({ category: RouteName.SETTINGS_APPEARANCE })
+      }
+    } else if (name === 'settings-search-list') {
+      AppDestination({ routeName: 'SettingsCategoryPage' }) {
+        SettingsCategoryPage({ category: RouteName.SETTINGS_SEARCH_LIST })
+      }
+    } else if (name === 'settings-backup') {
+      AppDestination({ routeName: 'SettingsCategoryPage' }) {
+        SettingsCategoryPage({ category: RouteName.SETTINGS_BACKUP })
+      }
+    } else if (name === 'settings-about') {
+      AppDestination({ routeName: 'SettingsCategoryPage' }) {
+        SettingsCategoryPage({ category: RouteName.SETTINGS_ABOUT })
       }
     } else if (name === 'comment') {
       AppDestination({ routeName: 'CommentPage' }) {

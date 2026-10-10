@@ -5,13 +5,17 @@
  * 配不准就不显示。用户觉得该有词的时候，在这里搜一次、自己挑正确的那条，
  * 选中后落盘（local.music.matches）并立即对正在播放的同一首重新取词。
  *
- * 结构对齐 EditMetadataSheet：页面给初值 + 收回调，面板自己持有搜索状态；
+ * 形态与其它面板一致：底部面板（bindSheet，内容多所以用 large 档）+ 共享标题行
+ * （左标题 + 右上角 ×）。**不要**自己画「居中卡片 + 全屏遮罩」——挂在页面里会被裁剪，
+ * 观感也和其它面板两样（这条踩过）。「清除匹配」收在标题行右侧。
+ *
+ * 页面给初值 + 收回调，面板自己持有搜索状态；
  * 平台顺序取「设置 → 音源管理」里启用源的当前排序。
  */
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { DesignTokens } from '../../theme/DesignTokens';
 import { t, tf, sourceLabel } from '../../service/LocalizationService';
-import { dismissSheet } from '../../components/ui/BottomSheet';
+import { BottomSheet, dismissSheet } from '../../components/ui/BottomSheet';
 import { SheetHeader } from '../../components/ui/SheetHeader';
 import { localMusicService } from '../../service/LocalMusicService';
 import { settingsService } from '../../service/SettingsService';
@@ -146,57 +150,63 @@ export struct MatchLyricSheet {
   }
 
   build() {
-    Stack() {
-      // 遮罩：点空白处取消
-      Column()
-        .width('100%')
-        .height('100%')
-        .backgroundColor(DesignTokens.maskColor())
-        .onClick(() => {
+    BottomSheet({
+      visible: $visible,
+      // 标题自绘（左标题 + 右上角关闭），不用 BottomSheet 的居中标题栏
+      title: '',
+      // 结果列表要滚动，用大面板档（高度接近全屏），与小面板的自适应高度区分开
+      sheetSize: 'large',
+      onDismiss: (): void => {
+        this.cancel();
+      },
+      content: (): void => {
+        this.Content();
+      },
+    })
+  }
+
+  @Builder
+  Content() {
+    Column({ space: 10 }) {
+      SheetHeader({
+        title: t('match_lyric_sheet_title'),
+        // 有已保存的匹配时才有「清除」
+        trailing: (): void => {
+          this.ClearAction();
+        },
+        onClose: (): void => {
           this.cancel();
-        })
+        },
+      })
 
-      Column({ space: 10 }) {
-        SheetHeader({
-          title: t('match_lyric_sheet_title'),
-          onClose: (): void => {
-            this.cancel();
-          },
-        })
+      Text(t('match_lyric_hint'))
+        .fontSize(DesignTokens.fontCaption())
+        .fontColor(DesignTokens.labelTertiary(this.theme))
+        .width('100%')
+        .textAlign(TextAlign.Start)
 
-        Text(t('match_lyric_hint'))
-          .fontSize(DesignTokens.fontCaption())
-          .fontColor(DesignTokens.labelTertiary(this.theme))
-          .width('100%')
-          .textAlign(TextAlign.Start)
-
-        if (this.hasSavedMatch) {
-          Text(t('match_lyric_clear'))
-            .fontSize(DesignTokens.fontCaption())
-            .fontColor(DesignTokens.danger())
-            .width('100%')
-            .textAlign(TextAlign.Start)
-            .padding({ top: 2, bottom: 2 })
-            .onClick(() => {
-              this.clearSaved();
-            })
-        }
-
-        this.SearchBar()
-        this.StatusLine()
-        this.ResultList()
-      }
-      .width('86%')
-      .constraintSize({ maxHeight: '82%' })
-      .padding(18)
-      .backgroundColor(DesignTokens.card(this.theme))
-      .borderRadius(20)
-      .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
-      // 吃掉点击，避免点面板本体也触发遮罩的取消
-      .onClick(() => {})
+      this.SearchBar()
+      this.StatusLine()
+      this.ResultList()
     }
     .width('100%')
-    .height('100%')
+    .layoutWeight(1)
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  /** 标题行右侧的次要危险动作（没有已保存的匹配时不渲染） */
+  @Builder
+  ClearAction() {
+    if (this.hasSavedMatch) {
+      Text(t('match_lyric_clear'))
+        .fontSize(DesignTokens.fontSubhead())
+        .fontColor(DesignTokens.danger())
+        .maxLines(1)
+        .padding({ left: 8, right: 8 })
+        .onClick(() => {
+          this.clearSaved();
+        })
+    }
   }
 
   @Builder

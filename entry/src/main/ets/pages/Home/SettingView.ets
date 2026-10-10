@@ -1,64 +1,54 @@
 /**
- * 设置页（编排层）
+ * 设置页（首页 = 分类入口）
  *
- * 2971 行 → ~120 行：页面只负责「按顺序摆放分组组件 + 统一外边距」，
- * 每个分组的视觉/状态/交互/持久化都在 pages/Home/Setting/ 下的组件里，
- * 分组自身通过 SettingsSection（分组卡片）与 DialogService（确认/菜单/提示）统一呈现。
+ * 首页只回答一个问题：「要调的那项属于哪一类」。每行点进一个二级页
+ * （pages/Home/Setting/SettingsCategoryPage），具体设置项都在那边，
+ * 所以设置项加到几十上百项，这一页也不会跟着变长。
  *
- * 之所以这样拆：
- * - 原来 40 个 @State + 12 个构造器 + 备份导入导出混在一个页面里，改一处要读整页；
- * - 现在「某个设置不生效」只需要看对应分组那 100~200 行，定位成本低一个数量级；
- * - 新增设置项 = 加一个分组组件或往现有分组的 items 里加一项，不会互相踩状态。
+ * 分类目录（有哪些分类、顺序、文案）在 pages/Home/Setting/SettingsCatalog，
+ * 这里只负责摆放；分组组件本身仍然在 pages/Home/Setting/ 下，没有被搬动。
  */
 import { DesignTokens } from '../../theme/DesignTokens';
 import { NavBar } from '../../components/ui/NavBar';
 import { t } from '../../service/LocalizationService';
 import { Breakpoints } from '../../theme/Breakpoints';
-import { BasicSection } from './Setting/BasicSection';
-import { PlaybackSection } from './Setting/PlaybackSection';
-import { DownloadSection } from './Setting/DownloadSection';
-import { SearchSection } from './Setting/SearchSection';
-import { ListSection } from './Setting/ListSection';
-import { StorageSection } from './Setting/StorageSection';
-import { BackupSection } from './Setting/BackupSection';
-import { SyncSection } from './Setting/SyncSection';
-import { AppearanceSection } from './Setting/AppearanceSection';
-import { DesktopLyricSection } from './Setting/DesktopLyricSection';
-import { LiveViewSection } from './Setting/LiveViewSection';
-import { CustomSourceSection } from './Setting/CustomSourceSection';
-import { SourceSection } from './Setting/SourceSection';
-import { AboutSection } from './Setting/AboutSection';
+import { navigateTo } from '../../service/NavigationService';
+import { SettingsSection } from '../../components/ui/SettingsSection';
+import { buttonRow } from '../../components/ui/SettingsRows';
+import type { SettingSectionItem } from '../../components/ui/SettingsTypes';
+import {
+  settingsHomeGroups,
+  type SettingsCategoryGroup,
+} from './Setting/SettingsCatalog';
 
 @Component
 export struct SettingView {
   @StorageProp('theme') theme: string = 'light';
   /** 一多：窗口宽度（vp），大屏时内容列居中 */
   @StorageProp('windowWidthVp') windowWidthVp: number = 360;
-  /** 一多：断点（lg 时设置分组分两列，避免单列拉得过长） */
-  @StorageProp('breakpoint') breakpoint: string = 'sm';
+  /** 语言版本号：分类文案是运行时算出来的，切语言后要跟着重渲染 */
+  @StorageProp('langVersion') langVersion: number = 0;
 
-  /** 左列分组（常用项） */
-  @Builder
-  LeftSections() {
-    BasicSection()
-    PlaybackSection()
-    DownloadSection()
-    SearchSection()
-    ListSection()
-    StorageSection()
+  /** 一张卡片的行：每个分类一行，右侧箭头，点进对应二级页 */
+  private buildRows(group: SettingsCategoryGroup): SettingSectionItem[] {
+    const items: SettingSectionItem[] = [];
+    for (let i = 0; i < group.rows.length; i++) {
+      const row = group.rows[i];
+      items.push(buttonRow(row.title, (): void => {
+        navigateTo(row.route);
+      }, { description: row.desc }));
+    }
+    return items;
   }
 
-  /** 右列分组（进阶项） */
   @Builder
-  RightSections() {
-    BackupSection()
-    SyncSection()
-    AppearanceSection()
-    DesktopLyricSection()
-    LiveViewSection()
-    SourceSection()
-    CustomSourceSection()
-    AboutSection()
+  CategoryGroups() {
+    ForEach(settingsHomeGroups(), (group: SettingsCategoryGroup, index: number) => {
+      SettingsSection({
+        title: group.title,
+        items: this.buildRows(group),
+      })
+    }, (group: SettingsCategoryGroup, index: number): string => `${index}_${group.title}`)
   }
 
   build() {
@@ -68,33 +58,10 @@ export struct SettingView {
 
       Scroll() {
         Column() {
-          // 平板横屏 / PC：分成两列，一屏能看到更多分组（与 iPad 版设置页的密度接近）
-        if (Breakpoints.isLarge(this.breakpoint)) {
-          Row({ space: 0 }) {
-            Column() {
-              this.LeftSections()
-            }
-            .layoutWeight(1)
-            .alignItems(HorizontalAlign.Start)
-
-            Column() {
-              this.RightSections()
-            }
-            .layoutWeight(1)
-            .alignItems(HorizontalAlign.Start)
-          }
-          .width('100%')
-          .alignItems(VerticalAlign.Top)
-        } else {
-          Column() {
-            this.LeftSections()
-            this.RightSections()
-          }
-          .width('100%')
+          this.CategoryGroups()
         }
-      }
-      .width('100%')
-      // 分组卡片左右留白（8pt 网格）；大屏额外居中，避免卡片被拉满整屏
+        .width('100%')
+        // 分组卡片左右留白（8pt 网格）；大屏额外居中，避免卡片被拉满整屏
         .padding({
           left: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
           right: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),

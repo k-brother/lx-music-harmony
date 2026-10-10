@@ -1,14 +1,18 @@
 /**
  * 设置 → 备份与恢复 → WebDAV 设置面板
  *
- * 结构对齐 EditMetadataSheet：输入草稿由面板持有，页面只给初值、收回「保存」的新值。
+ * 形态与 InputSheet 一致：底部面板（bindSheet）+ 共享标题行（左标题 + 右上角 ×），
+ * 高度按内容自适应。**不要**自己画「居中卡片 + 全屏遮罩」——挂在设置页的 Scroll 里
+ * 会被裁剪，观感也和其它面板两样（这条踩过）。
+ *
+ * 输入草稿由面板持有，页面只给初值、收回「保存」的新值；
  * 校验在页面的保存回调里做（格式错误时面板保持打开并提示，不静默关闭）。
- * 密码用密码输入框；地址与账号存进设置存储，口令走系统资产存储（service/CredentialStore），
- * 都不进备份数据 —— 备份包只带非敏感的 settings 快照。
+ * 「清除配置」是面板里的次要危险动作，收在标题行右侧。
+ * 地址与账号存进设置存储，口令走系统资产存储（service/CredentialStore），都不进备份数据。
  */
 import { DesignTokens } from '../../../theme/DesignTokens';
 import { t } from '../../../service/LocalizationService';
-import { dismissSheet } from '../../../components/ui/BottomSheet';
+import { BottomSheet, dismissSheet } from '../../../components/ui/BottomSheet';
 import { requestFocusSafe } from '../../../utils/FocusTools';
 import { SheetHeader } from '../../../components/ui/SheetHeader';
 
@@ -48,53 +52,55 @@ export struct WebDavSheet {
   }
 
   build() {
-    Stack() {
-      // 遮罩：点空白处取消
-      Column()
-        .width('100%')
-        .height('100%')
-        .backgroundColor(DesignTokens.maskColor())
-        .onClick(() => {
+    BottomSheet({
+      visible: $visible,
+      // 标题自绘（左标题 + 右上角关闭），不用 BottomSheet 的居中标题栏
+      title: '',
+      onDismiss: (): void => {
+        this.cancel();
+      },
+      content: (): void => {
+        this.Form();
+      },
+    })
+  }
+
+  @Builder
+  Form() {
+    Column({ space: 12 }) {
+      SheetHeader({
+        title: t('webdav_sheet_title'),
+        // 已配置时才有「清除」：没配过就没有可清的东西
+        trailing: (): void => {
+          this.ClearAction();
+        },
+        onClose: (): void => {
           this.cancel();
-        })
+        },
+      })
 
-      Column({ space: 10 }) {
-        SheetHeader({
-          title: t('webdav_sheet_title'),
-          onClose: (): void => {
-            this.cancel();
-          },
-        })
-
-        this.Fields()
-
-        if (this.configured) {
-          Text(t('webdav_clear'))
-            .fontSize(DesignTokens.fontCaption())
-            .fontColor(DesignTokens.danger())
-            .width('100%')
-            .textAlign(TextAlign.Center)
-            .padding(4)
-            .onClick(() => {
-              this.visible = dismissSheet();
-              if (this.onClear) {
-                this.onClear();
-              }
-            })
-        }
-
-        this.Actions()
-      }
-      .width('86%')
-      .padding(18)
-      .backgroundColor(DesignTokens.card(this.theme))
-      .borderRadius(20)
-      .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
-      // 吃掉点击，避免点面板本体也触发遮罩的取消
-      .onClick(() => {})
+      this.Fields()
+      this.Actions()
     }
     .width('100%')
-    .height('100%')
+  }
+
+  /** 标题行右侧的次要危险动作（未配置时不渲染，保持标题行的对称留白） */
+  @Builder
+  ClearAction() {
+    if (this.configured) {
+      Text(t('webdav_clear'))
+        .fontSize(DesignTokens.fontSubhead())
+        .fontColor(DesignTokens.danger())
+        .maxLines(1)
+        .padding({ left: 8, right: 8 })
+        .onClick(() => {
+          this.visible = dismissSheet();
+          if (this.onClear) {
+            this.onClear();
+          }
+        })
+    }
   }
 
   @Builder
@@ -128,13 +134,14 @@ export struct WebDavSheet {
   /** 保存（取消收进标题行右上角的 ×） */
   @Builder
   Actions() {
-    Row({ space: 10 }) {
+    Row() {
       Button(t('confirm'))
-        .fontSize(DesignTokens.fontSubhead())
+        .type(ButtonType.Capsule)
+        .layoutWeight(1)
+        .height(DesignTokens.touchTarget())
+        .fontSize(DesignTokens.fontTitle())
         .fontColor(DesignTokens.onAccent())
         .backgroundColor(DesignTokens.accent())
-        .borderRadius(18)
-        .layoutWeight(1)
         .onClick(() => {
           if (this.onSave) {
             this.onSave(this.draftUrl.trim(), this.draftUser.trim(), this.draftPassword);
@@ -142,7 +149,7 @@ export struct WebDavSheet {
         })
     }
     .width('100%')
-    .margin({ top: 6 })
+    .margin({ top: 4 })
   }
 }
 
@@ -179,12 +186,13 @@ struct WebDavField {
           }
         })
         .width('100%')
-        .height(40)
-        .fontSize(DesignTokens.fontSubhead())
+        .height(DesignTokens.touchTarget())
+        .fontSize(DesignTokens.fontBody())
         .fontColor(DesignTokens.labelPrimary(this.theme))
+        .placeholderColor(DesignTokens.labelTertiary(this.theme))
         .backgroundColor(DesignTokens.mutedFill(this.theme))
-        .borderRadius(10)
-        .padding({ left: 12, right: 12 })
+        .borderRadius(12)
+        .padding({ left: 14, right: 14 })
         .margin({ top: 6 })
         .onChange((text: string) => {
           if (this.onValueChange) {

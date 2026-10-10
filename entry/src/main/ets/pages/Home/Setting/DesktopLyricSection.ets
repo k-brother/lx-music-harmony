@@ -282,13 +282,39 @@ export struct DesktopLyricSection {
         ];
   }
 
-  /** 分组装配：状态说明 / 位置颜色 / 文字样式 / 行为（原 272 行单函数按用途拆开） */
-  private buildItems(): SettingSectionItem[] {
+  /**
+   * 每一类设置项各成一张卡片：开关与状态 / 位置与颜色 / 文字与排版 / 外观样式 / 行为。
+   *
+   * 原来这 24 项挤在同一张卡片里，找「描边宽度」要顺着屏幕翻半天；
+   * 装配函数本来就按用途拆好了（appendStatusItems 等），这里只是让卡片跟它们一一对应。
+   * 分组口径见各组函数的注释。
+   */
+  private statusItems(): SettingSectionItem[] {
     const items: SettingSectionItem[] = [];
     this.appendStatusItems(items);
+    return items;
+  }
+
+  private positionItems(): SettingSectionItem[] {
+    const items: SettingSectionItem[] = [];
     this.appendPositionItems(items);
+    return items;
+  }
+
+  private textItems(): SettingSectionItem[] {
+    const items: SettingSectionItem[] = [];
     this.appendTextItems(items);
+    return items;
+  }
+
+  private styleItems(): SettingSectionItem[] {
+    const items: SettingSectionItem[] = [];
     this.appendStyleItems(items);
+    return items;
+  }
+
+  private behaviorItems(): SettingSectionItem[] {
+    const items: SettingSectionItem[] = [];
     this.appendBehaviorItems(items);
     return items;
   }
@@ -576,9 +602,13 @@ export struct DesktopLyricSection {
   }
 
   build() {
-    SettingsSection({
-      title: t('settings_desktop_lyric'),
-      items: this.buildItems(),
-    })
+    Column() {
+      SettingsSection({ title: t('settings_desktop_lyric'), items: this.statusItems() })
+      SettingsSection({ title: t('lyric_group_position'), items: this.positionItems() })
+      SettingsSection({ title: t('lyric_group_text'), items: this.textItems() })
+      SettingsSection({ title: t('lyric_group_style'), items: this.styleItems() })
+      SettingsSection({ title: t('lyric_group_behavior'), items: this.behaviorItems() })
+    }
+    .width('100%')
   }
 }

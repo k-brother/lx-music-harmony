@@ -174,6 +174,29 @@ export function buildEnUS(): Map<string, string> {
   m.set('toast_download_deleted', 'Deleted {0} task(s)');
   m.set('settings_title', 'Settings');
   m.set('settings_basic', 'Basic');
+  // Settings home category entries (page titles and row descriptions; see
+  // pages/Home/Setting/SettingsCatalog)
+  m.set('settings_home_group_play', 'Playback');
+  m.set('settings_home_group_ui', 'Interface');
+  m.set('settings_home_group_data', 'Data');
+  m.set('settings_group_lyric', 'Desktop Lyrics & Live View');
+  m.set('settings_group_storage', 'Downloads & Storage');
+  m.set('settings_group_search_list', 'Search & Lists');
+  m.set('settings_group_backup_sync', 'Backup & Sync');
+  m.set('settings_group_basic_desc', 'Language, startup page, sharing and haptics');
+  m.set('settings_group_playback_desc', 'Quality, play mode, volume, sleep timer');
+  m.set('settings_group_lyric_desc', 'Desktop lyric style and position, system live view');
+  // Cards inside the desktop-lyric page (mirrors DesktopLyricSection's groups)
+  m.set('lyric_group_position', 'Position & Colors');
+  m.set('lyric_group_text', 'Text & Layout');
+  m.set('lyric_group_style', 'Appearance');
+  m.set('lyric_group_behavior', 'Behavior');
+  m.set('settings_group_source_desc', 'Enable and order, auto switch, custom sources');
+  m.set('settings_group_storage_desc', 'Download path and file naming, cache cleanup');
+  m.set('settings_group_appearance_desc', 'Theme, light and dark, font, animation');
+  m.set('settings_group_search_list_desc', 'Search source and history, list display');
+  m.set('settings_group_backup_sync_desc', 'Full backup and restore, WebDAV, sync');
+  m.set('settings_group_about_desc', 'Version, run logs, reset to defaults');
   m.set('settings_language', 'Language');
   m.set('settings_startup_page', 'Startup Page');
   m.set('settings_exit_confirm', 'Exit Confirmation');

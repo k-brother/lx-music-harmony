@@ -92,6 +92,9 @@ python3 "${SCRIPT_DIR}/check_design_tokens.py"
 echo "== 通用属性链噪音 =="
 python3 "${SCRIPT_DIR}/check_style_noise.py"
 
+echo "== 面板（弹框）形态一致性 =="
+python3 "${SCRIPT_DIR}/check_sheet_convention.py"
+
 echo "== 页面底部安全区绘制 =="
 python3 "${SCRIPT_DIR}/check_safe_area.py"
 

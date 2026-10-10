@@ -185,6 +185,28 @@ export function buildZhCN(): Map<string, string> {
   m.set('toast_download_deleted', '已删除 {0} 个任务');
   m.set('settings_title', '设置');
   m.set('settings_basic', '基础设置');
+  // 设置首页的分类入口（分类页标题与行说明；目录见 pages/Home/Setting/SettingsCatalog）
+  m.set('settings_home_group_play', '播放');
+  m.set('settings_home_group_ui', '界面');
+  m.set('settings_home_group_data', '数据');
+  m.set('settings_group_lyric', '桌面歌词与实况窗');
+  m.set('settings_group_storage', '下载与存储');
+  m.set('settings_group_search_list', '搜索与列表');
+  m.set('settings_group_backup_sync', '备份与同步');
+  m.set('settings_group_basic_desc', '语言、启动页、分享与触感');
+  m.set('settings_group_playback_desc', '音质、播放模式、音量、定时退出');
+  m.set('settings_group_lyric_desc', '桌面歌词样式与位置、系统实况窗');
+  // 桌面歌词二级页里的卡片分组（与 DesktopLyricSection 的装配函数一一对应）
+  m.set('lyric_group_position', '位置与颜色');
+  m.set('lyric_group_text', '文字与排版');
+  m.set('lyric_group_style', '外观样式');
+  m.set('lyric_group_behavior', '行为');
+  m.set('settings_group_source_desc', '启用与排序、自动跨源、自定义源');
+  m.set('settings_group_storage_desc', '下载目录与文件名、缓存清理');
+  m.set('settings_group_appearance_desc', '主题、深浅色、字体、动画');
+  m.set('settings_group_search_list_desc', '搜索来源与历史、列表显示');
+  m.set('settings_group_backup_sync_desc', '整包备份恢复、WebDAV、同步');
+  m.set('settings_group_about_desc', '版本信息、运行日志、恢复默认设置');
   m.set('settings_language', '语言');
   m.set('settings_startup_page', '启动页面');
   m.set('settings_exit_confirm', '退出确认对话框');

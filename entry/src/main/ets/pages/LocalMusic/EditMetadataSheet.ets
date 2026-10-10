@@ -4,11 +4,14 @@
  * 从 LocalMusicPage 的 @Builder 抽成组件（原先 120 行内联在页面里）：
  * 输入草稿由面板自己持有，页面只给初值、收回「保存」时的新值，
  * 因此页面不必再为三个输入框各维护一份 @State。
- * 遮罩用 DesignTokens.maskColor()，与其他浮层同一套观感。
+ *
+ * 形态与 InputSheet 一致：底部面板（bindSheet）+ 共享标题行（左标题 + 右上角 ×），
+ * 高度按内容自适应。**不要**自己画「居中卡片 + 全屏遮罩」——挂在页面里会被容器裁剪，
+ * 观感也和其它面板两样（这条踩过）。
  */
 import { DesignTokens } from '../../theme/DesignTokens';
 import { t } from '../../service/LocalizationService';
-import { dismissSheet } from '../../components/ui/BottomSheet';
+import { BottomSheet, dismissSheet } from '../../components/ui/BottomSheet';
 import { requestFocusSafe } from '../../utils/FocusTools';
 import { SheetHeader } from '../../components/ui/SheetHeader';
 
@@ -44,37 +47,33 @@ export struct EditMetadataSheet {
   }
 
   build() {
-    Stack() {
-      // 遮罩：点空白处取消
-      Column()
-        .width('100%')
-        .height('100%')
-        .backgroundColor(DesignTokens.maskColor())
-        .onClick(() => {
+    BottomSheet({
+      visible: $visible,
+      // 标题自绘（左标题 + 右上角关闭），不用 BottomSheet 的居中标题栏
+      title: '',
+      onDismiss: (): void => {
+        this.cancel();
+      },
+      content: (): void => {
+        this.Form();
+      },
+    })
+  }
+
+  @Builder
+  Form() {
+    Column({ space: 12 }) {
+      SheetHeader({
+        title: t('edit_metadata'),
+        onClose: (): void => {
           this.cancel();
-        })
+        },
+      })
 
-      Column({ space: 10 }) {
-        SheetHeader({
-          title: t('edit_metadata'),
-          onClose: (): void => {
-            this.cancel();
-          },
-        })
-
-        this.Fields()
-        this.Actions()
-      }
-      .width('86%')
-      .padding(18)
-      .backgroundColor(DesignTokens.card(this.theme))
-      .borderRadius(20)
-      .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
-      // 吃掉点击，避免点面板本体也触发遮罩的取消
-      .onClick(() => {})
+      this.Fields()
+      this.Actions()
     }
     .width('100%')
-    .height('100%')
   }
 
   /** 三个可编辑字段（歌名 / 歌手 / 专辑） */
@@ -107,13 +106,14 @@ export struct EditMetadataSheet {
   /** 保存（取消收进标题行右上角的 ×） */
   @Builder
   Actions() {
-    Row({ space: 10 }) {
+    Row() {
       Button(t('confirm'))
-        .fontSize(DesignTokens.fontSubhead())
+        .type(ButtonType.Capsule)
+        .layoutWeight(1)
+        .height(DesignTokens.touchTarget())
+        .fontSize(DesignTokens.fontTitle())
         .fontColor(DesignTokens.onAccent())
         .backgroundColor(DesignTokens.accent())
-        .borderRadius(18)
-        .layoutWeight(1)
         .onClick(() => {
           if (this.onSave) {
             this.onSave(this.draftName, this.draftSinger, this.draftAlbum);
@@ -121,7 +121,7 @@ export struct EditMetadataSheet {
         })
     }
     .width('100%')
-    .margin({ top: 6 })
+    .margin({ top: 4 })
   }
 }
 
@@ -155,12 +155,12 @@ struct MetadataField {
           }
         })
         .width('100%')
-        .height(40)
-        .fontSize(DesignTokens.fontSubhead())
+        .height(DesignTokens.touchTarget())
+        .fontSize(DesignTokens.fontBody())
         .fontColor(DesignTokens.labelPrimary(this.theme))
         .backgroundColor(DesignTokens.mutedFill(this.theme))
-        .borderRadius(10)
-        .padding({ left: 12, right: 12 })
+        .borderRadius(12)
+        .padding({ left: 14, right: 14 })
         .margin({ top: 6 })
         .onChange((text: string) => {
           if (this.onValueChange) {

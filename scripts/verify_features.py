@@ -74,6 +74,15 @@ CHECKS = [
  ('桌面歌词文字不透明度', 'pages/DesktopLyricPage.ets', r'textOpacity'),
  # 顶部栏统一：设置主页与设置里能跳到的二级页都必须用同一个 NavBar
  ('设置主页有统一顶部栏', 'pages/Home/SettingView.ets', r'NavBar\('),
+ # 设置信息架构：首页只放分类入口，具体设置项在二级页（分组组件复用，未搬家）
+ ('设置首页只放分类入口', 'pages/Home/SettingView.ets',
+  r'settingsHomeGroups\(\)', r'BasicSection|PlaybackSection|BackupSection|StorageSection'),
+ ('设置分类目录单点声明', 'pages/Home/Setting/SettingsCatalog.ets', r'export function settingsHomeGroups'),
+ ('设置二级页统一顶部栏', 'pages/Home/Setting/SettingsCategoryPage.ets', r'NavBar\('),
+ ('设置二级页绘制底部安全区', 'pages/Home/Setting/SettingsCategoryPage.ets',
+  r'expandSafeArea\(\[SafeAreaType\.SYSTEM\], \[SafeAreaEdge\.TOP, SafeAreaEdge\.BOTTOM\]\)'),
+ ('音源与自定义源归同一分类页', 'pages/Home/Setting/SettingsCategoryPage.ets',
+  r'SourceSection\(\)[\s\S]{0,80}CustomSourceSection\(\)'),
  ('关于页用统一顶部栏', 'pages/Home/AboutView.ets', r'NavBar\('),
  ('自定义源页用统一顶部栏', 'pages/Home/CustomSourceView.ets', r'NavBar\('),
  ('运行日志页用统一顶部栏', 'pages/LogPage.ets', r'NavBar\('),

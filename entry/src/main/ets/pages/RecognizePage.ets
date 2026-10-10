@@ -321,7 +321,9 @@ export struct RecognizePage {
   }
 
   private async clearHistory(): Promise<void> {
-    const ok: boolean = await appConfirm(t('recognize_history_clear_title'), t('recognize_history_clear_msg'));
+    // 清空是不可逆的，确认行要用危险色（与清空日志/清空历史同一套）
+    const ok: boolean = await appConfirm(t('recognize_history_clear_title'), t('recognize_history_clear_msg'),
+      { danger: true, confirmText: t('confirm') });
     if (!ok) {
       return;
     }
