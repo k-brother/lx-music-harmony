@@ -800,6 +800,26 @@ export function buildZhCN(): Map<string, string> {
   m.set('category_jk', '日韩');
   m.set('category_feature', '特色');
   m.set('category_all', '全部');
+  // 听歌识曲
+  m.set('recognize_title', '听歌识曲');
+  m.set('a11y_recognize', '听歌识曲');
+  m.set('recognize_ready', '点击麦克风开始识别');
+  m.set('recognize_requesting', '正在请求麦克风权限…');
+  m.set('recognize_listening', '正在聆听…');
+  m.set('recognize_recognizing', '正在识别…');
+  m.set('recognize_capture_progress', '已采集 {0}%');
+  m.set('recognize_matched', '识别成功');
+  m.set('recognize_not_matched', '未识别到歌曲，换一首试试');
+  m.set('recognize_no_audio', '未检测到有效声音');
+  m.set('recognize_no_audio_hint', '请靠近音源后重试');
+  m.set('recognize_permission_denied', '麦克风权限被拒绝');
+  m.set('recognize_permission_hint', '请在系统设置中允许本应用使用麦克风后重试');
+  m.set('recognize_network_error', '网络错误，识别失败');
+  m.set('recognize_error', '识别出错');
+  m.set('recognize_history', '识别历史');
+  m.set('recognize_history_empty', '暂无识别记录');
+  m.set('recognize_history_clear_title', '清空识别历史');
+  m.set('recognize_history_clear_msg', '确定清空所有识别记录吗？');
   return m;
 }
 

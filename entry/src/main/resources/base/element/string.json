@@ -29,6 +29,10 @@
       "value": "用于切换歌曲、收藏等操作时的轻微触感反馈"
     },
     {
+      "name": "microphone_permission_reason",
+      "value": "仅在你主动使用听歌识曲时采集环境音频用于识别歌曲"
+    },
+    {
       "name": "music_card_name",
       "value": "音乐卡片"
     },

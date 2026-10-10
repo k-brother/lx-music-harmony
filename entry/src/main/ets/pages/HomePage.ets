@@ -32,7 +32,7 @@ import { stateEvent } from '../event/StateEvent';
 import { SongListView } from './Home/SongListView';
 import { LeaderboardView } from './Home/LeaderboardView';
 import { MylistView } from './Home/MylistView';
-import { navigationService, RouteName } from '../service/NavigationService';
+import { navigationService, navigateTo, RouteName } from '../service/NavigationService';
 import { DownloadPage } from './DownloadPage';
 import { setDownloadContext, getMusicUrl } from '../core/music/MusicFeatureEntry';
 import { common } from '@kit.AbilityKit';
@@ -183,6 +183,10 @@ export struct HomePage {
     };
     this.globalSearchStripActions.onSubmit = (): void => {
       void this.submitGlobalSearchFromStrip();
+    };
+    // 搜索条右端麦克风：进听歌识曲页（点击被麦克风按钮自身消费，不会触发整条跳转）
+    this.globalSearchStripActions.onMicClick = (): void => {
+      navigateTo(RouteName.RECOGNIZE);
     };
     // 搜索条只负责「点开浮层」，条内文字变化不需要处理（SearchStripActions 默认空实现）
 

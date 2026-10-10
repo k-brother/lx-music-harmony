@@ -13,7 +13,7 @@ const ZH_SECTIONS: PactSection[] = [
   {
     title: '',
     paragraphs: [
-      '本隐私政策适用于 LX Music（洛雪音乐）鸿蒙版。我们遵循"最小必要"原则：应用不要求注册、不要求登录、不申请通讯录/位置/相机/麦克风等与音乐播放无关的权限，也不含任何广告或行为分析类第三方 SDK（仅集成系统自带的 HarmonyOS SDK 能力）。',
+      '本隐私政策适用于 LX Music（洛雪音乐）鸿蒙版。我们遵循"最小必要"原则：应用不要求注册、不要求登录、不申请通讯录/位置/相机等与音乐播放无关的权限，也不含任何广告或行为分析类第三方 SDK（仅集成系统自带的 HarmonyOS SDK 能力）。',
     ],
   },
   {
@@ -39,6 +39,7 @@ const ZH_SECTIONS: PactSection[] = [
       '3.2 ohos.permission.GET_NETWORK_INFO：判断当前网络状态，网络不可用时避免无意义的请求与重试。',
       '3.3 ohos.permission.KEEP_BACKGROUND_RUNNING：在应用退到后台时继续播放音乐（后台类型：音频播放）。',
       '3.4 ohos.permission.VIBRATE：为切歌、播放暂停等操作提供轻微触感反馈（可在设置中关闭）。',
+      '3.5 ohos.permission.MICROPHONE：仅在你主动使用「听歌识曲」时采集环境音频，并即时上传到酷狗指纹接口完成识别；音频本身不保存，识别出的歌曲文本信息只存本机历史记录（可随时清空）。',
     ],
   },
   {
@@ -47,6 +48,7 @@ const ZH_SECTIONS: PactSection[] = [
       '4.1 本应用不内置任何统计、广告、崩溃上报 SDK，因此不会把数据交给第三方用于画像或广告。',
       '4.2 你自行添加的"自定义源"脚本属于第三方内容，其行为由脚本提供者负责；请只添加你信任的源。',
       '4.3 播放音乐时，音频数据、歌词、封面均从第三方音乐平台或你配置的源直接获取，请同时遵守相应平台的服务条款。',
+      '4.4 「听歌识曲」会把你主动采集的音频片段即时上传到酷狗指纹接口完成识别；上传内容仅为音频指纹所需数据，不含账号等个人信息，请同时遵守酷狗的服务条款。',
     ],
   },
   {
@@ -78,7 +80,7 @@ const EN_SECTIONS: PactSection[] = [
   {
     title: '',
     paragraphs: [
-      'This privacy policy applies to LX Music for HarmonyOS. We follow a data-minimisation principle: the app does not require registration or sign-in, does not request permissions unrelated to music playback (contacts, location, camera, microphone), and bundles no advertising or analytics third-party SDKs - only built-in HarmonyOS SDK capabilities.',
+      'This privacy policy applies to LX Music for HarmonyOS. We follow a data-minimisation principle: the app does not require registration or sign-in, does not request permissions unrelated to music playback (contacts, location, camera), and bundles no advertising or analytics third-party SDKs - only built-in HarmonyOS SDK capabilities.',
     ],
   },
   {
@@ -104,6 +106,7 @@ const EN_SECTIONS: PactSection[] = [
       '3.2 ohos.permission.GET_NETWORK_INFO: detect network availability to avoid pointless requests and retries.',
       '3.3 ohos.permission.KEEP_BACKGROUND_RUNNING: keep audio playing while the app is in the background (background mode: audio playback).',
       '3.4 ohos.permission.VIBRATE: light haptic feedback for track changes and play/pause (can be disabled in settings).',
+      '3.5 ohos.permission.MICROPHONE: only when you actively use song recognition, ambient audio is captured and immediately uploaded to the Kugou fingerprint endpoint for identification; the audio itself is never stored, and only the recognized song metadata is kept in the on-device history (which you can clear at any time).',
     ],
   },
   {
@@ -112,6 +115,7 @@ const EN_SECTIONS: PactSection[] = [
       '4.1 No analytics, advertising or crash-reporting SDKs are bundled, so no data is handed to third parties for profiling or ads.',
       '4.2 Custom source scripts you add are third-party content and are the responsibility of their authors; only add sources you trust.',
       '4.3 Audio, lyrics and covers are fetched directly from third-party music platforms or your configured sources; please also follow the terms of those platforms.',
+      '4.4 "Song recognition" uploads the audio snippet you capture to the Kugou fingerprint endpoint for identification; the upload contains only the data required for audio fingerprinting and no account or other personal information, and is subject to Kugou\'s terms of service.',
     ],
   },
   {

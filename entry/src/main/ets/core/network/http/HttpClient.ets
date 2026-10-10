@@ -22,7 +22,11 @@ export interface HttpRequestConfig {
   header?: Record<string, string> | Map<string, string>;
   params?: Record<string, string | number | boolean>;
   data?: string;
-  extraData?: string | Object;
+  /**
+   * 请求体。string 原样发送；Object 序列化为 JSON；
+   * ArrayBuffer 按原始二进制透传（听歌识曲等指纹上传场景）。
+   */
+  extraData?: string | Object | ArrayBuffer;
   timeout?: number;
   connectTimeout?: number;
   readTimeout?: number;
@@ -139,9 +143,15 @@ function doRequest<T>(
 
   // 处理请求体
   if (config.extraData !== undefined) {
-    opts.extraData = typeof config.extraData === 'string'
-      ? config.extraData
-      : JSON.stringify(config.extraData);
+    const ed: string | Object | ArrayBuffer = config.extraData;
+    if (typeof ed === 'string') {
+      opts.extraData = ed;
+    } else if (ed instanceof ArrayBuffer) {
+      // 二进制透传：JSON.stringify 会把字节数组变成 {"0":..} 文本，绝不能走那条路
+      opts.extraData = ed;
+    } else {
+      opts.extraData = JSON.stringify(ed);
+    }
   } else if (config.data !== undefined && config.data.length > 0) {
     opts.extraData = config.data;
   }

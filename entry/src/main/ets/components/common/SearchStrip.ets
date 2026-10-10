@@ -11,6 +11,8 @@ export class SearchStripActions {
   onMagnifierClick: () => void = () => {};
   onSubmit: () => void = () => {};
   onTextChange: (t: string) => void = () => {};
+  /** 听歌识曲入口（showMic 为 true 时展示麦克风按钮） */
+  onMicClick: () => void = () => {};
 }
 
 const EMPTY_SEARCH_STRIP_ACTIONS: SearchStripActions = new SearchStripActions();
@@ -25,6 +27,8 @@ export struct SearchStrip {
   @Prop marginV: number = 6;
   /** true: 点击整条进入搜索页；false: 直接在条内输入 */
   @Prop tapToOpenOnly: boolean = false;
+  /** true: 右端展示「听歌识曲」麦克风按钮（点击不触发整条跳转） */
+  @Prop showMic: boolean = false;
   @Prop actions: SearchStripActions = EMPTY_SEARCH_STRIP_ACTIONS;
 
   build() {
@@ -60,6 +64,17 @@ export struct SearchStrip {
           })
           .onSubmit(() => {
             this.actions.onSubmit();
+          })
+      }
+
+      if (this.showMic) {
+        SymbolGlyph($r('sys.symbol.mic'))
+          .fontSize(DesignTokens.fontLarge())
+          .fontColor([DesignTokens.labelSecondary(this.theme)])
+          .margin({ right: 10 })
+          .accessibilityText(t('a11y_recognize'))
+          .onClick(() => {
+            this.actions.onMicClick();
           })
       }
     }

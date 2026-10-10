@@ -29,6 +29,10 @@
       "value": "Used for light haptic feedback when changing tracks or liking a song"
     },
     {
+      "name": "microphone_permission_reason",
+      "value": "Used to capture ambient audio only when you actively use song recognition"
+    },
+    {
       "name": "music_card_name",
       "value": "Music Card"
     },

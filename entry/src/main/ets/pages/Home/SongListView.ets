@@ -421,6 +421,7 @@ export struct SongListView {
           marginH: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
           marginV: DesignTokens.spaceUnit(),
           tapToOpenOnly: true,
+          showMic: true,
           actions: this.searchStripActions,
         })
         this.FilterBar()
@@ -477,6 +478,7 @@ export struct SongListView {
                 marginH: DesignTokens.spaceGutter(),
                 marginV: DesignTokens.spaceUnit(),
                 tapToOpenOnly: true,
+                showMic: true,
                 actions: this.searchStripActions,
               })
             } else {

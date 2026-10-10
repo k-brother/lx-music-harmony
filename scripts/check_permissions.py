@@ -21,6 +21,7 @@ USAGE_HINTS = {
     'ohos.permission.GET_NETWORK_INFO': [r'connection\.getDefaultNet', r'@kit\.NetworkKit'],
     'ohos.permission.KEEP_BACKGROUND_RUNNING': [r'backgroundTaskManager'],
     'ohos.permission.VIBRATE': [r'vibrator\.', r'HapticFeedback'],
+    'ohos.permission.MICROPHONE': [r'createAudioCapturer', r'requestPermissionsFromUser'],
 }
 
 

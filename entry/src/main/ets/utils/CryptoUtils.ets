@@ -142,13 +142,13 @@ export function sha1(input: string): string {
 }
 
 /**
- * MD5 哈希计算
+ * MD5 哈希计算（字节版：酷狗指纹签名需要直接对二进制拼接结果取 MD5）
  */
-export function md5(input: string): string {
+export function md5Bytes(input: Uint8Array): string {
 
   const bytes: number[] = [];
   for (let i = 0; i < input.length; i++) {
-    bytes.push(input.charCodeAt(i) & 0xFF);
+    bytes.push(input[i]);
   }
 
   const originalLength = bytes.length * 8;
@@ -249,6 +249,17 @@ export function md5(input: string): string {
   }
 
   return result;
+}
+
+/**
+ * MD5 哈希计算（字符串版：按字节解释，等价于 md5Bytes 的便捷入口）
+ */
+export function md5(input: string): string {
+  const bytes = new Uint8Array(input.length);
+  for (let i = 0; i < input.length; i++) {
+    bytes[i] = input.charCodeAt(i) & 0xFF;
+  }
+  return md5Bytes(bytes);
 }
 
 /**

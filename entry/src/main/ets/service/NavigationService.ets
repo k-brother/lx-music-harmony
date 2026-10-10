@@ -22,6 +22,8 @@ export enum RouteName {
   LOCAL_MUSIC = 'localmusic',
   /** 运行日志 */
   LOGS = 'logs',
+  /** 听歌识曲 */
+  RECOGNIZE = 'recognize',
 }
 
 // 导航参数类型

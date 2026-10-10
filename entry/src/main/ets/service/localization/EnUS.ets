@@ -795,6 +795,26 @@ export function buildEnUS(): Map<string, string> {
   m.set('toast_redownload_started', 'Download restarted');
   m.set('toast_redownload_failed', 'Failed to restart the download');
   m.set('retry_download', 'Retry');
+  // Song recognition
+  m.set('recognize_title', 'Song Recognition');
+  m.set('a11y_recognize', 'Recognize songs');
+  m.set('recognize_ready', 'Tap the microphone to start');
+  m.set('recognize_requesting', 'Requesting microphone…');
+  m.set('recognize_listening', 'Listening…');
+  m.set('recognize_recognizing', 'Recognizing…');
+  m.set('recognize_capture_progress', '{0}% captured');
+  m.set('recognize_matched', 'Matched');
+  m.set('recognize_not_matched', 'No match found, try another song');
+  m.set('recognize_no_audio', 'No sound detected');
+  m.set('recognize_no_audio_hint', 'Move closer to the sound source and try again');
+  m.set('recognize_permission_denied', 'Microphone permission denied');
+  m.set('recognize_permission_hint', 'Allow microphone access in system settings, then try again');
+  m.set('recognize_network_error', 'Network error, recognition failed');
+  m.set('recognize_error', 'Recognition failed');
+  m.set('recognize_history', 'Recognition History');
+  m.set('recognize_history_empty', 'No recognition history yet');
+  m.set('recognize_history_clear_title', 'Clear recognition history');
+  m.set('recognize_history_clear_msg', 'Clear all recognition history?');
   return m;
 }
 

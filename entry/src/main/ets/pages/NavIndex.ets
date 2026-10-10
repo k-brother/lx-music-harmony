@@ -16,6 +16,7 @@ import { UserListsPage } from './UserListsPage';
 import { LoveListPage } from './LoveListPage';
 import { LocalMusicPage } from './LocalMusicPage';
 import { LogPage } from './LogPage';
+import { RecognizePage } from './RecognizePage';
 import { PactDialog } from '../components/common/PactDialog';
 import { setAppUiContext } from '../service/UiContext';
 import { settingsService } from '../service/SettingsService';
@@ -203,6 +204,10 @@ export struct NavIndex {
     } else if (name === 'logs') {
       AppDestination({ routeName: 'LogPage' }) {
         LogPage()
+      }
+    } else if (name === 'recognize') {
+      AppDestination({ routeName: 'RecognizePage' }) {
+        RecognizePage()
       }
     }
   }
