@@ -19,8 +19,8 @@ import { SkeletonGridItem } from '../../components/common/SkeletonView';
 import { SegmentedBar, type SegmentOption } from '../../components/ui/SegmentedBar';
 import { RefreshContainer } from '../../components/ui/RefreshContainer';
 import { hapticService } from '../../service/HapticService';
-import { DeferredScrollToTop } from '../../utils/ScrollTools';
-import { markContentScrolling } from '../../utils/ScrollActivity';
+import { DeferredScrollToTop, scrollerOffsetY, scrollToTop } from '../../utils/ScrollTools';
+import { markContentScrolling, reportScrollOffset, resetScrollAway } from '../../utils/ScrollActivity';
 import { Breakpoints } from '../../theme/Breakpoints';
 import { LazyDataSource } from '../../utils/LazyDataSource';
 import { getStorageService } from '../../core/interfaces/IStorageService';
@@ -52,6 +52,8 @@ export struct SongListView {
   @Prop @Watch("onReCreateKeyChange") reCreateKey: number = 0;
   /** 底部玻璃底舱占位（由 HomePage 按是否浮层底舱传入；0 = 不浮层） */
   @Prop bottomInset: number = 0;
+  /** 「回到顶部」请求号（底舱左键触发）：变化时把本列表滚回顶部 */
+  @StorageProp('scrollTopRequest') @Watch('onScrollTopRequest') scrollTopRequest: number = 0;
   @StorageProp('theme') theme: string = 'light';
 
   /** 按压反馈：卡片轻微缩放 */
@@ -74,6 +76,8 @@ export struct SongListView {
   @Prop searchStripActions: SearchStripActions = new SearchStripActions();
 
   private songListScroller: Scroller = new Scroller();
+  /** 歌单少（不足吸顶条数）时用的是 Grid 自身的滚动，单独一个 Scroller 供偏移上报/回顶 */
+  private gridScroller: Scroller = new Scroller();
   @State isFilterPinned: boolean = false;
   private readonly filterPinThreshold: number = DesignTokens.heightSearchField() + DesignTokens.spaceUnit() * 2;
   private readonly searchStripHostHeight: number = DesignTokens.heightSearchField() + DesignTokens.spaceUnit() * 2;
@@ -95,6 +99,12 @@ export struct SongListView {
 
   private scrollToTopSoon(): void {
     this.scrollTopDefer.schedule(this.songListScroller);
+  }
+
+  /** 底舱左键「回到顶部」：滚回顶部并让底舱立刻恢复展开态 */
+  private onScrollTopRequest(): void {
+    scrollToTop(this.songListScroller);
+    resetScrollAway();
   }
 
   // 排序选项
@@ -508,6 +518,8 @@ export struct SongListView {
         .edgeEffect(EdgeEffect.None)
         .onDidScroll(() => {
           const y = this.getSafeScrollOffsetY();
+          markContentScrolling();
+          reportScrollOffset(y);
           if (!this.coverInteractionUnlocked && y > 16) {
             this.coverInteractionUnlocked = true;
           }
@@ -619,7 +631,7 @@ export struct SongListView {
 
   @Builder
   SongListGrid() {
-    Grid() {
+    Grid(this.gridScroller) {
       LazyForEach(this.cardSource, (item: SongListItemData, index: number) => {
         GridItem() {
           SongListCard({
@@ -659,6 +671,8 @@ export struct SongListView {
     .backgroundColor(DesignTokens.pageBg(this.theme))
     .onDidScroll(() => {
       markContentScrolling();
+      // 歌单少时这一层 Grid 自己滚动（外面没有再包 Scroll），底舱联动也读它的偏移
+      reportScrollOffset(scrollerOffsetY(this.gridScroller));
     })
   }
 

@@ -238,8 +238,81 @@ export class DesignTokens {
    * Tab 里的滚动内容按这个值留出底部空间，内容才能滚到玻璃底舱"下面"（玻璃才有东西可透）。
    */
   static bottomDockHeight(): number {
-    // 迷你播放条 50 + 底舱间距 4 + Tab 栏 44 + 底舱下边距 4
+    // 迷你播放条 + 底舱间距 + Tab 栏 = 98，取 102 留 4 余量
+    // （迷你条高度与 Tab 栏高度见下面各自的 token，改一处即可整组跟随）
     return 102;
+  }
+
+  /**
+   * 玻璃底舱距**屏幕底部**的间距。
+   *
+   * 这里刻意不用 `safeBottomVp`：窗口内容区本来就已经避开底部安全区了，
+   * 再按安全区高度给底舱留白，会把它往上顶约两倍安全区的高度（真机上就是一条
+   * 几十 vp 的空带，看着像"底部一大块浪费"）。底舱贴着屏幕底部放，
+   * 只留系统手势条那条小横条的生存空间即可。
+   */
+  static dockBottomGap(): number {
+    return 14;
+  }
+
+  /** 玻璃底舱给内容留的底部空间（底舱本体 + 与屏幕底的间距） */
+  static dockContentInset(): number {
+    return DesignTokens.bottomDockHeight() + DesignTokens.dockBottomGap();
+  }
+
+  // ── 迷你播放条（PlayerBar，首页底舱与各二级页共用）─────────────────────────
+  // 尺寸集中在这里：平板/PC 要换一套数值（或换成侧栏形态）时只改这一处，
+  // 不要去组件里翻写死的数字。间距尽量由 spaceUnit() 推导，避免又散出新常量。
+  /** 迷你条高度 */
+  static miniBarHeight(): number {
+    return 50;
+  }
+
+  /** 迷你条封面边长 */
+  static miniCoverSize(): number {
+    return 40;
+  }
+
+  /** 迷你条播放键直径 */
+  static miniPlaySize(): number {
+    return 30;
+  }
+
+  /** 迷你条左右内边距 */
+  static miniPaddingH(): number {
+    return 12;
+  }
+
+  /** 收拢态左侧动作位边长（与封面同宽，视觉重量对称） */
+  static miniActionSlot(): number {
+    return 40;
+  }
+
+  // ── 底部 Tab 栏（仅窄屏；宽屏走左侧侧栏导航）─────────────────────────────
+  /** Tab 栏高度 */
+  static tabBarHeight(): number {
+    return 44;
+  }
+
+  /** Tab 条目高度（图标 + 文案的可点区，留 40 保证点按手感） */
+  static tabItemHeight(): number {
+    return 40;
+  }
+
+  /** Tab 选中胶囊高度 */
+  static tabCapsuleHeight(): number {
+    return 30;
+  }
+
+  /** Tab 选中胶囊相对条目的左右内缩 */
+  static tabCapsuleInset(): number {
+    return 6;
+  }
+
+  /** Tab 图标字号 */
+  static tabIconSize(): number {
+    // 底部导航图标比正文图标（iconMd）大一档，与系统底部导航的比例一致
+    return DesignTokens.iconMd() + 4;
   }
 
   // Typography scale (core surfaces: tab bar / player bar / play detail)

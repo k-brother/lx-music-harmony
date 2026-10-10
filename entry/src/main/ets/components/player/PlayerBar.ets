@@ -16,6 +16,7 @@ import { DesignTokens } from '../../theme/DesignTokens';
 import { createDockGlassMaterial } from '../../theme/GlassMaterial';
 import { uiMaterial } from '@kit.ArkUI';
 
+
 @Component
 export struct PlayerBar {
   @StorageProp('theme') theme: string = 'light';
@@ -42,6 +43,13 @@ export struct PlayerBar {
    * 玻璃形态下左右留白由底舱统一给，条本身不再自己加外边距 —— 否则两处留白会叠成 32vp。
    */
   @Prop glass: boolean = false;
+  /**
+   * 收拢态：与底部 Tab 栏联动（内容滚离顶部时）。此时左侧让出一个动作位（`leading`），
+   * 播放控件整体靠右 —— 对齐华为音乐滚动后的那条"主页 + 播放控件"迷你条。
+   */
+  @Prop compact: boolean = false;
+  /** 收拢态左侧的动作（"回到顶部"这类）；未传时不占位 */
+  @BuilderParam leading?: () => void;
   /** 系统沉浸材质（玻璃形态用；不支持时为 undefined，走自绘玻璃回退） */
   private glassMaterial: uiMaterial.Material | undefined = createDockGlassMaterial();
   @State isPlay: boolean = false;
@@ -199,6 +207,8 @@ export struct PlayerBar {
   @Builder
   private BarCore() {
     Row() {
+      this.LeadingSlot()
+
       this.MiniCover()
 
       this.MiniTitle()
@@ -206,13 +216,19 @@ export struct PlayerBar {
       this.MiniControls()
     }
     .width('100%')
-    // 高度按"迷你"的定位收紧：封面 40 + 上下各 5 —— 底舱整体才不会又高又笨
-    .height(50)
-    .padding({ left: 12, right: 12, top: 5, bottom: 5 })
+    // 高度与内边距都走 token：迷你条的尺寸整组由 DesignTokens 定义，便于平板/PC 另算
+    .height(DesignTokens.miniBarHeight())
+    .padding({
+      left: DesignTokens.miniPaddingH(),
+      right: DesignTokens.miniPaddingH(),
+      top: (DesignTokens.miniBarHeight() - DesignTokens.miniCoverSize()) / 2,
+      bottom: (DesignTokens.miniBarHeight() - DesignTokens.miniCoverSize()) / 2,
+    })
     .margin({
       left: this.glass ? 0 : DesignTokens.spaceGutter(),
       right: this.glass ? 0 : DesignTokens.spaceGutter(),
-      bottom: this.immersiveBottom ? 0 : 4,
+      // 玻璃形态下与 Tab 栏的间距由底舱的 Column space 统一给，这里不再自己加
+      bottom: this.immersiveBottom || this.glass ? 0 : 4,
     })
     // 材质随滑动"呼吸"：滚动时收一点点，停手回弹（与底部 Tab 栏同一套反应）
     .scale({
@@ -236,13 +252,32 @@ export struct PlayerBar {
     .alignItems(VerticalAlign.Center)
   }
 
+  /**
+   * 收拢态左侧的动作位。
+   * 宽度从 0 到 40 渐变（不用 if 分支）：滚动回调里触发的状态变化没有 animateTo 上下文，
+   * 分支切换会"跳"，而宽度/透明度动画始终是顺的。
+   */
+  @Builder
+  private LeadingSlot() {
+    Row() {
+      if (this.leading) {
+        this.leading()
+      }
+    }
+    .width(this.compact && this.leading ? DesignTokens.miniActionSlot() : 0)
+    .height(DesignTokens.miniActionSlot())
+    .opacity(this.compact ? 1 : 0)
+    .clip(true)
+    .animation({ duration: 220, curve: Curve.EaseOut })
+  }
+
   /** 迷你条封面：点击进入播放页；加载失败回退占位图 */
   @Builder
   private MiniCover() {
     if (this.canRenderMiniCover(this.pic)) {
       Image(this.pic)
-        .width(40)
-        .height(40)
+        .width(DesignTokens.miniCoverSize())
+        .height(DesignTokens.miniCoverSize())
         .borderRadius(DesignTokens.radiusCover())
         .objectFit(ImageFit.Cover)
         .onError(() => {
@@ -256,8 +291,8 @@ export struct PlayerBar {
         .animation({ duration: this.showAnimation ? 200 : 0, curve: Curve.EaseOut })
     } else {
       Image($r('app.media.ic_player_cover_placeholder'))
-        .width(40)
-        .height(40)
+        .width(DesignTokens.miniCoverSize())
+        .height(DesignTokens.miniCoverSize())
         .borderRadius(DesignTokens.radiusCover())
         .objectFit(ImageFit.Cover)
         .accessibilityText(t('a11y_play'))
@@ -287,7 +322,7 @@ export struct PlayerBar {
     }
     .alignItems(HorizontalAlign.Start)
     .layoutWeight(1)
-    .margin({ left: 12 })
+    .margin({ left: DesignTokens.miniPaddingH() })
     // 点歌名/歌手区域也进播放页（主流迷你播放条都是「点哪都能进详情」）
     .accessibilityText(t('a11y_open_player'))
     .onClick(() => {
@@ -317,7 +352,7 @@ export struct PlayerBar {
       })
 
       Stack() {
-        Circle({ width: 30, height: 30 })
+        Circle({ width: DesignTokens.miniPlaySize(), height: DesignTokens.miniPlaySize() })
           .fill(DesignTokens.accent())
         if (this.isPlay) {
           Image($r('app.media.ic_pd_pause'))

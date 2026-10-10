@@ -54,6 +54,7 @@ import {
 } from '../core/search/search';
 import { type NavigationParams } from '../service/NavigationService';
 import { on, EventTypes } from '../service/EventBus';
+import { requestScrollToTop, resetScrollAway } from '../utils/ScrollActivity';
 
 /** 搜索输入框的焦点键（供 FocusController 定位，浮层出现时自动聚焦） */
 const SEARCH_INPUT_KEY: string = 'homeSearchInput';
@@ -98,8 +99,11 @@ export struct HomePage {
   @StorageProp('windowWidthVp') windowWidthVp: number = 360;
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
-  /** 底部手势条高度（vp）：玻璃底舱要浮在它上面 */
-  @StorageProp('safeBottomVp') safeBottomVp: number = 0;
+  /**
+   * 内容是否已滚离顶部（各 Tab 视图上报，见 utils/ScrollActivity）：
+   * 滚离后底舱收成一条迷你条（左侧「回到顶部」+ 播放控件），回到顶部再展开 —— 对齐华为音乐的联动。
+   */
+  @StorageProp('contentScrolledAway') contentScrolledAway: boolean = false;
   @State currentTab: number = 0;
   @State isPlay: boolean = false;
   @State musicName: string = '';
@@ -1037,11 +1041,23 @@ export struct HomePage {
       activeIndex: this.currentTab,
       // 宽屏走左侧竖排导航（大屏使用习惯），窄屏仍是底部 Tab
       vertical: vertical,
+      // 窄屏底舱在"已滚离顶部"时收拢；宽屏侧栏不参与（侧栏没有收拢语义）
+      collapsed: !vertical && this.contentScrolledAway,
       onSelect: (index: number): void => {
+        if (this.currentTab === index) {
+          return;
+        }
         this.currentTab = index;
         this.persistLastTab(index);
+        // 切 Tab 后新列表在顶部，底舱应立刻恢复展开态
+        resetScrollAway();
       },
     })
+  }
+
+  /** 底舱左键：把当前列表滚回顶部（滚回后底舱自动展开） */
+  private ScrollToTopAction(): void {
+    requestScrollToTop();
   }
 
   /**
@@ -1049,7 +1065,8 @@ export struct HomePage {
    * Tab 里的滚动内容按它留底部空间，内容才能滚到玻璃底舱"下面"——玻璃才有东西可透。
    */
   private dockInset(): number {
-    return DesignTokens.bottomDockHeight() + this.safeBottomVp;
+    // 内容只要躲开玻璃底舱本体 + 底舱与屏幕底之间那条间距即可（内容区已避开安全区）
+    return DesignTokens.dockContentInset();
   }
 
   // 内容区域
@@ -1111,16 +1128,27 @@ export struct HomePage {
   @Builder
   BottomDock() {
     Column({ space: DesignTokens.spaceUnit() / 2 }) {
-      PlayerBar({ glass: true })
+      // 迷你播放条：滚离顶部时左侧让出「回到顶部」动作位（宽度动画，不是 if 分支）
+      PlayerBar({
+        glass: true,
+        compact: this.contentScrolledAway,
+        leading: (): void => {
+          this.ScrollToTopAction();
+        },
+      })
+      // Tab 栏：滚离顶部时收成 0 高（同一棵树里做高度/透明度动画，切换才是"收拢"而不是"跳变"）
       this.BottomTabBar(false)
     }
     .width('100%')
     .padding({
       left: DesignTokens.spaceGutter(),
       right: DesignTokens.spaceGutter(),
-      // 浮在手势条之上（底舱不铺到底，壁纸/内容在它周围露出来）
-      bottom: this.safeBottomVp + DesignTokens.spaceUnit() / 2,
+      // 贴屏幕底部放，只留手势条小横条的生存空间；安全区已由窗口/内容区避开，
+      // 这里再叠加 safeBottomVp 会把底舱顶上去一大截（此前那条空带就是这么来的）
+      bottom: DesignTokens.dockBottomGap(),
     })
+    // 底舱盒子延伸进底部安全区（否则它的"底"停在内容区底部，等于又空出一条安全区）
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
   }
 
   build() {

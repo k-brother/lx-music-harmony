@@ -21,15 +21,7 @@ export interface HomeTabItem {
   label: string;
 }
 
-/** 底部 Tab 栏高度（玻璃胶囊按它居中）——44 与系统底部导航一致，再高就"压屏"了 */
-const TAB_BAR_HEIGHT: number = 44;
-/** 单个条目高度（图标 + 文案）：留 40 保证点按手感，条高 44 只多出 2vp 余量 */
-const TAB_ITEM_HEIGHT: number = 40;
-/** 选中胶囊相对条目的内缩（左右各缩一点，胶囊不会顶着相邻条目） */
-const CAPSULE_INSET: number = 6;
-/** 选中胶囊高度 */
-const CAPSULE_HEIGHT: number = 30;
-/** 滚动时的收放比例（小到能感觉到"回应"，又不会明显跳） */
+/** 滚动时的收放比例：这是个比例不是尺寸，不受平台密度影响，所以留在组件里 */
 const SCROLL_PRESS_SCALE: number = 0.985;
 
 @Component
@@ -41,6 +33,12 @@ export struct HomeBottomTabBar {
   @Prop activeIndex: number = 0;
   /** 宽屏：竖排在左侧（不透明侧栏） */
   @Prop vertical: boolean = false;
+  /**
+   * 收拢态（内容已滚离顶部）：高度收成 0 并淡出，让底舱只剩迷你播放条一条。
+   * 用高度/透明度动画而不是 if 分支插入删除 —— 后者需要 animateTo 包裹才会动，
+   * 而这里的触发来自滚动回调（不在用户点按的动画上下文里），分支切换会直接"跳"。
+   */
+  @Prop collapsed: boolean = false;
   onSelect?: (index: number) => void;
 
   /** 条目行实测宽度：选中胶囊按它算位置（不猜像素，也不依赖百分比定位） */
@@ -62,15 +60,15 @@ export struct HomeBottomTabBar {
   }
 
   private capsuleWidth(): number {
-    return Math.max(0, this.cellWidth() - CAPSULE_INSET * 2);
+    return Math.max(0, this.cellWidth() - DesignTokens.tabCapsuleInset() * 2);
   }
 
   private capsuleX(): number {
-    return this.activeIndex * this.cellWidth() + CAPSULE_INSET;
+    return this.activeIndex * this.cellWidth() + DesignTokens.tabCapsuleInset();
   }
 
   private capsuleY(): number {
-    return (TAB_BAR_HEIGHT - CAPSULE_HEIGHT) / 2;
+    return (DesignTokens.tabBarHeight() - DesignTokens.tabCapsuleHeight()) / 2;
   }
 
   private onRowResize(area: Area): void {
@@ -85,8 +83,7 @@ export struct HomeBottomTabBar {
     Column({ space: 2 }) {
       // 系统符号必须用 SymbolGlyph 渲染（Image 加载 sys.symbol.* 会空白）
       SymbolGlyph(tab.icon)
-        // 底部导航图标按平台规范取 20vp（iconMd 是正文图标尺寸，这里加一档）
-        .fontSize(DesignTokens.iconMd() + 4)
+        .fontSize(DesignTokens.tabIconSize())
         .fontColor([this.activeIndex === tab.idx ? DesignTokens.accent() : DesignTokens.labelTertiary(this.theme)])
         .scale({ x: this.activeIndex === tab.idx ? 1.08 : 1, y: this.activeIndex === tab.idx ? 1.08 : 1 })
         .animation({ duration: DesignTokens.motionFast(), curve: Curve.EaseOut })
@@ -98,7 +95,7 @@ export struct HomeBottomTabBar {
         .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
     .layoutWeight(1)
-    .height(TAB_ITEM_HEIGHT)
+    .height(DesignTokens.tabItemHeight())
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
     .onClick(() => {
@@ -118,10 +115,10 @@ export struct HomeBottomTabBar {
     if (this.rowWidth > 0) {
       Column()
         .width(this.capsuleWidth())
-        .height(CAPSULE_HEIGHT)
+        .height(DesignTokens.tabCapsuleHeight())
         .position({ x: this.capsuleX(), y: this.capsuleY() })
         .backgroundColor(DesignTokens.accentSoft(this.theme))
-        .borderRadius(CAPSULE_HEIGHT / 2)
+        .borderRadius(DesignTokens.tabCapsuleHeight() / 2)
         .animation({ duration: 260, curve: Curve.EaseOut })
     }
   }
@@ -151,19 +148,22 @@ export struct HomeBottomTabBar {
           }, (tab: HomeTabItem) => tab.idx.toString())
         }
         .width('100%')
-        .height(TAB_BAR_HEIGHT)
+        .height(DesignTokens.tabBarHeight())
         .onAreaChange((_oldArea: Area, newArea: Area): void => {
           this.onRowResize(newArea);
         })
       }
       .width('100%')
-      .height(TAB_BAR_HEIGHT)
+      .height(this.collapsed ? 0 : DesignTokens.tabBarHeight())
       // 材质随滑动"呼吸"：滚动时收一点点，停手回弹
       .scale({
-        x: this.contentScrolling ? SCROLL_PRESS_SCALE : 1,
-        y: this.contentScrolling ? SCROLL_PRESS_SCALE : 1,
+        x: this.collapsed ? 0.9 : (this.contentScrolling ? SCROLL_PRESS_SCALE : 1),
+        y: this.collapsed ? 0.9 : (this.contentScrolling ? SCROLL_PRESS_SCALE : 1),
       })
-      .animation({ duration: 200, curve: Curve.EaseOut })
+      .opacity(this.collapsed ? 0 : 1)
+      .visibility(this.collapsed ? Visibility.Hidden : Visibility.Visible)
+      .hitTestBehavior(this.collapsed ? HitTestMode.None : HitTestMode.Default)
+      .animation({ duration: 220, curve: Curve.EaseOut })
       .backgroundColor(DesignTokens.glassFill(this.theme))
       // adaptiveColor.AVERAGE：材质取背后内容的平均色，透过去不会发灰
       .backgroundBlurStyle(BlurStyle.COMPONENT_THICK, {

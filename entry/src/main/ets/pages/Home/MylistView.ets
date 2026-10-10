@@ -37,7 +37,8 @@ import { RefreshContainer } from '../../components/ui/RefreshContainer';
 import { hapticService } from '../../service/HapticService';
 import { Breakpoints } from '../../theme/Breakpoints';
 import { SheetHeader } from '../../components/ui/SheetHeader';
-import { markContentScrolling } from '../../utils/ScrollActivity';
+import { markContentScrolling, reportScrollOffset, resetScrollAway } from '../../utils/ScrollActivity';
+import { scrollerOffsetY, scrollToTop } from '../../utils/ScrollTools';
 
 interface PromptActionResult {
   index: number;
@@ -67,6 +68,10 @@ export struct MylistView {
   @StorageProp('langVersion') langVersion: number = 0;
   /** 底部玻璃底舱占位（由 HomePage 按是否浮层底舱传入；0 = 不浮层） */
   @Prop bottomInset: number = 0;
+  /** 「回到顶部」请求号（底舱左键触发）：变化时把本列表滚回顶部 */
+  @StorageProp('scrollTopRequest') @Watch('onScrollTopRequest') scrollTopRequest: number = 0;
+  /** 本页滚动容器（供底舱联动读偏移 / 回到顶部） */
+  private myListScroller: Scroller = new Scroller();
   @State loveList: UserListRow | null = null;
   @State userLists: UserListRow[] = [];
   @State isLoading: boolean = false;
@@ -89,6 +94,12 @@ export struct MylistView {
       this.listUnsubscribe();
       this.listUnsubscribe = null;
     }
+  }
+
+  /** 底舱左键「回到顶部」：滚回顶部并让底舱立刻恢复展开态 */
+  private onScrollTopRequest(): void {
+    scrollToTop(this.myListScroller);
+    resetScrollAway();
   }
 
   async loadMyLists(): Promise<void> {
@@ -368,7 +379,7 @@ LeftSections() {
             });
           },
         }) {
-          Scroll() {
+          Scroll(this.myListScroller) {
             Column() {
               // 一多：lg（平板横屏 / PC）分两列，窄屏保持单列；两列顺序与单列自上而下一致
               if (Breakpoints.isLarge(this.breakpoint)) {
@@ -410,6 +421,7 @@ LeftSections() {
           .edgeEffect(EdgeEffect.Spring)
           .onDidScroll(() => {
             markContentScrolling();
+            reportScrollOffset(scrollerOffsetY(this.myListScroller));
           })
           // Scroll 默认 align 是 Center：卡片少时会被整体居中，上下留白（列表页一律顶部对齐）
           .align(Alignment.TopStart)
