@@ -23,6 +23,7 @@ import { CardFormCover, type CardCoverFd } from '../utils/CardFormCover';
 import { CardPushPayload } from '../utils/CardFormPayload';
 import type { RegisteredCard } from '../utils/CardFormKeys';
 import { decodeRegisteredCards } from '../utils/CardFormCodec';
+import { Throttle } from '../utils/Throttle';
 
 const TAG = 'CardFormService';
 const DOMAIN = 0x0003;
@@ -49,7 +50,12 @@ class CardFormService {
   private context: common.UIAbilityContext | null = null;
   private unsubscribers: (() => void)[] = [];
   private snapshot: CardSnapshot = emptySnapshot();
-  private pushTimer: number = -1;
+  /** 卡片推送节流：合并窗口内的快照变化，窗口结束推一次（见 utils/Throttle） */
+  private readonly pusher: Throttle = new Throttle(PUSH_THROTTLE_MS, (): void => {
+    this.pushToForms().catch((err: Error): void => {
+      hilog.warn(DOMAIN, TAG, '卡片推送失败: %{public}s', err.message ?? '');
+    });
+  });
   private registeredCards: RegisteredCard[] = [];
   private formIdsLoadedAt: number = 0;
   private started: boolean = false;
@@ -100,7 +106,7 @@ class CardFormService {
       unsub();
     }
     this.unsubscribers = [];
-    this.clearPushTimer();
+    this.pusher.dispose();
     this.clearReadyTimer();
     this.playerReady = false;
     this.pendingActions = [];
@@ -158,13 +164,6 @@ class CardFormService {
     }
   }
 
-  private clearPushTimer(): void {
-    if (this.pushTimer !== -1) {
-      clearTimeout(this.pushTimer);
-      this.pushTimer = -1;
-    }
-  }
-
   private dispatch(action: CardActionType): void {
     if (action === 'playPause') {
       const target = playerService.isPlaying() ? playerService.pause() : playerService.play();
@@ -204,15 +203,7 @@ class CardFormService {
       .catch((err: Error): void => {
         hilog.warn(DOMAIN, TAG, '快照落盘失败: %{public}s', err.message ?? '');
       });
-    if (this.pushTimer !== -1) {
-      return;
-    }
-    this.pushTimer = setTimeout((): void => {
-      this.pushTimer = -1;
-      this.pushToForms().catch((err: Error): void => {
-        hilog.warn(DOMAIN, TAG, '卡片推送失败: %{public}s', err.message ?? '');
-      });
-    }, PUSH_THROTTLE_MS);
+    this.pusher.schedule();
   }
 
   private async readRegisteredCards(): Promise<RegisteredCard[]> {

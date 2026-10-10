@@ -36,6 +36,7 @@ import {
   LIVE_VIEW_LYRIC_EVENT,
   type LiveViewLyricPayload,
 } from '../utils/LiveViewKeys';
+import { Throttle } from '../utils/Throttle';
 
 const TAG = 'LiveViewService';
 const DOMAIN = 0x0003;
@@ -63,7 +64,10 @@ class LiveViewService {
   private curLine: string = '';
   private nextLine: string = '';
   private isPlaying: boolean = false;
-  private lastPushAt: number = 0;
+  /** 更新节流：距上次更新不足 MIN_PUSH_INTERVAL_MS 的直接丢弃（见 utils/Throttle） */
+  private readonly updater: Throttle = new Throttle(MIN_PUSH_INTERVAL_MS, (): void => {
+    this.pushNow();
+  });
 
   setContext(context: common.UIAbilityContext): void {
     this.context = context;
@@ -110,6 +114,7 @@ class LiveViewService {
     }
     this.unsubscribers = [];
     this.started = false;
+    this.updater.dispose();
     this.stopLiveView();
   }
 
@@ -257,11 +262,11 @@ class LiveViewService {
     if (!this.active) {
       return;
     }
-    const now: number = Date.now();
-    if (now - this.lastPushAt < MIN_PUSH_INTERVAL_MS) {
-      return;
-    }
-    this.lastPushAt = now;
+    this.updater.tryRun();
+  }
+
+  /** 真正的下发（由 updater 决定时机） */
+  private pushNow(): void {
     const liveView: liveViewManager.LiveView = this.buildLiveView(this.wantAgentInstance);
     liveViewManager.updateLiveView(liveView).then((result: liveViewManager.LiveViewResult): void => {
       if (result.resultCode !== 0) {
