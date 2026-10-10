@@ -49,6 +49,9 @@ CHECKS = [
  ('搜索历史显示开关', 'pages/HomePage.ets', r'showSearchHistorySetting'),
  ('点击列表项播放整个列表', 'pages/SonglistDetailPage.ets', r'listClickPlay'),
  ('许可协议弹层', 'components/common/PactDialog.ets', r'PactDialog|agreedPact'),
+ # 同意状态是「用户已同意」的记录（B16）：只有协议弹层的同意动作能写，
+ # 「恢复默认设置」不清它（口径矛盾由 check_settings_reset.py 拦）
+ ('同意状态只由协议弹层写入', 'components/common/PactDialog.ets', r'update\(\{ agreedPact: true \}\)'),
  ('许可协议正文', 'core/legal/PactText.ets', r'PactSection'),
  ('隐私政策正文（上架必备）', 'core/legal/PrivacyText.ets', r'getPrivacySections'),
  ('法律文本弹层双文档切换', 'components/common/PactDialog.ets', r'initialDocument|DOC_PRIVACY'),

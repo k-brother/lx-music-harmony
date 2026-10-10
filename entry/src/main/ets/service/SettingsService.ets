@@ -264,10 +264,11 @@ class SettingsServiceImpl {
    * 下面这些属于用户身份或凭据，静默清掉会很伤（误触一次就要重新配置），因此保留：
    * syncEnabled / syncServer / syncKey（同步服务器与密钥）、
    * webdavUrl / webdavUser（WebDAV 备份目标与账号）。
-   * 注意：agreedPact 不在保留之列，会一起还原成「未同意」（下次启动重新弹协议），
-   * 这是既有行为，脚本里的保留名单对它只是冗余登记。
+   * agreedPact（已同意许可协议）同样保留：它是「用户已同意」的记录，不是可调项 ——
+   * 一起清掉的话，用户点一次「恢复默认设置」就会在下次启动被协议弹层拦一次。
+   * 这是 B16 定下的口径（此前代码会把同意状态还原，与注释/检查脚本的意图相反）。
    * 完整性由 scripts/check_settings_reset.py 守住：AppSettings 新增字段时，
-   * 要么在这里出现，要么显式列进保留名单。
+   * 要么在这里出现，要么显式列进保留名单；两边都占（既说保留又去还原）会直接报错。
    */
   async resetToDefaults(): Promise<void> {
     const defaults = createDefaultSettings();
@@ -328,7 +329,6 @@ class SettingsServiceImpl {
       disabledSources: defaults.disabledSources,
       autoSourceSwitch: defaults.autoSourceSwitch,
       shareType: defaults.shareType,
-      agreedPact: defaults.agreedPact,
       allowProgressBarSeek: defaults.allowProgressBarSeek,
       showSearchHistory: defaults.showSearchHistory,
       listClickPlay: defaults.listClickPlay,
