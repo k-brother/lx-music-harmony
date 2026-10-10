@@ -9,6 +9,8 @@
  */
 export const CARD_FORM_IDS_KEY: string = 'card.formIds';
 export const CARD_SNAPSHOT_KEY: string = 'card.snapshot';
+/** 卡片进程 → UI 进程：请求把最新快照（含封面图）整帧推一次（见 widget/CardFormAbility） */
+export const CARD_REFRESH_EVENT: string = 'com.lxmusic.mobile.CARD_REFRESH_REQUEST';
 
 /** 一张已注册卡片的身份（CARD_FORM_IDS_KEY 的值形状；dimension 供 UI 进程按尺寸推送） */
 export interface RegisteredCard {

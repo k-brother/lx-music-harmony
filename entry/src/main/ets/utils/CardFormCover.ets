@@ -31,23 +31,19 @@ export class CardFormCover {
   private static openFds: number[] = [];
 
   /**
-   * 准备封面 fd。
-   * @param tempDir 进程临时目录（下载文件落盘位置）
-   * @param url 封面地址（http(s) / file:// / 绝对路径；其它 scheme 不支持）
-   * @returns 无效时返回 null（卡片显示占位图）
+   * 准备封面 fd（本地路径直接打开；http(s) 下载后落 tempDir）—— **仅供 UI 进程调用**。
+   *
+   * 卡片扩展进程请用 prepareLocal()：官方要求 FormExtensionAbility 轻量、快速返回，
+   * 在扩展进程里做网络下载既可能超时，也会被系统回收。
    */
   static async prepare(tempDir: string, url: string): Promise<CardCoverFd | null> {
     const target: string = (url ?? '').trim();
     if (target.length === 0) {
       return null;
     }
-    if (CardFormCover.isLocalPath(target)) {
-      const fd: number = CardFormCover.openReadOnly(target);
-      if (fd >= 0) {
-        CardFormCover.cachedUrl = target;
-        CardFormCover.cachedPath = '';
-      }
-      return fd >= 0 ? CardFormCover.makeResult(fd) : null;
+    const local: CardCoverFd | null = CardFormCover.prepareLocal(target);
+    if (local !== null) {
+      return local;
     }
     if (!target.startsWith('http://') && !target.startsWith('https://')) {
       return null;
@@ -87,6 +83,25 @@ export class CardFormCover {
       CardFormCover.unlink(path);
       return null;
     }
+  }
+
+  /**
+   * 只处理**本地**封面（file:// 或绝对路径），不做任何网络 IO —— 卡片扩展进程用这个。
+   *
+   * 拿不到图时返回 null，卡片先渲染文本；随后由 UI 进程收到
+   * CARD_REFRESH_EVENT 后把「带图的一帧」推过来（见 widget/CardFormAbility / service/CardFormService）。
+   */
+  static prepareLocal(url: string): CardCoverFd | null {
+    const target: string = (url ?? '').trim();
+    if (target.length === 0 || !CardFormCover.isLocalPath(target)) {
+      return null;
+    }
+    const fd: number = CardFormCover.openReadOnly(target);
+    if (fd >= 0) {
+      CardFormCover.cachedUrl = target;
+      CardFormCover.cachedPath = '';
+    }
+    return fd >= 0 ? CardFormCover.makeResult(fd) : null;
   }
 
   private static makeResult(fd: number): CardCoverFd {

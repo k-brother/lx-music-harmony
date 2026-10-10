@@ -24,6 +24,9 @@ import { CardPushPayload } from '../utils/CardFormPayload';
 import type { RegisteredCard } from '../utils/CardFormKeys';
 import { decodeRegisteredCards } from '../utils/CardFormCodec';
 import { Throttle } from '../utils/Throttle';
+import { CARD_REFRESH_EVENT } from '../utils/CardFormKeys';
+import { commonEventManager } from '@kit.BasicServicesKit';
+import type { BusinessError } from '@kit.BasicServicesKit';
 
 const TAG = 'CardFormService';
 const DOMAIN = 0x0003;
@@ -62,6 +65,8 @@ class CardFormService {
   private playerReady: boolean = false;
   private pendingActions: CardActionType[] = [];
   private readyTimer: number = -1;
+  /** 卡片进程发来的刷新请求订阅（stop() 时退订） */
+  private refreshSubscriber: commonEventManager.CommonEventSubscriber | null = null;
 
   setContext(context: common.UIAbilityContext): void {
     this.context = context;
@@ -95,6 +100,45 @@ class CardFormService {
         this.onSnapshotDirty();
       }
     }));
+    this.watchRefreshRequests();
+  }
+
+  /**
+   * 卡片进程（FormExtensionAbility）在添加/系统刷新时会发一次刷新请求：
+   * 扩展进程按官方要求不做网络 IO，封面与最新一句由这里整帧补推。
+   * 这是 provider 主动推模型里唯一的"扩展 → 主进程"信号，写法与锁屏实况窗同一套。
+   */
+  private watchRefreshRequests(): void {
+    const info: commonEventManager.CommonEventSubscribeInfo = { events: [CARD_REFRESH_EVENT] };
+    commonEventManager.createSubscriber(info).then((sub: commonEventManager.CommonEventSubscriber): void => {
+      if (!this.started) {
+        // 订阅过程中服务已停：立刻退订，避免悬挂订阅
+        commonEventManager.unsubscribe(sub);
+        return;
+      }
+      this.refreshSubscriber = sub;
+      commonEventManager.subscribe(sub,
+        (err: BusinessError, _data: commonEventManager.CommonEventData): void => {
+          if (err) {
+            hilog.warn(DOMAIN, TAG, 'refresh event error: %{public}s', JSON.stringify(err));
+            return;
+          }
+          // 请求即推：绕过节流，保证卡片立刻拿到带图的一帧
+          this.pushToForms().catch((pushErr: Error): void => {
+            hilog.warn(DOMAIN, TAG, '刷新请求推送失败: %{public}s', pushErr.message ?? '');
+          });
+        });
+      this.unsubscribers.push((): void => {
+        const current: commonEventManager.CommonEventSubscriber | null = this.refreshSubscriber;
+        this.refreshSubscriber = null;
+        if (current !== null) {
+          commonEventManager.unsubscribe(current);
+        }
+      });
+    }).catch((err: BusinessError): void => {
+      hilog.warn(DOMAIN, TAG, 'createSubscriber for refresh requests failed: %{public}s',
+        JSON.stringify(err));
+    });
   }
 
   stop(): void {
