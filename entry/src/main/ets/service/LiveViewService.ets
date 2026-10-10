@@ -47,6 +47,16 @@ const RICH_TEXT_MAX: number = 120;
 const PRIMARY_TITLE_MAX: number = 200;
 /** 两次 push 的最小间隔（歌词逐字动画不会触发系统级更新风暴） */
 const MIN_PUSH_INTERVAL_MS: number = 500;
+/**
+ * 实况窗"结束后在通知中心归档保留"的时长，官方单位秒、范围 [0,3600]。
+ * 取 0 = 结束即刻从通知中心移除、不保留：生命周期完全由本服务控制
+ * （停止播放时显式 stopLiveView），不需要系统再留一张过期的音乐卡片。
+ */
+const LIVE_VIEW_KEEP_TIME_SEC: number = 0;
+/** 胶囊显示状态（官方取值：1 = 显示中，-1 = 已结束） */
+const CAPSULE_STATUS_SHOWN: number = 1;
+/** 静默通知（官方语义：true = 静默，false = 响铃+振动）；音乐播放场景不该再打扰用户 */
+const LIVE_VIEW_SILENT: boolean = true;
 /** PICKUP 布局强制要求一张 rawfile 图标（系统 API 限制，见 module 头注释） */
 const LIVE_VIEW_ICON: string = 'liveview_icon.png';
 
@@ -201,19 +211,19 @@ class LiveViewService {
     const liveView: liveViewManager.LiveView = {
       id: LIVE_VIEW_ID,
       event: LIVE_VIEW_EVENT,
-      isMute: true,
+      isMute: LIVE_VIEW_SILENT,
       liveViewData: {
         primary: {
           title: this.fitText(this.title, PRIMARY_TITLE_MAX),
           content: this.primaryContent(),
-          keepTime: 0,
+          keepTime: LIVE_VIEW_KEEP_TIME_SEC,
           layoutData: this.pickupLayoutData(),
           liveViewLockScreenAbilityName: LIVE_VIEW_LOCK_ABILITY,
           liveViewLockScreenAbilityParameters: lockScreenParams,
         },
         capsule: {
           type: liveViewManager.CapsuleType.CAPSULE_TYPE_TEXT,
-          status: 1,
+          status: CAPSULE_STATUS_SHOWN,
           title: this.capsuleText(),
           content: this.fitText(this.artist, CAPSULE_TEXT_MAX),
         },
