@@ -83,6 +83,9 @@ CHECKS = [
   r'expandSafeArea\(\[SafeAreaType\.SYSTEM\], \[SafeAreaEdge\.TOP, SafeAreaEdge\.BOTTOM\]\)'),
  ('音源与自定义源归同一分类页', 'pages/Home/Setting/SettingsCategoryPage.ets',
   r'SourceSection\(\)[\s\S]{0,80}CustomSourceSection\(\)'),
+ # Scroll 默认 align=Center：内容不足一屏会被整体居中、上下留白（设置页内容变短后暴露）
+ ('设置首页内容顶部对齐', 'pages/Home/SettingView.ets', r'\.align\(Alignment\.TopStart\)'),
+ ('设置二级页内容顶部对齐', 'pages/Home/Setting/SettingsCategoryPage.ets', r'\.align\(Alignment\.TopStart\)'),
  ('关于页用统一顶部栏', 'pages/Home/AboutView.ets', r'NavBar\('),
  ('自定义源页用统一顶部栏', 'pages/Home/CustomSourceView.ets', r'NavBar\('),
  ('运行日志页用统一顶部栏', 'pages/LogPage.ets', r'NavBar\('),

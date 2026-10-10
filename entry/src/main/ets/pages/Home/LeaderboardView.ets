@@ -822,6 +822,8 @@ export struct LeaderboardView {
         .onDidScroll(() => {
           this.syncFilterPinnedByOffset();
         })
+        // Scroll 默认 align 是 Center：榜单卡片少（含加载中）时会被整体居中、上下留白
+        .align(Alignment.TopStart)
       }
     }
     .width('100%')

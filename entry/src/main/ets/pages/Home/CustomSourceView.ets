@@ -399,6 +399,8 @@ export struct CustomSourceView {
       .width('100%')
       .layoutWeight(1)
       .scrollBar(BarState.Auto)
+      // Scroll 默认 align 是 Center：内容不足一屏时会被整体居中（列表页一律顶部对齐）
+      .align(Alignment.TopStart)
     }
     .width('100%')
     .height('100%')

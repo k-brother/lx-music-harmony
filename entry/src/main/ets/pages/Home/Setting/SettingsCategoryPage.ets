@@ -63,6 +63,8 @@ export struct SettingsCategoryPage {
       .layoutWeight(1)
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
+      // Scroll 默认 align 是 Center：设置项少的分类页会被整体居中，上下各留一大片空白
+      .align(Alignment.TopStart)
     }
     .width('100%')
     .height('100%')

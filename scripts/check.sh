@@ -95,6 +95,9 @@ python3 "${SCRIPT_DIR}/check_style_noise.py"
 echo "== 面板（弹框）形态一致性 =="
 python3 "${SCRIPT_DIR}/check_sheet_convention.py"
 
+echo "== 纵向 Scroll 对齐（默认居中会留白）=="
+python3 "${SCRIPT_DIR}/check_scroll_align.py"
+
 echo "== 页面底部安全区绘制 =="
 python3 "${SCRIPT_DIR}/check_safe_area.py"
 

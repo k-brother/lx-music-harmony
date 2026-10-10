@@ -72,6 +72,9 @@ export struct SettingView {
       .layoutWeight(1)
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
+      // Scroll 的默认 align 是 Center：分类只有几行时整块内容会被垂直居中，
+      // 顶部/底部各留一大片空白（真机上很明显）。列表页一律显式顶部对齐。
+      .align(Alignment.TopStart)
     }
     .width('100%')
     .height('100%')

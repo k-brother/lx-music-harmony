@@ -251,6 +251,8 @@ export struct PactDialog {
       .layoutWeight(1)
       .width('100%')
       .scrollBar(BarState.Auto)
+      // Scroll 默认 align 是 Center：正文（协议 / 隐私政策）必须从顶部开始读
+      .align(Alignment.TopStart)
     }
     .width('100%')
     .height('100%')
@@ -303,6 +305,8 @@ export struct PactDialog {
       .layoutWeight(1)
       .width('100%')
       .scrollBar(BarState.Off)
+      // 同上：正文顶部对齐
+      .align(Alignment.TopStart)
 
       Row({ space: 10 }) {
         if (!this.readonlyMode) {

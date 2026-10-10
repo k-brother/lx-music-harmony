@@ -403,6 +403,8 @@ LeftSections() {
           .height('100%')
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
+          // Scroll 默认 align 是 Center：卡片少时会被整体居中，上下留白（列表页一律顶部对齐）
+          .align(Alignment.TopStart)
         }
       }
 

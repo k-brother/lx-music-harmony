@@ -215,6 +215,9 @@ export struct LyricView {
         .onDidScroll(() => {
           this.onUserScroll();
         })
+        // 歌词少（不足一屏）时居中显示：与「当前句尽量在视口中间」的观感一致，
+        // 这里是有意保留 Scroll 的居中行为，所以显式写出来（默认值就是 Center）
+        .align(Alignment.Center)
 
         if (this.userScrolled) {
           this.ResumeFollowButton()

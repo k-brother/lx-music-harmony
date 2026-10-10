@@ -101,6 +101,8 @@ export struct MoreActionsSheet {
     .width('100%')
     .layoutWeight(1)
     .scrollBar(BarState.Off)
+    // Scroll 默认 align 是 Center：动作少时整块会被居中，面板上下留白（顶部对齐）
+    .align(Alignment.TopStart)
   }
 
   build() {
