@@ -215,6 +215,19 @@ export interface AppSettings {
   syncAutoSync: boolean;
   syncMode: SyncMode;
 
+  // 备份与恢复
+  /** 自动备份开关（历史 backup_config 旁路实例已并入这里） */
+  autoBackup: boolean;
+  /** 自动备份间隔（天，1-365） */
+  backupInterval: number;
+  /** 备份目录；空串 = 应用沙箱 filesDir（由 BackupService 在运行时解析） */
+  backupLocation: string;
+  /** 备份文件是否加密（口令本体在 CredentialStore，不入设置也不入备份包） */
+  encryptBackup: boolean;
+  /** WebDAV 备份目标地址；空串 = 未启用 */
+  webdavUrl: string;
+  webdavUser: string;
+
   // 外观
   fontSize: number;
   showAnimation: boolean;
@@ -320,6 +333,13 @@ export interface SettingsPatch {
   syncAutoSync?: boolean;
   syncMode?: SyncMode;
 
+  autoBackup?: boolean;
+  backupInterval?: number;
+  backupLocation?: string;
+  encryptBackup?: boolean;
+  webdavUrl?: string;
+  webdavUser?: string;
+
   fontSize?: number;
   showAnimation?: boolean;
 }
@@ -423,6 +443,13 @@ export function createDefaultSettings(): AppSettings {
     syncInterval: 30,
     syncAutoSync: true,
     syncMode: 'client',
+
+    autoBackup: false,
+    backupInterval: 7,
+    backupLocation: '',
+    encryptBackup: false,
+    webdavUrl: '',
+    webdavUser: '',
 
     fontSize: 14,
     showAnimation: true,

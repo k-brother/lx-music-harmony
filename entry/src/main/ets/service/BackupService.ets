@@ -1,13 +1,18 @@
 // 备份与恢复服务
 // 对应安卓版的备份恢复功能
+//
+// 配置归属：备份/WebDAV 的非敏感字段（开关、间隔、目录、加密、目标地址与账号）
+// 统一存进设置存储（service/SettingsService），口令只进资产存储（service/CredentialStore）。
+// 本服务因此不再直接使用 preferences —— 设置只有一个写入方，也别在这里开第二条链。
 
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { picker as filePicker } from '@kit.CoreFileKit';
 import { common } from '@kit.AbilityKit';
-import { preferences } from '@kit.ArkData';
 import { encryptWithPassword, decryptWithPassword } from './crypto/AesPayload';
 import { utf8Decode } from '../utils/TextCodec';
+import { settingsService } from './SettingsService';
+import type { AppSettings } from './SettingsService';
 import {
   readSecret,
   saveSecret,
@@ -42,10 +47,11 @@ const TAG: string = 'BackupService';
 export interface BackupConfig {
   autoBackup: boolean;
   backupInterval: number; // 天数
+  /** 备份目录；空串 = 应用沙箱 filesDir（见 BackupService.backupDir） */
   backupLocation: string;
   encryptBackup: boolean;
   backupPassword?: string;
-  // WebDAV 备份目标（留空即不启用；配置跟其它备份配置同一个 preferences，不重复建链）
+  // WebDAV 备份目标（留空即不启用）
   webdavUrl: string;
   webdavUser: string;
   webdavPassword: string;
@@ -56,16 +62,17 @@ export interface BackupConfig {
 // 备份服务类
 export class BackupService {
   private static instance: BackupService;
-  private config: BackupConfig = {
-    autoBackup: false,
-    backupInterval: 7,
-    backupLocation: '',
-    encryptBackup: false,
-    webdavUrl: '',
-    webdavUser: '',
-    webdavPassword: ''
-  };
-  
+  /**
+   * 口令缓存。
+   *
+   * 为什么不跟其它字段一样现读：口令不在设置里，而 `getConfig()` 是同步接口、
+   * 设置页要拿它回显表单，所以只能在 `initialize()` 里读进内存（来源是资产存储，
+   * 见 service/CredentialStore）。**非敏感字段一律不缓存**，每次从 SettingsService
+   * 现读 —— 否则「恢复备份 / 恢复默认设置」改过设置之后，这里会一直显示旧值。
+   */
+  private backupPassword: string = '';
+  private webdavPassword: string = '';
+
   private backupTimer: number | null = null;
   private abilityContext: common.UIAbilityContext | null = null;
 
@@ -79,157 +86,106 @@ export class BackupService {
     return BackupService.instance;
   }
 
-  // 初始化
+  /**
+   * 初始化：读口令 + 按「自动备份」开关启动定时器。
+   * 幂等，可重复调用（设置页进入时也会调一次，保证冷启动后立刻生效）。
+   */
   async initialize(): Promise<void> {
     try {
-      await this.loadConfig();
-      
-      if (this.config.autoBackup) {
+      this.backupPassword = await readSecret(CREDENTIAL_BACKUP_PASSWORD);
+      this.webdavPassword = await readSecret(CREDENTIAL_WEBDAV_PASSWORD);
+
+      if (this.settings().autoBackup) {
         this.startAutoBackup();
       }
-      
+
       hilog.info(DOMAIN, TAG, 'Backup service initialized');
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to initialize backup service: %{public}s', JSON.stringify(err));
     }
   }
 
-  // 加载配置
-  async loadConfig(): Promise<void> {
-    try {
-      const context = this.getContext();
-      const pref = await preferences.getPreferences(context, 'backup_config');
-
-      this.config.autoBackup = await pref.get('autoBackup', false) as boolean;
-      this.config.backupInterval = await pref.get('backupInterval', 7) as number;
-      this.config.backupLocation = await pref.get('backupLocation', context.filesDir) as string;
-      this.config.encryptBackup = await pref.get('encryptBackup', false) as boolean;
-      this.config.webdavUrl = await pref.get('webdavUrl', '') as string;
-      this.config.webdavUser = await pref.get('webdavUser', '') as string;
-
-      // 口令走系统资产存储；同时把历史上写在 preferences 里的明文迁移过去并清除
-      this.config.backupPassword = await this.loadPassword(pref, 'backupPassword', CREDENTIAL_BACKUP_PASSWORD);
-      this.config.webdavPassword = await this.loadPassword(pref, 'webdavPassword', CREDENTIAL_WEBDAV_PASSWORD);
-
-      hilog.info(DOMAIN, TAG, 'Backup config loaded');
-    } catch (err) {
-      hilog.error(DOMAIN, TAG, 'Failed to load backup config: %{public}s', JSON.stringify(err));
-    }
-  }
-
   /**
-   * 读口令：优先资产存储；若资产存储里没有、而旧 preferences 里还留着明文，
-   * 则迁移到资产存储并删除明文键（一次性的兼容处理，之后 preferences 不再持有口令）。
+   * 备份配置的权威来源。
+   * 备份/WebDAV 的非敏感字段自 B15b 起并入设置存储（StorageKeys.BACKUP_*），
+   * 旧版本写在旁路实例 backup_config 里的值由 SettingsStorage 一次性迁移过来，
+   * 因此这里只需要现读，不需要再维护一份缓存。
    */
-  private async loadPassword(pref: preferences.Preferences, legacyKey: string,
-    alias: string): Promise<string> {
-    const stored: string = await readSecret(alias);
-    if (stored.length > 0) {
-      // 资产存储已就绪：顺手清掉可能残留的明文
-      if (await pref.has(legacyKey)) {
-        await pref.delete(legacyKey);
-        await pref.flush();
-      }
-      return stored;
-    }
-    const legacy: string = await pref.get(legacyKey, '') as string;
-    if (legacy.length === 0) {
-      return '';
-    }
-    await saveSecret(alias, legacy);
-    await pref.delete(legacyKey);
-    await pref.flush();
-    hilog.info(DOMAIN, TAG, 'migrated %{public}s from preferences to AssetStore', legacyKey);
-    return legacy;
+  private settings(): AppSettings {
+    return settingsService.get();
   }
 
-  // 保存配置
-  async saveConfig(): Promise<void> {
-    try {
-      const context = this.getContext();
-      const pref = await preferences.getPreferences(context, 'backup_config');
-
-      await pref.put('autoBackup', this.config.autoBackup);
-      await pref.put('backupInterval', this.config.backupInterval);
-      await pref.put('backupLocation', this.config.backupLocation);
-      await pref.put('encryptBackup', this.config.encryptBackup);
-      await pref.put('webdavUrl', this.config.webdavUrl);
-      await pref.put('webdavUser', this.config.webdavUser);
-
-      // 口令只进资产存储，不进明文偏好文件（历史明文键一并清掉）
-      await saveSecret(CREDENTIAL_BACKUP_PASSWORD, this.config.backupPassword ?? '');
-      await saveSecret(CREDENTIAL_WEBDAV_PASSWORD, this.config.webdavPassword);
-      for (const legacyKey of ['backupPassword', 'webdavPassword']) {
-        if (await pref.has(legacyKey)) {
-          await pref.delete(legacyKey);
-        }
-      }
-
-      await pref.flush();
-      hilog.info(DOMAIN, TAG, 'Backup config saved');
-    } catch (err) {
-      hilog.error(DOMAIN, TAG, 'Failed to save backup config: %{public}s', JSON.stringify(err));
-    }
+  /** 备份目录：设置里留空时落到应用沙箱 filesDir */
+  private backupDir(): string {
+    const configured: string = this.settings().backupLocation;
+    return configured.length > 0 ? configured : this.getContext().filesDir;
   }
 
   // 获取配置
   getConfig(): BackupConfig {
+    const settings = this.settings();
     const result: BackupConfig = {
-      autoBackup: this.config.autoBackup,
-      backupInterval: this.config.backupInterval,
-      backupLocation: this.config.backupLocation,
-      encryptBackup: this.config.encryptBackup,
-      webdavUrl: this.config.webdavUrl,
-      webdavUser: this.config.webdavUser,
+      autoBackup: settings.autoBackup,
+      backupInterval: settings.backupInterval,
+      backupLocation: settings.backupLocation,
+      encryptBackup: settings.encryptBackup,
+      webdavUrl: settings.webdavUrl,
+      webdavUser: settings.webdavUser,
       webdavPassword: ''
     };
-    if (this.config.backupPassword) {
-      result.backupPassword = this.config.backupPassword;
+    if (this.backupPassword) {
+      result.backupPassword = this.backupPassword;
     }
     // 密码只在已设置时回传（编辑表单回显用），调用方不应把它打到日志里
-    if (this.config.webdavPassword) {
-      result.webdavPassword = this.config.webdavPassword;
+    if (this.webdavPassword) {
+      result.webdavPassword = this.webdavPassword;
     }
     return result;
   }
 
-  // 更新配置
+  /**
+   * 更新配置。
+   * 非敏感字段统一交给 SettingsService（设置只有一个写入方）；
+   * 口令只写资产存储，既不落偏好文件，也不会被设置快照/备份包带出去。
+   */
   async updateConfig(newConfig: Partial<BackupConfig>): Promise<void> {
-    if (newConfig.autoBackup !== undefined) {
-      this.config.autoBackup = newConfig.autoBackup;
-    }
-    if (newConfig.backupInterval !== undefined) {
-      this.config.backupInterval = newConfig.backupInterval;
-    }
-    if (newConfig.backupLocation !== undefined) {
-      this.config.backupLocation = newConfig.backupLocation;
-    }
-    if (newConfig.encryptBackup !== undefined) {
-      this.config.encryptBackup = newConfig.encryptBackup;
-    }
-    if (newConfig.backupPassword !== undefined) {
-      this.config.backupPassword = newConfig.backupPassword;
-    }
+    const current = this.settings();
+
+    // 地址在这里提前规范化，让设置页能就地报错，而不是等第一次备份才失败
+    let webdavUrl: string = current.webdavUrl;
     if (newConfig.webdavUrl !== undefined) {
-      // 提前校验格式，让设置页能就地报错，而不是等第一次备份才失败
-      this.config.webdavUrl = newConfig.webdavUrl.trim().length > 0
-        ? normalizeWebDavUrl(newConfig.webdavUrl) : '';
+      const raw: string = newConfig.webdavUrl.trim();
+      webdavUrl = raw.length > 0 ? normalizeWebDavUrl(raw) : '';
     }
-    if (newConfig.webdavUser !== undefined) {
-      this.config.webdavUser = newConfig.webdavUser.trim();
+
+    await settingsService.update({
+      autoBackup: newConfig.autoBackup !== undefined ? newConfig.autoBackup : current.autoBackup,
+      backupInterval: newConfig.backupInterval !== undefined
+        ? newConfig.backupInterval : current.backupInterval,
+      backupLocation: newConfig.backupLocation !== undefined
+        ? newConfig.backupLocation : current.backupLocation,
+      encryptBackup: newConfig.encryptBackup !== undefined
+        ? newConfig.encryptBackup : current.encryptBackup,
+      webdavUrl,
+      webdavUser: newConfig.webdavUser !== undefined ? newConfig.webdavUser : current.webdavUser,
+    });
+
+    if (newConfig.backupPassword !== undefined) {
+      this.backupPassword = newConfig.backupPassword;
+      await saveSecret(CREDENTIAL_BACKUP_PASSWORD, this.backupPassword);
     }
     if (newConfig.webdavPassword !== undefined) {
-      this.config.webdavPassword = newConfig.webdavPassword;
+      this.webdavPassword = newConfig.webdavPassword;
+      await saveSecret(CREDENTIAL_WEBDAV_PASSWORD, this.webdavPassword);
     }
-    await this.saveConfig();
-    
+
     // 重新启动自动备份
     if (this.backupTimer) {
       clearInterval(this.backupTimer);
       this.backupTimer = null;
     }
-    
-    if (this.config.autoBackup) {
+
+    if (this.settings().autoBackup) {
       this.startAutoBackup();
     }
   }
@@ -247,8 +203,9 @@ export class BackupService {
       
       // 3. 加密数据（如果启用）
       let finalData = jsonData;
-      if (this.config.encryptBackup && this.config.backupPassword) {
-        finalData = await this.encryptData(jsonData, this.config.backupPassword);
+      const encrypt: boolean = this.settings().encryptBackup;
+      if (encrypt && this.backupPassword.length > 0) {
+        finalData = await this.encryptData(jsonData, this.backupPassword);
       }
       
       // 4. 确保备份目录存在
@@ -256,8 +213,8 @@ export class BackupService {
       
       // 5. 生成文件名
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const fileName = this.generateBackupFileName(dataType, timestamp);
-      const filePath = `${this.config.backupLocation}/${fileName}`;
+      const fileName = this.generateBackupFileName(dataType, timestamp, encrypt);
+      const filePath = `${this.backupDir()}/${fileName}`;
       
       // 6. 保存文件（使用同步接口）
       const file = fs.openSync(filePath, fs.OpenMode.CREATE | fs.OpenMode.WRITE_ONLY);
@@ -325,10 +282,10 @@ export class BackupService {
     let plain = jsonData;
     // 解密数据（如果需要）
     if (fileName.endsWith('.enc')) {
-      if (!this.config.backupPassword) {
+      if (this.backupPassword.length === 0) {
         throw new Error('Backup password required for encrypted backup');
       }
-      plain = await this.decryptData(jsonData, this.config.backupPassword);
+      plain = await this.decryptData(jsonData, this.backupPassword);
     }
 
     // 解析JSON数据
@@ -394,16 +351,17 @@ export class BackupService {
   async getBackupList(): Promise<BackupFileInfo[]> {
     try {
       await this.ensureBackupDirectoryExists();
-      
+
+      const dir: string = this.backupDir();
       const backupFiles: BackupFileInfo[] = [];
       
       try {
         // 使用fs.listFile读取目录内容
-        const entries: string[] = fs.listFileSync(this.config.backupLocation);
+        const entries: string[] = fs.listFileSync(dir);
         for (let i = 0; i < entries.length; i++) {
           const fileName = entries[i];
           if (fileName.endsWith('.json') || fileName.endsWith('.enc')) {
-            const filePath = `${this.config.backupLocation}/${fileName}`;
+            const filePath = `${dir}/${fileName}`;
             const fileStat = await fs.stat(filePath);
             const dataType = this.parseDataTypeFromFileName(fileName);
             
@@ -452,7 +410,8 @@ export class BackupService {
 
   /** WebDAV 目标是否已配置完整（地址 + 用户名；密码允许为空） */
   isWebDavConfigured(): boolean {
-    return this.config.webdavUrl.trim().length > 0 && this.config.webdavUser.trim().length > 0;
+    const settings = this.settings();
+    return settings.webdavUrl.trim().length > 0 && settings.webdavUser.trim().length > 0;
   }
 
   /** 把已生成的本地备份上传到 WebDAV（读取文件 → 上传；失败返回 false 不抛错） */
@@ -530,10 +489,11 @@ export class BackupService {
     if (!this.isWebDavConfigured()) {
       throw new Error('WebDAV not configured');
     }
+    const settings = this.settings();
     return {
-      url: this.config.webdavUrl,
-      user: this.config.webdavUser,
-      password: this.config.webdavPassword
+      url: settings.webdavUrl,
+      user: settings.webdavUser,
+      password: this.webdavPassword
     };
   }
 
@@ -542,9 +502,10 @@ export class BackupService {
     if (this.backupTimer) {
       clearInterval(this.backupTimer);
     }
-    
-    if (this.config.autoBackup && this.config.backupInterval > 0) {
-      const intervalMs = this.config.backupInterval * 24 * 60 * 60 * 1000; // 转换为毫秒
+
+    const settings = this.settings();
+    if (settings.autoBackup && settings.backupInterval > 0) {
+      const intervalMs = settings.backupInterval * 24 * 60 * 60 * 1000; // 转换为毫秒
       
       this.backupTimer = setInterval(() => {
         this.createBackup(BackupDataType.ALL).then(() => {
@@ -554,7 +515,7 @@ export class BackupService {
         });
       }, intervalMs);
       
-      hilog.info(DOMAIN, TAG, 'Auto backup started, interval: %{public}d days', this.config.backupInterval);
+      hilog.info(DOMAIN, TAG, 'Auto backup started, interval: %{public}d days', settings.backupInterval);
     }
   }
 
@@ -574,21 +535,23 @@ export class BackupService {
   /**
    * 生成备份文件名（唯一的文件名拼装处，避免创建/恢复两处规则漂移）
    * @param timestamp 调用方已算好的时间戳，保证同一次备份的名字一致
+   * @param encrypt 本次备份是否加密（决定扩展名；由调用方读一次设置传进来，避免重复读设置）
    */
-  private generateBackupFileName(dataType: BackupDataType, timestamp: string): string {
-    const extension = this.config.encryptBackup ? '.enc' : '.json';
+  private generateBackupFileName(dataType: BackupDataType, timestamp: string, encrypt: boolean): string {
+    const extension = encrypt ? '.enc' : '.json';
     return `lxmusic-backup-${dataType}-${timestamp}${extension}`;
   }
 
   // 确保备份目录存在
   private async ensureBackupDirectoryExists(): Promise<void> {
+    const dir: string = this.backupDir();
     try {
-      await fs.access(this.config.backupLocation);
+      await fs.access(dir);
     } catch (e) {
       hilog.warn(DOMAIN, TAG, 'access backup directory failed: %{public}s', (e as Error)?.message);
       try {
-        await fs.mkdir(this.config.backupLocation);
-        hilog.info(DOMAIN, TAG, 'Created backup directory: %{public}s', this.config.backupLocation);
+        await fs.mkdir(dir);
+        hilog.info(DOMAIN, TAG, 'Created backup directory: %{public}s', dir);
       } catch (me) {
         const msg = (me as Error)?.message || JSON.stringify(me);
         hilog.error(DOMAIN, TAG, 'mkdir backup directory failed: %{public}s', msg);

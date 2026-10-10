@@ -11,6 +11,12 @@ import { getStorageService } from '../../core/interfaces/IStorageService';
 import { StorageKeys } from '../StorageService';
 import { appLog as hilog } from '../../core/log/AppLogger';
 import {
+  readSecret,
+  saveSecret,
+  CREDENTIAL_BACKUP_PASSWORD,
+  CREDENTIAL_WEBDAV_PASSWORD,
+} from '../CredentialStore';
+import {
   createDefaultSettings,
   clampNumber,
   toAddMusicLocation,
@@ -36,6 +42,8 @@ const DOMAIN = 0x0005;
 
 const LEGACY_SETTINGS_STORE = 'music_settings';
 const LEGACY_DOWNLOAD_STORE = 'download_settings';
+/** 历史的备份配置旁路实例（B15b 后已并入设置存储） */
+const LEGACY_BACKUP_STORE = 'backup_config';
 
 
 
@@ -44,6 +52,9 @@ export async function migrateLegacySettings(context: common.UIAbilityContext | n
     if (!context) {
       return;
     }
+    // 备份配置的迁移有自己的开关（下面的 SETTINGS_MIGRATED 在老设备上早就是 true，
+    // 挂在它后面会导致备份配置永远迁不过来），因此单独调用。
+    await migrateLegacyBackupConfig(context);
     const storage = getStorageService();
     try {
       const migrated = await storage.getBoolean(StorageKeys.SETTINGS_MIGRATED, false);
@@ -143,6 +154,70 @@ async function migrateBoolean(
       await storage.setBoolean(targetKey, value);
     }
   }
+
+/**
+ * 历史旁路实例 `backup_config` 并入设置存储（B15b，一次性）。
+ *
+ * 背景：备份 / WebDAV 配置曾经写在自己的 preferences 文件里（`backup_config`），
+ * 绕开了「设置只有一个写入方」的约定，代价是这些项不参与设置快照导出的反方向
+ * （恢复默认设置、备份包都不认它们），口令还是明文落盘。
+ * 现在分两步搬：非敏感字段进设置存储（StorageKeys.BACKUP_*），
+ * 明文口令进资产存储（service/CredentialStore），搬完删掉旧文件。
+ *
+ * 失败不阻塞启动，也不写标记 —— 下次启动会重试；各项迁移自身按「目标键已存在就跳过」
+ * 处理，所以重试是幂等的，不会覆盖用户后来改过的新值。
+ */
+async function migrateLegacyBackupConfig(context: common.UIAbilityContext): Promise<void> {
+  const storage = getStorageService();
+  try {
+    if (await storage.getBoolean(StorageKeys.BACKUP_CONFIG_MIGRATED, false)) {
+      return;
+    }
+
+    const legacy = await preferences.getPreferences(context, LEGACY_BACKUP_STORE);
+    await migrateBoolean(legacy, 'autoBackup', StorageKeys.BACKUP_AUTO);
+    await migrateNumber(legacy, 'backupInterval', StorageKeys.BACKUP_INTERVAL);
+    await migrateString(legacy, 'backupLocation', StorageKeys.BACKUP_LOCATION);
+    await migrateBoolean(legacy, 'encryptBackup', StorageKeys.BACKUP_ENCRYPT);
+    await migrateString(legacy, 'webdavUrl', StorageKeys.BACKUP_WEBDAV_URL);
+    await migrateString(legacy, 'webdavUser', StorageKeys.BACKUP_WEBDAV_USER);
+    // 历史上两个口令是明文写在同一个文件里的：搬进资产存储并删除明文键
+    await migrateSecret(legacy, 'backupPassword', CREDENTIAL_BACKUP_PASSWORD);
+    await migrateSecret(legacy, 'webdavPassword', CREDENTIAL_WEBDAV_PASSWORD);
+
+    await storage.setBoolean(StorageKeys.BACKUP_CONFIG_MIGRATED, true);
+    await dropLegacyBackupStore(context);
+    hilog.info(DOMAIN, TAG, 'Legacy backup config migrated into settings');
+  } catch (err) {
+    const msg: string = err instanceof Error ? err.message : JSON.stringify(err);
+    hilog.warn(DOMAIN, TAG, 'Legacy backup config migration skipped: %{public}s', msg);
+  }
+}
+
+/** 明文口令 → 资产存储（已有资产值时以资产存储为准，只清明文） */
+async function migrateSecret(
+    legacy: preferences.Preferences, legacyKey: string, alias: string
+  ): Promise<void> {
+    if (!await legacy.has(legacyKey)) {
+      return;
+    }
+    const plain: string = await legacy.get(legacyKey, '') as string;
+    if (plain.length > 0 && (await readSecret(alias)).length === 0) {
+      await saveSecret(alias, plain);
+    }
+    await legacy.delete(legacyKey);
+    await legacy.flush();
+  }
+
+/** 删除旧文件；失败只记日志（内容已全部搬走，标记已写，不会重试） */
+async function dropLegacyBackupStore(context: common.UIAbilityContext): Promise<void> {
+  try {
+    await preferences.deletePreferences(context, { name: LEGACY_BACKUP_STORE });
+  } catch (err) {
+    const msg: string = err instanceof Error ? err.message : JSON.stringify(err);
+    hilog.warn(DOMAIN, TAG, 'drop legacy backup store failed: %{public}s', msg);
+  }
+}
 
 export async function loadSettingsFromStorage(): Promise<AppSettings> {
     const storage = getStorageService();
@@ -319,6 +394,15 @@ export async function loadSettingsFromStorage(): Promise<AppSettings> {
     settings.syncAutoSync = await storage.getBoolean(StorageKeys.SYNC_AUTO_SYNC, defaults.syncAutoSync);
     settings.syncMode = await storage.getString(StorageKeys.SYNC_MODE, defaults.syncMode) === 'server'
       ? 'server' : 'client';
+
+    settings.autoBackup = await storage.getBoolean(StorageKeys.BACKUP_AUTO, defaults.autoBackup);
+    settings.backupInterval = clampNumber(
+      await storage.getNumber(StorageKeys.BACKUP_INTERVAL, defaults.backupInterval), 1, 365,
+      defaults.backupInterval);
+    settings.backupLocation = await storage.getString(StorageKeys.BACKUP_LOCATION, defaults.backupLocation);
+    settings.encryptBackup = await storage.getBoolean(StorageKeys.BACKUP_ENCRYPT, defaults.encryptBackup);
+    settings.webdavUrl = await storage.getString(StorageKeys.BACKUP_WEBDAV_URL, defaults.webdavUrl);
+    settings.webdavUser = await storage.getString(StorageKeys.BACKUP_WEBDAV_USER, defaults.webdavUser);
 
     settings.fontSize = clampNumber(
       await storage.getNumber(StorageKeys.APPEARANCE_FONT_SIZE, defaults.fontSize), 12, 24, defaults.fontSize);

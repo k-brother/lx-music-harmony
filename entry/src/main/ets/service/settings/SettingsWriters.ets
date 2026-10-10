@@ -553,6 +553,61 @@ export async function applySyncSettings(
     }
 }
 
+/**
+ * 备份与恢复（自动备份开关/间隔、备份目录、加密开关、WebDAV 目标）。
+ *
+ * 口令（备份口令、WebDAV 口令）**不在这里**：它们是敏感凭据，走 service/CredentialStore
+ * 的资产存储通道，既不落偏好文件，也不会被设置快照/备份导出带出去。
+ * 这里只做 trim，不做 URL 规范化——保存入口（BackupService.updateConfig）已做校验并给出
+ * 界面提示；从备份包恢复时不应因为一条坏地址就整体失败。
+ */
+export async function applyBackupSettings(
+  patch: SettingsPatch, values: AppSettings, changed: string[],
+  storage: IStorageService): Promise<void> {
+    if (patch.autoBackup !== undefined && patch.autoBackup !== values.autoBackup) {
+      values.autoBackup = patch.autoBackup;
+      await storage.setBoolean(StorageKeys.BACKUP_AUTO, patch.autoBackup);
+      changed.push('autoBackup');
+    }
+    if (patch.backupInterval !== undefined) {
+      const next = clampNumber(patch.backupInterval, 1, 365, values.backupInterval);
+      if (next !== values.backupInterval) {
+        values.backupInterval = next;
+        await storage.setNumber(StorageKeys.BACKUP_INTERVAL, next);
+        changed.push('backupInterval');
+      }
+    }
+    if (patch.backupLocation !== undefined) {
+      const next = patch.backupLocation.trim();
+      if (next !== values.backupLocation) {
+        values.backupLocation = next;
+        await storage.setString(StorageKeys.BACKUP_LOCATION, next);
+        changed.push('backupLocation');
+      }
+    }
+    if (patch.encryptBackup !== undefined && patch.encryptBackup !== values.encryptBackup) {
+      values.encryptBackup = patch.encryptBackup;
+      await storage.setBoolean(StorageKeys.BACKUP_ENCRYPT, patch.encryptBackup);
+      changed.push('encryptBackup');
+    }
+    if (patch.webdavUrl !== undefined) {
+      const next = patch.webdavUrl.trim();
+      if (next !== values.webdavUrl) {
+        values.webdavUrl = next;
+        await storage.setString(StorageKeys.BACKUP_WEBDAV_URL, next);
+        changed.push('webdavUrl');
+      }
+    }
+    if (patch.webdavUser !== undefined) {
+      const next = patch.webdavUser.trim();
+      if (next !== values.webdavUser) {
+        values.webdavUser = next;
+        await storage.setString(StorageKeys.BACKUP_WEBDAV_USER, next);
+        changed.push('webdavUser');
+      }
+    }
+}
+
 /** 外观（字号缩放 / 动画开关） */
 export async function applyAppearanceSettings(
   patch: SettingsPatch, values: AppSettings, changed: string[],

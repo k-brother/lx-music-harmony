@@ -26,6 +26,7 @@ import {
   applySourceSettings,
   applyDownloadSettings,
   applySyncSettings,
+  applyBackupSettings,
   applyAppearanceSettings,
   applyMiscSettings,
 } from './settings/SettingsWriters';
@@ -209,6 +210,12 @@ class SettingsServiceImpl {
     copy.syncInterval = source.syncInterval;
     copy.syncAutoSync = source.syncAutoSync;
     copy.syncMode = source.syncMode;
+    copy.autoBackup = source.autoBackup;
+    copy.backupInterval = source.backupInterval;
+    copy.backupLocation = source.backupLocation;
+    copy.encryptBackup = source.encryptBackup;
+    copy.webdavUrl = source.webdavUrl;
+    copy.webdavUser = source.webdavUser;
     copy.fontSize = source.fontSize;
     copy.showAnimation = source.showAnimation;
     return copy;
@@ -232,6 +239,7 @@ class SettingsServiceImpl {
     await applySourceSettings(patch, this.values, changed, storage);
     await applyDownloadSettings(patch, this.values, changed, storage);
     await applySyncSettings(patch, this.values, changed, storage);
+    await applyBackupSettings(patch, this.values, changed, storage);
     await applyAppearanceSettings(patch, this.values, changed, storage);
     await applyMiscSettings(patch, this.values, changed, storage);
     if (changed.indexOf('fontSize') >= 0) {
@@ -253,8 +261,11 @@ class SettingsServiceImpl {
    * 恢复默认设置。
    *
    * 只还原「外观 / 播放 / 列表 / 搜索 / 下载 / 桌面歌词」等可调项；
-   * 下面四类属于用户身份或凭据，静默清掉会很伤（误触一次就要重新配置），因此保留：
-   * syncEnabled / syncServer / syncKey（同步服务器与密钥）、agreedPact（已同意协议）。
+   * 下面这些属于用户身份或凭据，静默清掉会很伤（误触一次就要重新配置），因此保留：
+   * syncEnabled / syncServer / syncKey（同步服务器与密钥）、
+   * webdavUrl / webdavUser（WebDAV 备份目标与账号）。
+   * 注意：agreedPact 不在保留之列，会一起还原成「未同意」（下次启动重新弹协议），
+   * 这是既有行为，脚本里的保留名单对它只是冗余登记。
    * 完整性由 scripts/check_settings_reset.py 守住：AppSettings 新增字段时，
    * 要么在这里出现，要么显式列进保留名单。
    */
@@ -349,6 +360,10 @@ class SettingsServiceImpl {
       syncAutoSync: defaults.syncAutoSync,
       syncInterval: defaults.syncInterval,
       syncMode: defaults.syncMode,
+      autoBackup: defaults.autoBackup,
+      backupInterval: defaults.backupInterval,
+      backupLocation: defaults.backupLocation,
+      encryptBackup: defaults.encryptBackup,
       fontSize: defaults.fontSize,
       showAnimation: defaults.showAnimation,
     });

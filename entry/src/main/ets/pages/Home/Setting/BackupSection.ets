@@ -49,8 +49,8 @@ export struct BackupSection {
 
   /**
    * 读取备份配置。
-   * 先跑一遍服务初始化（它是幂等的：loadConfig + 需要时重启定时器），
-   * 这样即使用户直接在冷启动后进设置页，也能看到落盘的真实开关，而不是服务里的默认值。
+   * 先跑一遍服务初始化（幂等：读口令 + 按开关起定时器），保证冷启动后直接进设置页
+   * 也能看到真实开关而不是默认值；配置本体每次都是从 SettingsService 现读的。
    */
   private async loadConfig(): Promise<void> {
     backupService.setContext(this.hostContext());

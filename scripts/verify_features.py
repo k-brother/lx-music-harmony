@@ -553,6 +553,15 @@ CHECKS = [
   r'LiveViewLyricPayload', r"import[^\n]*LocalizationService"),
  # 应用级存储文件名归基础设施（卡片契约不得再定义）
  ('preferences 名字单点声明', 'utils/PreferenceNames.ets', r'APP_PREFERENCES_NAME'),
+ # —— 备份配置不再旁路设置体系（B15b）——
+ ('备份配置单一写入方（设置服务）', 'service/BackupService.ets',
+  r'settingsService\.update\(\{', r"getPreferences\("),
+ ('备份/WebDAV 口令走资产存储', 'service/BackupService.ets',
+  r'CREDENTIAL_BACKUP_PASSWORD', r"put\('webdavPassword|put\('backupPassword"),
+ ('备份配置进设置快照（可备份/可恢复默认）', 'service/settings/SettingsTypes.ets',
+  r'webdavUrl: string;', None),
+ ('旧备份配置实例一次性并入设置存储', 'service/settings/SettingsStorage.ets',
+  r'LEGACY_BACKUP_STORE', None),
 ]
 
 fails = []

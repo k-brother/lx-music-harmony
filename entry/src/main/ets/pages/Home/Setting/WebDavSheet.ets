@@ -3,7 +3,8 @@
  *
  * 结构对齐 EditMetadataSheet：输入草稿由面板持有，页面只给初值、收回「保存」的新值。
  * 校验在页面的保存回调里做（格式错误时面板保持打开并提示，不静默关闭）。
- * 密码用密码输入框；配置明文存本机 preferences（与备份口令同一处，不进备份数据）。
+ * 密码用密码输入框；地址与账号存进设置存储，口令走系统资产存储（service/CredentialStore），
+ * 都不进备份数据 —— 备份包只带非敏感的 settings 快照。
  */
 import { DesignTokens } from '../../../theme/DesignTokens';
 import { t } from '../../../service/LocalizationService';

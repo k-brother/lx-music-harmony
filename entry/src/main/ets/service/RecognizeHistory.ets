@@ -1,7 +1,8 @@
 /**
  * 听歌识曲历史记录
  *
- * 独立 preferences 存储（对齐 BackupService 的 backup_config 先例，不占用设置存储），
+ * 独立 preferences 存储：识曲历史是用户数据（不是设置项），不进设置存储、
+ * 也不参与设置快照与备份包，省得每次读写设置都连带它，
  * 上限 20 条；同 trackId 重复识别时去重置顶（RzdMusic 只去重 ID，会堆积同一首歌）。
  */
 import { preferences } from '@kit.ArkData';

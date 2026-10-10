@@ -365,6 +365,17 @@ interface StorageKeysInterface {
   SYNC_AUTO_SYNC: string;
   SYNC_MODE: string;
 
+  // 备份设置（口令类不走这里：见 service/CredentialStore）
+  /** 一次性标记：历史 backup_config 旁路实例已并入设置存储 */
+  BACKUP_CONFIG_MIGRATED: string;
+  BACKUP_AUTO: string;
+  BACKUP_INTERVAL: string;
+  /** 备份目录；空串 = 应用沙箱 filesDir（运行时解析，见 BackupService） */
+  BACKUP_LOCATION: string;
+  BACKUP_ENCRYPT: string;
+  BACKUP_WEBDAV_URL: string;
+  BACKUP_WEBDAV_USER: string;
+
   // 外观设置
   APPEARANCE_FONT_SIZE: string;
   APPEARANCE_SHOW_ANIMATION: string;
@@ -492,6 +503,15 @@ export const StorageKeys: StorageKeysInterface = {
   SYNC_INTERVAL: 'setting.sync.interval',
   SYNC_AUTO_SYNC: 'setting.sync.autoSync',
   SYNC_MODE: 'setting.sync.mode',
+
+  // 备份设置
+  BACKUP_CONFIG_MIGRATED: 'setting.internal.backupConfigMigrated',
+  BACKUP_AUTO: 'setting.backup.autoBackup',
+  BACKUP_INTERVAL: 'setting.backup.interval',
+  BACKUP_LOCATION: 'setting.backup.location',
+  BACKUP_ENCRYPT: 'setting.backup.encrypt',
+  BACKUP_WEBDAV_URL: 'setting.backup.webdavUrl',
+  BACKUP_WEBDAV_USER: 'setting.backup.webdavUser',
 
   // 外观设置
   APPEARANCE_FONT_SIZE: 'setting.appearance.fontSize',

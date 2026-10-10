@@ -15,8 +15,9 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent / 'entry/src/main/ets'
 
-# 有意保留：同步凭据与「已同意协议」不属于可调项
-PRESERVED = {'syncEnabled', 'syncServer', 'syncKey', 'agreedPact'}
+# 有意保留：同步/WebDAV 的账号与服务器配置、以及「已同意协议」，都不属于可调项
+# （误触一次「恢复默认设置」就要重新配一遍，且凭据本体存在设置之外）
+PRESERVED = {'syncEnabled', 'syncServer', 'syncKey', 'webdavUrl', 'webdavUser', 'agreedPact'}
 
 
 def main():
