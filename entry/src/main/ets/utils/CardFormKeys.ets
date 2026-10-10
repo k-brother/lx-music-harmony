@@ -7,7 +7,6 @@
  * - 卡片进程（CardFormPrefs）写 CARD_FORM_IDS_KEY，读 CARD_SNAPSHOT_KEY。
  * 任何一边要改值，必须两边同时升级，不允许单方面改。
  */
-export const CARD_PREFERENCES_NAME: string = 'lx_music_preferences';
 export const CARD_FORM_IDS_KEY: string = 'card.formIds';
 export const CARD_SNAPSHOT_KEY: string = 'card.snapshot';
 

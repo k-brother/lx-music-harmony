@@ -22,6 +22,7 @@ import storageService, { StorageKeys } from './StorageService';
 import { CardFormCover, type CardCoverFd } from '../utils/CardFormCover';
 import { CardPushPayload } from '../utils/CardFormPayload';
 import type { RegisteredCard } from '../utils/CardFormKeys';
+import { decodeRegisteredCards } from '../utils/CardFormCodec';
 
 const TAG = 'CardFormService';
 const DOMAIN = 0x0003;
@@ -222,24 +223,8 @@ class CardFormService {
     this.formIdsLoadedAt = now;
     try {
       const raw: string = await storageService.getString(StorageKeys.CARD_FORM_IDS);
-      const parsed: Object[] = JSON.parse(raw.length > 0 ? raw : '[]') as Object[];
-      const out: RegisteredCard[] = [];
-      for (const item of parsed) {
-        // 兼容旧格式 string[]（只存 id）：按 2*4 处理
-        if (typeof item === 'string') {
-          const id: string = item as string;
-          if (id.length > 0 && out.findIndex((c: RegisteredCard): boolean => c.id === id) < 0) {
-            out.push({ id: id, dimension: 3 });
-          }
-          continue;
-        }
-        const rec: RegisteredCard = item as RegisteredCard;
-        if (typeof rec.id === 'string' && rec.id.length > 0 &&
-            out.findIndex((c: RegisteredCard): boolean => c.id === rec.id) < 0) {
-          out.push({ id: rec.id, dimension: typeof rec.dimension === 'number' ? rec.dimension : 3 });
-        }
-      }
-      this.registeredCards = out;
+      // 契约解析与卡片进程共用一份实现（utils/CardFormCodec）
+      this.registeredCards = decodeRegisteredCards(raw);
     } catch (err) {
       hilog.warn(DOMAIN, TAG, 'formIds 读取失败: %{public}s',
         err instanceof Error ? err.message : JSON.stringify(err));

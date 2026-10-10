@@ -12,9 +12,9 @@
 import { preferences } from '@kit.ArkData';
 import type { Context } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import {
-  CARD_PREFERENCES_NAME, CARD_FORM_IDS_KEY, CARD_SNAPSHOT_KEY, type RegisteredCard
-} from '../utils/CardFormKeys';
+import { CARD_FORM_IDS_KEY, CARD_SNAPSHOT_KEY, type RegisteredCard } from '../utils/CardFormKeys';
+import { APP_PREFERENCES_NAME } from '../utils/PreferenceNames';
+import { decodeRegisteredCards, encodeRegisteredCards } from '../utils/CardFormCodec';
 
 const TAG = 'CardFormPrefs';
 const DOMAIN = 0x0003;
@@ -45,13 +45,13 @@ export class CardFormPrefs {
     }
     this.lastRefreshAt = now;
     try {
-      preferences.removePreferencesFromCacheSync(context, { name: CARD_PREFERENCES_NAME });
+      preferences.removePreferencesFromCacheSync(context, { name: APP_PREFERENCES_NAME });
     } catch (err) {
       hilog.warn(DOMAIN, TAG, '清除 preferences 缓存失败: %{public}s',
         err instanceof Error ? err.message : JSON.stringify(err));
     }
     try {
-      this.store = preferences.getPreferencesSync(context, { name: CARD_PREFERENCES_NAME });
+      this.store = preferences.getPreferencesSync(context, { name: APP_PREFERENCES_NAME });
     } catch (err) {
       this.store = null;
       hilog.warn(DOMAIN, TAG, '打开 preferences 失败: %{public}s',
@@ -126,24 +126,7 @@ export class CardFormPrefs {
     }
     try {
       const raw: string = this.store.getSync(CARD_FORM_IDS_KEY, '[]') as string;
-      const parsed: Object[] = JSON.parse(raw) as Object[];
-      const out: RegisteredCard[] = [];
-      for (const item of parsed) {
-        // 兼容旧格式 string[]（只存 id）：按 2*4 处理
-        if (typeof item === 'string') {
-          const id: string = item as string;
-          if (id.length > 0 && out.findIndex((c: RegisteredCard): boolean => c.id === id) < 0) {
-            out.push({ id: id, dimension: 3 });
-          }
-          continue;
-        }
-        const rec: RegisteredCard = item as RegisteredCard;
-        if (typeof rec.id === 'string' && rec.id.length > 0 &&
-            out.findIndex((c: RegisteredCard): boolean => c.id === rec.id) < 0) {
-          out.push({ id: rec.id, dimension: typeof rec.dimension === 'number' ? rec.dimension : 3 });
-        }
-      }
-      return out;
+      return decodeRegisteredCards(raw);
     } catch (err) {
       hilog.warn(DOMAIN, TAG, '读 formIds 失败: %{public}s',
         err instanceof Error ? err.message : JSON.stringify(err));
@@ -159,7 +142,7 @@ export class CardFormPrefs {
       return;
     }
     try {
-      this.store.putSync(CARD_FORM_IDS_KEY, JSON.stringify(list));
+      this.store.putSync(CARD_FORM_IDS_KEY, encodeRegisteredCards(list));
       this.store.flush();
     } catch (err) {
       hilog.warn(DOMAIN, TAG, '写 formIds 失败: %{public}s',

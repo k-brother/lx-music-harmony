@@ -14,12 +14,13 @@ import {
   createMemoryStorageService,
   type IStorageService
 } from '../core/interfaces/IStorageService';
-import { CARD_PREFERENCES_NAME, CARD_FORM_IDS_KEY, CARD_SNAPSHOT_KEY } from '../utils/CardFormKeys';
+import { APP_PREFERENCES_NAME } from '../utils/PreferenceNames';
+import { CARD_FORM_IDS_KEY, CARD_SNAPSHOT_KEY } from '../utils/CardFormKeys';
 
 const TAG = 'StorageService';
 const DOMAIN = 0x0003;
-// 值定义在 utils/CardFormKeys（卡片进程跨进程契约），这里转出保持既有引用不变
-export const PREFERENCES_NAME = CARD_PREFERENCES_NAME;
+// 名字常量在中立的 utils/PreferenceNames（卡片进程也要用同一个文件名），这里转出保持既有引用不变
+export const PREFERENCES_NAME: string = APP_PREFERENCES_NAME;
 
 // 全局上下文变量
 let abilityContext: common.UIAbilityContext | null = null;
