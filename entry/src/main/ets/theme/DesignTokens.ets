@@ -238,9 +238,9 @@ export class DesignTokens {
    * Tab 里的滚动内容按这个值留出底部空间，内容才能滚到玻璃底舱"下面"（玻璃才有东西可透）。
    */
   static bottomDockHeight(): number {
-    // 迷你播放条 36 + 两行间隙 4 + Tab 栏 36 = 76，取 80 留 4 余量
+    // 迷你播放条 42 + 两行间隙 4 + Tab 栏 42 = 88，取 92 留 4 余量
     //（迷你条与 Tab 栏高度见下面各自的 token，改一处即可整组跟随）
-    return 80;
+    return 92;
   }
 
   /**
@@ -291,17 +291,17 @@ export class DesignTokens {
   // 不要去组件里翻写死的数字。间距尽量由 spaceUnit() 推导，避免又散出新常量。
   /** 迷你条高度 */
   static miniBarHeight(): number {
-    return 36;
+    return 42;
   }
 
   /** 迷你条封面边长 */
   static miniCoverSize(): number {
-    return 30;
+    return 36;
   }
 
   /** 迷你条播放键直径 */
   static miniPlaySize(): number {
-    return 22;
+    return 26;
   }
 
   /** 迷你条左右内边距 */
@@ -315,18 +315,18 @@ export class DesignTokens {
    * 高度一致才不会把这一行撑高（之前把房子塞进播放条内部，收拢时把行撑高了 6vp）。
    */
   static dockHouseSize(): number {
-    return 36;
+    return 42;
   }
 
   // ── 底部 Tab 栏（仅窄屏；宽屏走左侧侧栏导航）─────────────────────────────
   /** Tab 栏高度 */
   static tabBarHeight(): number {
-    return 36;
+    return 42;
   }
 
   /** Tab 条目高度（图标 + 文案的可点区，留 40 保证点按手感） */
   static tabItemHeight(): number {
-    return 36;
+    return 40;
   }
 
   /** Tab 选中胶囊高度 */
