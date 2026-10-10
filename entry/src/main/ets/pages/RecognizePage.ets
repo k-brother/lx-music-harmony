@@ -40,6 +40,15 @@ import {
   sourceDetailUrl,
 } from './SonglistDetail/SonglistRowActions';
 import type { SongItem } from './SonglistDetail/SonglistTypes';
+import {
+  isBusy,
+  recognizedToMusicInfo,
+  recognizedToRow,
+  statusColor,
+  statusDetail,
+  statusText,
+  type RecognizeStatus,
+} from './Recognize/RecognizeFormat';
 import type { ShareResult } from '../service/ShareService';
 import type { MusicInfo } from '../types/MusicTypes';
 
@@ -47,18 +56,6 @@ const DOMAIN = 0x0001;
 const TAG = 'RecognizePage';
 /** 无声门限（RMS），低于该值视为没采到有效声音 */
 const RMS_THRESHOLD: number = 32 / 32768;
-
-type RecognizeStatus =
-  | 'idle'
-  | 'requesting'
-  | 'capturing'
-  | 'recognizing'
-  | 'matched'
-  | 'not_matched'
-  | 'no_audio'
-  | 'permission_denied'
-  | 'network_error'
-  | 'error';
 
 @Component
 export struct RecognizePage {
@@ -88,63 +85,7 @@ export struct RecognizePage {
     return this.getUIContext().getHostContext() as common.UIAbilityContext;
   }
 
-  private isBusy(): boolean {
-    return this.status === 'requesting' || this.status === 'capturing' || this.status === 'recognizing';
-  }
-
-  private statusText(): string {
-    switch (this.status) {
-      case 'idle':
-        return t('recognize_ready');
-      case 'requesting':
-        return t('recognize_requesting');
-      case 'capturing':
-        return t('recognize_listening');
-      case 'recognizing':
-        return t('recognize_recognizing');
-      case 'matched':
-        return t('recognize_matched');
-      case 'not_matched':
-        return t('recognize_not_matched');
-      case 'no_audio':
-        return t('recognize_no_audio');
-      case 'permission_denied':
-        return t('recognize_permission_denied');
-      case 'network_error':
-        return t('recognize_network_error');
-      default:
-        return t('recognize_error');
-    }
-  }
-
-  private statusColor(): string {
-    if (this.status === 'matched') {
-      return DesignTokens.success();
-    }
-    if (this.status === 'no_audio' || this.status === 'permission_denied'
-      || this.status === 'network_error' || this.status === 'error') {
-      return DesignTokens.danger();
-    }
-    return DesignTokens.labelSecondary(this.theme);
-  }
-
   /** 状态下方的小字：采集百分比 / 可恢复错误的具体描述 */
-  private statusDetail(): string {
-    if (this.status === 'capturing') {
-      return tf('recognize_capture_progress', [Math.round(this.captureProgress * 100).toString()]);
-    }
-    if (this.status === 'permission_denied') {
-      return t('recognize_permission_hint');
-    }
-    if (this.status === 'no_audio') {
-      return t('recognize_no_audio_hint');
-    }
-    if (this.errorText.length > 0) {
-      return this.errorText;
-    }
-    return '';
-  }
-
   private async requestMicPermission(): Promise<boolean> {
     const atManager = abilityAccessCtrl.createAtManager();
     try {
@@ -158,7 +99,7 @@ export struct RecognizePage {
   }
 
   private async handleStart(): Promise<void> {
-    if (this.isBusy()) {
+    if (isBusy(this.status)) {
       return;
     }
     this.status = 'requesting';
@@ -233,28 +174,6 @@ export struct RecognizePage {
   }
 
   /** 识别结果 → 平台音乐对象（hash 直连酷狗取链用） */
-  private recognizedToMusicInfo(song: RecognizedSong): MusicInfo {
-    const cover: string = song.coverUrl;
-    return {
-      id: song.trackId,
-      name: song.title,
-      singer: song.artist,
-      source: 'kg',
-      songmid: song.hash.length > 0 ? song.hash : song.trackId,
-      hash: song.hash,
-      albumName: song.album,
-      album: song.album,
-      interval: null,
-      img: cover.length > 0 ? cover : null,
-      pic: cover.length > 0 ? cover : undefined,
-      lrc: null,
-      types: [],
-      _types: new Map(),
-      typeUrl: new Map(),
-      otherSource: null,
-    };
-  }
-
   /**
    * 播放识别结果：hash 可直连时直接走酷狗取链；
    * 直连失败或没有 hash 时，回退按「标题+歌手」搜索酷狗补播
@@ -264,7 +183,7 @@ export struct RecognizePage {
     try {
       let musicInfo: MusicInfo;
       if (song.hash.length > 0) {
-        musicInfo = this.recognizedToMusicInfo(song);
+        musicInfo = recognizedToMusicInfo(song);
       } else {
         const results: SearchResultItem[] = await searchMusic({
           name: `${song.title} ${song.artist}`.trim(),
@@ -328,24 +247,9 @@ export struct RecognizePage {
   }
 
   /** 识别结果 → 歌单行（单曲菜单用） */
-  private recognizedToRow(song: RecognizedSong): SongItem {
-    return {
-      id: song.trackId,
-      name: song.title,
-      singer: song.artist,
-      album: song.album,
-      duration: 0,
-      source: 'kg',
-      pic: song.coverUrl,
-      songmid: song.hash.length > 0 ? song.hash : song.trackId,
-      hash: song.hash,
-      isPlaying: false,
-    };
-  }
-
   /** 长按结果/历史行：与搜索、歌单详情同一套单曲菜单 */
   private async openRowMenu(song: RecognizedSong): Promise<void> {
-    await showSongItemMenu(this.recognizedToRow(song), {
+    await showSongItemMenu(recognizedToRow(song), {
       onPlayLater: (target: SongItem): void => {
         playerService.insertNext(songRowToQueueItem(target));
         appToast(tf('toast_play_later_added', [target.name]));
@@ -438,10 +342,10 @@ export struct RecognizePage {
           .backgroundColor(Color.Transparent)
       }
       Circle({ width: 148, height: 148 })
-        .fill(this.isBusy()
+        .fill(isBusy(this.status)
           ? DesignTokens.accentSoft(this.theme)
           : (this.status === 'matched' ? DesignTokens.success() : DesignTokens.accent()))
-      if (this.isBusy()) {
+      if (isBusy(this.status)) {
         SymbolGlyph($r('sys.symbol.mic_fill'))
           .fontSize(DesignTokens.fontDisplayXl())
           .fontColor([DesignTokens.accent()])
@@ -457,7 +361,7 @@ export struct RecognizePage {
     .onClick(() => {
       if (this.status === 'capturing') {
         this.handleStop();
-      } else if (!this.isBusy()) {
+      } else if (!isBusy(this.status)) {
         void this.handleStart();
       }
     })
@@ -493,13 +397,13 @@ export struct RecognizePage {
           Column({ space: 10 }) {
             this.MicButton()
 
-            Text(this.statusText())
+            Text(statusText(this.status))
               .fontSize(DesignTokens.fontTitle())
               .fontWeight(FontWeight.Medium)
-              .fontColor(this.statusColor())
+              .fontColor(statusColor(this.status, this.theme))
 
-            if (this.statusDetail().length > 0) {
-              Text(this.statusDetail())
+            if (statusDetail(this.status, this.captureProgress, this.errorText).length > 0) {
+              Text(statusDetail(this.status, this.captureProgress, this.errorText))
                 .fontSize(DesignTokens.fontCaption())
                 .fontColor(this.status === 'capturing'
                   ? DesignTokens.labelSecondary(this.theme)
