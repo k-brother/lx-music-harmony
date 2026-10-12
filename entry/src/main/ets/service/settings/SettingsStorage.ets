@@ -113,6 +113,51 @@ export async function migrateLegacySettings(context: common.UIAbilityContext | n
   }
 
 
+/**
+ * 旧值搬运的三个小工具：目标键已存在就跳过。
+ * 读取旧实例会抛异常（文件损坏/权限）——迁移失败不该阻塞启动，所以每个都兜住并记日志。
+ */
+async function readLegacyString(legacy: preferences.Preferences, legacyKey: string): Promise<string> {
+  try {
+    return await legacy.get(legacyKey, '') as string;
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'legacy get(%{public}s) failed: %{public}s', legacyKey, describe(err));
+    return '';
+  }
+}
+
+async function readLegacyNumber(legacy: preferences.Preferences, legacyKey: string): Promise<number> {
+  try {
+    return await legacy.get(legacyKey, NaN) as number;
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'legacy get(%{public}s) failed: %{public}s', legacyKey, describe(err));
+    return NaN;
+  }
+}
+
+async function legacyHas(legacy: preferences.Preferences, legacyKey: string): Promise<boolean> {
+  try {
+    return await legacy.has(legacyKey);
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'legacy has(%{public}s) failed: %{public}s', legacyKey, describe(err));
+    return false;
+  }
+}
+
+async function readLegacyBoolean(legacy: preferences.Preferences, legacyKey: string): Promise<boolean> {
+  try {
+    return await legacy.get(legacyKey, false) as boolean;
+  } catch (err) {
+    hilog.warn(DOMAIN, TAG, 'legacy get(%{public}s) failed: %{public}s', legacyKey, describe(err));
+    return false;
+  }
+}
+
+/** 统一的错误描述（各处的 catch 都只想记一行可读日志） */
+function describe(err: Object): string {
+  return err instanceof Error ? err.message : JSON.stringify(err);
+}
+
 async function migrateString(
     legacy: preferences.Preferences, legacyKey: string, targetKey: string
   ): Promise<void> {
@@ -120,7 +165,7 @@ async function migrateString(
     if (await storage.has(targetKey)) {
       return;
     }
-    const value = await legacy.get(legacyKey, '') as string;
+    const value = await readLegacyString(legacy, legacyKey);
     if (value && value.length > 0) {
       await storage.setString(targetKey, value);
     }
@@ -134,7 +179,7 @@ async function migrateNumber(
     if (await storage.has(targetKey)) {
       return;
     }
-    const value = await legacy.get(legacyKey, NaN) as number;
+    const value = await readLegacyNumber(legacy, legacyKey);
     if (!isNaN(value)) {
       await storage.setNumber(targetKey, value);
     }
@@ -148,9 +193,9 @@ async function migrateBoolean(
     if (await storage.has(targetKey)) {
       return;
     }
-    const hasValue = await legacy.has(legacyKey);
+    const hasValue = await legacyHas(legacy, legacyKey);
     if (hasValue) {
-      const value = await legacy.get(legacyKey, false) as boolean;
+      const value = await readLegacyBoolean(legacy, legacyKey);
       await storage.setBoolean(targetKey, value);
     }
   }
@@ -198,15 +243,20 @@ async function migrateLegacyBackupConfig(context: common.UIAbilityContext): Prom
 async function migrateSecret(
     legacy: preferences.Preferences, legacyKey: string, alias: string
   ): Promise<void> {
-    if (!await legacy.has(legacyKey)) {
+    if (!await legacyHas(legacy, legacyKey)) {
       return;
     }
-    const plain: string = await legacy.get(legacyKey, '') as string;
+    const plain: string = await readLegacyString(legacy, legacyKey);
     if (plain.length > 0 && (await readSecret(alias)).length === 0) {
       await saveSecret(alias, plain);
     }
-    await legacy.delete(legacyKey);
-    await legacy.flush();
+    // 清明文失败不该让整个迁移失败（调用方还会重试并最终删掉旧文件）
+    try {
+      await legacy.delete(legacyKey);
+      await legacy.flush();
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'drop legacy plaintext failed: %{public}s', describe(err));
+    }
   }
 
 /** 删除旧文件；失败只记日志（内容已全部搬走，标记已写，不会重试） */

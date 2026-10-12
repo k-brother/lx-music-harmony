@@ -78,21 +78,26 @@ export default class EntryAbility extends UIAbility {
     backgroundRunningManager.init(this.context);
     // 注册桌面卡片动作处理：卡片点击/控制按钮通过 postCardAction 以 callee 消息送达。
     // 回调跑在 IPC 线程，直接调播放器会崩，必须 setTimeout(0) 跳回 JS 主线程再派发。
-    this.callee.on('cardAction', (data: rpc.MessageSequence) => {
-      let action: string = '';
-      try {
-        const params: Record<string, string> = JSON.parse(data.readString()) as Record<string, string>;
-        action = params.actionType ?? '';
-      } catch (err) {
-        hilog.warn(DOMAIN, TAG, 'cardAction parse failed: %{public}s', JSON.stringify(err));
-      }
-      if (action.length > 0) {
-        setTimeout((): void => {
-          cardFormService.handleCardAction(action);
-        }, 0);
-      }
-      return null;
-    });
+    // callee 注册会抛异常：注册失败只是「卡片按钮点了没反应」，不该拖垮启动
+    try {
+      this.callee.on('cardAction', (data: rpc.MessageSequence) => {
+        let action: string = '';
+        try {
+          const params: Record<string, string> = JSON.parse(data.readString()) as Record<string, string>;
+          action = params.actionType ?? '';
+        } catch (err) {
+          hilog.warn(DOMAIN, TAG, 'cardAction parse failed: %{public}s', JSON.stringify(err));
+        }
+        if (action.length > 0) {
+          setTimeout((): void => {
+            cardFormService.handleCardAction(action);
+          }, 0);
+        }
+        return null;
+      });
+    } catch (err) {
+      hilog.error(DOMAIN, TAG, 'register cardAction callee failed: %{public}s', JSON.stringify(err));
+    }
     // 初始化应用（异步，传入 want 供深链等后续扩展）
     void this.initApp(want);
   }
@@ -146,7 +151,11 @@ export default class EntryAbility extends UIAbility {
     void backgroundRunningManager.destroy();
     // 停止卡片推送与订阅
     cardFormService.stop();
-    this.callee.off('cardAction');
+    try {
+      this.callee.off('cardAction');
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'unregister cardAction callee failed: %{public}s', JSON.stringify(err));
+    }
     // 停止实况窗订阅与实况窗本体
     liveViewService.stop();
   }

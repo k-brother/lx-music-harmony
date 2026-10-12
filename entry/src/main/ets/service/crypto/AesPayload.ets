@@ -46,16 +46,24 @@ function ivToBytes(iv: string): Uint8Array {
 
 async function aesCipher(mode: cryptoFramework.CryptoMode, key: Uint8Array, iv: Uint8Array,
   payload: Uint8Array): Promise<Uint8Array> {
-  const cipher: cryptoFramework.Cipher = cryptoFramework.createCipher('AES128|CBC|PKCS7');
-  const symKeyGen: cryptoFramework.SymKeyGenerator = cryptoFramework.createSymKeyGenerator('AES128');
-  const symKey: cryptoFramework.SymKey = await symKeyGen.convertKey({ data: key });
-  const params: cryptoFramework.IvParamsSpec = {
-    algName: 'IvParamsSpec',
-    iv: { data: iv },
-  };
-  await cipher.init(mode, symKey, params);
-  const out: cryptoFramework.DataBlob = await cipher.doFinal({ data: payload });
-  return out.data;
+  // 密码学调用都可能抛异常（算法不可用/密钥非法）：这里统一补日志后上抛，
+  // 由调用方决定回退策略（加密失败回退明文、解密失败提示口令错误）
+  try {
+    const cipher: cryptoFramework.Cipher = cryptoFramework.createCipher('AES128|CBC|PKCS7');
+    const symKeyGen: cryptoFramework.SymKeyGenerator = cryptoFramework.createSymKeyGenerator('AES128');
+    const symKey: cryptoFramework.SymKey = await symKeyGen.convertKey({ data: key });
+    const params: cryptoFramework.IvParamsSpec = {
+      algName: 'IvParamsSpec',
+      iv: { data: iv },
+    };
+    await cipher.init(mode, symKey, params);
+    const out: cryptoFramework.DataBlob = await cipher.doFinal({ data: payload });
+    return out.data;
+  } catch (err) {
+    const msg: string = err instanceof Error ? err.message : JSON.stringify(err);
+    hilog.error(DOMAIN, TAG, 'aesCipher failed: %{public}s', msg);
+    throw new Error(`aesCipher failed: ${msg}`);
+  }
 }
 
 /** AES-128-CBC 加密（固定 IV，供同步使用；失败回退明文，保证不会完全同步不了） */
@@ -87,10 +95,17 @@ export async function decryptWithKey(payload: string, keyText: string, ivText: s
 
 /** 用口令派生 16 字节密钥：SHA-256(password | iv) 取前 16 字节 */
 async function deriveKey(password: string, iv: Uint8Array): Promise<Uint8Array> {
-  const md: cryptoFramework.Md = cryptoFramework.createMd('SHA256');
-  const ivBytes = Array.from(iv).join(',');
-  await md.update({ data: toBytes(`${password}|${ivBytes}`) });
-  const digest: cryptoFramework.DataBlob = await md.digest();
+  let digest: cryptoFramework.DataBlob;
+  try {
+    const md: cryptoFramework.Md = cryptoFramework.createMd('SHA256');
+    const ivBytes = Array.from(iv).join(',');
+    await md.update({ data: toBytes(`${password}|${ivBytes}`) });
+    digest = await md.digest();
+  } catch (err) {
+    const msg: string = err instanceof Error ? err.message : JSON.stringify(err);
+    hilog.error(DOMAIN, TAG, 'deriveKey failed: %{public}s', msg);
+    throw new Error(`deriveKey failed: ${msg}`);
+  }
   const out = new Uint8Array(IV_LENGTH);
   for (let i = 0; i < IV_LENGTH; i++) {
     out[i] = digest.data[i] ?? 0;

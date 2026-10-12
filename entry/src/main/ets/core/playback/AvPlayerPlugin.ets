@@ -78,7 +78,15 @@ function sandboxPathOf(url: string): string {
 /** 打开沙箱文件并返回 fdSrc（含长度，避免解析到文件尾之外） */
 function openLocalFile(path: string): media.AVFileDescriptor {
   closeLocalFile();
-  const file: fs.File = fs.openSync(path, fs.OpenMode.READ_ONLY);
+  let file: fs.File;
+  try {
+    file = fs.openSync(path, fs.OpenMode.READ_ONLY);
+  } catch (err) {
+    // 打不开（文件被删/权限不足）时把原因上抛，调用方会走「本地文件不可用」分支
+    hilog.warn(DOMAIN, TAG, 'openLocalFile failed: %{public}s',
+      err instanceof Error ? err.message : JSON.stringify(err));
+    throw err as Error;
+  }
   localFileFd = file.fd;
   let length: number = 0;
   try {

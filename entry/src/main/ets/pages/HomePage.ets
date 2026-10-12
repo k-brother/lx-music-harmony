@@ -704,7 +704,7 @@ export struct HomePage {
           .margin({ left: 10, right: 6 })
         TextInput({ placeholder: t('search_placeholder'), text: this.searchText })
           // 焦点键：浮层出现时自动聚焦（见 onAppear），用户不必再点一次
-          .key(SEARCH_INPUT_KEY)
+          .id(SEARCH_INPUT_KEY)
           .onAppear(() => {
             requestFocusSafe(this.getUIContext(), SEARCH_INPUT_KEY);
           })

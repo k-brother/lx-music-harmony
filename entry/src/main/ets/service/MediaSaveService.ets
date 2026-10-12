@@ -196,7 +196,13 @@ export class MediaSaveService {
       if (parentPath) {
         await this.ensureDirectoryExists(parentPath);
       }
-      await fs.mkdir(dirPath);
+      // 建目录本身也可能失败（权限/路径非法）：这里只记日志，是否可用交给调用方判断
+      try {
+        await fs.mkdir(dirPath);
+      } catch (mkdirErr) {
+        hilog.warn(DOMAIN, TAG, 'mkdir failed: %{public}s',
+          mkdirErr instanceof Error ? mkdirErr.message : JSON.stringify(mkdirErr));
+      }
     }
   }
 

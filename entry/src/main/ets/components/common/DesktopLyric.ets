@@ -223,7 +223,16 @@ class DesktopLyricWindow {
       return;
     }
     const settings = settingsService.get();
-    const displayInfo = display.getDefaultDisplaySync();
+    // getDefaultDisplaySync 会抛异常：取不到屏幕信息时干脆不动窗口尺寸，
+    // 免得拿着 0 密度去算出一个离谱的高度
+    let displayInfo: display.Display;
+    try {
+      displayInfo = display.getDefaultDisplaySync();
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'getDefaultDisplaySync failed: %{public}s',
+        err instanceof Error ? err.message : JSON.stringify(err));
+      return;
+    }
     const density: number = displayInfo.densityPixels;
     const winHeight: number = DesktopLyricWindow.calcWindowHeight(settings, density);
     const winX: number = settings.desktopLyricPosition === 'custom'

@@ -65,7 +65,7 @@ export struct InputSheet {
 
       TextInput({ placeholder: this.placeholder, text: this.draft })
         .type(this.numberOnly ? InputType.Number : InputType.Normal)
-        .key(INPUT_SHEET_KEY)
+        .id(INPUT_SHEET_KEY)
         // 面板打开时自动聚焦并弹键盘（主流输入面板的手感）
         .onAppear(() => {
           requestFocusSafe(this.getUIContext(), INPUT_SHEET_KEY);
