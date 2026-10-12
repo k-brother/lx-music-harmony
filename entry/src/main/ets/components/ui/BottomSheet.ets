@@ -85,7 +85,10 @@ export struct BottomSheet {
         height: this.sheetSize === 'large' ? SheetSize.LARGE : SheetSize.FIT_CONTENT,
         dragBar: true,
         showClose: false,
-        backgroundColor: DesignTokens.card(this.theme),
+        // 玻璃材质：面板是浮在页面内容之上的 chrome，交给系统材质（bindSheet 的 blurStyle
+        // 是官方给面板用的模糊通路，任何设备都有；底色半透明让下面的内容透出来）
+        backgroundColor: DesignTokens.glassFill(this.theme),
+        blurStyle: BlurStyle.COMPONENT_THICK,
         maskColor: DesignTokens.maskColor(),
         onDisappear: (): void => {
           if (this.onDismiss) {

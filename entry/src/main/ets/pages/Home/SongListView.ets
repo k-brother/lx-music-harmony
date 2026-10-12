@@ -19,7 +19,8 @@ import { SkeletonGridItem } from '../../components/common/SkeletonView';
 import { SegmentedBar, type SegmentOption } from '../../components/ui/SegmentedBar';
 import { RefreshContainer } from '../../components/ui/RefreshContainer';
 import { hapticService } from '../../service/HapticService';
-import { DeferredScrollToTop } from '../../utils/ScrollTools';
+import { DeferredScrollToTop, scrollerOffsetY } from '../../utils/ScrollTools';
+import { markContentScrolling, reportScrollOffset } from '../../utils/ScrollActivity';
 import { Breakpoints } from '../../theme/Breakpoints';
 import { LazyDataSource } from '../../utils/LazyDataSource';
 import { getStorageService } from '../../core/interfaces/IStorageService';
@@ -49,6 +50,8 @@ export struct SongListView {
   // @Watch 回调里会清空旧列表再按新源加载，避免旧源数据留在屏幕上被误点。
   @Prop @Watch('onSourceIdChange') sourceId: string = 'kw';
   @Prop @Watch("onReCreateKeyChange") reCreateKey: number = 0;
+  /** 底部玻璃底舱占位（由 HomePage 按是否浮层底舱传入；0 = 不浮层） */
+  @Prop bottomInset: number = 0;
   @StorageProp('theme') theme: string = 'light';
 
   /** 按压反馈：卡片轻微缩放 */
@@ -71,6 +74,8 @@ export struct SongListView {
   @Prop searchStripActions: SearchStripActions = new SearchStripActions();
 
   private songListScroller: Scroller = new Scroller();
+  /** 歌单少（不足吸顶条数）时用的是 Grid 自身的滚动，单独一个 Scroller 供偏移上报/回顶 */
+  private gridScroller: Scroller = new Scroller();
   @State isFilterPinned: boolean = false;
   private readonly filterPinThreshold: number = DesignTokens.heightSearchField() + DesignTokens.spaceUnit() * 2;
   private readonly searchStripHostHeight: number = DesignTokens.heightSearchField() + DesignTokens.spaceUnit() * 2;
@@ -89,10 +94,20 @@ export struct SongListView {
     return Breakpoints.gridColumns(this.breakpoint, 3, 4, 6);
   }
 
+  /**
+   * 内容列留白：宽屏按「窗口 − 左侧导航」居中（不把侧栏算进留白，PC 内容区才铺得满），
+   * 窄屏与 Breakpoints.contentInset 行为一致。
+   */
+  private contentInset(): number {
+    const dock = Breakpoints.isWide(this.breakpoint) ? DesignTokens.navRailWidth() : 0;
+    return Breakpoints.contentInsetDock(this.windowWidthVp, dock);
+  }
+
 
   private scrollToTopSoon(): void {
     this.scrollTopDefer.schedule(this.songListScroller);
   }
+
 
   // 排序选项
   private sortOptions: SortOption[] = [];
@@ -418,7 +433,7 @@ export struct SongListView {
         SearchStrip({
           text: $searchText,
           placeholder: t('search_placeholder'),
-          marginH: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+          marginH: DesignTokens.spaceGutter() + this.contentInset(),
           marginV: DesignTokens.spaceUnit(),
           tapToOpenOnly: true,
           showMic: true,
@@ -505,6 +520,8 @@ export struct SongListView {
         .edgeEffect(EdgeEffect.None)
         .onDidScroll(() => {
           const y = this.getSafeScrollOffsetY();
+          markContentScrolling();
+          reportScrollOffset(y);
           if (!this.coverInteractionUnlocked && y > 16) {
             this.coverInteractionUnlocked = true;
           }
@@ -580,8 +597,8 @@ export struct SongListView {
       }
       .padding({
         // 大屏时与下方网格的内容列对齐（筛选条本身仍通栏）
-        left: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
-        right: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+        left: DesignTokens.spaceGutter() + this.contentInset(),
+        right: DesignTokens.spaceGutter() + this.contentInset(),
         top: DesignTokens.spaceUnit(),
         bottom: DesignTokens.spaceUnit(),
       })
@@ -616,7 +633,7 @@ export struct SongListView {
 
   @Builder
   SongListGrid() {
-    Grid() {
+    Grid(this.gridScroller) {
       LazyForEach(this.cardSource, (item: SongListItemData, index: number) => {
         GridItem() {
           SongListCard({
@@ -646,13 +663,19 @@ export struct SongListView {
     .rowsGap(16)
     .columnsGap(12)
     .padding({
-      left: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
-      right: DesignTokens.spaceGutter() + Breakpoints.contentInset(this.windowWidthVp),
+      left: DesignTokens.spaceGutter() + this.contentInset(),
+      right: DesignTokens.spaceGutter() + this.contentInset(),
       top: DesignTokens.spaceGutter(),
-      bottom: DesignTokens.spaceGutter(),
+      // 底部留白 = 常规留白 + 玻璃底舱高度：内容能滚到玻璃下面（否则底舱下面没有内容可透）
+      bottom: DesignTokens.spaceGutter() + this.bottomInset,
     })
     .width('100%')
     .backgroundColor(DesignTokens.pageBg(this.theme))
+    .onDidScroll(() => {
+      markContentScrolling();
+      // 歌单少时这一层 Grid 自己滚动（外面没有再包 Scroll），底舱联动也读它的偏移
+      reportScrollOffset(scrollerOffsetY(this.gridScroller));
+    })
   }
 
   /**

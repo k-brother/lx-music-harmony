@@ -94,6 +94,7 @@ export struct ChartCard {
           .height(72)
           .borderRadius(14)
           .objectFit(ImageFit.Cover)
+          .draggable(false)
       } else {
         Column() {
           SymbolGlyph($r('sys.symbol.list_number'))

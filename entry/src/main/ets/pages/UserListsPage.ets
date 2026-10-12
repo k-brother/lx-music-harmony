@@ -234,6 +234,7 @@ export struct UserListsPage {
           .height(52)
           .borderRadius(10)
           .objectFit(ImageFit.Cover)
+          .draggable(false)
       } else {
         Column() {
           SymbolGlyph($r('sys.symbol.music_note_list'))

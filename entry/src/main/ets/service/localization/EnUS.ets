@@ -177,6 +177,7 @@ export function buildEnUS(): Map<string, string> {
   // Settings home category entries (page titles and row descriptions; see
   // pages/Home/Setting/SettingsCatalog)
   m.set('settings_home_group_play', 'Playback');
+  m.set('dock_expand_menu', 'Show menu');
   m.set('settings_home_group_ui', 'Interface');
   m.set('settings_home_group_data', 'Data');
   m.set('settings_group_lyric', 'Desktop Lyrics & Live View');

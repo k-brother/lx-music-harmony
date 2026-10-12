@@ -13,6 +13,9 @@ import { hapticService } from '../../service/HapticService';
 // 使用与PlayerService一致的MusicInfo接口
 import type { MusicInfo } from '../../service/PlayerService';
 import { DesignTokens } from '../../theme/DesignTokens';
+import { createDockGlassMaterial } from '../../theme/GlassMaterial';
+import { uiMaterial } from '@kit.ArkUI';
+
 
 @Component
 export struct PlayerBar {
@@ -33,6 +36,13 @@ export struct PlayerBar {
     .opacity(0.6)
   }
   @Prop immersiveBottom: boolean = false;
+  /**
+   * 玻璃形态：交给首页的底部玻璃底舱（迷你播放条 + Tab 栏合成一片玻璃）。
+   * 玻璃形态下左右留白由底舱统一给，条本身不再自己加外边距 —— 否则两处留白会叠成 32vp。
+   */
+  @Prop glass: boolean = false;
+  /** 系统沉浸材质（玻璃形态用；不支持时为 undefined，走自绘玻璃回退） */
+  private glassMaterial: uiMaterial.Material | undefined = createDockGlassMaterial();
   @State isPlay: boolean = false;
   @State musicName: string = '';
   @State singer: string = '';
@@ -195,17 +205,34 @@ export struct PlayerBar {
       this.MiniControls()
     }
     .width('100%')
-    .height(62)
-    .padding({ left: 14, right: 14, top: 5, bottom: 5 })
-    .margin({
-      left: DesignTokens.spaceGutter(),
-      right: DesignTokens.spaceGutter(),
-      bottom: this.immersiveBottom ? 0 : 4,
+    // 高度与内边距都走 token：迷你条的尺寸整组由 DesignTokens 定义，便于平板/PC 另算
+    .height(DesignTokens.miniBarHeight())
+    .padding({
+      left: DesignTokens.miniPaddingH(),
+      right: DesignTokens.miniPaddingH(),
+      top: (DesignTokens.miniBarHeight() - DesignTokens.miniCoverSize()) / 2,
+      bottom: (DesignTokens.miniBarHeight() - DesignTokens.miniCoverSize()) / 2,
     })
-    .backgroundColor(DesignTokens.chromeBar(this.theme))
-    .borderRadius(DesignTokens.radiusCard())
-    .border({ width: 0.33, color: DesignTokens.cardBorder(this.theme) })
+    .margin({
+      left: this.glass ? 0 : DesignTokens.spaceGutter(),
+      right: this.glass ? 0 : DesignTokens.spaceGutter(),
+      // 玻璃形态下与 Tab 栏的间距由底舱的 Column space 统一给，这里不再自己加
+      bottom: this.immersiveBottom || this.glass ? 0 : 4,
+    })
+    // 玻璃形态：自己就是一片圆角玻璃（迷你条与 Tab 栏是两个独立圆角容器，中间留缝分界）
+    .backgroundColor(this.glass ? DesignTokens.glassFill(this.theme) : DesignTokens.chromeBar(this.theme))
+    .backgroundBlurStyle(this.glass ? BlurStyle.COMPONENT_THICK : BlurStyle.NONE, {
+      adaptiveColor: AdaptiveColor.AVERAGE,
+      scale: 1,
+    })
+    .borderRadius(this.glass ? DesignTokens.dockRadius() : DesignTokens.radiusCard())
+    .border({
+      width: this.glass ? 0.5 : 0.33,
+      color: this.glass ? DesignTokens.glassStroke(this.theme) : DesignTokens.cardBorder(this.theme),
+    })
     .shadow(DesignTokens.floatingShadow())
+    // 系统沉浸材质（含交互形变与光感反馈）；设备不支持时为 undefined，走上面的自绘回退
+    .systemMaterial(this.glass ? this.glassMaterial : undefined)
     .alignItems(VerticalAlign.Center)
   }
 
@@ -214,8 +241,8 @@ export struct PlayerBar {
   private MiniCover() {
     if (this.canRenderMiniCover(this.pic)) {
       Image(this.pic)
-        .width(48)
-        .height(48)
+        .width(DesignTokens.miniCoverSize())
+        .height(DesignTokens.miniCoverSize())
         .borderRadius(DesignTokens.radiusCover())
         .objectFit(ImageFit.Cover)
         .onError(() => {
@@ -229,8 +256,8 @@ export struct PlayerBar {
         .animation({ duration: this.showAnimation ? 200 : 0, curve: Curve.EaseOut })
     } else {
       Image($r('app.media.ic_player_cover_placeholder'))
-        .width(48)
-        .height(48)
+        .width(DesignTokens.miniCoverSize())
+        .height(DesignTokens.miniCoverSize())
         .borderRadius(DesignTokens.radiusCover())
         .objectFit(ImageFit.Cover)
         .accessibilityText(t('a11y_play'))
@@ -260,7 +287,7 @@ export struct PlayerBar {
     }
     .alignItems(HorizontalAlign.Start)
     .layoutWeight(1)
-    .margin({ left: 12 })
+    .margin({ left: DesignTokens.miniPaddingH() })
     // 点歌名/歌手区域也进播放页（主流迷你播放条都是「点哪都能进详情」）
     .accessibilityText(t('a11y_open_player'))
     .onClick(() => {
@@ -290,22 +317,22 @@ export struct PlayerBar {
       })
 
       Stack() {
-        Circle({ width: 36, height: 36 })
+        Circle({ width: DesignTokens.miniPlaySize(), height: DesignTokens.miniPlaySize() })
           .fill(DesignTokens.accent())
         if (this.isPlay) {
           Image($r('app.media.ic_pd_pause'))
-            .width(13)
-            .height(13)
+            .width(12)
+            .height(12)
             .fillColor(DesignTokens.onAccent())
         } else {
           Image($r('app.media.ic_pd_play'))
-            .width(13)
-            .height(13)
+            .width(12)
+            .height(12)
             .fillColor(DesignTokens.onAccent())
             .margin({ left: 1 })
         }
       }
-      .scale({ x: 0.9, y: 0.9 })
+      .scale({ x: 0.94, y: 0.94 })
       .responseRegion({ x: -4, y: -4, width: 44, height: 44 })
       .stateStyles({ pressed: this.pressDim })
       .accessibilityText(t('a11y_play'))

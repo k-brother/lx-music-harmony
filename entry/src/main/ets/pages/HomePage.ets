@@ -4,6 +4,7 @@
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { SourceTabBar } from './Home/Home/SourceTabBar';
 import { HomeBottomTabBar, type HomeTabItem } from './Home/Home/HomeBottomTabBar';
+import { HomeBottomDock } from './Home/Home/HomeBottomDock';
 import { SearchMusicResultList, SearchSonglistResultList } from './Home/Home/SearchResultLists';
 import { SearchInputContent } from './Home/Home/SearchInputContent';
 import { promoteHistoryWord, runSongSearch, runSonglistSearch } from './Home/Home/SearchRunner';
@@ -54,6 +55,7 @@ import {
 } from '../core/search/search';
 import { type NavigationParams } from '../service/NavigationService';
 import { on, EventTypes } from '../service/EventBus';
+import { resetScrollAway } from '../utils/ScrollActivity';
 
 /** 搜索输入框的焦点键（供 FocusController 定位，浮层出现时自动聚焦） */
 const SEARCH_INPUT_KEY: string = 'homeSearchInput';
@@ -98,6 +100,11 @@ export struct HomePage {
   @StorageProp('windowWidthVp') windowWidthVp: number = 360;
   @StorageProp('language') language: string = 'zh-CN';
   @StorageProp('langVersion') langVersion: number = 0;
+  /**
+   * 内容是否已滚离顶部（各 Tab 视图上报，见 utils/ScrollActivity）：
+   * 滚离后底舱收成一条迷你条（左侧「回到顶部」+ 播放控件），回到顶部再展开 —— 对齐华为音乐的联动。
+   */
+  @StorageProp('contentScrolledAway') contentScrolledAway: boolean = false;
   @State currentTab: number = 0;
   @State isPlay: boolean = false;
   @State musicName: string = '';
@@ -1027,44 +1034,55 @@ export struct HomePage {
     ];
   }
 
-  /** 底部 Tab 栏（组件化，选中态带放大动效） */
-  @Builder
-  BottomTabBar(vertical: boolean) {
-    HomeBottomTabBar({
-      tabs: this.getBottomTabs(),
-      activeIndex: this.currentTab,
-      // 宽屏走左侧竖排导航（大屏使用习惯），窄屏仍是底部 Tab
-      vertical: vertical,
-      onSelect: (index: number): void => {
-        this.currentTab = index;
-        this.persistLastTab(index);
-      },
-    })
+  /**
+   * 切换底部 Tab。
+   * 直接调组件而不是包一层 @Builder：带参数的 @Builder 会按参数缓存，
+   * 状态变化时可能不重建（真机上踩过"滚动后 Tab 栏不收拢"），见 scripts/check_builder_state_args.py。
+   */
+  private switchTab(index: number): void {
+    if (this.currentTab === index) {
+      return;
+    }
+    this.currentTab = index;
+    this.persistLastTab(index);
+    // 切 Tab 后新列表在顶部，底舱应立刻恢复展开态
+    resetScrollAway();
+  }
+
+  /** 底部玻璃底舱（迷你播放条 + Tab 栏）占用的高度：Tab 里的滚动内容按它留底部空间 */
+  private dockInset(): number {
+    // 内容只要躲开玻璃底舱本体 + 底舱与屏幕底之间那条间距即可（内容区已避开安全区）
+    return DesignTokens.dockContentInset();
   }
 
   // 内容区域
   @Builder
-  ContentArea() {
+  ContentArea(bottomInset: number) {
     if (this.currentTab === 0) {
       SongListView({
         sourceId: this.currentSource,
         reCreateKey: this.sourceContentEpoch,
         searchText: $searchText,
         searchStripActions: this.globalSearchStripActions,
+        bottomInset: bottomInset,
       })
     } else if (this.currentTab === 1) {
-      LeaderboardView({ sourceId: this.currentSource, reCreateKey: this.sourceContentEpoch })
+      LeaderboardView({
+        sourceId: this.currentSource,
+        reCreateKey: this.sourceContentEpoch,
+        bottomInset: bottomInset,
+      })
     } else if (this.currentTab === 2) {
-      DownloadPage()
+      DownloadPage({ bottomInset: bottomInset })
     } else if (this.currentTab === 3) {
       // 我的页面
-      MylistView()
+      MylistView({ bottomInset: bottomInset })
     }
   }
 
-  /** 主界面右半部：顶栏 + 内容 + 播放条（宽屏时右侧，窄屏时整屏） */
+  /** 主界面右半部：顶栏 + 内容（迷你播放条在窄屏时移到底部玻璃底舱里） */
   @Builder
-  MainPane() {
+  MainPane(showPlayerBar: boolean, bottomInset: number) {
     Column() {
       // 下载页使用自身头部，避免与 Home 顶栏重复
       if (this.currentTab !== 2) {
@@ -1073,13 +1091,15 @@ export struct HomePage {
 
       // 内容区
       Column() {
-        this.ContentArea()
+        this.ContentArea(bottomInset)
       }
       .width('100%')
       .layoutWeight(1)
 
-      // 播放器栏
-      PlayerBar()
+      // 播放器栏：宽屏时留在右侧内容列里（没有浮层底舱）
+      if (showPlayerBar) {
+        PlayerBar()
+      }
     }
     .width('100%')
     .height('100%')
@@ -1090,9 +1110,17 @@ export struct HomePage {
       if (Breakpoints.isWide(this.breakpoint)) {
         // 一多：平板横屏 / PC 用「左侧导航 + 右侧内容」，与主流音乐 App 的大屏形态一致
         Row() {
-          this.BottomTabBar(true)
+          // 宽屏走左侧竖排导航（大屏使用习惯）
+          HomeBottomTabBar({
+            tabs: this.getBottomTabs(),
+            activeIndex: this.currentTab,
+            vertical: true,
+            onSelect: (index: number): void => {
+              this.switchTab(index);
+            },
+          })
           Column() {
-            this.MainPane()
+            this.MainPane(true, 0)
           }
           .layoutWeight(1)
           .height('100%')
@@ -1101,21 +1129,32 @@ export struct HomePage {
         .height('100%')
         .backgroundColor(DesignTokens.pageBg(this.theme))
       } else {
-        Column() {
-          // 内容区必须用 layoutWeight 占剩余高度，不能直接用 MainPane
-          // （MainPane 自身是 height('100%')，会和底栏一起把底栏挤出屏幕）
+        // 窄屏：内容铺满整屏，玻璃底舱浮在它上面（内容要能滚到玻璃下面，才有"透"的效果）
+        Stack({ alignContent: Alignment.Bottom }) {
           Column() {
-            this.MainPane()
+            this.MainPane(false, this.dockInset())
           }
-          .layoutWeight(1)
           .width('100%')
+          .height('100%')
+          .backgroundColor(DesignTokens.pageBg(this.theme))
 
-          // 底部 Tab 栏
-          this.BottomTabBar(false)
+          // 玻璃底舱（迷你播放条 + Tab 栏）：滚离顶部时收拢成"房子 + 播放控件"，点房子复原
+          HomeBottomDock({
+            tabs: this.getBottomTabs(),
+            activeIndex: this.currentTab,
+            collapsed: this.contentScrolledAway,
+            onSelect: (index: number): void => {
+              this.switchTab(index);
+            },
+            onRestore: (): void => {
+              resetScrollAway();
+            },
+          })
         }
         .width('100%')
         .height('100%')
-        .backgroundColor(DesignTokens.pageBg(this.theme))
+        // 注意：底部安全区不靠这里的 expandSafeArea 处理（在嵌套容器里实测无效），
+        // 改由 HomeBottomDock 按 safeBottomVp 直接把底舱压到屏幕底部。
       }
 
       // 搜索面板覆盖层

@@ -127,6 +127,9 @@ export struct NavIndex {
         HomePage()
       }
       .hideTitleBar(true)
+      // 必须 Stack：默认 Auto 在宽屏（平板/PC）会自动分栏，首页被塞进左侧 240vp 导航栏、
+      // 右侧空着等子页面。宽屏形态由首页自己画（侧栏 + 内容），子页面一律整窗压栈
+      .mode(NavigationMode.Stack)
       .navDestination(this.buildRouteMap)
 
       // 全局面板宿主：命令式面板（设置项选择/输入等）统一挂在这里，避免被 Scroll 裁剪

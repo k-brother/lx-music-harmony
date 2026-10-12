@@ -266,6 +266,12 @@ CHECKS = [
  ('全局面板宿主', 'components/ui/SheetHost.ets', r'export struct SheetHost'),
  ('全局面板服务', 'service/SheetService.ets', r'export const sheetService'),
  ('面板宿主挂在根节点', 'pages/NavIndex.ets', r'SheetHost\(\)'),
+ # 默认 Auto 在宽屏自动分栏：PC 上首页被挤进 240vp 左栏、右侧整块空白（真机踩过）
+ ('根导航固定压栈模式(宽屏不分栏)', 'pages/NavIndex.ets', r'\.mode\(NavigationMode\.Stack\)'),
+ # Image 默认可拖拽，会吞掉 PC 鼠标/触控板滚动（官方 FAQ「鼠标无法滑动Scroll组件图片」）
+ ('列表封面禁用拖拽', 'components/ui/ListRow.ets', r'draggable\(false\)'),
+ # 宽屏内容列在「窗口−侧栏」内居中（按窗口居中会让右侧空一大块，PC 上像没铺满）
+ ('宽屏内容列扣除侧栏居中', 'theme/Breakpoints.ets', r'contentInsetDock'),
  ('设置项走全局面板', 'components/ui/SettingsSection.ets', r'sheetService\.(select|input)'),
  ('主题写入走设置服务(单一入口)', 'service/ThemeService.ets', r'settingsService\.update\(\{ themeId \}\)'),
  ('切源自动重载歌单列表', 'pages/Home/SongListView.ets', r'@Watch\(.onSourceIdChange.\)'),
@@ -556,6 +562,16 @@ CHECKS = [
  ('取链显式关闭内部回退', 'service/PlayerService.ets', r'allowToggleSource: false'),
  ('播放身份 key 单一实现', 'core/music/PlayKeys.ets', r'export function playKeyOfIds'),
  # —— 桌面卡片 / 锁屏实况窗 ——
+ # —— 玻璃材质（系统沉浸材质 / 液态玻璃）——
+ ('沉浸材质不支持时回退自绘玻璃', 'theme/GlassMaterial.ets', r'isImmersiveMaterialSupported'),
+ # 底舱两行是两个**独立圆角容器**（对照华为音乐），各自带系统沉浸材质与自绘回退
+ ('迷你条容器用系统沉浸材质', 'components/player/PlayerBar.ets', r'\.systemMaterial\('),
+ ('Tab 容器用系统沉浸材质', 'pages/Home/Home/HomeBottomTabBar.ets', r'\.systemMaterial\('),
+ ('底舱两行各自留缝（圆角容器分界）', 'pages/Home/Home/HomeBottomDock.ets', r'dockRowGap\(\)'),
+ ('面板走系统材质模糊', 'components/ui/BottomSheet.ets', r'blurStyle: BlurStyle\.COMPONENT_THICK'),
+ ('底舱给内容留出滚动空间', 'pages/HomePage.ets', r'dockContentInset\(\)'),
+ ('底舱尺寸走 token（不写死像素）', 'theme/DesignTokens.ets',
+  r'static dockContentInset\(\)', None),
  ('卡片跨进程契约编解码单点', 'utils/CardFormCodec.ets', r'export function decodeRegisteredCards'),
  ('卡片快照单写入方', 'service/CardFormService.ets', r'CARD_SNAPSHOT'),
  ('卡片页全 ArkUI 绘制（不引 rawfile 贴图）', 'widget/pages/MusicCard.ets',

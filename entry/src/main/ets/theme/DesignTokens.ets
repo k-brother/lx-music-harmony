@@ -218,6 +218,144 @@ export class DesignTokens {
     return theme === 'dark' ? '#121214' : '#FBFBFD';
   }
 
+  /**
+   * 玻璃材质底色（底部导航 / 迷你播放条这类"浮在内容之上"的底舱）。
+   *
+   * 为什么是半透明：要和 `.backgroundBlurStyle(COMPONENT_THICK)` 配合 —— 模糊负责
+   * "透出下面滚动的内容"，这层底色负责在没有模糊能力时文字依然可读（不等于全透明）。
+   */
+  static glassFill(theme: string): string {
+    return theme === 'dark' ? 'rgba(28,29,33,0.70)' : 'rgba(255,255,255,0.70)';
+  }
+
+  /** 玻璃材质描边：比卡片描边亮一档，浮在内容上时有"一片玻璃"的厚度感 */
+  static glassStroke(theme: string): string {
+    return theme === 'dark' ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.72)';
+  }
+
+  /**
+   * 底部玻璃底舱的占位高度（迷你播放条 + Tab 栏 + 间距，不含底部安全区）。
+   * Tab 里的滚动内容按这个值留出底部空间，内容才能滚到玻璃底舱"下面"（玻璃才有东西可透）。
+   */
+  static bottomDockHeight(): number {
+    // 迷你播放条 50 + 两行间隙 4 + Tab 栏 50 = 104，取 108 留 4 余量
+    //（迷你条与 Tab 栏高度见下面各自的 token，改一处即可整组跟随）
+    return 108;
+  }
+
+  /**
+   * 底舱两行（迷你播放条 / Tab 栏）之间的间隙。
+   * 两行是**两个独立的圆角容器**（对照华为音乐的底舱）：这段缝就是天然的分界，
+   * 不需要再画分隔线；贴在一起会糊成一片、看不出是两行。
+   */
+  static dockRowGap(): number {
+    return 4;
+  }
+
+  /**
+   * 玻璃底舱距**屏幕底部**的间距。
+   *
+   * 这里刻意不用 `safeBottomVp`：窗口内容区本来就已经避开底部安全区了，
+   * 再按安全区高度给底舱留白，会把它往上顶约两倍安全区的高度（真机上就是一条
+   * 几十 vp 的空带，看着像"底部一大块浪费"）。底舱贴着屏幕底部放，
+   * 只留系统手势条那条小横条的生存空间即可。
+   */
+  static dockBottomGap(): number {
+    // 14：底舱下沿贴着系统手势条的上沿"往上挪一点点"——不挨着那条小横条，也不留出明显空带。
+    // 注意这个值是**真实**的下边界距离：HomeBottomDock 已按 safeBottomVp 把底舱压回屏幕底部
+    //（此前没压时，这个数再改都看不出效果）。
+    return 14;
+  }
+
+  /** 底舱容器圆角：里面装两行内容，比普通卡片圆一档 */
+  static dockRadius(): number {
+    return 20;
+  }
+
+  /**
+   * 底舱距屏幕左右边缘的间距。
+   * 12：比页面常规留白（16）略小，底舱更"满"一些（用户几次反馈底舱偏窄）；
+   * 但也不能贴到屏幕边框上，否则玻璃会糊在边上。
+   */
+  static dockSideMargin(): number {
+    // 16：与页面常规留白一致（用户明确"窄"指的是上下厚度，不是左右宽度）
+    return 16;
+  }
+
+  /** 玻璃底舱给内容留的底部空间（底舱本体 + 与屏幕底的间距） */
+  static dockContentInset(): number {
+    return DesignTokens.bottomDockHeight() + DesignTokens.dockBottomGap();
+  }
+
+  // ── 迷你播放条（PlayerBar，首页底舱与各二级页共用）─────────────────────────
+  // 尺寸集中在这里：平板/PC 要换一套数值（或换成侧栏形态）时只改这一处，
+  // 不要去组件里翻写死的数字。间距尽量由 spaceUnit() 推导，避免又散出新常量。
+  /** 迷你条高度 */
+  static miniBarHeight(): number {
+    return 50;
+  }
+
+  /** 迷你条封面边长 */
+  static miniCoverSize(): number {
+    return 44;
+  }
+
+  /** 迷你条播放键直径 */
+  static miniPlaySize(): number {
+    return 30;
+  }
+
+  /** 迷你条左右内边距 */
+  static miniPaddingH(): number {
+    return 12;
+  }
+
+  /**
+   * 收拢态左侧「房子」圆形按钮的直径。
+   * 取行高同值（= miniBarHeight）：房子是**独立的圆形容器**，与播放条同一行，
+   * 高度一致才不会把这一行撑高（之前把房子塞进播放条内部，收拢时把行撑高了 6vp）。
+   */
+  static dockHouseSize(): number {
+    return 50;
+  }
+
+  // ── 宽屏左侧导航栏（平板横屏 / PC）────────────────────────────────────────
+  /** 左侧导航栏宽度：HomeBottomTabBar 宽屏形态与内容列留白（Breakpoints.contentInsetDock）共用 */
+  static navRailWidth(): number {
+    return 96;
+  }
+
+  // ── 底部 Tab 栏（仅窄屏；宽屏走左侧侧栏导航）─────────────────────────────
+  /** Tab 栏高度 */
+  static tabBarHeight(): number {
+    return 50;
+  }
+
+  /** Tab 条目高度（图标 + 文案的可点区，留 40 保证点按手感） */
+  static tabItemHeight(): number {
+    return 48;
+  }
+
+  /**
+   * Tab 选中胶囊高度。
+   * 必须能**完整包住**条目内容（图标 20 + 间距 2 + 文案 12 = 34），否则胶囊比内容小，
+   * 图标顶部/文案底部会露在红色背景外（真机反馈过）。
+   */
+  static tabCapsuleHeight(): number {
+    return 38;
+  }
+
+  /** Tab 选中胶囊相对条目的左右内缩（留一点缝，胶囊不会顶着相邻条目） */
+  static tabCapsuleInset(): number {
+    return 4;
+  }
+
+  /** Tab 图标字号 */
+  static tabIconSize(): number {
+    // 底部导航图标比正文图标（iconMd）大一档，与系统底部导航的比例一致
+    return DesignTokens.iconMd() + 4;
+  }
+
   // Typography scale (core surfaces: tab bar / player bar / play detail)
   static fontTitle(): number {
     return 16;

@@ -78,6 +78,7 @@ export struct SongListCard {
           .aspectRatio(1)
           .borderRadius(DesignTokens.radiusCover())
           .objectFit(ImageFit.Cover)
+          .draggable(false)
           .onError(() => {
             this.item.img = '';
           })
@@ -87,6 +88,7 @@ export struct SongListCard {
           .aspectRatio(1)
           .borderRadius(DesignTokens.radiusCover())
           .objectFit(ImageFit.Cover)
+          .draggable(false)
       }
 
       Row() {
