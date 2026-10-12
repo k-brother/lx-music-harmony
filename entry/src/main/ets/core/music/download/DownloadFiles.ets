@@ -111,12 +111,27 @@ function copyFileToUri(sandboxFilePath: string, targetUri: string): void {
     targetFile = fs.openSync(targetUri, fs.OpenMode.WRITE_ONLY | fs.OpenMode.CREATE);
     fs.copyFileSync(sourceFile.fd, targetFile.fd);
     fs.fsyncSync(targetFile.fd);
+  } catch (err) {
+    // 失败要上抛：调用方据此把下载标记为失败（这里只补日志）
+    hilog.warn(DOMAIN, TAG, 'copyFileToUri failed: %{public}s',
+      err instanceof Error ? err.message : JSON.stringify(err));
+    throw err as Error;
   } finally {
     if (sourceFile !== null) {
-      fs.closeSync(sourceFile);
+      try {
+        fs.closeSync(sourceFile);
+      } catch (closeErr) {
+        hilog.warn(DOMAIN, TAG, 'close source failed: %{public}s',
+          closeErr instanceof Error ? closeErr.message : JSON.stringify(closeErr));
+      }
     }
     if (targetFile !== null) {
-      fs.closeSync(targetFile);
+      try {
+        fs.closeSync(targetFile);
+      } catch (closeErr) {
+        hilog.warn(DOMAIN, TAG, 'close target failed: %{public}s',
+          closeErr instanceof Error ? closeErr.message : JSON.stringify(closeErr));
+      }
     }
   }
 }

@@ -25,7 +25,13 @@ class RecognizeHistoryService {
     if (this.store !== null) {
       return;
     }
-    this.store = await preferences.getPreferences(context, STORE_NAME);
+    // 存储打开失败时保持 store 为 null：getAll 返回空数组、add 静默跳过，不影响识曲本身
+    try {
+      this.store = await preferences.getPreferences(context, STORE_NAME);
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'open recognize history store failed: %{public}s', JSON.stringify(err));
+      return;
+    }
     await this.load();
   }
 

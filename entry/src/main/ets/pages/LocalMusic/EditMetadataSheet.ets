@@ -148,7 +148,7 @@ struct MetadataField {
         .width('100%')
         .textAlign(TextAlign.Start)
       TextInput({ text: this.value })
-        .key(this.focusKey)
+        .id(this.focusKey)
         .onAppear(() => {
           if (this.focusKey.length > 0) {
             requestFocusSafe(this.getUIContext(), this.focusKey);

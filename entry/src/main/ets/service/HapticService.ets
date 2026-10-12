@@ -104,7 +104,14 @@ class HapticServiceImpl {
     let startVibration: Promise<void>;
     if (preset !== undefined) {
       const presetEffect: vibrator.VibratePreset = { type: 'preset', effectId: preset };
-      startVibration = vibrator.startVibration(presetEffect, attribute);
+      // 触感是"锦上添花"：设备不支持/被系统限流时不该影响任何业务
+      try {
+        startVibration = vibrator.startVibration(presetEffect, attribute);
+      } catch (err) {
+        hilog.info(DOMAIN, TAG, 'startVibration skipped: %{public}s',
+          err instanceof Error ? err.message : JSON.stringify(err));
+        startVibration = Promise.resolve();
+      }
     } else {
       startVibration = Promise.reject(new Error('no preset'));
     }

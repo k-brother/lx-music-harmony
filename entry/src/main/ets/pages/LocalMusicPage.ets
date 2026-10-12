@@ -4,7 +4,7 @@
  */
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { showAppToast, TOAST_DURATION_SHORT } from '../utils/Toast';
-import { picker as filePicker } from '@kit.CoreFileKit';
+import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { common } from '@kit.AbilityKit';
 import { PlayerBar } from '../components/player/PlayerBar';
 import { DesignTokens } from '../theme/DesignTokens';
@@ -310,11 +310,14 @@ export struct LocalMusicPage {
   private async pickCover(track: LocalMusicInfo): Promise<void> {
     try {
       const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-      const picker = new filePicker.PhotoViewPicker(context);
-      const options = new filePicker.PhotoSelectOptions();
-      options.MIMEType = filePicker.PhotoViewMIMETypes.IMAGE_TYPE;
+      // 相册选择器走 photoAccessHelper（filePicker.PhotoViewPicker 已废弃），
+      // 它同样返回带永久授权的 photoUris，可直接交给 setCustomCover
+      // photoAccessHelper 的 PhotoViewPicker 构造不接受 context（与旧的 filePicker 版本不同）
+      const picker = new photoAccessHelper.PhotoViewPicker();
+      const options = new photoAccessHelper.PhotoSelectOptions();
+      options.MIMEType = photoAccessHelper.PhotoViewMIMETypes.IMAGE_TYPE;
       options.maxSelectNumber = 1;
-      const result: filePicker.PhotoSelectResult = await picker.select(options);
+      const result: photoAccessHelper.PhotoSelectResult = await picker.select(options);
       if (!result || !result.photoUris || result.photoUris.length === 0) {
         return;
       }

@@ -178,7 +178,7 @@ struct WebDavField {
         .width('100%')
         .textAlign(TextAlign.Start)
       TextInput({ text: this.value, placeholder: this.placeholder })
-        .key(this.focusKey)
+        .id(this.focusKey)
         .type(this.isPassword ? InputType.Password : InputType.Normal)
         .onAppear(() => {
           if (this.focusKey.length > 0) {

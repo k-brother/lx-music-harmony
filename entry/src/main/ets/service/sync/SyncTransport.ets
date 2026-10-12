@@ -202,7 +202,14 @@ export class SyncTransport {
     if (!this.connected || !this.socket) {
       throw new Error('WebSocket not connected');
     }
-    await this.socket.send(JSON.stringify(message));
+    // send 的异常按原语义上抛给调用方（它决定重连/丢弃），这里只补一条日志
+    try {
+      await this.socket.send(JSON.stringify(message));
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'send failed: %{public}s',
+        err instanceof Error ? err.message : JSON.stringify(err));
+      throw err as Error;
+    }
   }
 
 }

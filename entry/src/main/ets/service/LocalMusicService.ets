@@ -84,11 +84,24 @@ function ensureLocalDir(dir: string): void {
  * 「选了歌却一首都没进来」）。正确做法是先用 openSync 把 URI 打开成 fd，再按 fd 复制。
  */
 function copyUriToSandbox(uri: string, destPath: string): void {
-  const src: fs.File = fs.openSync(uri, fs.OpenMode.READ_ONLY);
+  let src: fs.File | null = null;
   try {
+    src = fs.openSync(uri, fs.OpenMode.READ_ONLY);
     fs.copyFileSync(src.fd, destPath);
+  } catch (err) {
+    // 拷贝失败要上抛：调用方据此告诉用户"这首歌没进来"（只补一条日志）
+    hilog.warn(DOMAIN, TAG, 'copyUriToSandbox failed: %{public}s',
+      err instanceof Error ? err.message : JSON.stringify(err));
+    throw err as Error;
   } finally {
-    fs.closeSync(src);
+    if (src !== null) {
+      try {
+        fs.closeSync(src);
+      } catch (closeErr) {
+        hilog.warn(DOMAIN, TAG, 'close source failed: %{public}s',
+          closeErr instanceof Error ? closeErr.message : JSON.stringify(closeErr));
+      }
+    }
   }
 }
 

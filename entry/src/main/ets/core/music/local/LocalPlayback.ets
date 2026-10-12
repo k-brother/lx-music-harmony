@@ -95,7 +95,12 @@ async function extractLocalMetadata(filePath: string): Promise<LocalMusicInfo | 
       }
     }
     if (file !== null) {
-      fs.closeSync(file);
+      try {
+        fs.closeSync(file);
+      } catch (closeErr) {
+        hilog.warn(DOMAIN_LOCAL, TAG_LOCAL, 'close file failed: %{public}s',
+          closeErr instanceof Error ? closeErr.message : JSON.stringify(closeErr));
+      }
     }
   }
 }
@@ -294,7 +299,8 @@ async function readEmbeddedPic(filePath: string): Promise<string | null> {
     extractor.fdSrc = { fd: file.fd };
     const cover: image.PixelMap = await extractor.fetchAlbumCover();
     packer = image.createImagePacker();
-    const packed: ArrayBuffer = await packer.packing(cover, { format: 'image/jpeg', quality: 85 });
+    // packing 已废弃，等价替代是 packToData（同样是 PixelMap → ArrayBuffer）
+    const packed: ArrayBuffer = await packer.packToData(cover, { format: 'image/jpeg', quality: 85 });
     const out: fs.File = fs.openSync(coverPath, fs.OpenMode.CREATE | fs.OpenMode.WRITE_ONLY);
     try {
       fs.writeSync(out.fd, packed);
@@ -323,7 +329,12 @@ async function readEmbeddedPic(filePath: string): Promise<string | null> {
       }
     }
     if (file !== null) {
-      fs.closeSync(file);
+      try {
+        fs.closeSync(file);
+      } catch (closeErr) {
+        hilog.warn(DOMAIN_LOCAL, TAG_LOCAL, 'close file failed: %{public}s',
+          closeErr instanceof Error ? closeErr.message : JSON.stringify(closeErr));
+      }
     }
   }
 }

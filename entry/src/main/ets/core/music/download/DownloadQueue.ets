@@ -325,7 +325,7 @@ export async function pauseDownload(taskId: string): Promise<boolean> {
   try {
     const requestTask = getActiveRequestTask(taskId);
     if (requestTask) {
-      await requestTask.pause();
+      await requestTask.suspend();
     } else {
       const queueIndex = pendingQueue.indexOf(taskId);
       if (queueIndex > -1) {
@@ -352,7 +352,7 @@ export async function resumeDownload(taskId: string): Promise<boolean> {
   try {
     const requestTask = getActiveRequestTask(taskId);
     if (requestTask) {
-      await requestTask.resume();
+      await requestTask.restore();
       task.status = DownloadStatus.DOWNLOADING;
       hilog.info(DOMAIN, TAG, '下载恢复: %{public}s', task.musicInfo.name);
       return true;
@@ -388,7 +388,7 @@ export async function cancelDownload(taskId: string): Promise<boolean> {
     const requestTask = getActiveRequestTask(taskId);
     if (requestTask) {
       try {
-        await requestTask.remove();
+        await requestTask.delete();
       } catch (removeErr) {
         hilog.warn(DOMAIN, TAG, '取消系统下载任务失败: %{public}s',
           removeErr instanceof Error ? removeErr.message : JSON.stringify(removeErr));

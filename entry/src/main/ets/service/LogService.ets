@@ -10,6 +10,7 @@
 import { common } from '@kit.AbilityKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { pasteboard } from '@kit.BasicServicesKit';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import {
   logStore,
   LogRecord,
@@ -22,6 +23,8 @@ import { settingsService } from './SettingsService';
 import { on, EventTypes, type SettingChangedData } from './EventBus';
 
 const TAG = 'LogService';
+/** hilog 域号：本服务自身的落盘失败只能用系统日志兜底（此时应用日志正在失败） */
+const DOMAIN = 0x0005;
 /** 单个日志文件上限 512KB，超出后滚动到 app.log.1 */
 const MAX_FILE_BYTES = 512 * 1024;
 /** 落盘节流：3 秒内的日志合并写一次 */
@@ -153,11 +156,23 @@ class LogServiceImpl {
 
   /** 同步写文本（fs 无 writeFileSync，用 open/write/close 组合） */
   private writeTextSync(path: string, text: string): void {
-    const file = fs.openSync(path, fs.OpenMode.CREATE | fs.OpenMode.READ_WRITE | fs.OpenMode.TRUNC);
+    let file: fs.File | null = null;
     try {
+      file = fs.openSync(path, fs.OpenMode.CREATE | fs.OpenMode.READ_WRITE | fs.OpenMode.TRUNC);
       fs.writeSync(file.fd, text);
+    } catch (err) {
+      // 日志落盘失败不能反过来影响业务：只记一条 hilog（此时 hilog 里还能看到）
+      hilog.warn(DOMAIN, TAG, 'writeTextSync failed: %{public}s',
+        err instanceof Error ? err.message : JSON.stringify(err));
     } finally {
-      fs.closeSync(file.fd);
+      if (file !== null) {
+        try {
+          fs.closeSync(file.fd);
+        } catch (closeErr) {
+          hilog.warn(DOMAIN, TAG, 'close failed: %{public}s',
+            closeErr instanceof Error ? closeErr.message : JSON.stringify(closeErr));
+        }
+      }
     }
   }
 

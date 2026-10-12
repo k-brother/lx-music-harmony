@@ -13,7 +13,11 @@ import { appLog as hilog } from '../core/log/AppLogger';
 const DOMAIN: number = 0x0001;
 const TAG = 'FocusTools';
 
-/** 把焦点移到指定 key 的组件（失败静默） */
+/**
+ * 把焦点移到指定 id 的组件（失败静默）。
+ * 用组件的 `id` 而不是 `key`：`key` 是测试专用属性（编译器会告警
+ * "can only be used for testing directories"），而 `requestFocus` 同时接受 id 与 key。
+ */
 export function requestFocusSafe(uiContext: UIContext, key: string): void {
   if (key.length === 0) {
     return;

@@ -159,23 +159,24 @@ export struct QueueSheet {
       // 直接用原始触摸事件：手柄嵌在 List 里，PanGesture（含 priorityGesture）
       // 会被列表的滚动识别器抢走/取消，真机上表现为「拖不动、还切了歌」。
       // 这里在按下时禁用列表滚动（见 List 的 enableScrollInteraction），
-      // 用 screenY 差值算跨了几行，松手才真正重排。
+      // 用 windowY 差值算跨了几行，松手才真正重排（screenY 已废弃；这里只用差值，
+      // 窗口坐标系与屏幕坐标系对差值等价）。
       .onTouch((event: TouchEvent) => {
         if (event.type === TouchType.Down) {
           const touch = event.touches.length > 0 ? event.touches[0] : undefined;
-          this.dragStartY = touch ? touch.screenY : 0;
+          this.dragStartY = touch ? touch.windowY : 0;
           this.beginDrag(index);
         } else if (event.type === TouchType.Move) {
           const touch = event.touches.length > 0 ? event.touches[0] : undefined;
           if (touch) {
-            this.updateDrag(index, touch.screenY - this.dragStartY);
+            this.updateDrag(index, touch.windowY - this.dragStartY);
           }
         } else if (event.type === TouchType.Up) {
           // 松手那一帧的位置要补算一次：Move 事件可能被合并，
           // 只用最后一个 Move 会低估位移（真机上表现为「拖了一行却回到原位」）。
           const last = event.changedTouches.length > 0 ? event.changedTouches[0] : undefined;
           if (last) {
-            this.updateDrag(index, last.screenY - this.dragStartY);
+            this.updateDrag(index, last.windowY - this.dragStartY);
           }
           this.endDrag();
         } else {
