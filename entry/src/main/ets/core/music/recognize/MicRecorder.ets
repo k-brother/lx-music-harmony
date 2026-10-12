@@ -42,6 +42,13 @@ export class MicRecorder {
     this.finishResolve = undefined;
     this.finishReject = undefined;
 
+    // 录音能力不是所有设备都有（平板/PC 可能没有麦克风）：先问系统再建采集器，
+    // 不支持时直接抛出可识别的错误，比让它抛一个底层异常更容易给用户提示
+    if (!canIUse('SystemCapability.Multimedia.Audio.Capture')) {
+      hilog.warn(DOMAIN, TAG, 'audio capture not supported on this device');
+      throw new Error('mic unavailable (audio capture unsupported)');
+    }
+
     const options: audio.AudioCapturerOptions = {
       streamInfo: {
         samplingRate: audio.AudioSamplingRate.SAMPLE_RATE_48000,
