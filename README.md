@@ -114,9 +114,10 @@ SDK 与 hvigor，部分能力（如 `@kit.LiveViewKit`）只存在于 DevEco 的
 两点关于触发口径的说明：
 
 - `workflow_dispatch` 要求工作流定义出现在**默认分支**上，否则 Actions 里既没有
-  「Run workflow」按钮、API 也会 404。所以这两个文件在默认分支上另有一份提交，
-  入口在那里；选哪个分支跑、就用哪个分支的代码。改工作流时两处都要同步，
-  否则 Actions 里看到的入口是旧定义。
+  「Run workflow」按钮、API 也会 404。所以发布链路的这几个文件（`.github/workflows/*`、
+  `.github/RELEASE_NOTES.md`、`scripts/publish_release.py`）在默认分支上也各有一份提交，
+  入口在那里；选哪个分支跑、就用哪个分支的代码。改这几处时两处都要同步，
+  否则 Actions 里看到的入口是旧定义（默认分支上只放这些发布链路文件，不放应用代码）。
 - 自托管 runner 出一份 release HAP 约 **2 分钟**（含自检）。runner 没开机时任务只会排队。
 
 两点注意：
