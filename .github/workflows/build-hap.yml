@@ -123,3 +123,21 @@ jobs:
             --notes-file .github/RELEASE_NOTES.md \
             --run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
             dist/*.hap
+
+      # Gitee 只做"镜像一份发行版 + 附件"：它的托管构建同样没有 DevEco/鸿蒙 SDK，
+      # 出包永远发生在 GitHub Actions 这边。没配令牌就跳过，不影响发布。
+      - name: 同步到 Gitee 发行版
+        if: steps.params.outputs.tag != '' && vars.GITEE_REPO != ''
+        env:
+          GITEE_TOKEN_FILE: ${{ vars.GITEE_TOKEN_FILE }}
+        run: |
+          if [ -z "${GITEE_TOKEN_FILE}" ] || [ ! -f "${GITEE_TOKEN_FILE}" ]; then
+            echo "跳过 Gitee：未配置仓库变量 GITEE_TOKEN_FILE（Gitee 私人令牌文件路径）"
+            exit 0
+          fi
+          python3 scripts/publish_gitee_release.py \
+            --repo "${{ vars.GITEE_REPO }}" \
+            --tag "${{ steps.params.outputs.tag }}" \
+            --token-file "${GITEE_TOKEN_FILE}" \
+            --notes-file .github/RELEASE_NOTES.md \
+            dist/*.hap

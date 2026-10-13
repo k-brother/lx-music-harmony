@@ -144,6 +144,22 @@ SDK 与 hvigor，部分能力（如 `@kit.LiveViewKit`）只存在于 DevEco 的
 - 发布逻辑在 `scripts/publish_release.py`（标准库实现，不依赖 `gh`）。**重跑不会把说明
   叠两遍，同名附件会被替换**，所以补发/重发是安全的；
 - 不想发版只想要产物：Actions → 打包 HAP → Run workflow，`release_tag` 留空即可。
+- **国内的 Gitee 也镜像一份**：同一个标签在 Gitee 的「发行版」里同样挂两个 HAP
+  （国内下载比 GitHub 快得多）。Gitee 只做镜像，不承担构建——它的托管构建同样没有
+  DevEco/鸿蒙 SDK，出包永远发生在 GitHub Actions 这边。启用方式见下。
+
+#### 让 Gitee 也自动挂包（一次性）
+
+1. Gitee → 设置 → 安全设置 → **私人令牌** → 生成新令牌（勾选 `projects` 即可）；
+2. 把令牌存到运行机上的一个文件里（**不要**放进仓库）：
+
+   ```bash
+   printf '%s' '<你的令牌>' > ../dev-material/gitee-token && chmod 600 ../dev-material/gitee-token
+   ```
+
+3. 仓库变量（`Settings → Secrets and variables → Actions → Variables`）里已有
+   `GITEE_REPO=tkbrother/lxmusic` 与 `GITEE_TOKEN_FILE=<上面那个文件的绝对路径>`；
+   没配令牌文件时这一步会自动跳过，不会阻断发布。
 
 ## 目录结构
 
