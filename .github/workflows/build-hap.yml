@@ -1,11 +1,18 @@
 name: 打包 HAP
 
-# 为什么用 self-hosted runner：
-# 鸿蒙工程要用 DevEco 自带的 SDK 与 hvigor，而本工程还用到 HMS 套件
-# （`@kit.LiveViewKit` 等，只有 DevEco 的 SDK 里有）；官方命令行工具需要华为账号接受许可。
-# GitHub 托管 runner 上装不出这套环境，所以出包交给"装了 DevEco 的那台机器"上的 runner。
+# 为什么必须是 self-hosted runner：
+# 鸿蒙出包要用 DevEco Studio 自带的 SDK 与 hvigor，本工程还用到只有 DevEco SDK 里带的
+# HMS 套件（`@kit.LiveViewKit` 等）；华为官方命令行工具需要华为账号交互式接受许可。
+# GitHub 只是代码托管，托管 runner 上没有（也无法非交互地装上）这套环境，
+# 所以出包交给"装了 DevEco 的那台 Mac"上的 runner 跑。
 #
-# 触发方式刻意只留手工：托管 runner 离线时 push 触发只会让任务一直排队，没有意义。
+# 触发方式刻意只留手工（workflow_dispatch）：
+#   1) 本仓库是公开仓库，self-hosted runner 不该接受来自 PR / fork 的自动触发；
+#   2) runner 离线时 push 触发只会让任务一直排队，没有意义。
+#
+# 用法：Actions → 打包 HAP → Run workflow
+#   - signed      是否打签名包（需仓库变量 SIGNING_DIR 指向 dev-material/signing）
+#   - release_tag 非空时，顺带把 HAP 发到同名 GitHub Release（打标签即开源分发）
 on:
   workflow_dispatch:
     inputs:
@@ -13,13 +20,18 @@ on:
         description: '打签名包（需仓库变量 SIGNING_DIR 指向 dev-material/signing）'
         type: boolean
         default: true
+      release_tag:
+        description: '（可选）发布到 Release，填版本号如 v1.0.0；留空只上传 artifact'
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: [self-hosted, macOS]
-    defaults:
-      run:
-        working-directory: harmony
     steps:
       - uses: actions/checkout@v4
 
@@ -56,11 +68,39 @@ jobs:
             -p buildMode=release
           ls -la entry/build/release/outputs/default/*.hap
 
+      # artifact 的 path 相对仓库根目录（本仓库根 = 鸿蒙工程根）
       - name: 上传产物
         uses: actions/upload-artifact@v4
         with:
           name: hap-${{ github.run_number }}
-          # 注意：artifact 的 path 相对仓库根目录，不是上面步骤的 working-directory
-          path: harmony/entry/build/release/outputs/default/*.hap
+          path: entry/build/release/outputs/default/*.hap
           if-no-files-found: error
           retention-days: 14
+
+      - name: 发布到 Release
+        if: ${{ inputs.release_tag != '' }}
+        env:
+          TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release_tag }}
+        run: |
+          # 不依赖 gh CLI（self-hosted runner 上不保证装了），直接用 REST API；
+          # python3 是本工作流自检步骤的既有依赖，用它解析 JSON。
+          set -euo pipefail
+          API="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          RELEASE_ID="$(curl -sS -H "Authorization: Bearer ${TOKEN}" \
+            "${API}/releases/tags/${TAG}" \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin).get("id",""))' || true)"
+          if [ -z "${RELEASE_ID}" ]; then
+            RELEASE_ID="$(curl -sS -X POST -H "Authorization: Bearer ${TOKEN}" \
+              -H "Accept: application/vnd.github+json" "${API}/releases" \
+              -d "{\"tag_name\":\"${TAG}\",\"name\":\"${TAG}\",\"generate_release_notes\":true}" \
+              | python3 -c 'import json,sys; print(json.load(sys.stdin).get("id",""))')"
+          fi
+          for hap in entry/build/release/outputs/default/*.hap; do
+            echo "上传 $(basename "${hap}") 到 Release ${TAG}"
+            curl -sS -X POST -H "Authorization: Bearer ${TOKEN}" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary @"${hap}" \
+              "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=$(basename "${hap}")" \
+              | python3 -c 'import json,sys; d=json.load(sys.stdin); print(" -> ", d.get("browser_download_url") or d)'
+          done
