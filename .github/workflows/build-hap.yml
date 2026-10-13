@@ -138,6 +138,7 @@ jobs:
           python3 scripts/publish_gitee_release.py \
             --repo "${{ vars.GITEE_REPO }}" \
             --tag "${{ steps.params.outputs.tag }}" \
+            --target "${GITHUB_SHA}" \
             --token-file "${GITEE_TOKEN_FILE}" \
             --notes-file .github/RELEASE_NOTES.md \
             dist/*.hap

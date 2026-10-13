@@ -91,7 +91,11 @@ def main() -> int:
     parser.add_argument('--tag', required=True)
     parser.add_argument('--token-file', required=True)
     parser.add_argument('--notes-file', default='')
-    parser.add_argument('--target', default='', help='新建发行版时关联的分支（默认仓库默认分支）')
+    # Gitee 的 create release 强制要求 target_commitish（实测：即便 tag 已存在，
+    # 不传就回 400 `target_commitish is missing`）。所以这里给个兜底：没传就用 tag 名，
+    # 工作流里会明确传 github.sha 更精确。它只在 tag 不存在时才用于建 tag。
+    parser.add_argument('--target', default='',
+                        help='新建发行版时关联的分支/commit（默认用 tag 名）')
     parser.add_argument('--dry-run', action='store_true', help='只打印要做什么，不调接口')
     parser.add_argument('files', nargs='+')
     args = parser.parse_args()
@@ -127,9 +131,8 @@ def main() -> int:
         if release is None:
             print(f'Gitee 上新建发行版 {args.tag}')
             payload = {'access_token': token, 'tag_name': args.tag, 'name': args.tag,
+                       'target_commitish': args.target or args.tag,
                        'body': notes.strip()}
-            if args.target:
-                payload['target_commitish'] = args.target
             release = call(f'{API}/repos/{args.repo}/releases', method='POST', payload=payload)
         else:
             print(f'复用已有发行版 {args.tag}（id={release.get("id")}）')
@@ -138,17 +141,33 @@ def main() -> int:
         if not release_id:
             raise GiteeError(f'创建发行版失败，返回：{release}')
 
-        assets = {a.get('name'): a for a in (release.get('assets') or [])}
+        # 注意：release 里的 `assets` 只有 name / browser_download_url，**没有 id**，
+        # 想删附件必须走 `attach_files` 端点拿 id（踩过：用 assets 里的 None 去删，
+        # Gitee 返回一页 HTML 404，于是同名附件越传越多）。
+        # 另外同一名字可能已经存在多条（历史重复），所以按名字全部删掉再传。
+        wanted = {pathlib.Path(f).name for f in args.files}
+        assets = call(f'{API}/repos/{args.repo}/releases/{release_id}/attach_files',
+                      params={'access_token': token}) or []
+        delete_failed = set()
+        for asset in assets:
+            name = asset.get('name')
+            if name not in wanted:
+                continue
+            asset_id = asset.get('id')
+            print(f'删除同名旧附件 {name}（id={asset_id}）')
+            try:
+                call(f'{API}/repos/{args.repo}/releases/{release_id}/attach_files/{asset_id}',
+                     method='DELETE', params={'access_token': token})
+            except GiteeError as error:
+                print(f'  删不掉：{error}', file=sys.stderr)
+                delete_failed.add(name)
+
         for path_str in args.files:
             path = pathlib.Path(path_str)
-            if path.name in assets:
-                asset_id = assets[path.name].get('id')
-                print(f'删除同名旧附件 {path.name}（id={asset_id}）')
-                try:
-                    call(f'{API}/repos/{args.repo}/releases/{release_id}/attach_files/{asset_id}',
-                         method='DELETE', params={'access_token': token})
-                except GiteeError as error:
-                    print(f'  删不掉（{error}），继续上传，可能变成两个同名附件', file=sys.stderr)
+            if path.name in delete_failed:
+                # 删不掉就别传：宁可保留旧包，也不要出现两个同名附件（那样谁也说不清哪个是新的）
+                print(f'skip 同名旧附件删不掉，跳过上传：{path.name}', file=sys.stderr)
+                continue
             body, content_type = encode_multipart(
                 {'access_token': token}, {'file': (path.name, path.read_bytes())})
             asset = call(f'{API}/repos/{args.repo}/releases/{release_id}/attach_files',
@@ -156,7 +175,7 @@ def main() -> int:
             print(f'上传 {path.name}（{path.stat().st_size / 1048576:.2f} MB）')
             print(f'  下载地址 {asset.get("browser_download_url") or asset}')
         print(f'Gitee 发行版：https://gitee.com/{args.repo}/releases/tag/{args.tag}')
-        return 0
+        return 1 if delete_failed else 0
     except GiteeError as error:
         print(f'FAIL {error}', file=sys.stderr)
         return 1
