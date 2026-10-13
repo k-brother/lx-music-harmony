@@ -6,13 +6,12 @@ name: 打包 HAP
 # GitHub 只是代码托管，托管 runner 上没有（也无法非交互地装上）这套环境，
 # 所以出包交给"装了 DevEco 的那台 Mac"上的 runner 跑。
 #
-# 触发方式刻意只留手工（workflow_dispatch）：
-#   1) 本仓库是公开仓库，self-hosted runner 不该接受来自 PR / fork 的自动触发；
-#   2) runner 离线时 push 触发只会让任务一直排队，没有意义。
+# 触发方式（公开仓库上的 self-hosted runner 不接 PR / fork，所以只挂这两种）：
+#   1) 打标签：push 一个 `v*` 标签 → 自动出包 + 发布到同名 Release（推荐，见 scripts/release_tag.sh）
+#   2) 手工：Actions → 打包 HAP → Run workflow（可只出 artifact，也可指定 release_tag 发 Release）
 #
-# 用法：Actions → 打包 HAP → Run workflow
-#   - signed      是否打签名包（需仓库变量 SIGNING_DIR 指向 dev-material/signing）
-#   - release_tag 非空时，顺带把 HAP 发到同名 GitHub Release（打标签即开源分发）
+# 说明：`workflow_dispatch` 要求工作流定义出现在默认分支，所以默认分支上也有一份同样的
+# 工作流文件；改这里的时候记得把默认分支那份同步过去。
 on:
   workflow_dispatch:
     inputs:
@@ -25,6 +24,9 @@ on:
         type: string
         required: false
         default: ''
+  push:
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
@@ -35,11 +37,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 标签推送 = 发布版本（默认签名）；手工触发 = 用输入决定
+      - name: 解析构建参数
+        id: params
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            TAG="${GITHUB_REF_NAME}"
+            SIGNED=true
+          else
+            TAG="${{ inputs.release_tag }}"
+            SIGNED="${{ inputs.signed }}"
+          fi
+          echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
+          echo "signed=${SIGNED}" >> "${GITHUB_OUTPUT}"
+          echo "触发=${GITHUB_EVENT_NAME} 发布标签=[${TAG}] 签名=[${SIGNED}]"
+
       # CI 的工作区是全新 clone，没有私有的 dev-material；
       # build-profile.local.json5 里对证书/密钥用的是相对路径（../dev-material/signing/...），
       # 所以这里把 SIGNING_DIR 软链到同一个位置，再覆盖 build-profile（与本地 apply 脚本等效）。
       - name: 注入本机签名
-        if: ${{ inputs.signed }}
+        if: steps.params.outputs.signed == 'true'
         env:
           SIGNING_DIR: ${{ vars.SIGNING_DIR }}
         run: |
@@ -68,39 +85,41 @@ jobs:
             -p buildMode=release
           ls -la entry/build/release/outputs/default/*.hap
 
-      # artifact 的 path 相对仓库根目录（本仓库根 = 鸿蒙工程根）
-      - name: 上传产物
+      # 附件名要能一眼看出「哪个版本、签没签名」，所以重命名后再分发：
+      #   lx-music-harmony-v1.0.0-signed.hap / -unsigned.hap
+      - name: 整理发布产物
+        run: |
+          set -euo pipefail
+          tag="${{ steps.params.outputs.tag }}"
+          [ -n "${tag}" ] || tag="run${GITHUB_RUN_NUMBER}"
+          mkdir -p dist
+          for hap in entry/build/release/outputs/default/*.hap; do
+            base="$(basename "${hap}" .hap)"
+            case "${base}" in
+              *-signed) kind=signed ;;
+              *-unsigned) kind=unsigned ;;
+              *) kind=other ;;
+            esac
+            cp "${hap}" "dist/lx-music-harmony-${tag}-${kind}.hap"
+          done
+          ls -la dist/
+
+      - name: 上传产物（artifact）
         uses: actions/upload-artifact@v4
         with:
           name: hap-${{ github.run_number }}
-          path: entry/build/release/outputs/default/*.hap
+          path: dist/*.hap
           if-no-files-found: error
           retention-days: 14
 
       - name: 发布到 Release
-        if: ${{ inputs.release_tag != '' }}
+        if: steps.params.outputs.tag != ''
         env:
-          TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.release_tag }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          # 不依赖 gh CLI（self-hosted runner 上不保证装了），直接用 REST API；
-          # python3 是本工作流自检步骤的既有依赖，用它解析 JSON。
-          set -euo pipefail
-          API="https://api.github.com/repos/${GITHUB_REPOSITORY}"
-          RELEASE_ID="$(curl -sS -H "Authorization: Bearer ${TOKEN}" \
-            "${API}/releases/tags/${TAG}" \
-            | python3 -c 'import json,sys; print(json.load(sys.stdin).get("id",""))' || true)"
-          if [ -z "${RELEASE_ID}" ]; then
-            RELEASE_ID="$(curl -sS -X POST -H "Authorization: Bearer ${TOKEN}" \
-              -H "Accept: application/vnd.github+json" "${API}/releases" \
-              -d "{\"tag_name\":\"${TAG}\",\"name\":\"${TAG}\",\"generate_release_notes\":true}" \
-              | python3 -c 'import json,sys; print(json.load(sys.stdin).get("id",""))')"
-          fi
-          for hap in entry/build/release/outputs/default/*.hap; do
-            echo "上传 $(basename "${hap}") 到 Release ${TAG}"
-            curl -sS -X POST -H "Authorization: Bearer ${TOKEN}" \
-              -H "Content-Type: application/octet-stream" \
-              --data-binary @"${hap}" \
-              "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=$(basename "${hap}")" \
-              | python3 -c 'import json,sys; d=json.load(sys.stdin); print(" -> ", d.get("browser_download_url") or d)'
-          done
+          python3 scripts/publish_release.py \
+            --repo "${GITHUB_REPOSITORY}" \
+            --tag "${{ steps.params.outputs.tag }}" \
+            --notes-file .github/RELEASE_NOTES.md \
+            --run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            dist/*.hap

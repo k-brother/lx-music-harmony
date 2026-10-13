@@ -127,6 +127,23 @@ SDK 与 hvigor，部分能力（如 `@kit.LiveViewKit`）只存在于 DevEco 的
 - **改工作流文件需要带 `workflow` scope 的 token**：`repo` scope 的 PAT 推送包含
   `.github/workflows/` 的提交会被 GitHub 拒绝（fork 后自行改 CI 的人同样会遇到）。
 
+### 发版本（Releases 里出现可下载的 HAP）
+
+推一个 `v*` 标签就会自动出包，并把 HAP 挂到同名 Release 上（仓库首页右侧 Releases 栏
+即随之出现可下载的安装包）：
+
+```bash
+# 1) 先把 AppScope/app.json5 的 versionName / versionCode 改好并提交
+# 2) 一条命令：校验版本号 → 打标签 → 推到 gitee/github → GitHub 自动出包发版
+./scripts/release_tag.sh
+```
+
+- 附件命名 `lx-music-harmony-<tag>-signed.hap` / `-unsigned.hap`，Release 正文由
+  `.github/RELEASE_NOTES.md`（安装说明）+ GitHub 自动生成的提交清单组成；
+- 发布逻辑在 `scripts/publish_release.py`（标准库实现，不依赖 `gh`）。**重跑不会把说明
+  叠两遍，同名附件会被替换**，所以补发/重发是安全的；
+- 不想发版只想要产物：Actions → 打包 HAP → Run workflow，`release_tag` 留空即可。
+
 ## 目录结构
 
 ```
