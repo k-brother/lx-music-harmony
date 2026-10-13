@@ -81,13 +81,32 @@ File → Project Structure → Signing Configs → 勾选 Automatically generate
 
 ### 自检
 
-工程自带可执行的自检脚本（当前 370 项判据：资源引用、i18n 词条对齐、无障碍、面板与弹框规范、
-播放与播控约定等），提交时由 `.githooks/pre-commit` 自动运行：
+工程自带可执行的自检脚本（功能判据 + 静态检查：资源引用、i18n 词条对齐、无障碍、面板与弹框规范、
+播放与播控约定、设计 token 收口等，跑完会打印当前判据总数），提交时由 `.githooks/pre-commit` 自动运行：
 
 ```bash
 ./scripts/check.sh         # 全量自检
 SKIP_CHECKS=1 git commit … # 紧急时跳过钩子
 ```
+
+### CI（GitHub Actions）
+
+两个工作流分工明确，原因是**鸿蒙 SDK 装不到 GitHub 托管 runner 上**：本工程要用 DevEco 自带的
+SDK 与 hvigor，部分能力（如 `@kit.LiveViewKit`）只存在于 DevEco 的 SDK；官方命令行工具需要
+华为账号接受许可。所以：
+
+| 工作流 | 跑在哪 | 做什么 |
+| --- | --- | --- |
+| `.github/workflows/ci.yml` | GitHub 托管 runner（ubuntu） | 只跑 `./scripts/check.sh`（纯 Python，不需要 SDK），push / PR 都能拿到分钟级反馈 |
+| `.github/workflows/build-hap.yml` | **self-hosted runner**（装了 DevEco 的机器） | 自检 + `assembleHap`（release）+ 上传 HAP 产物，手工触发 |
+
+启用出包工作流需要两步（一次性）：
+
+1. 在仓库 `Settings → Actions → Runners → New self-hosted runner` 按提示在目标机器上注册一个
+   runner（macOS 机器上已装 DevEco 即可）。
+2. 在 `Settings → Secrets and variables → Actions → Variables` 新建变量 **`SIGNING_DIR`**，
+   指向本机私有签名材料目录（即工作区里的 `dev-material/signing`，内含
+   `build-profile.local.json5` 与证书/密钥）。不想打签名包时，触发时把 `signed` 取消勾选即可。
 
 ## 目录结构
 
