@@ -1,0 +1,28 @@
+name: 自检
+
+# 只跑"纯 Python"的判据与静态检查：不依赖鸿蒙 SDK，GitHub 托管 runner 直接能跑，
+# 所以每次 push / PR 都能拿到分钟级反馈（本地 pre-commit 钩子跑的是同一套）。
+# 真正出 HAP 需要 DevEco SDK 与签名，见 build-hap.yml（self-hosted runner）。
+#
+# 注意：本仓库的仓库根就是鸿蒙工程根（hvigor.sh / entry / oh-package.json5 都在根目录），
+# 所以这里不要设置 working-directory。
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 全量自检（功能判据 + 静态检查）
+        run: ./scripts/check.sh
