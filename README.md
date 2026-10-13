@@ -108,6 +108,17 @@ SDK 与 hvigor，部分能力（如 `@kit.LiveViewKit`）只存在于 DevEco 的
    指向本机私有签名材料目录（即工作区里的 `dev-material/signing`，内含
    `build-profile.local.json5` 与证书/密钥）。不想打签名包时，触发时把 `signed` 取消勾选即可。
 
+触发时还可选填 `release_tag`（如 `v1.0.0`）：填了会把打好的 HAP 发到同名 GitHub Release，
+留空则只作为 Actions artifact 保留 14 天。
+
+两点注意：
+
+- **self-hosted runner 需要能跑 DevEco**：出包机器要装 DevEco Studio（`hvigor.sh` 默认用
+  `/Applications/DevEco-Studio.app` 下的 Node 与 hvigor，可用 `DEVECO_NODE`/`DEVECO_HVIGORW`
+  覆盖），并预先装好工程依赖（`oh_modules` 由构建自动拉取）。runner 离线时任务只会排队。
+- **改工作流文件需要带 `workflow` scope 的 token**：`repo` scope 的 PAT 推送包含
+  `.github/workflows/` 的提交会被 GitHub 拒绝（fork 后自行改 CI 的人同样会遇到）。
+
 ## 目录结构
 
 ```
@@ -153,6 +164,8 @@ scripts/             自检脚本（提交前自动执行）
 本项目是 [LX Music（洛雪音乐）](https://github.com/lyswhut/lx-music-desktop) 的 HarmonyOS 移植实现，
 音源解析逻辑与部分资源沿用上游，遵循其 Apache-2.0 协议并保留署名；
 内置的 QuickJS 引擎来自 [QuickJS](https://bellard.org/quickjs/)（MIT）。
+源码以普通文件内置在 `entry/src/main/cpp/quickjs_src/`（克隆即能构建，不依赖子模块），
+来源提交与升级办法见该目录的 [PROVENANCE.md](entry/src/main/cpp/quickjs_src/PROVENANCE.md)。
 
 ## 致谢
 

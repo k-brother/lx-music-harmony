@@ -104,6 +104,9 @@ python3 "${SCRIPT_DIR}/check_safe_area.py"
 echo "== 资源引用 =="
 python3 "${SCRIPT_DIR}/check_resources.py"
 
+echo "== 内置原生源码在位 =="
+python3 "${SCRIPT_DIR}/check_native_sources.py"
+
 echo "== 系统符号渲染（SymbolGlyph）=="
 python3 "${SCRIPT_DIR}/check_symbols.py"
 
