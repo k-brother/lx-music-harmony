@@ -111,6 +111,14 @@ SDK 与 hvigor，部分能力（如 `@kit.LiveViewKit`）只存在于 DevEco 的
 触发时还可选填 `release_tag`（如 `v1.0.0`）：填了会把打好的 HAP 发到同名 GitHub Release，
 留空则只作为 Actions artifact 保留 14 天。
 
+两点关于触发口径的说明：
+
+- `workflow_dispatch` 要求工作流定义出现在**默认分支**上，否则 Actions 里既没有
+  「Run workflow」按钮、API 也会 404。所以这两个文件在默认分支上另有一份提交，
+  入口在那里；选哪个分支跑、就用哪个分支的代码。改工作流时两处都要同步，
+  否则 Actions 里看到的入口是旧定义。
+- 自托管 runner 出一份 release HAP 约 **2 分钟**（含自检）。runner 没开机时任务只会排队。
+
 两点注意：
 
 - **self-hosted runner 需要能跑 DevEco**：出包机器要装 DevEco Studio（`hvigor.sh` 默认用
