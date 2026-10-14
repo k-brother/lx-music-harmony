@@ -56,7 +56,9 @@ jobs:
       - name: 注入本机签名
         if: steps.params.outputs.signed == 'true'
         env:
-          SIGNING_DIR: ${{ vars.SIGNING_DIR }}
+          # 用 Secret 而不是 Variable：Variable 不会被脱敏，值（本机绝对路径）会明文
+          # 打印在执行日志里，而公开仓库的日志人人可读。
+          SIGNING_DIR: ${{ secrets.SIGNING_DIR }}
         run: |
           set -euo pipefail
           if [ -z "${SIGNING_DIR}" ]; then
@@ -126,7 +128,7 @@ jobs:
       - name: 同步到 Gitee 发行版
         if: steps.params.outputs.tag != '' && vars.GITEE_REPO != ''
         env:
-          GITEE_TOKEN_FILE: ${{ vars.GITEE_TOKEN_FILE }}
+          GITEE_TOKEN_FILE: ${{ secrets.GITEE_TOKEN_FILE }}
         run: |
           if [ -z "${GITEE_TOKEN_FILE}" ] || [ ! -f "${GITEE_TOKEN_FILE}" ]; then
             echo "跳过 Gitee：未配置仓库变量 GITEE_TOKEN_FILE（Gitee 私人令牌文件路径）"

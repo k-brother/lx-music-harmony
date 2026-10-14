@@ -104,11 +104,14 @@ SDK 与 hvigor，部分能力（如 `@kit.LiveViewKit`）只存在于 DevEco 的
 
 1. 在仓库 `Settings → Actions → Runners → New self-hosted runner` 按提示在目标机器上注册一个
    runner（macOS 机器上已装 DevEco 即可）。
-2. 在 `Settings → Secrets and variables → Actions → Variables` 新建变量 **`SIGNING_DIR`**，
+2. 在 `Settings → Secrets and variables → Actions` 新建 **Secret** **`SIGNING_DIR`**，
    指向签名材料目录：里面放 `build-profile.local.json5`（从 DevEco 导出的发布签名配置）
    和 `.p12` / `.p7b` / `.cer` 三个文件。注入时由 `scripts/inject_signing.py` 把配置里
    `storeFile` / `profile` / `certpath` 的相对路径解析成该目录下的绝对路径，
    所以工作流不依赖任何特定的目录结构。不想打签名包时，触发时把 `signed` 取消勾选即可。
+
+   这里**必须是 Secret 而不是 Variable**：Variable 不做脱敏，值会明文出现在执行日志里
+   （公开仓库的运行日志人人可读），而 Secret 会以 `***` 显示。
 
 触发时还可选填 `release_tag`（如 `v1.0.0`）：填了会把打好的 HAP 发到同名 GitHub Release，
 留空则只作为 Actions artifact 保留 14 天。
@@ -158,8 +161,8 @@ SDK 与 hvigor，部分能力（如 `@kit.LiveViewKit`）只存在于 DevEco 的
    chmod 600 ~/.config/lx-music/gitee-token
    ```
 
-3. 在 `Settings → Secrets and variables → Actions → Variables` 里加两个变量：
-   `GITEE_REPO=<账号>/<仓库名>` 与 `GITEE_TOKEN_FILE=<上面那个令牌文件的绝对路径>`；
+3. 在 `Settings → Secrets and variables → Actions` 里加一个变量 `GITEE_REPO=<账号>/<仓库名>`，
+   再加一个 **Secret** `GITEE_TOKEN_FILE=<上面那个令牌文件的绝对路径>`；
    没配令牌文件时这一步会自动跳过，不会阻断发布。
 
 ## 目录结构
