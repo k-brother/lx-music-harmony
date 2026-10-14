@@ -14,7 +14,7 @@
 /.appanalyzer/
 /.codegenie/
 
-# 签名材料：证书/私钥/口令一律不入库（本地放在工程上层目录，见 dev-material/signing）
+# 签名材料：证书/私钥/口令一律不入库（放在仓库之外，CI 由 Secret SIGNING_DIR 指向）
 *.p12
 *.p7b
 *.cer

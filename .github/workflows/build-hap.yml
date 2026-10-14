@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       signed:
-        description: '打签名包（需仓库变量 SIGNING_DIR 指向 dev-material/signing）'
+        description: '打签名包（需 Secret SIGNING_DIR 指向签名材料目录）'
         type: boolean
         default: true
       release_tag:

@@ -14,7 +14,7 @@
 用法：
   python3 scripts/publish_gitee_release.py \
       --repo tkbrother/lxmusic --tag v1.0.0 \
-      --token-file ~/dev-material/gitee-token \
+      --token-file ~/.config/lx-music/gitee-token \
       --notes-file .github/RELEASE_NOTES.md \
       dist/*.hap
 """
