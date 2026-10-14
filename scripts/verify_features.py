@@ -555,7 +555,7 @@ CHECKS = [
  ('自动备份启动即恢复', 'app/entryability/EntryAbility.ets', r'backupService\.initialize\(\)'),
  ('备份设置页先初始化服务', 'pages/Home/Setting/BackupSection.ets',
   r'await backupService\.initialize\(\)'),
- # —— 音源管理 / 自动跨源（qoder 交付后由 Codex 收口，判据在此钉住）——
+ # —— 音源管理 / 自动跨源（判据在此钉住）——
  ('音源顺序单一出口', 'core/music/SourcePolicy.ets', r'export function orderedEnabledSources'),
  ('搜索聚合按用户音源顺序', 'core/search/search.ets',
   r'orderedEnabledSources\(settings\.sourceOrder, settings\.disabledSources\)'),

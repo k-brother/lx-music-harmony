@@ -4,7 +4,7 @@
 为什么要有这条：这个目录曾经是 git submodule，但 `.gitmodules` 没入库、gitlink 指向的
 commit 在上游也不存在 —— 于是新克隆下来的工作区里 `quickjs_src/` 是个**空目录**，
 CMake 直到 `add_library(quickjs_napi ...)` 才报 `No SOURCES given to target`，
-排查成本全落在"为什么只有我这台机器能编过"上。
+排查成本全落在"为什么换个机器就编不过"上。
 
 判据：
 1. `entry/src/main/cpp/quickjs_src/` 下 CMake 要编的 5 个 .c 与它们 include 的头文件都在且非空；

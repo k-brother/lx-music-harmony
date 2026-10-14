@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.18.1)
 project(quickjs_napi C CXX)
 
-# 编译期会把源码的绝对路径写进二进制（各处 __FILE__，本机/CI 上就是 /Users/<用户名>/...，
-# 调试信息里同理）。发布出去的 HAP 里等于附带构建机路径，所以统一映射成中性前缀。
+# 编译期会把源码的绝对路径写进二进制（各处 __FILE__ 与调试信息都会带上构建机上
+# 含用户名的完整路径）。发布出去的 HAP 里等于附带构建机路径，所以统一映射成中性前缀。
 # -ffile-prefix-map 同时作用于 __FILE__（等价 -fmacro-prefix-map）与调试信息。
 # 这里用 CMAKE_SOURCE_DIR（就是本文件所在目录），与 __FILE__ 的实际取值一致。
 add_compile_options(-ffile-prefix-map=${CMAKE_SOURCE_DIR}=/lx-music-harmony)

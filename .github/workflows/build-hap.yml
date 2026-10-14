@@ -1,17 +1,15 @@
 name: 打包 HAP
 
-# 为什么必须是 self-hosted runner：
-# 鸿蒙出包要用 DevEco Studio 自带的 SDK 与 hvigor，本工程还用到只有 DevEco SDK 里带的
-# HMS 套件（`@kit.LiveViewKit` 等）；华为官方命令行工具需要华为账号交互式接受许可。
-# GitHub 只是代码托管，托管 runner 上没有（也无法非交互地装上）这套环境，
-# 所以出包交给"装了 DevEco 的那台 Mac"上的 runner 跑。
+# 为什么用 self-hosted runner：
+# 鸿蒙出包要用 DevEco Studio 自带的 SDK 与 hvigor，本工程还用到只随 DevEco SDK 分发的
+# HMS 套件（`@kit.LiveViewKit` 等）；官方命令行工具需要华为账号交互式接受许可。
+# 这类环境装不到 GitHub 托管的 runner 上，所以出包交给一台装了 DevEco 的自托管机器。
 #
-# 触发方式（公开仓库上的 self-hosted runner 不接 PR / fork，所以只挂这两种）：
-#   1) 打标签：push 一个 `v*` 标签 → 自动出包 + 发布到同名 Release（推荐，见 scripts/release_tag.sh）
-#   2) 手工：Actions → 打包 HAP → Run workflow（可只出 artifact，也可指定 release_tag 发 Release）
+# 触发方式（自托管 runner 不接 PR / fork，所以只挂这两种）：
+#   1) 打标签：push 一个 `v*` 标签 → 出包 + 发布到同名 Release（见 scripts/release_tag.sh）
+#   2) 手工：Actions → 打包 HAP → Run workflow（只出 artifact，或指定 release_tag 发 Release）
 #
-# 说明：`workflow_dispatch` 要求工作流定义出现在默认分支，所以默认分支上也有一份同样的
-# 工作流文件；改这里的时候记得把默认分支那份同步过去。
+# 说明：`workflow_dispatch` 要求工作流定义出现在默认分支上，请保持默认分支的副本同步。
 on:
   workflow_dispatch:
     inputs:
@@ -52,27 +50,26 @@ jobs:
           echo "signed=${SIGNED}" >> "${GITHUB_OUTPUT}"
           echo "触发=${GITHUB_EVENT_NAME} 发布标签=[${TAG}] 签名=[${SIGNED}]"
 
-      # CI 的工作区是全新 clone，没有私有的 dev-material；
-      # build-profile.local.json5 里对证书/密钥用的是相对路径（../dev-material/signing/...），
-      # 所以这里把 SIGNING_DIR 软链到同一个位置，再覆盖 build-profile（与本地 apply 脚本等效）。
+      # 仓库里的 build-profile.json5 是脱敏版；这里把签名机上那份真实配置注入进来，
+      # 相对路径统一解析到 SIGNING_DIR 下（见 scripts/inject_signing.py），
+      # 因此工作流不需要假设机器上有任何特定目录结构。
       - name: 注入本机签名
         if: steps.params.outputs.signed == 'true'
         env:
           SIGNING_DIR: ${{ vars.SIGNING_DIR }}
         run: |
+          set -euo pipefail
           if [ -z "${SIGNING_DIR}" ]; then
-            echo "::error::未配置仓库变量 SIGNING_DIR（应指向 dev-material/signing）"
+            echo "::error::未配置仓库变量 SIGNING_DIR（指向签名材料目录）"
             exit 1
           fi
           if [ ! -f "${SIGNING_DIR}/build-profile.local.json5" ]; then
             echo "::error::${SIGNING_DIR} 下找不到 build-profile.local.json5"
             exit 1
           fi
-          mkdir -p ../dev-material
-          ln -sfn "${SIGNING_DIR}" ../dev-material/signing
-          cp "${SIGNING_DIR}/build-profile.local.json5" build-profile.json5
+          python3 scripts/inject_signing.py --signing-dir "${SIGNING_DIR}" > build-profile.json5
           git update-index --skip-worktree -- build-profile.json5
-          echo "签名已注入（对应配置见 SIGNING_DIR）"
+          echo "签名配置已注入（证书/口令来自 SIGNING_DIR，未写进仓库）"
 
       - name: 全量自检
         run: ./scripts/check.sh
@@ -124,8 +121,8 @@ jobs:
             --run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
             dist/*.hap
 
-      # Gitee 只做"镜像一份发行版 + 附件"：它的托管构建同样没有 DevEco/鸿蒙 SDK，
-      # 出包永远发生在 GitHub Actions 这边。没配令牌就跳过，不影响发布。
+      # Gitee 只做"镜像一份发行版 + 附件"（其托管构建同样没有鸿蒙 SDK）。
+      # 没配令牌就跳过，不影响发布。
       - name: 同步到 Gitee 发行版
         if: steps.params.outputs.tag != '' && vars.GITEE_REPO != ''
         env:
